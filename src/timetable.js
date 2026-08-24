@@ -57,20 +57,20 @@ export function normalizeOverrides(value) {
   if (!value || typeof value !== 'object') return {}
   const normalized = {}
 
-  for (const [dateKey, periodMap] of Object.entries(value)) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || !periodMap || typeof periodMap !== 'object') continue
-    const date = dateFromKey(dateKey)
+  for (const [dateKeyValue, periodMap] of Object.entries(value)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKeyValue) || !periodMap || typeof periodMap !== 'object') continue
+    const date = dateFromKey(dateKeyValue)
     const day = DAY_BY_JS[date.getDay()]
     if (!day) continue
 
     const nextMap = {}
-    for (let period = 1; period <= day.periodCount; period += 1) {
+    for (let period = 1; period <= PERIODS.length; period += 1) {
       if (!Object.prototype.hasOwnProperty.call(periodMap, period)) continue
       const subject = periodMap[period]
       if (typeof subject === 'string') nextMap[period] = subject.slice(0, 20)
     }
 
-    if (Object.keys(nextMap).length) normalized[dateKey] = nextMap
+    if (Object.keys(nextMap).length) normalized[dateKeyValue] = nextMap
   }
 
   return normalized
@@ -141,8 +141,15 @@ export function getScheduleForDate(date, weeklySchedule, overrides) {
   if (!day) return []
 
   const dateOverrides = overrides?.[dateKey(date)] || {}
-  return getPeriodsForDay(day.id).map((period) => {
-    const baseSubject = weeklySchedule?.[day.id]?.[period.number] || ''
+  const overridePeriods = Object.keys(dateOverrides)
+    .map(Number)
+    .filter((period) => Number.isInteger(period) && period >= 1 && period <= PERIODS.length)
+  const maxPeriod = Math.max(day.periodCount, ...overridePeriods, 0)
+
+  return PERIODS.slice(0, maxPeriod).map((period) => {
+    const baseSubject = period.number <= day.periodCount
+      ? weeklySchedule?.[day.id]?.[period.number] || ''
+      : ''
     const isOverride = Object.prototype.hasOwnProperty.call(dateOverrides, period.number)
     const subject = isOverride ? dateOverrides[period.number] : baseSubject
 
@@ -151,6 +158,7 @@ export function getScheduleForDate(date, weeklySchedule, overrides) {
       subject,
       baseSubject,
       isOverride,
+      isRegularPeriod: period.number <= day.periodCount,
     }
   })
 }
