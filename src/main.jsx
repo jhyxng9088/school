@@ -256,7 +256,7 @@ function useNavSpring(activeIndex) {
     x: 0,
     velocity: 0,
     targetX: 0,
-    width: 0,
+    baseWidth: 0,
     initialized: false,
     frame: null,
     lastTime: 0,
@@ -272,15 +272,25 @@ function useNavSpring(activeIndex) {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     function paint() {
-      indicator.style.width = `${physics.width}px`
-      indicator.style.transform = `translate3d(${physics.x}px, 0, 0)`
+      const speed = Math.abs(physics.velocity)
+      const stretch = Math.min(speed * 0.032, 18)
+      const movingRight = physics.velocity > 0
+      const movingLeft = physics.velocity < 0
+      const visualX = movingLeft ? physics.x - stretch : physics.x
+      const visualWidth = physics.baseWidth + stretch
+      const compression = Math.min(speed / 18000, 0.028)
+
+      indicator.style.width = `${visualWidth}px`
+      indicator.style.transform = `translate3d(${visualX}px, 0, 0) scaleY(${1 - compression})`
+      indicator.style.borderRadius = `${Math.max(16, 20 - stretch * 0.08)}px`
+      indicator.dataset.direction = movingRight ? 'right' : movingLeft ? 'left' : 'still'
     }
 
     function measure(immediate = false) {
       const navRect = nav.getBoundingClientRect()
       const buttonRect = targetButton.getBoundingClientRect()
       physics.targetX = buttonRect.left - navRect.left
-      physics.width = buttonRect.width
+      physics.baseWidth = buttonRect.width
 
       if (!physics.initialized || immediate || reduceMotion) {
         physics.initialized = true
@@ -302,9 +312,10 @@ function useNavSpring(activeIndex) {
       const dt = Math.min((time - physics.lastTime) / 1000, 0.032)
       physics.lastTime = time
 
-      // Hooke spring + viscous damping: real-time position is integrated every frame.
-      const stiffness = 82
-      const damping = 14.5
+      // Hooke's law + viscous damping, numerically integrated every frame.
+      // Slight under-damping leaves a tiny amount of inertia without a toy-like bounce.
+      const stiffness = 42
+      const damping = 9.2
       const mass = 1
       const displacement = physics.x - physics.targetX
       const springForce = -stiffness * displacement
@@ -315,7 +326,7 @@ function useNavSpring(activeIndex) {
       physics.x += physics.velocity * dt
       paint()
 
-      const settled = Math.abs(physics.x - physics.targetX) < 0.08 && Math.abs(physics.velocity) < 0.08
+      const settled = Math.abs(physics.x - physics.targetX) < 0.06 && Math.abs(physics.velocity) < 0.06
       if (settled) {
         physics.x = physics.targetX
         physics.velocity = 0
@@ -384,7 +395,7 @@ function AppShell({ name }) {
       <main
         className="app-content"
         key={activeTab}
-        style={{ '--content-enter-x': `${contentDirection * 12}px` }}
+        style={{ '--content-enter-x': `${contentDirection * 16}px` }}
       >
         {content[activeTab]}
       </main>
