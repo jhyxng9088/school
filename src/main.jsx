@@ -302,8 +302,7 @@ function useNavSpring(activeIndex) {
       const dt = Math.min((time - physics.lastTime) / 1000, 0.032)
       physics.lastTime = time
 
-      // Hooke spring + viscous damping. Tuned to move slowly with a small,
-      // controlled amount of inertia instead of using a CSS easing curve.
+      // Hooke spring + viscous damping: real-time position is integrated every frame.
       const stiffness = 82
       const damping = 14.5
       const mass = 1
@@ -385,7 +384,7 @@ function AppShell({ name }) {
       <main
         className="app-content"
         key={activeTab}
-        style={{ '--content-direction': contentDirection }}
+        style={{ '--content-enter-x': `${contentDirection * 12}px` }}
       >
         {content[activeTab]}
       </main>
