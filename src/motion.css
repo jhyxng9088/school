@@ -27,6 +27,7 @@
 .app-content {
   animation-duration: 980ms;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: none;
 }
 
 .home-stack > * {
