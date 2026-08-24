@@ -213,7 +213,7 @@ function Home({ name }) {
       <header className="home-topbar">
         <div>
           <p className="date-label">{today}</p>
-          <h1>오늘</h1>
+          <h1>홈</h1>
         </div>
         <span className="user-name">{name}</span>
       </header>
@@ -313,8 +313,8 @@ function useNavSpring(activeIndex) {
       const dt = Math.min((time - physics.lastTime) / 1000, 0.032)
       physics.lastTime = time
 
-      const stiffness = 42
-      const damping = 9.2
+      const stiffness = 50
+      const damping = 10
       const mass = 1
       const displacement = physics.x - physics.targetX
       const springForce = -stiffness * displacement
