@@ -21,6 +21,31 @@
     return backdrop
   }
 
+  function lockBackground() {
+    const body = document.body
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0
+    body.dataset.schoolSheetScrollY = String(scrollY)
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.left = '0'
+    body.style.right = '0'
+    body.style.width = '100%'
+    body.style.overflow = 'hidden'
+  }
+
+  function unlockBackground() {
+    const body = document.body
+    const scrollY = Number(body.dataset.schoolSheetScrollY || 0)
+    body.style.position = ''
+    body.style.top = ''
+    body.style.left = ''
+    body.style.right = ''
+    body.style.width = ''
+    body.style.overflow = ''
+    delete body.dataset.schoolSheetScrollY
+    window.scrollTo(0, scrollY)
+  }
+
   function enhanceSheet(sheet) {
     if (!sheet || sheet.dataset.schoolSheetReady === 'true') return
 
@@ -30,6 +55,7 @@
 
     sheet.dataset.schoolSheetReady = 'true'
     document.documentElement.classList.add('school-sheet-open')
+    lockBackground()
 
     const { closeButton, saveButton } = findActionButtons(sheet)
     const dragSurface = sheet.querySelector('.change-editor-head') || sheet
@@ -97,8 +123,9 @@
       }
 
       const isClosing = target > 0
-      const stiffness = isClosing ? 54 : 44
-      const damping = isClosing ? 19 : 18
+      // Opening stays overdamped, but is slightly quicker than the first version.
+      const stiffness = isClosing ? 56 : 60
+      const damping = isClosing ? 19 : 18.5
       const mass = 1
 
       function step(time) {
@@ -114,7 +141,7 @@
         state.velocity += acceleration * dt
         state.y += state.velocity * dt
 
-        // Opening is intentionally non-bouncy: never cross above the resting position.
+        // Opening never overshoots the resting position.
         if (!isClosing && state.y < 0) {
           state.y = 0
           state.velocity = 0
@@ -145,14 +172,14 @@
       state.dragging = false
       sheet.classList.add('is-closing')
       springTo(closedY(), {
-        velocity: Math.max(velocity, 220),
+        velocity: Math.max(velocity, 200),
         onComplete: () => finishNativeAction(button),
       })
     }
 
     function settleOpen(velocity = state.velocity) {
       state.closing = false
-      springTo(0, { velocity: Math.min(velocity, 420) })
+      springTo(0, { velocity: Math.min(velocity, 380) })
     }
 
     function onPointerDown(event) {
@@ -198,20 +225,27 @@
       else settleOpen(state.velocity)
     }
 
+    function blockBackgroundGesture(event) {
+      event.preventDefault()
+    }
+
     function onBackdropClick() {
-      requestClose(closeButton, 220)
+      requestClose(closeButton, 200)
     }
 
     function onKeyDown(event) {
-      if (event.key === 'Escape') requestClose(closeButton, 220)
+      if (event.key === 'Escape') requestClose(closeButton, 200)
     }
 
     function cleanupVisuals() {
       stopAnimation()
       backdrop.removeEventListener('click', onBackdropClick)
+      backdrop.removeEventListener('touchmove', blockBackgroundGesture)
+      backdrop.removeEventListener('wheel', blockBackgroundGesture)
       backdrop.remove()
       document.removeEventListener('keydown', onKeyDown)
       document.documentElement.classList.remove('school-sheet-open')
+      unlockBackground()
       if (activeController?.sheet === sheet) activeController = null
     }
 
@@ -228,6 +262,8 @@
     dragSurface.addEventListener('pointerup', onPointerEnd)
     dragSurface.addEventListener('pointercancel', onPointerEnd)
     backdrop.addEventListener('click', onBackdropClick)
+    backdrop.addEventListener('touchmove', blockBackgroundGesture, { passive: false })
+    backdrop.addEventListener('wheel', blockBackgroundGesture, { passive: false })
     document.addEventListener('keydown', onKeyDown)
 
     activeController = { sheet, requestClose, destroy }
@@ -250,7 +286,7 @@
 
     event.preventDefault()
     event.stopPropagation()
-    activeController.requestClose(target, 220)
+    activeController.requestClose(target, 200)
   }, true)
 
   const observer = new MutationObserver(() => {
