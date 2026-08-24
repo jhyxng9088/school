@@ -1,6 +1,23 @@
 /* Shared School PWA bottom-sheet behavior layer. */
+html.school-sheet-open,
+html.school-sheet-open body {
+  overscroll-behavior: none;
+}
+
 html.school-sheet-open .app-content {
   transform: none !important;
+}
+
+html.school-sheet-open #root {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html.school-sheet-open body .change-editor {
+  pointer-events: auto;
+  user-select: auto;
+  -webkit-user-select: auto;
 }
 
 .school-sheet-backdrop {
@@ -10,7 +27,9 @@ html.school-sheet-open .app-content {
   background: rgba(0, 0, 0, 1);
   opacity: 0;
   transition: none;
+  pointer-events: auto;
   touch-action: none;
+  overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -57,20 +76,34 @@ body .change-editor .change-editor-head::before {
   opacity: 0.42;
 }
 
+/* Native date inputs on iOS keep a large intrinsic width, so use one stable column. */
 body .change-editor .change-form {
-  grid-template-columns: minmax(0, 1fr) minmax(122px, 0.48fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
-body .change-editor .change-field {
+body .change-editor .change-field,
+body .change-editor .change-field.full,
+body .change-editor .change-base,
+body .change-editor .change-warning,
+body .change-editor .change-submit-row {
+  grid-column: 1;
   min-width: 0;
 }
 
 body .change-editor .change-field input,
 body .change-editor .change-field select {
+  display: block;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
   overflow: hidden;
+}
+
+body .change-editor .change-field input[type="date"] {
+  inline-size: 100%;
+  min-inline-size: 0;
 }
 
 body .change-editor .change-submit-row {
@@ -115,15 +148,8 @@ body .change-editor .change-submit-row .save-change {
 }
 
 @media (max-width: 520px) {
-  body .change-editor .change-form {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  body .change-editor .change-field.full,
-  body .change-editor .change-base,
-  body .change-editor .change-warning,
-  body .change-editor .change-submit-row {
-    grid-column: 1;
+  body .change-editor {
+    width: calc(100% - 8px);
   }
 }
 
