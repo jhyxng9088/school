@@ -263,6 +263,26 @@
   background: var(--focus-accent-soft, var(--surface-soft));
 }
 
+/* Row 7 is displayed across the week, but Mon/Tue/Thu are empty unless a date override adds a class. */
+.week-grid > .week-cell:nth-child(44):not(.is-override),
+.week-grid > .week-cell:nth-child(45):not(.is-override),
+.week-grid > .week-cell:nth-child(47):not(.is-override) {
+  background: color-mix(in srgb, var(--surface-soft) 28%, transparent);
+}
+
+.week-grid > .week-cell:nth-child(44):not(.is-override) .subject,
+.week-grid > .week-cell:nth-child(45):not(.is-override) .subject,
+.week-grid > .week-cell:nth-child(47):not(.is-override) .subject {
+  visibility: hidden;
+}
+
+.week-grid > .editor-cell:nth-child(44) input,
+.week-grid > .editor-cell:nth-child(45) input,
+.week-grid > .editor-cell:nth-child(47) input {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .editor-actions {
   display: flex;
   justify-content: flex-end;
