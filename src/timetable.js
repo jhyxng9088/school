@@ -11,11 +11,11 @@ export const PERIODS = [
 export const LUNCH = { start: '13:00', end: '14:00' }
 
 export const WEEKDAYS = [
-  { id: 'mon', label: '월', jsDay: 1, periodCount: 6 },
-  { id: 'tue', label: '화', jsDay: 2, periodCount: 6 },
-  { id: 'wed', label: '수', jsDay: 3, periodCount: 7 },
-  { id: 'thu', label: '목', jsDay: 4, periodCount: 6 },
-  { id: 'fri', label: '금', jsDay: 5, periodCount: 7 },
+  { id: 'mon', label: '월', jsDay: 1, periodCount: 7, regularPeriodCount: 6 },
+  { id: 'tue', label: '화', jsDay: 2, periodCount: 7, regularPeriodCount: 6 },
+  { id: 'wed', label: '수', jsDay: 3, periodCount: 7, regularPeriodCount: 7 },
+  { id: 'thu', label: '목', jsDay: 4, periodCount: 7, regularPeriodCount: 6 },
+  { id: 'fri', label: '금', jsDay: 5, periodCount: 7, regularPeriodCount: 7 },
 ]
 
 export const TIMETABLE_STORAGE_KEY = 'school.timetable.weekly.v1'
@@ -33,7 +33,7 @@ export function createEmptyWeeklySchedule() {
     WEEKDAYS.map((day) => [
       day.id,
       Object.fromEntries(
-        Array.from({ length: day.periodCount }, (_, index) => [index + 1, '']),
+        Array.from({ length: day.regularPeriodCount }, (_, index) => [index + 1, '']),
       ),
     ]),
   )
@@ -44,7 +44,7 @@ export function normalizeWeeklySchedule(value) {
   if (!value || typeof value !== 'object') return empty
 
   for (const day of WEEKDAYS) {
-    for (let period = 1; period <= day.periodCount; period += 1) {
+    for (let period = 1; period <= day.regularPeriodCount; period += 1) {
       const subject = value?.[day.id]?.[period]
       empty[day.id][period] = typeof subject === 'string' ? subject.slice(0, 20) : ''
     }
@@ -107,7 +107,6 @@ export function getDayForDate(date) {
 export function getPeriodsForDay(dayId) {
   const day = WEEKDAYS.find((item) => item.id === dayId)
   if (!day) return []
-  // Date-specific changes may add an exceptional 7th period even on a regular 6-period day.
   return PERIODS
 }
 
@@ -145,10 +144,10 @@ export function getScheduleForDate(date, weeklySchedule, overrides) {
   const overridePeriods = Object.keys(dateOverrides)
     .map(Number)
     .filter((period) => Number.isInteger(period) && period >= 1 && period <= PERIODS.length)
-  const maxPeriod = Math.max(day.periodCount, ...overridePeriods, 0)
+  const maxPeriod = Math.max(day.regularPeriodCount, ...overridePeriods, 0)
 
   return PERIODS.slice(0, maxPeriod).map((period) => {
-    const baseSubject = period.number <= day.periodCount
+    const baseSubject = period.number <= day.regularPeriodCount
       ? weeklySchedule?.[day.id]?.[period.number] || ''
       : ''
     const isOverride = Object.prototype.hasOwnProperty.call(dateOverrides, period.number)
@@ -159,7 +158,7 @@ export function getScheduleForDate(date, weeklySchedule, overrides) {
       subject,
       baseSubject,
       isOverride,
-      isRegularPeriod: period.number <= day.periodCount,
+      isRegularPeriod: period.number <= day.regularPeriodCount,
     }
   })
 }
