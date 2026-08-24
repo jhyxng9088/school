@@ -346,23 +346,19 @@ function useNavSpring(activeIndex) {
       physics.frame = requestAnimationFrame(animate)
     }
 
-    const handleResize = () => {
+    const handleViewportChange = () => {
       stopAnimation()
+      physics.lastTime = 0
       measure(true)
     }
 
-    let resizeObserver
-    if ('ResizeObserver' in window) {
-      resizeObserver = new ResizeObserver(handleResize)
-      resizeObserver.observe(nav)
-    } else {
-      window.addEventListener('resize', handleResize)
-    }
+    window.addEventListener('resize', handleViewportChange)
+    window.addEventListener('orientationchange', handleViewportChange)
 
     return () => {
       stopAnimation()
-      resizeObserver?.disconnect()
-      window.removeEventListener('resize', handleResize)
+      window.removeEventListener('resize', handleViewportChange)
+      window.removeEventListener('orientationchange', handleViewportChange)
     }
   }, [activeIndex])
 
