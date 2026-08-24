@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-shell-v1'
+const CACHE_NAME = 'school-shell-v2'
 const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg']
 
 self.addEventListener('install', (event) => {
@@ -17,6 +17,10 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting()
+})
+
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
@@ -27,7 +31,12 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       try {
-        const response = await fetch(request)
+        const shouldBypassHttpCache =
+          request.mode === 'navigate' ||
+          request.destination === 'script' ||
+          request.destination === 'style'
+
+        const response = await fetch(request, shouldBypassHttpCache ? { cache: 'no-store' } : undefined)
         if (response.ok) cache.put(request, response.clone())
         return response
       } catch {
