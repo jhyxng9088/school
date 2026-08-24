@@ -107,7 +107,8 @@ export function getDayForDate(date) {
 export function getPeriodsForDay(dayId) {
   const day = WEEKDAYS.find((item) => item.id === dayId)
   if (!day) return []
-  return PERIODS.slice(0, day.periodCount)
+  // Date-specific changes may add an exceptional 7th period even on a regular 6-period day.
+  return PERIODS
 }
 
 export function dateKey(date) {
