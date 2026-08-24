@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 
@@ -248,9 +248,123 @@ function StandardPage({ eyebrow = 'School', title, children }) {
   )
 }
 
+function useNavSpring(activeIndex) {
+  const navRef = useRef(null)
+  const indicatorRef = useRef(null)
+  const buttonRefs = useRef([])
+  const physicsRef = useRef({
+    x: 0,
+    velocity: 0,
+    targetX: 0,
+    width: 0,
+    initialized: false,
+    frame: null,
+    lastTime: 0,
+  })
+
+  useLayoutEffect(() => {
+    const nav = navRef.current
+    const indicator = indicatorRef.current
+    const targetButton = buttonRefs.current[activeIndex]
+    if (!nav || !indicator || !targetButton) return undefined
+
+    const physics = physicsRef.current
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    function paint() {
+      indicator.style.width = `${physics.width}px`
+      indicator.style.transform = `translate3d(${physics.x}px, 0, 0)`
+    }
+
+    function measure(immediate = false) {
+      const navRect = nav.getBoundingClientRect()
+      const buttonRect = targetButton.getBoundingClientRect()
+      physics.targetX = buttonRect.left - navRect.left
+      physics.width = buttonRect.width
+
+      if (!physics.initialized || immediate || reduceMotion) {
+        physics.initialized = true
+        physics.x = physics.targetX
+        physics.velocity = 0
+        paint()
+      }
+    }
+
+    function stopAnimation() {
+      if (physics.frame !== null) {
+        cancelAnimationFrame(physics.frame)
+        physics.frame = null
+      }
+    }
+
+    function animate(time) {
+      if (!physics.lastTime) physics.lastTime = time
+      const dt = Math.min((time - physics.lastTime) / 1000, 0.032)
+      physics.lastTime = time
+
+      // Hooke spring + viscous damping. Tuned to move slowly with a small,
+      // controlled amount of inertia instead of using a CSS easing curve.
+      const stiffness = 82
+      const damping = 14.5
+      const mass = 1
+      const displacement = physics.x - physics.targetX
+      const springForce = -stiffness * displacement
+      const dampingForce = -damping * physics.velocity
+      const acceleration = (springForce + dampingForce) / mass
+
+      physics.velocity += acceleration * dt
+      physics.x += physics.velocity * dt
+      paint()
+
+      const settled = Math.abs(physics.x - physics.targetX) < 0.08 && Math.abs(physics.velocity) < 0.08
+      if (settled) {
+        physics.x = physics.targetX
+        physics.velocity = 0
+        physics.lastTime = 0
+        physics.frame = null
+        paint()
+        return
+      }
+
+      physics.frame = requestAnimationFrame(animate)
+    }
+
+    stopAnimation()
+    measure(!physics.initialized)
+
+    if (!reduceMotion && Math.abs(physics.x - physics.targetX) > 0.01) {
+      physics.lastTime = 0
+      physics.frame = requestAnimationFrame(animate)
+    }
+
+    const handleResize = () => {
+      stopAnimation()
+      measure(true)
+    }
+
+    let resizeObserver
+    if ('ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver(handleResize)
+      resizeObserver.observe(nav)
+    } else {
+      window.addEventListener('resize', handleResize)
+    }
+
+    return () => {
+      stopAnimation()
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [activeIndex])
+
+  return { navRef, indicatorRef, buttonRefs }
+}
+
 function AppShell({ name }) {
   const [activeTab, setActiveTab] = useState('home')
+  const [contentDirection, setContentDirection] = useState(1)
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
+  const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
 
   const content = {
     home: <Home name={name} />,
@@ -259,16 +373,30 @@ function AppShell({ name }) {
     meal: <StandardPage title="급식"><EmptyPanel title="급식 연결 전" description="Stage 3에서 NEIS 급식 정보를 연결할게." /></StandardPage>,
   }
 
+  function changeTab(nextTab) {
+    if (nextTab === activeTab) return
+    const nextIndex = tabs.findIndex((tab) => tab.id === nextTab)
+    setContentDirection(nextIndex > activeIndex ? 1 : -1)
+    setActiveTab(nextTab)
+  }
+
   return (
     <div className="app-shell">
-      <main className="app-content" key={activeTab}>{content[activeTab]}</main>
-      <nav className="bottom-nav" aria-label="주요 메뉴" style={{ '--active-index': activeIndex }}>
-        <span className="nav-indicator" aria-hidden="true" />
-        {tabs.map((tab) => (
+      <main
+        className="app-content"
+        key={activeTab}
+        style={{ '--content-direction': contentDirection }}
+      >
+        {content[activeTab]}
+      </main>
+      <nav ref={navRef} className="bottom-nav" aria-label="주요 메뉴">
+        <span ref={indicatorRef} className="nav-indicator" aria-hidden="true" />
+        {tabs.map((tab, index) => (
           <button
+            ref={(node) => { buttonRefs.current[index] = node }}
             key={tab.id}
             className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => changeTab(tab.id)}
             aria-current={activeTab === tab.id ? 'page' : undefined}
           >
             <Icon type={tab.id} />
