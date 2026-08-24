@@ -1,7 +1,24 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
+import './timetable.css'
 import './motion.css'
+import {
+  PERIODS,
+  WEEKDAYS,
+  dateFromKey,
+  dateKey,
+  getDayForDate,
+  getPeriodVisualState,
+  getPeriodsForDay,
+  getScheduleForDate,
+  getSchoolState,
+  getWeekDates,
+  loadOverrides,
+  loadWeeklySchedule,
+  saveOverrides,
+  saveWeeklySchedule,
+} from './timetable'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -139,6 +156,32 @@ const tabs = [
   { id: 'meal', label: '급식' },
 ]
 
+function useNow() {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30000)
+    const syncNow = () => {
+      if (!document.hidden) setNow(new Date())
+    }
+
+    document.addEventListener('visibilitychange', syncNow)
+    window.addEventListener('focus', syncNow)
+
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', syncNow)
+      window.removeEventListener('focus', syncNow)
+    }
+  }, [])
+
+  return now
+}
+
+function subjectName(period) {
+  return period?.subject?.trim() || '과목 미설정'
+}
+
 function SectionTitle({ children, aside }) {
   return (
     <div className="section-heading">
@@ -148,18 +191,67 @@ function SectionTitle({ children, aside }) {
   )
 }
 
-function CurrentClassPreview() {
+function CurrentClassPreview({ schoolState }) {
+  let label = '현재 수업'
+  let title = '시간표 설정 전'
+  let description = '시간표를 설정하면 지금 수업과 다음 수업이 여기에 표시돼.'
+  let nextLabel = '다음 수업'
+  let nextValue = '—'
+
+  if (schoolState.kind === 'off') {
+    label = '오늘'
+    title = '수업 없는 날'
+    description = '오늘은 정규 수업이 없어.'
+  } else if (schoolState.kind === 'before') {
+    label = '수업 전'
+    title = subjectName(schoolState.next)
+    description = `${schoolState.next.number}교시 · ${schoolState.next.start} 시작`
+    nextLabel = '첫 수업'
+    nextValue = `${schoolState.next.number}교시 · ${subjectName(schoolState.next)}`
+  } else if (schoolState.kind === 'class') {
+    label = `${schoolState.current.number}교시 · 진행 중`
+    title = subjectName(schoolState.current)
+    description = `${schoolState.current.start}–${schoolState.current.end}`
+    nextValue = schoolState.next
+      ? `${schoolState.next.number}교시 · ${subjectName(schoolState.next)}`
+      : '오늘 마지막 수업'
+  } else if (schoolState.kind === 'break') {
+    label = '쉬는 시간'
+    title = schoolState.next ? `다음 · ${subjectName(schoolState.next)}` : '수업 종료'
+    description = schoolState.next
+      ? `${schoolState.next.number}교시 · ${schoolState.next.start} 시작`
+      : '오늘 수업이 모두 끝났어.'
+    nextValue = schoolState.next
+      ? `${schoolState.next.number}교시 · ${subjectName(schoolState.next)}`
+      : '—'
+  } else if (schoolState.kind === 'lunch') {
+    label = '점심시간'
+    title = '점심시간'
+    description = '14:00까지'
+    nextValue = schoolState.next
+      ? `${schoolState.next.number}교시 · ${subjectName(schoolState.next)}`
+      : '—'
+  } else if (schoolState.kind === 'done') {
+    label = '수업 종료'
+    title = '오늘 수업 끝'
+    description = schoolState.last
+      ? `${schoolState.last.number}교시 · ${subjectName(schoolState.last)}까지 완료`
+      : '오늘 수업이 모두 끝났어.'
+    nextLabel = '마지막 수업'
+    nextValue = schoolState.last ? subjectName(schoolState.last) : '—'
+  }
+
   return (
     <section className="current-class-card">
       <div className="current-class-icon"><Icon type="clock" size={20} /></div>
       <div className="current-class-copy">
-        <p className="current-class-label">현재 수업</p>
-        <h2>시간표 설정 전</h2>
-        <p>시간표를 설정하면 지금 수업과 다음 수업이 여기에 표시돼.</p>
+        <p className="current-class-label">{label}</p>
+        <h2>{title}</h2>
+        <p>{description}</p>
       </div>
       <div className="next-class-row">
-        <span>다음 수업</span>
-        <strong>—</strong>
+        <span>{nextLabel}</span>
+        <strong>{nextValue}</strong>
       </div>
     </section>
   )
@@ -174,19 +266,41 @@ function TodoPreview() {
   )
 }
 
-function TimetablePreview() {
+function TimetablePreview({ schedule, now, configured }) {
+  if (!schedule.length) {
+    return (
+      <section className="home-section">
+        <SectionTitle>오늘 시간표</SectionTitle>
+        <div className="today-timetable-empty">오늘은 정규 수업이 없어.</div>
+      </section>
+    )
+  }
+
+  const hasOverride = schedule.some((period) => period.isOverride)
+
   return (
     <section className="home-section">
       <SectionTitle>오늘 시간표</SectionTitle>
-      <div className="period-strip" aria-label="오늘 시간표 미리보기">
-        {Array.from({ length: 7 }, (_, index) => (
-          <div className="period-item" key={index + 1}>
-            <span>{index + 1}</span>
-            <strong>—</strong>
-          </div>
-        ))}
+      <div
+        className="period-strip"
+        aria-label="오늘 시간표 미리보기"
+        style={{ '--period-count': schedule.length }}
+      >
+        {schedule.map((period) => {
+          const visualState = getPeriodVisualState(now, period)
+          return (
+            <div
+              className={`period-item is-${visualState} ${period.isOverride ? 'is-override' : ''}`}
+              key={period.number}
+            >
+              <span>{period.number}</span>
+              <strong>{period.subject.trim() || '—'}</strong>
+            </div>
+          )
+        })}
       </div>
-      <p className="section-note">Stage 2에서 기본 시간표를 연결할게.</p>
+      {!configured ? <p className="section-note">시간표 탭에서 기본 시간표를 입력해줘.</p> : null}
+      {configured && hasOverride ? <p className="section-note">변경된 수업은 작은 점으로 표시돼.</p> : null}
     </section>
   )
 }
@@ -201,12 +315,13 @@ function MealPreview() {
   )
 }
 
-function Home({ name }) {
-  const today = useMemo(() => new Intl.DateTimeFormat('ko-KR', {
+function Home({ name, now, weeklySchedule, overrides }) {
+  const today = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
     weekday: 'long',
-  }).format(new Date()), [])
+  }).format(now)
+  const schoolState = getSchoolState(now, weeklySchedule, overrides)
 
   return (
     <>
@@ -219,9 +334,13 @@ function Home({ name }) {
       </header>
 
       <div className="home-stack">
-        <CurrentClassPreview />
+        <CurrentClassPreview schoolState={schoolState} />
         <TodoPreview />
-        <TimetablePreview />
+        <TimetablePreview
+          schedule={schoolState.schedule}
+          now={now}
+          configured={schoolState.configured}
+        />
         <MealPreview />
       </div>
     </>
@@ -246,6 +365,280 @@ function StandardPage({ eyebrow = 'School', title, children }) {
       </header>
       {children}
     </>
+  )
+}
+
+function cloneWeeklySchedule(schedule) {
+  return JSON.parse(JSON.stringify(schedule))
+}
+
+function formatWeekRange(weekDates) {
+  const first = weekDates[0]
+  const last = weekDates[weekDates.length - 1]
+  if (first.getMonth() === last.getMonth()) {
+    return `${first.getMonth() + 1}월 ${first.getDate()}–${last.getDate()}일`
+  }
+  return `${first.getMonth() + 1}월 ${first.getDate()}일–${last.getMonth() + 1}월 ${last.getDate()}일`
+}
+
+function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOverrides }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(() => cloneWeeklySchedule(weeklySchedule))
+  const [changeOpen, setChangeOpen] = useState(false)
+  const [changeDate, setChangeDate] = useState(() => dateKey(now))
+  const [changePeriod, setChangePeriod] = useState(1)
+  const [changeSubject, setChangeSubject] = useState('')
+
+  const weekDates = useMemo(() => getWeekDates(now), [dateKey(now)])
+  const currentState = getSchoolState(now, weeklySchedule, overrides)
+  const todayKey = dateKey(now)
+  const selectedDate = dateFromKey(changeDate)
+  const selectedDay = getDayForDate(selectedDate)
+  const availablePeriods = selectedDay ? getPeriodsForDay(selectedDay.id) : []
+  const baseSubject = selectedDay ? weeklySchedule?.[selectedDay.id]?.[changePeriod] || '' : ''
+
+  useEffect(() => {
+    if (!selectedDay || changePeriod > selectedDay.periodCount) setChangePeriod(1)
+    setChangeSubject('')
+  }, [changeDate])
+
+  useEffect(() => {
+    setChangeSubject('')
+  }, [changePeriod])
+
+  const weekChanges = weekDates.flatMap((date, dayIndex) =>
+    getScheduleForDate(date, weeklySchedule, overrides)
+      .filter((period) => period.isOverride)
+      .map((period) => ({
+        date,
+        dayLabel: WEEKDAYS[dayIndex].label,
+        ...period,
+      })),
+  )
+
+  function startEditing() {
+    setDraft(cloneWeeklySchedule(weeklySchedule))
+    setChangeOpen(false)
+    setEditing(true)
+  }
+
+  function updateDraft(dayId, period, value) {
+    setDraft((current) => ({
+      ...current,
+      [dayId]: {
+        ...current[dayId],
+        [period]: value.slice(0, 20),
+      },
+    }))
+  }
+
+  function saveBaseSchedule() {
+    onSaveWeekly(draft)
+    setEditing(false)
+  }
+
+  function saveChange() {
+    if (!selectedDay) return
+    const subject = changeSubject.trim()
+    if (!subject) return
+
+    const next = { ...overrides }
+    const dateOverrides = { ...(next[changeDate] || {}) }
+
+    if (subject === baseSubject.trim()) {
+      delete dateOverrides[changePeriod]
+    } else {
+      dateOverrides[changePeriod] = subject
+    }
+
+    if (Object.keys(dateOverrides).length) next[changeDate] = dateOverrides
+    else delete next[changeDate]
+
+    onSaveOverrides(next)
+    setChangeSubject('')
+    setChangeOpen(false)
+  }
+
+  function removeChange(targetDate, period) {
+    const key = dateKey(targetDate)
+    const next = { ...overrides }
+    const dateOverrides = { ...(next[key] || {}) }
+    delete dateOverrides[period]
+    if (Object.keys(dateOverrides).length) next[key] = dateOverrides
+    else delete next[key]
+    onSaveOverrides(next)
+  }
+
+  return (
+    <section className="timetable-page">
+      <header className="timetable-header">
+        <div>
+          <p className="date-label">{editing ? '기본 시간표' : '이번 주'}</p>
+          <h1>시간표</h1>
+        </div>
+        {!editing ? (
+          <div className="timetable-actions">
+            <button className="timetable-action" onClick={startEditing}>기본 수정</button>
+            <button
+              className="timetable-action primary"
+              onClick={() => setChangeOpen((value) => !value)}
+            >
+              변경 추가
+            </button>
+          </div>
+        ) : null}
+      </header>
+
+      <div className="week-summary">
+        <strong>{editing ? '월–금 기본 시간표' : formatWeekRange(weekDates)}</strong>
+        <div className="week-legend">
+          {!editing ? <span className="legend-item"><i className="legend-dot" />변경</span> : null}
+          {!editing ? <span className="legend-item"><i className="legend-ring" />현재</span> : null}
+          {editing ? <span>7교시는 수·금만</span> : null}
+        </div>
+      </div>
+
+      <div className="week-table-wrap">
+        <div className="week-grid">
+          <div className="week-corner">교시</div>
+          {weekDates.map((date, index) => (
+            <div
+              className={`week-day-head ${dateKey(date) === todayKey && !editing ? 'today' : ''}`}
+              key={WEEKDAYS[index].id}
+            >
+              <strong>{WEEKDAYS[index].label}</strong>
+              <span>{date.getMonth() + 1}/{date.getDate()}</span>
+            </div>
+          ))}
+
+          {PERIODS.map((period) => (
+            <React.Fragment key={period.number}>
+              <div className="week-period-label">
+                <strong>{period.number}</strong>
+                <span>{period.start}</span>
+              </div>
+
+              {WEEKDAYS.map((day, dayIndex) => {
+                if (period.number > day.periodCount) {
+                  return <div className="week-cell not-applicable" key={`${day.id}-${period.number}`}>—</div>
+                }
+
+                if (editing) {
+                  return (
+                    <div className="week-cell editor-cell" key={`${day.id}-${period.number}`}>
+                      <input
+                        aria-label={`${day.label}요일 ${period.number}교시`}
+                        value={draft?.[day.id]?.[period.number] || ''}
+                        onChange={(event) => updateDraft(day.id, period.number, event.target.value)}
+                        placeholder="—"
+                        maxLength={20}
+                        autoComplete="off"
+                      />
+                    </div>
+                  )
+                }
+
+                const date = weekDates[dayIndex]
+                const daySchedule = getScheduleForDate(date, weeklySchedule, overrides)
+                const item = daySchedule.find((entry) => entry.number === period.number)
+                const isCurrent = dateKey(date) === todayKey && currentState.current?.number === period.number
+                const classes = [
+                  'week-cell',
+                  item?.subject?.trim() ? '' : 'empty',
+                  item?.isOverride ? 'is-override' : '',
+                  isCurrent ? 'is-current' : '',
+                ].filter(Boolean).join(' ')
+
+                return (
+                  <div className={classes} key={`${day.id}-${period.number}`}>
+                    {item?.isOverride ? <span className="change-dot" aria-label="변경 시간표" /> : null}
+                    <span className="subject">{item?.subject?.trim() || '—'}</span>
+                  </div>
+                )
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {editing ? (
+        <div className="editor-actions">
+          <button className="editor-button" onClick={() => setEditing(false)}>취소</button>
+          <button className="editor-button save" onClick={saveBaseSchedule}>저장</button>
+        </div>
+      ) : null}
+
+      {changeOpen && !editing ? (
+        <section className="change-editor">
+          <div className="change-editor-head">
+            <div>
+              <h2>변경 시간표 추가</h2>
+              <p>기본 시간표는 그대로 두고 선택한 날짜에만 적용돼.</p>
+            </div>
+          </div>
+          <div className="change-form">
+            <label className="change-field">
+              <span>날짜</span>
+              <input type="date" value={changeDate} onChange={(event) => setChangeDate(event.target.value)} />
+            </label>
+            <label className="change-field">
+              <span>교시</span>
+              <select
+                value={changePeriod}
+                onChange={(event) => setChangePeriod(Number(event.target.value))}
+                disabled={!selectedDay}
+              >
+                {availablePeriods.map((period) => (
+                  <option value={period.number} key={period.number}>{period.number}교시</option>
+                ))}
+              </select>
+            </label>
+            <label className="change-field full">
+              <span>변경 과목</span>
+              <input
+                value={changeSubject}
+                onChange={(event) => setChangeSubject(event.target.value)}
+                placeholder="변경된 과목 입력"
+                maxLength={20}
+                disabled={!selectedDay}
+              />
+            </label>
+            {selectedDay ? (
+              <p className="change-base">기본: {baseSubject.trim() || '미설정'}</p>
+            ) : (
+              <p className="change-warning">토·일요일에는 정규 시간표를 변경할 수 없어.</p>
+            )}
+            <div className="change-submit-row">
+              <button onClick={() => setChangeOpen(false)}>취소</button>
+              <button
+                className="save-change"
+                onClick={saveChange}
+                disabled={!selectedDay || !changeSubject.trim()}
+              >
+                변경 저장
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {!editing && weekChanges.length ? (
+        <section className="week-changes">
+          <h2>이번 주 변경</h2>
+          <div className="change-list">
+            {weekChanges.map((change) => (
+              <div className="change-item" key={`${dateKey(change.date)}-${change.number}`}>
+                <div className="change-item-main">
+                  <strong>{change.date.getMonth() + 1}/{change.date.getDate()} {change.dayLabel} · {change.number}교시</strong>
+                  <span>{change.baseSubject.trim() || '미설정'} → {change.subject.trim() || '수업 없음'}</span>
+                </div>
+                <button className="remove-change" onClick={() => removeChange(change.date, change.number)}>되돌리기</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </section>
   )
 }
 
@@ -368,13 +761,34 @@ function useNavSpring(activeIndex) {
 function AppShell({ name }) {
   const [activeTab, setActiveTab] = useState('home')
   const [contentDirection, setContentDirection] = useState(1)
+  const [weeklySchedule, setWeeklySchedule] = useState(loadWeeklySchedule)
+  const [overrides, setOverrides] = useState(loadOverrides)
+  const now = useNow()
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
 
+  function commitWeeklySchedule(nextSchedule) {
+    saveWeeklySchedule(nextSchedule)
+    setWeeklySchedule(nextSchedule)
+  }
+
+  function commitOverrides(nextOverrides) {
+    saveOverrides(nextOverrides)
+    setOverrides(nextOverrides)
+  }
+
   const content = {
-    home: <Home name={name} />,
+    home: <Home name={name} now={now} weeklySchedule={weeklySchedule} overrides={overrides} />,
     todo: <StandardPage title="투두"><EmptyPanel title="아직 비어 있어" description="Stage 4에서 할 일과 수행평가를 연결할게." /></StandardPage>,
-    timetable: <StandardPage title="시간표"><EmptyPanel title="시간표 설정 전" description="Stage 2에서 기본 시간표와 날짜별 변경 기능을 만들게." /></StandardPage>,
+    timetable: (
+      <TimetablePage
+        now={now}
+        weeklySchedule={weeklySchedule}
+        overrides={overrides}
+        onSaveWeekly={commitWeeklySchedule}
+        onSaveOverrides={commitOverrides}
+      />
+    ),
     meal: <StandardPage title="급식"><EmptyPanel title="급식 연결 전" description="Stage 3에서 NEIS 급식 정보를 연결할게." /></StandardPage>,
   }
 
