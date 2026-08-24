@@ -16,10 +16,10 @@ function getBrowser() {
   return 'other'
 }
 
-function Icon({ type }) {
+function Icon({ type, size = 22 }) {
   const common = {
-    width: 22,
-    height: 22,
+    width: size,
+    height: size,
     viewBox: '0 0 24 24',
     fill: 'none',
     stroke: 'currentColor',
@@ -38,7 +38,13 @@ function Icon({ type }) {
   if (type === 'timetable') {
     return <svg {...common}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v3"/><path d="M16.5 3.5v3"/><path d="M3.5 9h17"/><path d="M8 12.5h.01"/><path d="M12 12.5h.01"/><path d="M16 12.5h.01"/><path d="M8 16.5h.01"/><path d="M12 16.5h.01"/></svg>
   }
-  return <svg {...common}><path d="M4.5 4.5v6.2a3 3 0 0 0 3 3h.5"/><path d="M7.5 4.5v15"/><path d="M15.5 4.5v6.2"/><path d="M19.5 4.5v6.2"/><path d="M15.5 8.2h4"/><path d="M17.5 10.7v8.8"/></svg>
+  if (type === 'meal') {
+    return <svg {...common}><path d="M4.5 4.5v6.2a3 3 0 0 0 3 3h.5"/><path d="M7.5 4.5v15"/><path d="M15.5 4.5v6.2"/><path d="M19.5 4.5v6.2"/><path d="M15.5 8.2h4"/><path d="M17.5 10.7v8.8"/></svg>
+  }
+  if (type === 'clock') {
+    return <svg {...common}><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 2"/></svg>
+  }
+  return null
 }
 
 function InstallGuide({ onDone }) {
@@ -132,11 +138,64 @@ const tabs = [
   { id: 'meal', label: '급식' },
 ]
 
-function EmptyPanel({ title, description }) {
+function SectionTitle({ children, aside }) {
   return (
-    <section className="empty-panel">
-      <h2>{title}</h2>
-      <p>{description}</p>
+    <div className="section-heading">
+      <h2>{children}</h2>
+      {aside ? <span>{aside}</span> : null}
+    </div>
+  )
+}
+
+function CurrentClassPreview() {
+  return (
+    <section className="current-class-card">
+      <div className="current-class-icon"><Icon type="clock" size={20} /></div>
+      <div className="current-class-copy">
+        <p className="current-class-label">현재 수업</p>
+        <h2>시간표 설정 전</h2>
+        <p>시간표를 설정하면 지금 수업과 다음 수업이 여기에 표시돼.</p>
+      </div>
+      <div className="next-class-row">
+        <span>다음 수업</span>
+        <strong>—</strong>
+      </div>
+    </section>
+  )
+}
+
+function TodoPreview() {
+  return (
+    <section className="home-section">
+      <SectionTitle aside="0개">할 일</SectionTitle>
+      <div className="compact-empty">아직 등록된 할 일이 없어.</div>
+    </section>
+  )
+}
+
+function TimetablePreview() {
+  return (
+    <section className="home-section">
+      <SectionTitle>오늘 시간표</SectionTitle>
+      <div className="period-strip" aria-label="오늘 시간표 미리보기">
+        {Array.from({ length: 7 }, (_, index) => (
+          <div className="period-item" key={index + 1}>
+            <span>{index + 1}</span>
+            <strong>—</strong>
+          </div>
+        ))}
+      </div>
+      <p className="section-note">Stage 2에서 기본 시간표를 연결할게.</p>
+    </section>
+  )
+}
+
+function MealPreview() {
+  return (
+    <section className="home-section meal-preview">
+      <SectionTitle>오늘 급식</SectionTitle>
+      <p className="meal-empty">급식 연결 전</p>
+      <p className="section-note">Stage 3에서 NEIS 급식 정보를 연결할게.</p>
     </section>
   )
 }
@@ -150,33 +209,61 @@ function Home({ name }) {
 
   return (
     <>
-      <header className="page-header home-header">
-        <p className="date-label">{today}</p>
-        <h1>{name}</h1>
+      <header className="home-topbar">
+        <div>
+          <p className="date-label">{today}</p>
+          <h1>오늘</h1>
+        </div>
+        <span className="user-name">{name}</span>
       </header>
-      <div className="home-grid">
-        <EmptyPanel title="오늘 시간표" description="아직 시간표를 설정하지 않았어." />
-        <EmptyPanel title="할 일" description="아직 등록된 할 일이 없어." />
-        <EmptyPanel title="오늘 급식" description="급식 정보는 아직 연결되지 않았어." />
+
+      <div className="home-stack">
+        <CurrentClassPreview />
+        <TodoPreview />
+        <TimetablePreview />
+        <MealPreview />
       </div>
+    </>
+  )
+}
+
+function EmptyPanel({ title, description }) {
+  return (
+    <section className="empty-panel">
+      <h2>{title}</h2>
+      <p>{description}</p>
+    </section>
+  )
+}
+
+function StandardPage({ eyebrow = 'School', title, children }) {
+  return (
+    <>
+      <header className="page-header">
+        <p className="date-label">{eyebrow}</p>
+        <h1>{title}</h1>
+      </header>
+      {children}
     </>
   )
 }
 
 function AppShell({ name }) {
   const [activeTab, setActiveTab] = useState('home')
+  const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
 
   const content = {
     home: <Home name={name} />,
-    todo: <><header className="page-header"><p className="date-label">School</p><h1>투두</h1></header><EmptyPanel title="아직 비어 있어" description="등록된 할 일이 없어." /></>,
-    timetable: <><header className="page-header"><p className="date-label">School</p><h1>시간표</h1></header><EmptyPanel title="시간표 설정 전" description="기본 시간표가 아직 없어." /></>,
-    meal: <><header className="page-header"><p className="date-label">School</p><h1>급식</h1></header><EmptyPanel title="급식 연결 전" description="오늘 급식 정보가 아직 없어." /></>,
+    todo: <StandardPage title="투두"><EmptyPanel title="아직 비어 있어" description="Stage 4에서 할 일과 수행평가를 연결할게." /></StandardPage>,
+    timetable: <StandardPage title="시간표"><EmptyPanel title="시간표 설정 전" description="Stage 2에서 기본 시간표와 날짜별 변경 기능을 만들게." /></StandardPage>,
+    meal: <StandardPage title="급식"><EmptyPanel title="급식 연결 전" description="Stage 3에서 NEIS 급식 정보를 연결할게." /></StandardPage>,
   }
 
   return (
     <div className="app-shell">
-      <main className="app-content">{content[activeTab]}</main>
-      <nav className="bottom-nav" aria-label="주요 메뉴">
+      <main className="app-content" key={activeTab}>{content[activeTab]}</main>
+      <nav className="bottom-nav" aria-label="주요 메뉴" style={{ '--active-index': activeIndex }}>
+        <span className="nav-indicator" aria-hidden="true" />
         {tabs.map((tab) => (
           <button
             key={tab.id}
