@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
+import './motion.css'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -312,8 +313,6 @@ function useNavSpring(activeIndex) {
       const dt = Math.min((time - physics.lastTime) / 1000, 0.032)
       physics.lastTime = time
 
-      // Hooke's law + viscous damping, numerically integrated every frame.
-      // Slight under-damping leaves a tiny amount of inertia without a toy-like bounce.
       const stiffness = 42
       const damping = 9.2
       const mass = 1
