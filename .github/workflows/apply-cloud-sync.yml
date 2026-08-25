@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'scripts/apply-cloud-sync.mjs'
+      - 'scripts/apply-cloud-sync-trigger.txt'
 
 permissions:
   contents: write
