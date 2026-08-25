@@ -1,5 +1,25 @@
 /* Small visual refinements layered after the core School UI. */
 
+/* App UI behaves like a native surface: long-press/double-tap does not select labels.
+   Real text-entry surfaces keep normal selection and editing. */
+html,
+body,
+#root,
+#root * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#root input,
+#root textarea,
+#root [contenteditable="true"],
+#root [contenteditable="plaintext-only"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 /* Only the current class is highlighted. Future classes stay at the normal surface level. */
 body .period-item.is-next:not(.is-current) {
   opacity: 1 !important;
