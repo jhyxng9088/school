@@ -30,15 +30,26 @@ function typeLabel(typeId) {
   return TODO_TYPES.find((type) => type.id === typeId)?.label || '일반'
 }
 
-function dueLabel(todo, now) {
+function dateTileParts(todo) {
+  const [year, month, day] = String(todo.dueDate || '').split('-').map(Number)
+  if (!year || !month || !day) {
+    return { day: '—', month: '', label: String(todo.dueDate || '날짜 없음') }
+  }
+  return {
+    day: String(day),
+    month: `${month}월`,
+    label: `${month}월 ${day}일`,
+  }
+}
+
+function dueMetaLabel(todo, now) {
   const today = dateKey(now)
   const tomorrow = dateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1))
-  const prefix = todo.dueDate === today ? '오늘' : todo.dueDate === tomorrow ? '내일' : (() => {
-    const [year, month, day] = todo.dueDate.split('-').map(Number)
-    if (!year || !month || !day) return todo.dueDate
-    return `${month}/${day}`
-  })()
-  return todo.dueTime ? `${prefix} · ${todo.dueTime}` : prefix
+  const relative = todo.dueDate === today ? '오늘' : todo.dueDate === tomorrow ? '내일' : ''
+
+  if (relative && todo.dueTime) return `${relative} · ${todo.dueTime}`
+  if (relative) return relative
+  return todo.dueTime || ''
 }
 
 function emptyDraft(now) {
@@ -76,6 +87,9 @@ function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
 }
 
 function ReminderRow({ todo, now, completed = false, deleting = false, onToggle, onEdit, onDelete }) {
+  const dateTile = dateTileParts(todo)
+  const meta = dueMetaLabel(todo, now)
+
   return (
     <article
       className={`todo-item ${completed ? 'is-completed' : ''} ${deleting ? 'is-deleting' : ''}`.trim()}
@@ -88,10 +102,14 @@ function ReminderRow({ todo, now, completed = false, deleting = false, onToggle,
       >
         <span />
       </button>
+      <span className="todo-date-tile" aria-label={dateTile.label}>
+        <strong>{dateTile.day}</strong>
+        <small>{dateTile.month}</small>
+      </span>
       <button className="todo-item-main" onClick={() => onEdit(todo)}>
         <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
         <AnimatedText as="strong" value={todo.title} delay={45} />
-        <AnimatedText as="small" value={dueLabel(todo, now)} delay={90} />
+        {meta ? <AnimatedText as="small" value={meta} delay={90} /> : null}
       </button>
       {completed ? (
         <button
@@ -460,14 +478,7 @@ export function TodoPage({ now, todoData }) {
                   ) : aiState === 'ready' ? (
                     <small className="reminder-ai-status is-ready">{aiAdjusted ? 'AI가 오타·축약을 보정했어.' : 'AI 확인 완료'}</small>
                   ) : aiState === 'error' ? (
-                    <>
-                      <small className="reminder-ai-status">AI 연결이 안 돼서 기기 분석 결과를 사용해.</small>
-                      {aiError ? (
-                        <small className="reminder-ai-status" style={{ opacity: 0.6, overflowWrap: 'anywhere' }}>
-                          [{aiError.name || 'Error'}] {aiError.code || 'no-code'} {aiError.status || ''} — {aiError.message || 'No message'}
-                        </small>
-                      ) : null}
-                    </>
+                    <small className="reminder-ai-status">AI 연결이 안 돼서 기기 분석 결과를 사용해.</small>
                   ) : naturalResult.assumedDate ? (
                     <small>날짜를 안 써서 오늘로 잡았어. 다르면 직접 입력에서 바꿀 수 있어.</small>
                   ) : null}
