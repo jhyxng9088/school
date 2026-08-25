@@ -118,6 +118,7 @@ export function TodoPage({ now, todoData }) {
   const [filter, setFilter] = useState('all')
   const [aiResult, setAiResult] = useState(null)
   const [aiState, setAiState] = useState('idle')
+  const [aiError, setAiError] = useState(null)
   const pageRef = useRef(null)
   const previousRectsRef = useRef(new Map())
   const motionReadyRef = useRef(false)
@@ -143,6 +144,7 @@ export function TodoPage({ now, todoData }) {
     const requestId = aiRequestRef.current + 1
     aiRequestRef.current = requestId
     setAiResult(null)
+    setAiError(null)
 
     if (!sheetOpen || sheetMode !== 'natural' || text.length < 2) {
       setAiState('idle')
@@ -158,10 +160,18 @@ export function TodoPage({ now, todoData }) {
         const parsed = await parseReminderWithAI(text, new Date())
         if (aiRequestRef.current !== requestId) return
         if (parsed) setAiResult(parsed)
+        setAiError(null)
         setAiState(parsed ? 'ready' : 'error')
       } catch (error) {
         if (aiRequestRef.current !== requestId) return
-        console.warn('Reminder AI fallback failed; using local parser.', error)
+        console.error('Reminder AI failed:', error)
+        setAiError({
+          name: error?.name || null,
+          code: error?.code || null,
+          message: error?.message || null,
+          status: error?.status || null,
+          customData: error?.customData ? JSON.stringify(error.customData) : null,
+        })
         setAiState('error')
       }
     }, 650)
@@ -237,6 +247,7 @@ export function TodoPage({ now, todoData }) {
     aiRequestRef.current += 1
     setAiResult(null)
     setAiState('idle')
+    setAiError(null)
   }
 
   function openCreate() {
@@ -449,7 +460,14 @@ export function TodoPage({ now, todoData }) {
                   ) : aiState === 'ready' ? (
                     <small className="reminder-ai-status is-ready">{aiAdjusted ? 'AI가 오타·축약을 보정했어.' : 'AI 확인 완료'}</small>
                   ) : aiState === 'error' ? (
-                    <small className="reminder-ai-status">AI 연결이 안 돼서 기기 분석 결과를 사용해.</small>
+                    <>
+                      <small className="reminder-ai-status">AI 연결이 안 돼서 기기 분석 결과를 사용해.</small>
+                      {aiError ? (
+                        <small className="reminder-ai-status" style={{ opacity: 0.6, overflowWrap: 'anywhere' }}>
+                          [{aiError.name || 'Error'}] {aiError.code || 'no-code'} {aiError.status || ''} — {aiError.message || 'No message'}
+                        </small>
+                      ) : null}
+                    </>
                   ) : naturalResult.assumedDate ? (
                     <small>날짜를 안 써서 오늘로 잡았어. 다르면 직접 입력에서 바꿀 수 있어.</small>
                   ) : null}
