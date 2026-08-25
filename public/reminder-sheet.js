@@ -2,6 +2,7 @@
   const SHEET_SELECTOR = '.todo-sheet'
   const OPEN_FRAME_COUNT = 2
   const CLOSE_MS = 320
+  const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)')
   let active = null
 
   function formatDate(value) {
@@ -69,6 +70,8 @@
   function enhance(sheet) {
     if (!sheet || sheet.dataset.reminderSheetReady === 'true') return
 
+    if (active && active.sheet !== sheet) active.cleanup()
+
     // Remove the shared-sheet hook synchronously so the timetable spring engine
     // never takes ownership of this reminder modal.
     sheet.removeAttribute('data-school-sheet')
@@ -80,12 +83,47 @@
 
     const backdrop = createBackdrop()
     const actions = findActions(sheet)
+    const dragSurface = sheet.querySelector('.change-editor-head') || sheet
     let closing = false
     let closeTimer = null
+
+    const drag = {
+      active: false,
+      pointerId: null,
+      startY: 0,
+      lastY: 0,
+      lastTime: 0,
+      velocity: 0,
+      y: 0,
+    }
+
+    function paintDrag(y) {
+      drag.y = Math.max(0, y)
+      sheet.style.setProperty('--reminder-drag-y', `${drag.y}px`)
+
+      const travel = Math.max(sheet.offsetHeight * 0.82, 260)
+      const progress = Math.min(drag.y / travel, 1)
+      backdrop.style.opacity = String(Math.max(0.2, 1 - progress * 0.72))
+    }
+
+    function settleDrag() {
+      if (closing) return
+      drag.active = false
+      drag.pointerId = null
+      sheet.classList.remove('is-dragging')
+      // Force the dragged position to be committed before re-enabling the normal transition.
+      void sheet.offsetHeight
+      sheet.style.setProperty('--reminder-drag-y', '0px')
+      backdrop.style.opacity = ''
+    }
 
     function cleanup() {
       if (closeTimer) window.clearTimeout(closeTimer)
       document.removeEventListener('keydown', onKeyDown)
+      dragSurface.removeEventListener('pointerdown', onPointerDown)
+      dragSurface.removeEventListener('pointermove', onPointerMove)
+      dragSurface.removeEventListener('pointerup', onPointerEnd)
+      dragSurface.removeEventListener('pointercancel', onPointerCancel)
       backdrop.removeEventListener('click', onBackdropClick)
       backdrop.remove()
       if (active?.sheet === sheet) active = null
@@ -102,17 +140,68 @@
     function close(button = actions.cancel) {
       if (closing) return
       closing = true
+      drag.active = false
+      drag.pointerId = null
+      sheet.classList.remove('is-dragging')
       sheet.classList.remove('is-open')
       sheet.classList.add('is-closing')
       backdrop.classList.remove('is-open')
       backdrop.classList.add('is-closing')
+      backdrop.style.opacity = ''
 
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (REDUCED_MOTION.matches) {
         passthrough(button)
         return
       }
 
       closeTimer = window.setTimeout(() => passthrough(button), CLOSE_MS)
+    }
+
+    function onPointerDown(event) {
+      if (closing || REDUCED_MOTION.matches || event.button > 0) return
+      if (event.target.closest('button, input, select, textarea, a')) return
+
+      drag.active = true
+      drag.pointerId = event.pointerId
+      drag.startY = event.clientY - drag.y
+      drag.lastY = event.clientY
+      drag.lastTime = performance.now()
+      drag.velocity = 0
+      sheet.classList.add('is-dragging')
+      dragSurface.setPointerCapture?.(event.pointerId)
+    }
+
+    function onPointerMove(event) {
+      if (!drag.active || event.pointerId !== drag.pointerId) return
+
+      const now = performance.now()
+      const dt = Math.max((now - drag.lastTime) / 1000, 0.001)
+      const nextY = Math.max(0, event.clientY - drag.startY)
+      drag.velocity = (event.clientY - drag.lastY) / dt
+      drag.lastY = event.clientY
+      drag.lastTime = now
+      paintDrag(nextY)
+    }
+
+    function finishPointer(event, cancelled = false) {
+      if (!drag.active || event.pointerId !== drag.pointerId) return
+
+      const pointerId = drag.pointerId
+      dragSurface.releasePointerCapture?.(pointerId)
+
+      const threshold = Math.min(Math.max(sheet.offsetHeight * 0.22, 90), 150)
+      const shouldClose = !cancelled && (drag.y >= threshold || drag.velocity > 680)
+
+      if (shouldClose) close(actions.cancel)
+      else settleDrag()
+    }
+
+    function onPointerEnd(event) {
+      finishPointer(event, false)
+    }
+
+    function onPointerCancel(event) {
+      finishPointer(event, true)
     }
 
     function onBackdropClick() {
@@ -123,6 +212,10 @@
       if (event.key === 'Escape') close(actions.cancel)
     }
 
+    dragSurface.addEventListener('pointerdown', onPointerDown)
+    dragSurface.addEventListener('pointermove', onPointerMove)
+    dragSurface.addEventListener('pointerup', onPointerEnd)
+    dragSurface.addEventListener('pointercancel', onPointerCancel)
     backdrop.addEventListener('click', onBackdropClick)
     document.addEventListener('keydown', onKeyDown)
 
@@ -130,6 +223,7 @@
 
     nextFrames(OPEN_FRAME_COUNT, () => {
       if (!sheet.isConnected || closing) return
+      sheet.style.setProperty('--reminder-drag-y', '0px')
       sheet.classList.add('is-open')
       backdrop.classList.add('is-open')
     })
