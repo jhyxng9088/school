@@ -1,0 +1,138 @@
+/* Shared page-entry motion. Same quiet rhythm as Home, without bounce. */
+
+@keyframes school-page-piece-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes school-page-button-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 7px, 0) scale(0.996);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* Standard / Todo */
+.app-content > .page-header,
+.app-content > .empty-panel,
+/* Timetable */
+.timetable-page > .timetable-header,
+.timetable-page > .week-summary,
+.timetable-page > .week-table-wrap,
+.timetable-page > .editor-actions,
+.timetable-page > .week-changes,
+/* Stage 3 */
+.stage3-page > .stage3-page-header,
+.meal-page > .stage3-week-nav,
+.meal-page > .stage3-day-strip,
+.meal-page > .stage3-detail,
+.academic-page > .academic-focus-card,
+.academic-page > .academic-list-head {
+  animation: school-page-piece-in 1040ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.app-content > .page-header,
+.timetable-page > .timetable-header,
+.stage3-page > .stage3-page-header {
+  animation-delay: 35ms;
+}
+
+.app-content > .empty-panel,
+.timetable-page > .week-summary,
+.meal-page > .stage3-week-nav,
+.academic-page > .academic-focus-card {
+  animation-delay: 115ms;
+}
+
+.timetable-page > .week-table-wrap,
+.meal-page > .stage3-day-strip,
+.academic-page > .academic-list-head {
+  animation-delay: 195ms;
+}
+
+.timetable-page > .editor-actions,
+.timetable-page > .week-changes,
+.meal-page > .stage3-detail {
+  animation-delay: 275ms;
+}
+
+/* Let controls arrive in a soft sequence instead of appearing all at once. */
+.timetable-actions > button,
+.stage3-day-strip > .stage3-day-button,
+.academic-list > .academic-list-item,
+.change-list > .change-item {
+  animation: school-page-button-in 980ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.timetable-actions > button:nth-child(1) { animation-delay: 120ms; }
+.timetable-actions > button:nth-child(2) { animation-delay: 175ms; }
+
+.stage3-day-strip > .stage3-day-button:nth-child(1) { animation-delay: 215ms; }
+.stage3-day-strip > .stage3-day-button:nth-child(2) { animation-delay: 255ms; }
+.stage3-day-strip > .stage3-day-button:nth-child(3) { animation-delay: 295ms; }
+.stage3-day-strip > .stage3-day-button:nth-child(4) { animation-delay: 335ms; }
+.stage3-day-strip > .stage3-day-button:nth-child(5) { animation-delay: 375ms; }
+
+.academic-list > .academic-list-item:nth-child(1),
+.change-list > .change-item:nth-child(1) { animation-delay: 245ms; }
+.academic-list > .academic-list-item:nth-child(2),
+.change-list > .change-item:nth-child(2) { animation-delay: 300ms; }
+.academic-list > .academic-list-item:nth-child(3),
+.change-list > .change-item:nth-child(3) { animation-delay: 355ms; }
+.academic-list > .academic-list-item:nth-child(4),
+.change-list > .change-item:nth-child(4) { animation-delay: 410ms; }
+.academic-list > .academic-list-item:nth-child(5),
+.change-list > .change-item:nth-child(5) { animation-delay: 465ms; }
+.academic-list > .academic-list-item:nth-child(n+6),
+.change-list > .change-item:nth-child(n+6) { animation-delay: 500ms; }
+
+/* Meal selection stays instantaneous; only the visual settling is long. */
+body .stage3-detail-body-motion {
+  animation: school-meal-detail-settle 1260ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  will-change: transform, opacity;
+}
+
+@keyframes school-meal-detail-settle {
+  from {
+    opacity: 0.84;
+    transform: translate3d(calc(var(--stage3-direction, 1) * 12px), 3px, 0) scale(0.997);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-content > .page-header,
+  .app-content > .empty-panel,
+  .timetable-page > .timetable-header,
+  .timetable-page > .week-summary,
+  .timetable-page > .week-table-wrap,
+  .timetable-page > .editor-actions,
+  .timetable-page > .week-changes,
+  .stage3-page > .stage3-page-header,
+  .meal-page > .stage3-week-nav,
+  .meal-page > .stage3-day-strip,
+  .meal-page > .stage3-detail,
+  .academic-page > .academic-focus-card,
+  .academic-page > .academic-list-head,
+  .timetable-actions > button,
+  .stage3-day-strip > .stage3-day-button,
+  .academic-list > .academic-list-item,
+  .change-list > .change-item,
+  body .stage3-detail-body-motion {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+}
