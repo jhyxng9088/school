@@ -22,6 +22,61 @@
   transform: scale(0.96);
 }
 
+/* Keep the due text vertically centered across the whole two-line reminder copy. */
+html body .todo-page .todo-item-main .todo-kind {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+html body .todo-page .todo-item-main strong {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+html body .todo-page .todo-item-main small {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  line-height: 1;
+}
+
+/* Completed reminders get a real, quiet destructive action instead of plain red text. */
+html body .todo-page .todo-item.is-completed {
+  grid-template-columns: 48px minmax(0, 1fr) 76px;
+}
+
+html body .todo-page .todo-permanent-delete {
+  align-self: center;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 34px;
+  margin-right: 10px;
+  padding: 0;
+  border: 1px solid rgba(216, 77, 73, 0.16);
+  border-radius: 12px;
+  background: rgba(216, 77, 73, 0.12);
+  color: #e06762;
+  font-size: 12px;
+  font-weight: 720;
+  line-height: 1;
+  opacity: 1;
+  transition:
+    background 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 220ms ease;
+}
+
+html body .todo-page .todo-permanent-delete:active {
+  background: rgba(216, 77, 73, 0.18);
+  border-color: rgba(216, 77, 73, 0.22);
+  opacity: 0.74;
+}
+
 @keyframes reminder-text-refresh {
   from {
     opacity: 0.12;
@@ -96,6 +151,14 @@
   animation: reminder-text-refresh 720ms cubic-bezier(0.16, 1, 0.3, 1) 55ms both;
 }
 
+@media (prefers-color-scheme: light) {
+  html body .todo-page .todo-permanent-delete {
+    background: rgba(205, 67, 62, 0.085);
+    border-color: rgba(205, 67, 62, 0.12);
+    color: #c94945;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .todo-page .is-reminder-text-changing,
   .todo-home-preview .is-reminder-text-changing,
@@ -109,7 +172,8 @@
   .todo-page .todo-completed-section.is-empty,
   .todo-page .todo-check,
   .todo-page .todo-item-main,
-  .todo-page .todo-check > span {
+  .todo-page .todo-check > span,
+  .todo-page .todo-permanent-delete {
     transition: none !important;
   }
 }
