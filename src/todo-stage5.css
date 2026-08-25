@@ -237,62 +237,99 @@ html body .app-content:has(> .todo-page) {
   min-width: 0;
 }
 
+/* Keep the original reminder row structure. The due date is only plain text on the right. */
 .todo-stage5 .todo-item {
-  grid-template-columns: 48px 62px minmax(0, 1fr);
-  min-height: 88px;
+  position: relative;
+  grid-template-columns: 48px minmax(0, 1fr);
+  min-height: 78px;
 }
 
 .todo-stage5 .todo-item.is-completed {
-  grid-template-columns: 48px 62px minmax(0, 1fr) 58px;
+  grid-template-columns: 48px minmax(0, 1fr) 58px;
 }
 
-.todo-date-tile {
-  align-self: stretch;
-  display: grid;
-  place-content: center;
-  gap: 4px;
-  min-width: 0;
-  border-inline: 1px solid var(--divider);
-  background: color-mix(in srgb, var(--surface-soft) 88%, transparent);
-  color: var(--text);
-  text-align: center;
-  pointer-events: none;
+.todo-stage5 .todo-item-main {
+  grid-column: 2;
+  padding: 13px 94px 13px 0;
 }
 
-.todo-date-tile > strong {
-  font-size: 27px;
-  font-weight: 720;
-  line-height: 0.95;
-  letter-spacing: -0.045em;
+.todo-stage5 .todo-item.is-completed .todo-item-main {
+  grid-column: 2;
+  padding-right: 94px;
 }
 
-.todo-date-tile > small {
-  color: var(--text-secondary);
+.todo-stage5 .todo-item-main > small {
+  grid-column: 1;
+  justify-self: start;
   font-size: 11px;
-  font-weight: 650;
+}
+
+.todo-stage5 .todo-permanent-delete {
+  grid-column: 3;
+}
+
+.todo-stage5 .todo-date-tile {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: 18px;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: baseline;
+  gap: 4px;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: right;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.todo-stage5 .todo-item.is-completed .todo-date-tile {
+  right: 70px;
+  opacity: 0.52;
+}
+
+.todo-stage5 .todo-date-tile > strong,
+.todo-stage5 .todo-date-tile > small {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 620;
   line-height: 1;
   letter-spacing: -0.015em;
 }
 
-.todo-stage5 .todo-item.is-completed .todo-date-tile {
-  opacity: 0.52;
-}
-
-.todo-stage5 .todo-item-main {
-  padding-left: 14px;
+.todo-stage5 .todo-date-tile > strong::after {
+  content: '일';
 }
 
 @media (max-width: 430px) {
   .todo-stage5 .todo-item {
-    grid-template-columns: 44px 56px minmax(0, 1fr);
+    grid-template-columns: 44px minmax(0, 1fr);
   }
 
   .todo-stage5 .todo-item.is-completed {
-    grid-template-columns: 44px 56px minmax(0, 1fr) 54px;
+    grid-template-columns: 44px minmax(0, 1fr) 54px;
   }
 
-  .todo-date-tile > strong {
-    font-size: 25px;
+  .todo-stage5 .todo-item-main,
+  .todo-stage5 .todo-item.is-completed .todo-item-main {
+    padding-right: 84px;
+  }
+
+  .todo-stage5 .todo-date-tile {
+    right: 14px;
+  }
+
+  .todo-stage5 .todo-item.is-completed .todo-date-tile {
+    right: 64px;
   }
 }
 
