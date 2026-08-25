@@ -22,6 +22,17 @@
   }
 }
 
+@keyframes school-meal-text-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 5px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 /* Standard / Todo */
 .app-content > .page-header,
 .app-content > .empty-panel,
@@ -97,14 +108,36 @@
 .change-list > .change-item:nth-child(n+6) { animation-delay: 500ms; }
 
 /*
-  Meal interaction motion is controlled by school-meal-motion.js.
-  Keep the React-remounted inner body visually stable so rapid taps never
-  restart a keyframe from frame zero.
+  Meal date changes do not move the whole detail surface anymore.
+  React replaces only the inner content; each text row then settles in sequence.
 */
 body .stage3-detail-body-motion {
   animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
   will-change: auto !important;
 }
+
+body .stage3-detail-body-motion > .stage3-detail-date,
+body .stage3-detail-body-motion > h2,
+body .stage3-detail-body-motion > .stage3-meal-list > li,
+body .stage3-detail-body-motion > .stage3-detail-meta,
+body .stage3-detail-body-motion > .stage3-status {
+  animation: school-meal-text-in 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+body .stage3-detail-body-motion > .stage3-detail-date { animation-delay: 0ms; }
+body .stage3-detail-body-motion > h2 { animation-delay: 55ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(1) { animation-delay: 110ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(2) { animation-delay: 155ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(3) { animation-delay: 200ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(4) { animation-delay: 245ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(5) { animation-delay: 290ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(6) { animation-delay: 335ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(7) { animation-delay: 380ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(n+8) { animation-delay: 410ms; }
+body .stage3-detail-body-motion > .stage3-detail-meta { animation-delay: 430ms; }
+body .stage3-detail-body-motion > .stage3-status { animation-delay: 45ms; }
 
 @media (prefers-reduced-motion: reduce) {
   .app-content > .page-header,
@@ -123,7 +156,12 @@ body .stage3-detail-body-motion {
   .timetable-actions > button,
   .stage3-day-strip > .stage3-day-button,
   .academic-list > .academic-list-item,
-  .change-list > .change-item {
+  .change-list > .change-item,
+  body .stage3-detail-body-motion > .stage3-detail-date,
+  body .stage3-detail-body-motion > h2,
+  body .stage3-detail-body-motion > .stage3-meal-list > li,
+  body .stage3-detail-body-motion > .stage3-detail-meta,
+  body .stage3-detail-body-motion > .stage3-status {
     animation-duration: 0.01ms !important;
     animation-delay: 0ms !important;
   }
