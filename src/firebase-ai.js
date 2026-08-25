@@ -60,6 +60,32 @@ const appCheck = initializeAppCheck(firebaseApp, {
   isTokenAutoRefreshEnabled: true,
 })
 
+let standalonePwaAppCheckUnavailable = false
+
+function isAppleStandaloneWebApp() {
+  if (typeof window === 'undefined') return false
+
+  const standalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true
+  const userAgent = window.navigator.userAgent || ''
+  const appleTouchDevice =
+    /iPhone|iPad|iPod/i.test(userAgent) ||
+    (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1)
+
+  return Boolean(standalone && appleTouchDevice)
+}
+
+function isStandalonePwaAppCheckFailure(error) {
+  const code = String(error?.code || '')
+  return (
+    code === 'appCheck/recaptcha-error' ||
+    code === 'appCheck/throttled' ||
+    code === 'appCheck/initial-throttle' ||
+    code === 'school-appcheck/timeout'
+  )
+}
+
 function timeoutError(milliseconds, label = 'AI Logic') {
   const error = new Error(`${label} timed out after ${milliseconds}ms`)
   error.code = label === 'App Check' ? 'school-appcheck/timeout' : 'school-ai/timeout'
@@ -121,14 +147,17 @@ async function fetchGenerateContent({
     }
   }
 
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-goog-api-key': firebaseConfig.apiKey,
+  }
+
+  if (appCheckToken) headers['X-Firebase-AppCheck'] = appCheckToken
+
   try {
     const response = await fetch(aiEndpoint(modelName), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': firebaseConfig.apiKey,
-        'X-Firebase-AppCheck': appCheckToken,
-      },
+      headers,
       body: JSON.stringify(body),
       signal: controller.signal,
     })
@@ -313,6 +342,33 @@ async function getUsableAppCheckToken(forceRefresh = false) {
   throw error
 }
 
+async function getAIAttestation() {
+  const standalone = isAppleStandaloneWebApp()
+
+  if (standalone && standalonePwaAppCheckUnavailable) {
+    return {
+      token: '',
+      source: 'ios-pwa-unattested-fallback',
+      sdkError: null,
+    }
+  }
+
+  try {
+    return await getUsableAppCheckToken(false)
+  } catch (error) {
+    if (standalone && isStandalonePwaAppCheckFailure(error)) {
+      standalonePwaAppCheckUnavailable = true
+      console.warn('App Check unavailable in iOS/iPadOS standalone PWA; using AI fallback for this session.', error)
+      return {
+        token: '',
+        source: 'ios-pwa-unattested-fallback',
+        sdkError: error,
+      }
+    }
+    throw error
+  }
+}
+
 if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
   window.__SCHOOL_APPCHECK_DIAGNOSE__ = async () => {
     const startedAt = Date.now()
@@ -402,7 +458,7 @@ export async function parseReminderWithAI(input, now = new Date()) {
   const text = String(input || '').trim()
   if (!text) return null
 
-  const appCheckResult = await getUsableAppCheckToken(false)
+  const appCheckResult = await getAIAttestation()
   const prompt = `Reference local datetime: ${localReference(now)} (Asia/Seoul)\nReminder: ${text}`
   const result = await generateWithFallback({
     prompt,
