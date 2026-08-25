@@ -153,8 +153,8 @@
       }
 
       const isClosing = target > 0
-      const stiffness = isClosing ? 56 : 82
-      const damping = isClosing ? 19 : 20.5
+      const stiffness = isClosing ? 92 : 118
+      const damping = isClosing ? 22 : 24
       const mass = 1
 
       function step(time) {
@@ -177,7 +177,7 @@
 
         paint()
 
-        const settled = Math.abs(state.y - target) < 0.45 && Math.abs(state.velocity) < 3.2
+        const settled = Math.abs(state.y - target) < 0.55 && Math.abs(state.velocity) < 3.8
         if (settled) {
           state.y = target
           state.velocity = 0
@@ -200,14 +200,14 @@
       state.dragging = false
       sheet.classList.add('is-closing')
       springTo(closedY(), {
-        velocity: Math.max(velocity, 200),
+        velocity: Math.max(velocity, 260),
         onComplete: () => finishNativeAction(button),
       })
     }
 
     function settleOpen(velocity = state.velocity) {
       state.closing = false
-      springTo(0, { velocity: Math.min(velocity, 380) })
+      springTo(0, { velocity: Math.min(velocity, 460) })
     }
 
     function onPointerDown(event) {
@@ -249,7 +249,7 @@
 
       const threshold = Math.min(Math.max(sheet.offsetHeight * 0.28, 110), 180)
       const shouldClose = state.y > threshold || state.velocity > 760
-      if (shouldClose) requestClose(closeButton, Math.max(state.velocity, 180))
+      if (shouldClose) requestClose(closeButton, Math.max(state.velocity, 220))
       else settleOpen(state.velocity)
     }
 
@@ -258,11 +258,11 @@
     }
 
     function onBackdropClick() {
-      requestClose(closeButton, 200)
+      requestClose(closeButton, 260)
     }
 
     function onKeyDown(event) {
-      if (event.key === 'Escape') requestClose(closeButton, 200)
+      if (event.key === 'Escape') requestClose(closeButton, 260)
     }
 
     function cleanupVisuals() {
@@ -314,7 +314,7 @@
 
     event.preventDefault()
     event.stopPropagation()
-    activeController.requestClose(target, 200)
+    activeController.requestClose(target, 260)
   }, true)
 
   const observer = new MutationObserver(() => {
