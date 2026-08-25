@@ -18,6 +18,7 @@ import {
   loadWeeklySchedule,
   saveOverrides,
   saveWeeklySchedule,
+  timeToMinutes,
 } from './timetable'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
@@ -182,6 +183,21 @@ function subjectName(period) {
   return period?.subject?.trim() || '과목 미설정'
 }
 
+function minutesUntil(now, targetTime) {
+  if (!targetTime) return null
+  const [hour, minute] = targetTime.split(':').map(Number)
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null
+  const target = new Date(now)
+  target.setHours(hour, minute, 0, 0)
+  return Math.max(0, Math.ceil((target.getTime() - now.getTime()) / 60000))
+}
+
+function remainingLabel(now, targetTime) {
+  const minutes = minutesUntil(now, targetTime)
+  if (minutes === null) return ''
+  return minutes <= 0 ? '곧' : `${minutes}분 남음`
+}
+
 function SectionTitle({ children, aside }) {
   return (
     <div className="section-heading">
@@ -191,7 +207,7 @@ function SectionTitle({ children, aside }) {
   )
 }
 
-function CurrentClassPreview({ schoolState }) {
+function CurrentClassPreview({ schoolState, now }) {
   let label = '현재 수업'
   let title = '시간표 설정 전'
   let description = '시간표를 설정하면 지금 수업과 다음 수업이 여기에 표시돼.'
@@ -205,13 +221,13 @@ function CurrentClassPreview({ schoolState }) {
   } else if (schoolState.kind === 'before') {
     label = '수업 전'
     title = subjectName(schoolState.next)
-    description = `${schoolState.next.number}교시 · ${schoolState.next.start} 시작`
+    description = `${schoolState.next.number}교시 · ${schoolState.next.start} 시작 · ${remainingLabel(now, schoolState.next.start)}`
     nextLabel = '첫 수업'
     nextValue = `${schoolState.next.number}교시 · ${subjectName(schoolState.next)}`
   } else if (schoolState.kind === 'class') {
     label = `${schoolState.current.number}교시 · 진행 중`
     title = subjectName(schoolState.current)
-    description = `${schoolState.current.start}–${schoolState.current.end}`
+    description = `${schoolState.current.start}–${schoolState.current.end} · ${remainingLabel(now, schoolState.current.end)}`
     nextValue = schoolState.next
       ? `${schoolState.next.number}교시 · ${subjectName(schoolState.next)}`
       : '오늘 마지막 수업'
@@ -219,7 +235,7 @@ function CurrentClassPreview({ schoolState }) {
     label = '쉬는 시간'
     title = schoolState.next ? `다음 · ${subjectName(schoolState.next)}` : '수업 종료'
     description = schoolState.next
-      ? `${schoolState.next.number}교시 · ${schoolState.next.start} 시작`
+      ? `${schoolState.next.number}교시 · ${schoolState.next.start} 시작 · ${remainingLabel(now, schoolState.next.start)}`
       : '오늘 수업이 모두 끝났어.'
     nextValue = schoolState.next
       ? `${schoolState.next.number}교시 · ${subjectName(schoolState.next)}`
@@ -227,7 +243,7 @@ function CurrentClassPreview({ schoolState }) {
   } else if (schoolState.kind === 'lunch') {
     label = '점심시간'
     title = '점심시간'
-    description = '14:00까지'
+    description = `14:00까지 · ${remainingLabel(now, '14:00')}`
     nextValue = schoolState.next
       ? `${schoolState.next.number}교시 · ${subjectName(schoolState.next)}`
       : '—'
@@ -277,6 +293,8 @@ function TimetablePreview({ schedule, now, configured }) {
   }
 
   const hasOverride = schedule.some((period) => period.isOverride)
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const nextPeriod = schedule.find((period) => timeToMinutes(period.start) > nowMinutes) || null
 
   return (
     <section className="home-section">
@@ -288,9 +306,10 @@ function TimetablePreview({ schedule, now, configured }) {
       >
         {schedule.map((period) => {
           const visualState = getPeriodVisualState(now, period)
+          const isNext = visualState !== 'current' && nextPeriod?.number === period.number
           return (
             <div
-              className={`period-item is-${visualState} ${period.isOverride ? 'is-override' : ''}`}
+              className={`period-item is-${visualState} ${isNext ? 'is-next' : ''} ${period.isOverride ? 'is-override' : ''}`}
               key={period.number}
             >
               <span>{period.number}</span>
@@ -334,7 +353,7 @@ function Home({ name, now, weeklySchedule, overrides }) {
       </header>
 
       <div className="home-stack">
-        <CurrentClassPreview schoolState={schoolState} />
+        <CurrentClassPreview schoolState={schoolState} now={now} />
         <TodoPreview />
         <TimetablePreview
           schedule={schoolState.schedule}
@@ -394,13 +413,21 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
   const todayKey = dateKey(now)
   const selectedDate = dateFromKey(changeDate)
   const selectedDay = getDayForDate(selectedDate)
-  const availablePeriods = selectedDay ? getPeriodsForDay(selectedDay.id) : []
+  const selectedDateIsPast = Boolean(changeDate && changeDate < todayKey)
+  const selectedDateIsToday = changeDate === todayKey
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const availablePeriods = selectedDay && !selectedDateIsPast
+    ? getPeriodsForDay(selectedDay.id).filter((period) => !selectedDateIsToday || timeToMinutes(period.end) > nowMinutes)
+    : []
+  const availablePeriodSignature = availablePeriods.map((period) => period.number).join(',')
+  const selectedPeriodIsAvailable = availablePeriods.some((period) => period.number === changePeriod)
   const baseSubject = selectedDay ? weeklySchedule?.[selectedDay.id]?.[changePeriod] || '' : ''
 
   useEffect(() => {
-    if (!selectedDay || changePeriod > selectedDay.periodCount) setChangePeriod(1)
-    setChangeSubject('')
-  }, [changeDate])
+    if (!selectedPeriodIsAvailable) {
+      setChangePeriod(availablePeriods[0]?.number || 1)
+    }
+  }, [changeDate, availablePeriodSignature])
 
   useEffect(() => {
     setChangeSubject('')
@@ -438,7 +465,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
   }
 
   function saveChange() {
-    if (!selectedDay) return
+    if (!selectedDay || !selectedPeriodIsAvailable) return
     const subject = changeSubject.trim()
     if (!subject) return
 
@@ -541,12 +568,18 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                 const date = weekDates[dayIndex]
                 const daySchedule = getScheduleForDate(date, weeklySchedule, overrides)
                 const item = daySchedule.find((entry) => entry.number === period.number)
-                const isCurrent = dateKey(date) === todayKey && currentState.current?.number === period.number
+                const isToday = dateKey(date) === todayKey
+                const visualState = isToday ? getPeriodVisualState(now, period) : null
+                const isCurrent = visualState === 'current'
+                const isPast = visualState === 'past'
+                const isNext = isToday && !isCurrent && currentState.next?.number === period.number
                 const classes = [
                   'week-cell',
                   item?.subject?.trim() ? '' : 'empty',
                   item?.isOverride ? 'is-override' : '',
+                  isPast ? 'is-past' : '',
                   isCurrent ? 'is-current' : '',
+                  isNext ? 'is-next' : '',
                 ].filter(Boolean).join(' ')
 
                 return (
@@ -579,14 +612,22 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
           <div className="change-form">
             <label className="change-field">
               <span>날짜</span>
-              <input type="date" value={changeDate} onChange={(event) => setChangeDate(event.target.value)} />
+              <input
+                type="date"
+                value={changeDate}
+                min={todayKey}
+                onChange={(event) => {
+                  setChangeDate(event.target.value)
+                  setChangeSubject('')
+                }}
+              />
             </label>
             <label className="change-field">
               <span>교시</span>
               <select
-                value={changePeriod}
+                value={selectedPeriodIsAvailable ? changePeriod : ''}
                 onChange={(event) => setChangePeriod(Number(event.target.value))}
-                disabled={!selectedDay}
+                disabled={!selectedDay || !availablePeriods.length}
               >
                 {availablePeriods.map((period) => (
                   <option value={period.number} key={period.number}>{period.number}교시</option>
@@ -600,20 +641,24 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                 onChange={(event) => setChangeSubject(event.target.value)}
                 placeholder="변경된 과목 입력"
                 maxLength={20}
-                disabled={!selectedDay}
+                disabled={!selectedDay || !availablePeriods.length}
               />
             </label>
-            {selectedDay ? (
-              <p className="change-base">기본: {baseSubject.trim() || '미설정'}</p>
-            ) : (
+            {!selectedDay ? (
               <p className="change-warning">토·일요일에는 정규 시간표를 변경할 수 없어.</p>
+            ) : selectedDateIsPast ? (
+              <p className="change-warning">지난 날짜의 시간표는 변경할 수 없어.</p>
+            ) : !availablePeriods.length ? (
+              <p className="change-warning">오늘 이미 끝난 교시는 변경할 수 없어.</p>
+            ) : (
+              <p className="change-base">기본: {baseSubject.trim() || '미설정'}</p>
             )}
             <div className="change-submit-row">
               <button onClick={() => setChangeOpen(false)}>취소</button>
               <button
                 className="save-change"
                 onClick={saveChange}
-                disabled={!selectedDay || !changeSubject.trim()}
+                disabled={!selectedDay || !selectedPeriodIsAvailable || !changeSubject.trim()}
               >
                 변경 저장
               </button>
