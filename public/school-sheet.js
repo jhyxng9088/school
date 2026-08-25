@@ -123,9 +123,9 @@
       }
 
       const isClosing = target > 0
-      // Opening stays overdamped, but is slightly quicker than the first version.
-      const stiffness = isClosing ? 56 : 60
-      const damping = isClosing ? 19 : 18.5
+      // Opening is faster now, but remains overdamped and never bounces past rest.
+      const stiffness = isClosing ? 56 : 82
+      const damping = isClosing ? 19 : 20.5
       const mass = 1
 
       function step(time) {
