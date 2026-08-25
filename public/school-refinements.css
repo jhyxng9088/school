@@ -102,6 +102,16 @@ body:has(.period-item.is-current) .current-class-label::before {
   }
 }
 
+/* Keep the five home sections entering in sequence, and reserve the normal
+   academic-summary footprint so NEIS data cannot push the page after load. */
+.home-stack > :nth-child(5) {
+  animation-delay: 230ms;
+}
+
+.academic-home-list {
+  min-height: 174px;
+}
+
 @media (prefers-color-scheme: light) {
   body:has(.period-item.is-current) .current-class-label::before {
     background: rgba(40, 40, 44, 0.9);
