@@ -71,7 +71,7 @@ export function useTodos() {
   function saveTodo(input) {
     const title = String(input.title || '').trim()
     const dueDate = String(input.dueDate || '')
-    if (!title || !dueDate) return false
+    if (!title || !dueDate) return ''
 
     if (input.id) {
       commit(todos.map((todo) => todo.id === input.id
@@ -83,7 +83,7 @@ export function useTodos() {
             dueTime: input.dueTime || '',
           }
         : todo))
-      return true
+      return input.id
     }
 
     const todo = {
@@ -96,7 +96,7 @@ export function useTodos() {
       createdAt: Date.now(),
     }
     commit([...todos, todo])
-    return true
+    return todo.id
   }
 
   function toggleTodo(id) {
@@ -172,6 +172,7 @@ export function TodoPage({ now, todoData }) {
   const { todos, saveTodo, toggleTodo, removeTodo } = todoData
   const [sheetOpen, setSheetOpen] = useState(false)
   const [draft, setDraft] = useState(() => emptyDraft(now))
+  const [motion, setMotion] = useState({ id: '', phase: '' })
 
   const sorted = useMemo(() => sortTodos(todos), [todos])
   const active = sorted.filter((todo) => !todo.completed)
@@ -193,15 +194,51 @@ export function TodoPage({ now, todoData }) {
     setSheetOpen(true)
   }
 
+  function markEntering(id) {
+    setMotion({ id, phase: 'enter' })
+    window.setTimeout(() => {
+      setMotion((current) => current.id === id && current.phase === 'enter'
+        ? { id: '', phase: '' }
+        : current)
+    }, 480)
+  }
+
   function submitTodo() {
-    const saved = saveTodo(draft)
-    if (saved) setSheetOpen(false)
+    const savedId = saveTodo(draft)
+    if (!savedId) return
+    markEntering(savedId)
+    setSheetOpen(false)
+  }
+
+  function animateToggle(id) {
+    if (motion.id === id && motion.phase === 'leave') return
+    setMotion({ id, phase: 'leave' })
+    window.setTimeout(() => {
+      toggleTodo(id)
+      markEntering(id)
+    }, 150)
+  }
+
+  function animatePermanentDelete(id) {
+    if (motion.id === id && motion.phase === 'leave') return
+    setMotion({ id, phase: 'leave' })
+    window.setTimeout(() => {
+      removeTodo(id)
+      setMotion({ id: '', phase: '' })
+    }, 150)
   }
 
   function deleteEditing() {
     if (!draft.id) return
     removeTodo(draft.id)
     setSheetOpen(false)
+  }
+
+  function motionClass(id) {
+    if (motion.id !== id) return ''
+    if (motion.phase === 'leave') return 'is-state-leaving'
+    if (motion.phase === 'enter') return 'is-state-entering'
+    return ''
   }
 
   return (
@@ -224,11 +261,11 @@ export function TodoPage({ now, todoData }) {
         {active.length ? (
           <div className="todo-list">
             {active.map((todo) => (
-              <article className="todo-item" key={todo.id}>
+              <article className={`todo-item ${motionClass(todo.id)}`} key={todo.id}>
                 <button
                   className="todo-check"
                   aria-label={`${todo.title} 완료`}
-                  onClick={() => toggleTodo(todo.id)}
+                  onClick={() => animateToggle(todo.id)}
                 >
                   <span />
                 </button>
@@ -253,11 +290,11 @@ export function TodoPage({ now, todoData }) {
           <h2>완료</h2>
           <div className="todo-list">
             {completed.map((todo) => (
-              <article className="todo-item is-completed" key={todo.id}>
+              <article className={`todo-item is-completed ${motionClass(todo.id)}`} key={todo.id}>
                 <button
                   className="todo-check"
                   aria-label={`${todo.title} 완료 취소`}
-                  onClick={() => toggleTodo(todo.id)}
+                  onClick={() => animateToggle(todo.id)}
                 >
                   <span />
                 </button>
@@ -265,6 +302,14 @@ export function TodoPage({ now, todoData }) {
                   <span className="todo-kind">{typeLabel(todo.type)}</span>
                   <strong>{todo.title}</strong>
                   <small>{dueLabel(todo, now)}</small>
+                </button>
+                <button
+                  className="todo-permanent-delete"
+                  type="button"
+                  aria-label={`${todo.title} 영구 삭제`}
+                  onClick={() => animatePermanentDelete(todo.id)}
+                >
+                  삭제
                 </button>
               </article>
             ))}
