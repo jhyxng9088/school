@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import './reminder-summary.css'
 
 const ACCEPTED_FILES = [
@@ -96,6 +96,12 @@ export function SummarySheet({ todo, onClose }) {
   const [expanded, setExpanded] = useState(false)
   const [dragY, setDragY] = useState(0)
   const dragRef = useRef(null)
+
+  useEffect(() => {
+    setExpanded(false)
+    setDragY(0)
+    dragRef.current = null
+  }, [todo?.id])
 
   if (!todo?.summary) return null
 

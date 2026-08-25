@@ -16,6 +16,8 @@ const SUPPORTED_ATTACHMENT_TYPES = new Set([
   'image/png',
   'image/webp',
   'image/bmp',
+  'image/heic',
+  'image/heif',
 ])
 
 function reminderError(message, code, status = 400) {

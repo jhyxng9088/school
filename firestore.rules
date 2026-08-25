@@ -6,9 +6,39 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function validReminderSummary() {
+      return !request.resource.data.keys().hasAny(['summary'])
+        || (request.resource.data.summary is map
+          && request.resource.data.summary.keys().hasOnly(['overview', 'sections'])
+          && request.resource.data.summary.keys().hasAll(['overview', 'sections'])
+          && request.resource.data.summary.overview is string
+          && request.resource.data.summary.overview.size() <= 2400
+          && request.resource.data.summary.sections is list
+          && request.resource.data.summary.sections.size() <= 14);
+    }
+
+    function validReminderAttachment() {
+      return !request.resource.data.keys().hasAny(['attachment'])
+        || (request.resource.data.attachment is map
+          && request.resource.data.attachment.keys().hasOnly(['name', 'mimeType', 'size'])
+          && request.resource.data.attachment.keys().hasAll(['name', 'mimeType', 'size'])
+          && request.resource.data.attachment.name is string
+          && request.resource.data.attachment.name.size() > 0
+          && request.resource.data.attachment.name.size() <= 120
+          && request.resource.data.attachment.mimeType in [
+            'application/pdf', 'application/json', 'text/plain', 'text/csv', 'text/rtf',
+            'text/html', 'text/xml', 'image/jpeg', 'image/png', 'image/webp', 'image/bmp',
+            'image/heic', 'image/heif'
+          ]
+          && request.resource.data.attachment.size is int
+          && request.resource.data.attachment.size > 0
+          && request.resource.data.attachment.size <= 2500000);
+    }
+
     function validReminder(todoId) {
       return request.resource.data.keys().hasOnly([
-          'id', 'type', 'title', 'dueDate', 'dueTime', 'createdAt', 'updatedAt'
+          'id', 'type', 'title', 'dueDate', 'dueTime', 'createdAt', 'updatedAt',
+          'summary', 'attachment'
         ])
         && request.resource.data.id == todoId
         && request.resource.data.type in ['task', 'performance', 'exam', 'material']
@@ -20,7 +50,9 @@ service cloud.firestore {
         && request.resource.data.dueTime is string
         && request.resource.data.dueTime.size() <= 5
         && request.resource.data.createdAt is int
-        && request.resource.data.updatedAt is int;
+        && request.resource.data.updatedAt is int
+        && validReminderSummary()
+        && validReminderAttachment();
     }
 
     function validTimetable() {

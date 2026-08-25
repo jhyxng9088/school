@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { TODO_TYPES } from './todo.jsx'
 import { formatParsedDue, parseReminderText } from './reminder-parser.js'
 import { parseReminderWithAI } from './firebase-ai.js'
+import { AttachmentPicker, SummarySheet } from './reminder-summary.jsx'
 import './todo-stage5.css'
 import './todo-ai.css'
 
@@ -53,6 +54,8 @@ function emptyDraft(now) {
     title: '',
     dueDate: dateKey(now),
     dueTime: '',
+    summary: null,
+    attachment: null,
   }
 }
 
@@ -80,9 +83,16 @@ function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
   )
 }
 
-function ReminderRow({ todo, now, completed = false, deleting = false, onToggle, onEdit, onDelete }) {
+function ReminderRow({ todo, now, completed = false, deleting = false, onToggle, onEdit, onDelete, onOpenSummary }) {
   const dateLabel = dueDateLabel(todo)
   const meta = dueMetaLabel(todo, now)
+  const content = (
+    <>
+      <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
+      <AnimatedText as="strong" value={todo.title} delay={45} />
+      {meta ? <AnimatedText as="small" value={meta} delay={90} /> : null}
+    </>
+  )
 
   return (
     <article
@@ -96,11 +106,18 @@ function ReminderRow({ todo, now, completed = false, deleting = false, onToggle,
       >
         <span />
       </button>
-      <div className="todo-item-main">
-        <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
-        <AnimatedText as="strong" value={todo.title} delay={45} />
-        {meta ? <AnimatedText as="small" value={meta} delay={90} /> : null}
-      </div>
+      {todo.summary ? (
+        <button
+          className="todo-item-main has-summary"
+          type="button"
+          aria-label={`${todo.title} 요약 보기`}
+          onClick={() => onOpenSummary(todo)}
+        >
+          {content}
+        </button>
+      ) : (
+        <div className="todo-item-main">{content}</div>
+      )}
       <div className="todo-row-actions">
         <span className="todo-date-text">{dateLabel}</span>
         {completed ? (
@@ -139,6 +156,8 @@ export function TodoPage({ now, todoData }) {
   const [aiResult, setAiResult] = useState(null)
   const [aiState, setAiState] = useState('idle')
   const [aiError, setAiError] = useState(null)
+  const [attachmentFile, setAttachmentFile] = useState(null)
+  const [summaryTodo, setSummaryTodo] = useState(null)
   const pageRef = useRef(null)
   const previousRectsRef = useRef(new Map())
   const motionReadyRef = useRef(false)
@@ -151,8 +170,8 @@ export function TodoPage({ now, todoData }) {
   const visibleCompleted = filter === 'all' ? completed : completed.filter((todo) => todo.type === filter)
   const selectedFilterLabel = FILTERS.find((item) => item.id === filter)?.label || '전체'
   const localNaturalResult = useMemo(() => parseReminderText(naturalText, now), [naturalText, now])
-  const naturalResult = aiResult || localNaturalResult
-  const aiAdjusted = Boolean(aiResult && resultSignature(aiResult) !== resultSignature(localNaturalResult))
+  const naturalResult = attachmentFile ? aiResult : (aiResult || localNaturalResult)
+  const aiAdjusted = Boolean(!attachmentFile && aiResult && resultSignature(aiResult) !== resultSignature(localNaturalResult))
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPageEntering(false), 1150)
@@ -161,12 +180,13 @@ export function TodoPage({ now, todoData }) {
 
   useEffect(() => {
     const text = naturalText.trim()
+    const hasAttachment = Boolean(attachmentFile)
     const requestId = aiRequestRef.current + 1
     aiRequestRef.current = requestId
     setAiResult(null)
     setAiError(null)
 
-    if (!sheetOpen || sheetMode !== 'natural' || text.length < 2) {
+    if (!sheetOpen || sheetMode !== 'natural' || (!hasAttachment && text.length < 2)) {
       setAiState('idle')
       return undefined
     }
@@ -177,7 +197,7 @@ export function TodoPage({ now, todoData }) {
       setAiState('loading')
 
       try {
-        const parsed = await parseReminderWithAI(text, new Date())
+        const parsed = await parseReminderWithAI(text, new Date(), attachmentFile)
         if (aiRequestRef.current !== requestId) return
         if (parsed) setAiResult(parsed)
         setAiError(null)
@@ -194,10 +214,10 @@ export function TodoPage({ now, todoData }) {
         })
         setAiState('error')
       }
-    }, 650)
+    }, hasAttachment ? 420 : 650)
 
     return () => window.clearTimeout(timer)
-  }, [naturalText, sheetOpen, sheetMode])
+  }, [naturalText, attachmentFile, sheetOpen, sheetMode])
 
   useLayoutEffect(() => {
     const root = pageRef.current
@@ -272,6 +292,8 @@ export function TodoPage({ now, todoData }) {
 
   function openCreate() {
     setNaturalText('')
+    setAttachmentFile(null)
+    setSummaryTodo(null)
     setDraft(emptyDraft(now))
     setSheetMode('natural')
     resetAI()
@@ -280,16 +302,25 @@ export function TodoPage({ now, todoData }) {
 
   function openEdit(todo) {
     setNaturalText('')
+    setAttachmentFile(null)
+    setSummaryTodo(null)
     setDraft({
       id: todo.id,
       type: todo.type,
       title: todo.title,
       dueDate: todo.dueDate,
       dueTime: todo.dueTime || '',
+      summary: todo.summary || null,
+      attachment: todo.attachment || null,
     })
     setSheetMode('manual')
     resetAI()
     setSheetOpen(true)
+  }
+
+  function changeAttachment(file) {
+    setAttachmentFile(file)
+    resetAI()
   }
 
   function syncPickerDisplays() {
@@ -310,6 +341,8 @@ export function TodoPage({ now, todoData }) {
       title: naturalResult.title,
       dueDate: naturalResult.dueDate,
       dueTime: naturalResult.dueTime || '',
+      summary: naturalResult.summary || null,
+      attachment: naturalResult.attachment || null,
     } : emptyDraft(now))
     resetAI()
     setSheetMode('manual')
@@ -324,6 +357,8 @@ export function TodoPage({ now, todoData }) {
       title: naturalResult.title,
       dueDate: naturalResult.dueDate,
       dueTime: naturalResult.dueTime || '',
+      summary: naturalResult.summary || null,
+      attachment: naturalResult.attachment || null,
     })
     if (savedId) {
       resetAI()
@@ -358,7 +393,7 @@ export function TodoPage({ now, todoData }) {
 
   const aiBusy = aiState === 'waiting' || aiState === 'loading'
   const saveDisabled = sheetMode === 'natural'
-    ? !naturalResult?.title
+    ? (attachmentFile ? !aiResult?.title || !aiResult?.summary : !naturalResult?.title)
     : !draft.title.trim() || !draft.dueDate
 
   const summaryText = filter === 'all'
@@ -407,6 +442,7 @@ export function TodoPage({ now, todoData }) {
                 onToggle={toggleTodo}
                 onEdit={openEdit}
                 onDelete={animatePermanentDelete}
+                onOpenSummary={setSummaryTodo}
                 key={todo.id}
               />
             ))}
@@ -436,6 +472,7 @@ export function TodoPage({ now, todoData }) {
                   onToggle={toggleTodo}
                   onEdit={openEdit}
                   onDelete={animatePermanentDelete}
+                  onOpenSummary={setSummaryTodo}
                   key={todo.id}
                 />
               ))}
@@ -443,6 +480,8 @@ export function TodoPage({ now, todoData }) {
           ) : null}
         </div>
       </section>
+
+      <SummarySheet todo={summaryTodo} onClose={() => setSummaryTodo(null)} />
 
       {sheetOpen ? (
         <section className="todo-sheet">
@@ -467,6 +506,14 @@ export function TodoPage({ now, todoData }) {
                 />
               </label>
 
+              <AttachmentPicker
+                file={attachmentFile}
+                busy={aiBusy}
+                ready={Boolean(aiResult?.summary)}
+                error={attachmentFile && aiState === 'error' ? (aiError?.message || '첨부 분석에 실패했어. 다시 시도해줘.') : ''}
+                onChange={changeAttachment}
+              />
+
               {naturalResult ? (
                 <section className="reminder-parse-preview" aria-live="polite">
                   <p>이렇게 이해했어</p>
@@ -478,14 +525,14 @@ export function TodoPage({ now, todoData }) {
                   {aiBusy ? (
                     <small className="reminder-ai-status is-working">AI가 오타와 문맥을 확인하는 중…</small>
                   ) : aiState === 'ready' ? (
-                    <small className="reminder-ai-status is-ready">{aiAdjusted ? 'AI가 오타·축약을 보정했어.' : 'AI 확인 완료'}</small>
+                    <small className="reminder-ai-status is-ready">{attachmentFile ? '첨부 내용 분석과 요약 완료' : aiAdjusted ? 'AI가 오타·축약을 보정했어.' : 'AI 확인 완료'}</small>
                   ) : aiState === 'error' ? (
-                    <small className="reminder-ai-status">AI 연결이 안 돼서 기기 분석 결과를 사용해.</small>
+                    <small className="reminder-ai-status">{attachmentFile ? '첨부를 분석하지 못했어.' : 'AI 연결이 안 돼서 기기 분석 결과를 사용해.'}</small>
                   ) : naturalResult.assumedDate ? (
                     <small>날짜를 안 써서 오늘로 잡았어. 다르면 직접 입력에서 바꿀 수 있어.</small>
                   ) : null}
                 </section>
-              ) : (
+              ) : attachmentFile ? null : (
                 <div className="reminder-natural-hint">
                   <span>“내일 체육복 챙기기”</span>
                   <span>“9월 2일 모의고사”</span>

@@ -31,6 +31,51 @@ const firebaseConfig = {
 
 export const STUDENT_PROFILE_KEY = 'school.studentProfile.v1'
 const MIGRATION_VERSION = 'v1'
+
+const SUMMARY_MAX_SECTIONS = 14
+const SUMMARY_MAX_ITEMS = 16
+const ATTACHMENT_MAX_BYTES = 2_500_000
+const ATTACHMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/json',
+  'text/plain',
+  'text/csv',
+  'text/rtf',
+  'text/html',
+  'text/xml',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/bmp',
+  'image/heic',
+  'image/heif',
+])
+
+function safeSummary(value) {
+  if (!value || typeof value !== 'object') return null
+  const overview = String(value.overview || '').trim().slice(0, 2400)
+  const sections = Array.isArray(value.sections)
+    ? value.sections.slice(0, SUMMARY_MAX_SECTIONS).map((section) => ({
+        heading: String(section?.heading || '').trim().slice(0, 80),
+        items: Array.isArray(section?.items)
+          ? section.items.slice(0, SUMMARY_MAX_ITEMS).map((item) => String(item || '').trim().slice(0, 700)).filter(Boolean)
+          : [],
+      })).filter((section) => section.heading && section.items.length)
+    : []
+  if (!overview && !sections.length) return null
+  return { overview, sections }
+}
+
+function safeAttachment(value) {
+  if (!value || typeof value !== 'object') return null
+  const name = String(value.name || '').trim().slice(0, 120)
+  const mimeType = String(value.mimeType || '').trim().toLowerCase()
+  const size = Number(value.size || 0)
+  if (!name || !ATTACHMENT_MIME_TYPES.has(mimeType)) return null
+  if (!Number.isInteger(size) || size <= 0 || size > ATTACHMENT_MAX_BYTES) return null
+  return { name, mimeType, size }
+}
+
 const PRESENCE_ACTIVE_MS = 90 * 1000
 const PRESENCE_HEARTBEAT_MS = 30 * 1000
 const PRESENCE_RECOUNT_MS = 15 * 1000
@@ -173,6 +218,8 @@ function safeSharedTodo(todo) {
   if (!id || !title || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return null
   const type = ['task', 'performance', 'exam', 'material'].includes(todo.type) ? todo.type : 'task'
   const dueTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(todo.dueTime || '')) ? String(todo.dueTime) : ''
+  const summary = safeSummary(todo.summary)
+  const attachment = safeAttachment(todo.attachment)
   return {
     id,
     type,
@@ -181,6 +228,8 @@ function safeSharedTodo(todo) {
     dueTime,
     createdAt: Number(todo.createdAt || Date.now()),
     updatedAt: Number(todo.updatedAt || todo.createdAt || Date.now()),
+    ...(summary ? { summary } : {}),
+    ...(attachment ? { attachment } : {}),
   }
 }
 

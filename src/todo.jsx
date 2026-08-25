@@ -10,6 +10,51 @@ import {
 
 const TODO_STORAGE_KEY = 'school.todos.v1'
 
+const SUMMARY_MAX_SECTIONS = 14
+const SUMMARY_MAX_ITEMS = 16
+const ATTACHMENT_MAX_BYTES = 2_500_000
+const ATTACHMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/json',
+  'text/plain',
+  'text/csv',
+  'text/rtf',
+  'text/html',
+  'text/xml',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/bmp',
+  'image/heic',
+  'image/heif',
+])
+
+function safeSummary(value) {
+  if (!value || typeof value !== 'object') return null
+  const overview = String(value.overview || '').trim().slice(0, 2400)
+  const sections = Array.isArray(value.sections)
+    ? value.sections.slice(0, SUMMARY_MAX_SECTIONS).map((section) => ({
+        heading: String(section?.heading || '').trim().slice(0, 80),
+        items: Array.isArray(section?.items)
+          ? section.items.slice(0, SUMMARY_MAX_ITEMS).map((item) => String(item || '').trim().slice(0, 700)).filter(Boolean)
+          : [],
+      })).filter((section) => section.heading && section.items.length)
+    : []
+  if (!overview && !sections.length) return null
+  return { overview, sections }
+}
+
+function safeAttachment(value) {
+  if (!value || typeof value !== 'object') return null
+  const name = String(value.name || '').trim().slice(0, 120)
+  const mimeType = String(value.mimeType || '').trim().toLowerCase()
+  const size = Number(value.size || 0)
+  if (!name || !ATTACHMENT_MIME_TYPES.has(mimeType)) return null
+  if (!Number.isInteger(size) || size <= 0 || size > ATTACHMENT_MAX_BYTES) return null
+  return { name, mimeType, size }
+}
+
+
 export const TODO_TYPES = [
   { id: 'task', label: '일반' },
   { id: 'performance', label: '수행평가' },
@@ -33,15 +78,21 @@ function safeTodos(value) {
   if (!Array.isArray(value)) return []
   return value
     .filter((todo) => todo && typeof todo === 'object' && todo.id && todo.title && todo.dueDate)
-    .map((todo) => ({
-      id: String(todo.id),
-      type: TODO_TYPES.some((type) => type.id === todo.type) ? todo.type : 'task',
-      title: String(todo.title).slice(0, 80),
-      dueDate: String(todo.dueDate),
-      dueTime: String(todo.dueTime || ''),
-      completed: Boolean(todo.completed),
-      createdAt: Number(todo.createdAt || Date.now()),
-    }))
+    .map((todo) => {
+      const summary = safeSummary(todo.summary)
+      const attachment = safeAttachment(todo.attachment)
+      return {
+        id: String(todo.id),
+        type: TODO_TYPES.some((type) => type.id === todo.type) ? todo.type : 'task',
+        title: String(todo.title).slice(0, 80),
+        dueDate: String(todo.dueDate),
+        dueTime: String(todo.dueTime || ''),
+        completed: Boolean(todo.completed),
+        createdAt: Number(todo.createdAt || Date.now()),
+        ...(summary ? { summary } : {}),
+        ...(attachment ? { attachment } : {}),
+      }
+    })
 }
 
 function loadTodos() {
@@ -68,6 +119,8 @@ function sortTodos(todos) {
 }
 
 function sharedTodoShape(todo) {
+  const summary = safeSummary(todo.summary)
+  const attachment = safeAttachment(todo.attachment)
   return {
     id: String(todo.id),
     type: TODO_TYPES.some((type) => type.id === todo.type) ? todo.type : 'task',
@@ -76,6 +129,8 @@ function sharedTodoShape(todo) {
     dueTime: String(todo.dueTime || ''),
     createdAt: Number(todo.createdAt || Date.now()),
     updatedAt: Number(todo.updatedAt || todo.createdAt || Date.now()),
+    ...(summary ? { summary } : {}),
+    ...(attachment ? { attachment } : {}),
   }
 }
 
@@ -155,6 +210,8 @@ export function useTodos(profile) {
     if (!title || !dueDate) return ''
     const type = TODO_TYPES.some((item) => item.id === input.type) ? input.type : 'task'
     const dueTime = String(input.dueTime || '')
+    const summary = safeSummary(input.summary)
+    const attachment = safeAttachment(input.attachment)
 
     if (input.id) {
       const currentTodo = sharedTodos.find((todo) => todo.id === input.id)
@@ -166,6 +223,8 @@ export function useTodos(profile) {
         dueDate,
         dueTime,
         updatedAt: Date.now(),
+        ...(summary ? { summary } : {}),
+        ...(attachment ? { attachment } : {}),
       }
       setSharedTodos((current) => current.map((todo) => todo.id === input.id ? nextTodo : todo))
       writeSharedTodo(profile, nextTodo)
@@ -182,6 +241,8 @@ export function useTodos(profile) {
       dueTime,
       createdAt: now,
       updatedAt: now,
+      ...(summary ? { summary } : {}),
+      ...(attachment ? { attachment } : {}),
     }
     setSharedTodos((current) => [...current, todo])
     writeSharedTodo(profile, todo)
