@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 const TODO_STORAGE_KEY = 'school.todos.v1'
 
@@ -129,6 +129,25 @@ function upcomingTodos(todos) {
   return sortTodos(todos).filter((todo) => !todo.completed)
 }
 
+function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
+  const Tag = as
+  const previous = useRef(value)
+  const changed = previous.current !== value
+
+  useLayoutEffect(() => {
+    previous.current = value
+  }, [value])
+
+  return (
+    <Tag
+      className={`${className} ${changed ? 'is-reminder-text-changing' : ''}`.trim()}
+      style={changed ? { '--reminder-text-delay': `${delay}ms` } : undefined}
+    >
+      {value}
+    </Tag>
+  )
+}
+
 export function TodoHomePreview({ todos, now }) {
   const upcoming = upcomingTodos(todos)
   const visible = upcoming.slice(0, 3)
@@ -137,7 +156,7 @@ export function TodoHomePreview({ todos, now }) {
     <section className="home-section todo-home-preview">
       <div className="section-heading">
         <h2>리마인더</h2>
-        <span>{upcoming.length}개</span>
+        <AnimatedText value={`${upcoming.length}개`} />
       </div>
       {visible.length ? (
         <div className="todo-home-list">
@@ -172,8 +191,10 @@ export function TodoPage({ now, todoData }) {
   const { todos, saveTodo, toggleTodo, removeTodo } = todoData
   const [sheetOpen, setSheetOpen] = useState(false)
   const [draft, setDraft] = useState(() => emptyDraft(now))
-  const [motion, setMotion] = useState({ id: '', phase: '' })
   const [pageEntering, setPageEntering] = useState(true)
+  const [deletingId, setDeletingId] = useState('')
+  const pageRef = useRef(null)
+  const previousRectsRef = useRef(new Map())
 
   const sorted = useMemo(() => sortTodos(todos), [todos])
   const active = sorted.filter((todo) => !todo.completed)
@@ -183,6 +204,58 @@ export function TodoPage({ now, todoData }) {
     const timer = window.setTimeout(() => setPageEntering(false), 1150)
     return () => window.clearTimeout(timer)
   }, [])
+
+  useLayoutEffect(() => {
+    const root = pageRef.current
+    if (!root) return
+
+    const nodes = [...root.querySelectorAll('[data-reminder-id]')]
+    const currentRects = new Map()
+    nodes.forEach((node) => currentRects.set(node.dataset.reminderId, node.getBoundingClientRect()))
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!pageEntering && !reducedMotion) {
+      nodes.forEach((node, index) => {
+        const id = node.dataset.reminderId
+        const previous = previousRectsRef.current.get(id)
+        const current = currentRects.get(id)
+        if (!current) return
+
+        if (previous) {
+          const deltaX = previous.left - current.left
+          const deltaY = previous.top - current.top
+          if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+            node.animate(
+              [
+                { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)`, opacity: 0.88 },
+                { transform: 'translate3d(0, 0, 0)', opacity: 1 },
+              ],
+              {
+                duration: 760,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+                fill: 'both',
+              },
+            )
+          }
+        } else {
+          node.animate(
+            [
+              { transform: 'translate3d(0, 9px, 0)', opacity: 0 },
+              { transform: 'translate3d(0, 0, 0)', opacity: 1 },
+            ],
+            {
+              duration: 700,
+              delay: Math.min(index * 35, 140),
+              easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+              fill: 'both',
+            },
+          )
+        }
+      })
+    }
+
+    previousRectsRef.current = currentRects
+  }, [todos, pageEntering])
 
   function openCreate() {
     setDraft(emptyDraft(now))
@@ -200,38 +273,19 @@ export function TodoPage({ now, todoData }) {
     setSheetOpen(true)
   }
 
-  function markEntering(id) {
-    setMotion({ id, phase: 'enter' })
-    window.setTimeout(() => {
-      setMotion((current) => current.id === id && current.phase === 'enter'
-        ? { id: '', phase: '' }
-        : current)
-    }, 380)
-  }
-
   function submitTodo() {
     const savedId = saveTodo(draft)
     if (!savedId) return
-    markEntering(savedId)
     setSheetOpen(false)
   }
 
-  function animateToggle(id) {
-    if (motion.id === id && motion.phase === 'leave') return
-    setMotion({ id, phase: 'leave' })
-    window.setTimeout(() => {
-      toggleTodo(id)
-      markEntering(id)
-    }, 120)
-  }
-
   function animatePermanentDelete(id) {
-    if (motion.id === id && motion.phase === 'leave') return
-    setMotion({ id, phase: 'leave' })
+    if (deletingId) return
+    setDeletingId(id)
     window.setTimeout(() => {
       removeTodo(id)
-      setMotion({ id: '', phase: '' })
-    }, 120)
+      setDeletingId('')
+    }, 220)
   }
 
   function deleteEditing() {
@@ -240,15 +294,8 @@ export function TodoPage({ now, todoData }) {
     setSheetOpen(false)
   }
 
-  function motionClass(id) {
-    if (motion.id !== id) return ''
-    if (motion.phase === 'leave') return 'is-state-leaving'
-    if (motion.phase === 'enter') return 'is-state-entering'
-    return ''
-  }
-
   return (
-    <section className={`todo-page ${pageEntering ? 'is-page-entering' : ''}`}>
+    <section ref={pageRef} className={`todo-page ${pageEntering ? 'is-page-entering' : ''}`}>
       <header className="todo-header">
         <div>
           <p className="date-label">학교생활 일정</p>
@@ -258,7 +305,7 @@ export function TodoPage({ now, todoData }) {
       </header>
 
       <section className="todo-summary">
-        <strong>{active.length ? `${active.length}개 남음` : '모두 완료'}</strong>
+        <AnimatedText as="strong" value={active.length ? `${active.length}개 남음` : '모두 완료'} />
         <span>가까운 마감부터 정렬돼.</span>
       </section>
 
@@ -267,18 +314,18 @@ export function TodoPage({ now, todoData }) {
         {active.length ? (
           <div className="todo-list">
             {active.map((todo) => (
-              <article className={`todo-item ${motionClass(todo.id)}`} key={todo.id}>
+              <article className="todo-item" data-reminder-id={todo.id} key={todo.id}>
                 <button
                   className="todo-check"
                   aria-label={`${todo.title} 완료`}
-                  onClick={() => animateToggle(todo.id)}
+                  onClick={() => toggleTodo(todo.id)}
                 >
                   <span />
                 </button>
                 <button className="todo-item-main" onClick={() => openEdit(todo)}>
-                  <span className="todo-kind">{typeLabel(todo.type)}</span>
-                  <strong>{todo.title}</strong>
-                  <small>{dueLabel(todo, now)}</small>
+                  <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
+                  <AnimatedText as="strong" value={todo.title} delay={45} />
+                  <AnimatedText as="small" value={dueLabel(todo, now)} delay={90} />
                 </button>
               </article>
             ))}
@@ -295,35 +342,41 @@ export function TodoPage({ now, todoData }) {
         className={`todo-list-section todo-completed-section ${completed.length ? '' : 'is-empty'}`}
         aria-hidden={!completed.length}
       >
-        <h2>완료</h2>
-        {completed.length ? (
-          <div className="todo-list">
-            {completed.map((todo) => (
-              <article className={`todo-item is-completed ${motionClass(todo.id)}`} key={todo.id}>
-                <button
-                  className="todo-check"
-                  aria-label={`${todo.title} 완료 취소`}
-                  onClick={() => animateToggle(todo.id)}
+        <div className="todo-completed-content">
+          <h2>완료</h2>
+          {completed.length ? (
+            <div className="todo-list">
+              {completed.map((todo) => (
+                <article
+                  className={`todo-item is-completed ${deletingId === todo.id ? 'is-deleting' : ''}`}
+                  data-reminder-id={todo.id}
+                  key={todo.id}
                 >
-                  <span />
-                </button>
-                <button className="todo-item-main" onClick={() => openEdit(todo)}>
-                  <span className="todo-kind">{typeLabel(todo.type)}</span>
-                  <strong>{todo.title}</strong>
-                  <small>{dueLabel(todo, now)}</small>
-                </button>
-                <button
-                  className="todo-permanent-delete"
-                  type="button"
-                  aria-label={`${todo.title} 영구 삭제`}
-                  onClick={() => animatePermanentDelete(todo.id)}
-                >
-                  삭제
-                </button>
-              </article>
-            ))}
-          </div>
-        ) : null}
+                  <button
+                    className="todo-check"
+                    aria-label={`${todo.title} 완료 취소`}
+                    onClick={() => toggleTodo(todo.id)}
+                  >
+                    <span />
+                  </button>
+                  <button className="todo-item-main" onClick={() => openEdit(todo)}>
+                    <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
+                    <AnimatedText as="strong" value={todo.title} delay={45} />
+                    <AnimatedText as="small" value={dueLabel(todo, now)} delay={90} />
+                  </button>
+                  <button
+                    className="todo-permanent-delete"
+                    type="button"
+                    aria-label={`${todo.title} 영구 삭제`}
+                    onClick={() => animatePermanentDelete(todo.id)}
+                  >
+                    삭제
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </section>
 
       {sheetOpen ? (
