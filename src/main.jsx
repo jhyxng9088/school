@@ -31,6 +31,7 @@ import {
   useSchoolData,
 } from './stage3'
 import { TodoHomePreview, TodoPage, useTodos } from './todo'
+import { readStudentProfile, saveStudentProfile, useSharedTimetable } from './school-sync'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -131,22 +132,54 @@ function InstallGuide({ onDone }) {
   )
 }
 
-function NameSetup({ onSave }) {
-  const [name, setName] = useState('')
+function StudentSetup({ initialName = '', onSave }) {
+  const [classNumber, setClassNumber] = useState('')
+  const [studentNumber, setStudentNumber] = useState('')
+  const [name, setName] = useState(initialName)
   const trimmed = name.trim()
+  const classValue = Number(classNumber)
+  const studentValue = Number(studentNumber)
+  const validClass = Number.isInteger(classValue) && classValue >= 1 && classValue <= 30
+  const validStudent = Number.isInteger(studentValue) && studentValue >= 1 && studentValue <= 60
+  const canSubmit = Boolean(trimmed && validClass && validStudent)
 
   function submit(event) {
     event.preventDefault()
-    if (!trimmed) return
-    onSave(trimmed)
+    if (!canSubmit) return
+    onSave({
+      name: trimmed,
+      classNumber: classValue,
+      studentNumber: studentValue,
+    })
   }
 
   return (
     <main className="onboarding-page">
       <form className="onboarding-card name-card" onSubmit={submit}>
         <p className="eyebrow">마지막 설정</p>
-        <h1>이름이 뭐야?</h1>
-        <p className="onboarding-copy">우리 반에서 누가 쓰는 앱인지 구분할 때 사용할 이름이야.</p>
+        <h1>반, 번호, 이름 알려줘</h1>
+        <p className="onboarding-copy">같은 반의 시간표와 리마인더는 함께 쓰고, 완료와 삭제 상태는 같은 반·번호·이름을 입력한 기기끼리만 이어져.</p>
+        <label className="name-field">
+          <span>반</span>
+          <input
+            value={classNumber}
+            onChange={(event) => setClassNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
+            placeholder="예: 7"
+            inputMode="numeric"
+            autoComplete="off"
+            autoFocus
+          />
+        </label>
+        <label className="name-field">
+          <span>번호</span>
+          <input
+            value={studentNumber}
+            onChange={(event) => setStudentNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
+            placeholder="예: 18"
+            inputMode="numeric"
+            autoComplete="off"
+          />
+        </label>
         <label className="name-field">
           <span>이름</span>
           <input
@@ -154,11 +187,10 @@ function NameSetup({ onSave }) {
             onChange={(event) => setName(event.target.value)}
             placeholder="이름 입력"
             autoComplete="name"
-            autoFocus
             maxLength={20}
           />
         </label>
-        <button className="primary-button" disabled={!trimmed}>시작하기</button>
+        <button className="primary-button" disabled={!canSubmit}>시작하기</button>
       </form>
     </main>
   )
@@ -809,34 +841,27 @@ function useNavSpring(activeIndex) {
   return { navRef, indicatorRef, buttonRefs }
 }
 
-function AppShell({ name }) {
+function AppShell({ profile }) {
   const [activeTab, setActiveTab] = useState('home')
   const [contentDirection, setContentDirection] = useState(1)
-  const [weeklySchedule, setWeeklySchedule] = useState(loadWeeklySchedule)
-  const [overrides, setOverrides] = useState(loadOverrides)
   const now = useNow()
+  const {
+    weeklySchedule,
+    overrides,
+    commitWeeklySchedule,
+    commitOverrides,
+  } = useSharedTimetable(profile, now)
   const schoolData = useSchoolData(now)
-  const todoData = useTodos()
+  const todoData = useTodos(profile)
+  const name = profile.name
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
 
   useEffect(() => {
     const pruned = pruneExpiredOverrides(overrides, now)
     if (JSON.stringify(pruned) === JSON.stringify(overrides)) return
-    saveOverrides(pruned)
-    setOverrides(pruned)
-  }, [now, overrides])
-
-  function commitWeeklySchedule(nextSchedule) {
-    saveWeeklySchedule(nextSchedule)
-    setWeeklySchedule(nextSchedule)
-  }
-
-  function commitOverrides(nextOverrides) {
-    const pruned = pruneExpiredOverrides(nextOverrides, now)
-    saveOverrides(pruned)
-    setOverrides(pruned)
-  }
+    commitOverrides(pruned)
+  }, [now, overrides, commitOverrides])
 
   const content = {
     home: (
@@ -899,23 +924,26 @@ function AppShell({ name }) {
 }
 
 function App() {
-  const [name, setName] = useState(() => localStorage.getItem(USER_NAME_KEY) || '')
+  const [profile, setProfile] = useState(readStudentProfile)
   const [installDone, setInstallDone] = useState(() => localStorage.getItem(INSTALL_DONE_KEY) === 'true')
   const standalone = isStandalone()
+  const legacyName = localStorage.getItem(USER_NAME_KEY) || ''
 
   function completeInstallGuide() {
     localStorage.setItem(INSTALL_DONE_KEY, 'true')
     setInstallDone(true)
   }
 
-  function saveName(nextName) {
-    localStorage.setItem(USER_NAME_KEY, nextName)
-    setName(nextName)
+  function saveProfile(nextProfile) {
+    const saved = saveStudentProfile(nextProfile)
+    if (!saved) return
+    localStorage.setItem(USER_NAME_KEY, saved.name)
+    setProfile(saved)
   }
 
   if (!standalone && !installDone) return <InstallGuide onDone={completeInstallGuide} />
-  if (!name) return <NameSetup onSave={saveName} />
-  return <AppShell name={name} />
+  if (!profile) return <StudentSetup initialName={legacyName} onSave={saveProfile} />
+  return <AppShell profile={profile} />
 }
 
 createRoot(document.getElementById('root')).render(

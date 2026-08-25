@@ -1,4 +1,12 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  listenClassTodos,
+  listenStudentTodoState,
+  migrateLegacyTodos,
+  profileSignature,
+  writeSharedTodo,
+  writeStudentTodoState,
+} from './school-sync'
 
 const TODO_STORAGE_KEY = 'school.todos.v1'
 
@@ -59,52 +67,163 @@ function sortTodos(todos) {
   })
 }
 
-export function useTodos() {
-  const [todos, setTodos] = useState(loadTodos)
-
-  function commit(next) {
-    const normalized = sortTodos(safeTodos(next))
-    persistTodos(normalized)
-    setTodos(normalized)
+function sharedTodoShape(todo) {
+  return {
+    id: String(todo.id),
+    type: TODO_TYPES.some((type) => type.id === todo.type) ? todo.type : 'task',
+    title: String(todo.title || '').trim().slice(0, 80),
+    dueDate: String(todo.dueDate || ''),
+    dueTime: String(todo.dueTime || ''),
+    createdAt: Number(todo.createdAt || Date.now()),
+    updatedAt: Number(todo.updatedAt || todo.createdAt || Date.now()),
   }
+}
+
+function initialPersonalState(todos) {
+  return Object.fromEntries(todos.map((todo) => [todo.id, {
+    completed: Boolean(todo.completed),
+    hidden: false,
+    updatedAt: 0,
+  }]))
+}
+
+function mergeSharedTodos(sharedTodos, personalState) {
+  return sortTodos(sharedTodos
+    .filter((todo) => !personalState[todo.id]?.hidden)
+    .map((todo) => ({
+      ...todo,
+      completed: Boolean(personalState[todo.id]?.completed),
+    })))
+}
+
+export function useTodos(profile) {
+  const legacyTodosRef = useRef(null)
+  if (legacyTodosRef.current === null) legacyTodosRef.current = loadTodos()
+
+  const [sharedTodos, setSharedTodos] = useState(() => legacyTodosRef.current.map(sharedTodoShape))
+  const [personalState, setPersonalState] = useState(() => initialPersonalState(legacyTodosRef.current))
+  const signature = profileSignature(profile)
+  const todos = useMemo(() => mergeSharedTodos(sharedTodos, personalState), [sharedTodos, personalState])
+
+  useEffect(() => {
+    persistTodos(todos)
+  }, [todos])
+
+  useEffect(() => {
+    if (!signature) return undefined
+    let disposed = false
+    let stopClassTodos = () => {}
+    let stopPersonalState = () => {}
+
+    ;(async () => {
+      try {
+        await migrateLegacyTodos(profile, legacyTodosRef.current)
+        if (disposed) return
+
+        stopClassTodos = listenClassTodos(
+          profile,
+          (remoteTodos) => {
+            if (disposed) return
+            setSharedTodos(remoteTodos.map(sharedTodoShape))
+          },
+          (error) => console.error('Class reminder sync failed:', error),
+        )
+
+        stopPersonalState = listenStudentTodoState(
+          profile,
+          (remoteState) => {
+            if (disposed) return
+            setPersonalState(remoteState)
+          },
+          (error) => console.error('Personal reminder state sync failed:', error),
+        )
+      } catch (error) {
+        console.error('Reminder cloud migration failed:', error)
+      }
+    })()
+
+    return () => {
+      disposed = true
+      stopClassTodos()
+      stopPersonalState()
+    }
+  }, [signature])
 
   function saveTodo(input) {
     const title = String(input.title || '').trim()
     const dueDate = String(input.dueDate || '')
     if (!title || !dueDate) return ''
+    const type = TODO_TYPES.some((item) => item.id === input.type) ? input.type : 'task'
+    const dueTime = String(input.dueTime || '')
 
     if (input.id) {
-      commit(todos.map((todo) => todo.id === input.id
-        ? {
-            ...todo,
-            type: input.type,
-            title,
-            dueDate,
-            dueTime: input.dueTime || '',
-          }
-        : todo))
+      const updatedAt = Date.now()
+      let nextTodo = null
+      setSharedTodos((current) => current.map((todo) => {
+        if (todo.id !== input.id) return todo
+        nextTodo = {
+          ...todo,
+          type,
+          title,
+          dueDate,
+          dueTime,
+          updatedAt,
+        }
+        return nextTodo
+      }))
+      if (nextTodo) {
+        writeSharedTodo(profile, nextTodo)
+          .catch((error) => console.error('Shared reminder update failed:', error))
+      }
       return input.id
     }
 
+    const now = Date.now()
     const todo = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      type: input.type,
+      id: `${now}-${Math.random().toString(36).slice(2, 8)}`,
+      type,
       title,
       dueDate,
-      dueTime: input.dueTime || '',
-      completed: false,
-      createdAt: Date.now(),
+      dueTime,
+      createdAt: now,
+      updatedAt: now,
     }
-    commit([...todos, todo])
+    setSharedTodos((current) => [...current, todo])
+    writeSharedTodo(profile, todo)
+      .catch((error) => console.error('Shared reminder create failed:', error))
     return todo.id
   }
 
   function toggleTodo(id) {
-    commit(todos.map((todo) => todo.id === id ? { ...todo, completed: !todo.completed } : todo))
+    const target = todos.find((todo) => todo.id === id)
+    if (!target) return
+    const completed = !target.completed
+    setPersonalState((current) => ({
+      ...current,
+      [id]: {
+        ...current[id],
+        completed,
+        hidden: false,
+        updatedAt: Date.now(),
+      },
+    }))
+    writeStudentTodoState(profile, id, { completed, hidden: false })
+      .catch((error) => console.error('Personal reminder completion sync failed:', error))
   }
 
   function removeTodo(id) {
-    commit(todos.filter((todo) => todo.id !== id))
+    const completed = Boolean(personalState[id]?.completed)
+    setPersonalState((current) => ({
+      ...current,
+      [id]: {
+        ...current[id],
+        completed,
+        hidden: true,
+        updatedAt: Date.now(),
+      },
+    }))
+    writeStudentTodoState(profile, id, { completed, hidden: true })
+      .catch((error) => console.error('Personal reminder delete sync failed:', error))
   }
 
   return { todos, saveTodo, toggleTodo, removeTodo }
