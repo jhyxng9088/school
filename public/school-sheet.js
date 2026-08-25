@@ -98,7 +98,7 @@
     }
 
     const state = {
-      y: Math.max(sheet.offsetHeight + 56, 300),
+      y: Math.max(sheet.offsetHeight + 24, 280),
       velocity: 0,
       frame: null,
       lastFrame: 0,
@@ -120,7 +120,11 @@
     }
 
     function closedY() {
-      return Math.max(sheet.offsetHeight + 64, window.innerHeight * 0.48)
+      return Math.max(sheet.offsetHeight + 24, window.innerHeight * 0.42)
+    }
+
+    function visualExitY() {
+      return sheet.offsetHeight + 6
     }
 
     function paint() {
@@ -153,8 +157,8 @@
       }
 
       const isClosing = target > 0
-      const stiffness = isClosing ? 92 : 118
-      const damping = isClosing ? 22 : 24
+      const stiffness = isClosing ? 126 : 148
+      const damping = isClosing ? 26 : 27
       const mass = 1
 
       function step(time) {
@@ -177,7 +181,16 @@
 
         paint()
 
-        const settled = Math.abs(state.y - target) < 0.55 && Math.abs(state.velocity) < 3.8
+        // Once the sheet is physically below the viewport, finish immediately.
+        // Do not keep the app blocked while the invisible spring tail settles.
+        if (isClosing && state.y >= visualExitY()) {
+          state.frame = null
+          state.lastFrame = 0
+          onComplete?.()
+          return
+        }
+
+        const settled = Math.abs(state.y - target) < 0.7 && Math.abs(state.velocity) < 5
         if (settled) {
           state.y = target
           state.velocity = 0
@@ -199,15 +212,21 @@
       state.closing = true
       state.dragging = false
       sheet.classList.add('is-closing')
+
+      if (state.y >= visualExitY()) {
+        finishNativeAction(button)
+        return
+      }
+
       springTo(closedY(), {
-        velocity: Math.max(velocity, 260),
+        velocity: Math.max(velocity, 340),
         onComplete: () => finishNativeAction(button),
       })
     }
 
     function settleOpen(velocity = state.velocity) {
       state.closing = false
-      springTo(0, { velocity: Math.min(velocity, 460) })
+      springTo(0, { velocity: Math.min(velocity, 520) })
     }
 
     function onPointerDown(event) {
@@ -247,9 +266,9 @@
       sheet.classList.remove('is-dragging')
       dragSurface.releasePointerCapture?.(event.pointerId)
 
-      const threshold = Math.min(Math.max(sheet.offsetHeight * 0.28, 110), 180)
-      const shouldClose = state.y > threshold || state.velocity > 760
-      if (shouldClose) requestClose(closeButton, Math.max(state.velocity, 220))
+      const threshold = Math.min(Math.max(sheet.offsetHeight * 0.26, 100), 165)
+      const shouldClose = state.y > threshold || state.velocity > 720
+      if (shouldClose) requestClose(closeButton, Math.max(state.velocity, 280))
       else settleOpen(state.velocity)
     }
 
@@ -258,11 +277,11 @@
     }
 
     function onBackdropClick() {
-      requestClose(closeButton, 260)
+      requestClose(closeButton, 340)
     }
 
     function onKeyDown(event) {
-      if (event.key === 'Escape') requestClose(closeButton, 260)
+      if (event.key === 'Escape') requestClose(closeButton, 340)
     }
 
     function cleanupVisuals() {
@@ -314,7 +333,7 @@
 
     event.preventDefault()
     event.stopPropagation()
-    activeController.requestClose(target, 260)
+    activeController.requestClose(target, 340)
   }, true)
 
   const observer = new MutationObserver(() => {
