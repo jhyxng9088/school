@@ -1,0 +1,56 @@
+/* Phone portrait: lunch becomes the first Home block from 12:50 until 14:00. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .home-stack.is-meal-priority > :nth-child(5) {
+    order: -1;
+    animation-delay: 50ms !important;
+  }
+
+  .home-stack.is-meal-priority > :nth-child(1) { animation-delay: 95ms !important; }
+  .home-stack.is-meal-priority > :nth-child(2) { animation-delay: 140ms !important; }
+  .home-stack.is-meal-priority > :nth-child(3) { animation-delay: 185ms !important; }
+  .home-stack.is-meal-priority > :nth-child(4) { animation-delay: 230ms !important; }
+}
+
+/* Keep the existing breathing status dot, and let the whole live card breathe almost imperceptibly too. */
+.current-class-card {
+  position: relative;
+  isolation: isolate;
+}
+
+.current-class-card.is-live-glow::after {
+  content: '';
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(116, 166, 255, 0.13), transparent 64%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 52%);
+  box-shadow:
+    inset 0 0 0 1px rgba(132, 176, 255, 0.045),
+    inset 0 0 28px rgba(105, 157, 255, 0.035);
+  opacity: 0.22;
+  animation: current-class-card-breathe 5.8s ease-in-out infinite;
+}
+
+@keyframes current-class-card-breathe {
+  0%, 100% { opacity: 0.16; }
+  50% { opacity: 0.54; }
+}
+
+@media (prefers-color-scheme: light) {
+  .current-class-card.is-live-glow::after {
+    background: radial-gradient(circle at 22% 18%, rgba(78, 127, 220, 0.075), transparent 66%);
+    box-shadow:
+      inset 0 0 0 1px rgba(78, 127, 220, 0.035),
+      inset 0 0 24px rgba(78, 127, 220, 0.025);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .current-class-card.is-live-glow::after {
+    animation: none;
+    opacity: 0.28;
+  }
+}
