@@ -20,7 +20,8 @@ export const WEEKDAYS = [
 
 // v2 intentionally installs the confirmed 2학년 1반 timetable instead of an old test/empty v1 table.
 export const TIMETABLE_STORAGE_KEY = 'school.timetable.weekly.v2'
-export const OVERRIDES_STORAGE_KEY = 'school.timetable.overrides.v1'
+// v2 clears only the old test overrides; new changes are stored from this point forward.
+export const OVERRIDES_STORAGE_KEY = 'school.timetable.overrides.v2'
 
 export const DEFAULT_WEEKLY_SCHEDULE = {
   mon: {
