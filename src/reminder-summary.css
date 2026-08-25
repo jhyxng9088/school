@@ -1,0 +1,296 @@
+.reminder-attachment-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.reminder-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.reminder-attachment-add {
+  justify-self: start;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reminder-attachment-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-soft) 82%, transparent);
+}
+
+.reminder-attachment-selected > div:first-child {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+
+.reminder-attachment-selected span,
+.reminder-attachment-selected small {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.reminder-attachment-selected strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reminder-attachment-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reminder-attachment-actions button {
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reminder-attachment-actions button:last-child {
+  color: #d84d49;
+}
+
+.reminder-attachment-status,
+.reminder-attachment-help {
+  margin: 0 2px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.reminder-attachment-status.is-ready {
+  color: var(--text-secondary);
+}
+
+.reminder-attachment-status.is-error {
+  color: #d84d49;
+}
+
+.reminder-summary-layer {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  pointer-events: none;
+}
+
+.reminder-summary-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.22);
+  opacity: 1;
+  pointer-events: auto;
+  animation: reminder-summary-backdrop-in 280ms ease both;
+}
+
+@keyframes reminder-summary-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.reminder-summary-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(calc(100% - 12px), 700px);
+  height: calc(100dvh - max(10px, env(safe-area-inset-top)));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+  box-shadow: 0 -18px 48px rgba(0, 0, 0, 0.16);
+  pointer-events: auto;
+  transform: translate3d(-50%, calc(var(--summary-base-y, 40dvh) + var(--summary-drag-y, 0px)), 0);
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.reminder-summary-sheet.is-expanded {
+  border-radius: 24px 24px 0 0;
+}
+
+.reminder-summary-sheet:has(.reminder-summary-drag-zone:active) {
+  transition: none;
+}
+
+.reminder-summary-drag-zone {
+  display: grid;
+  place-items: center;
+  min-height: 28px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.reminder-summary-drag-zone:active {
+  cursor: grabbing;
+}
+
+.reminder-summary-grabber {
+  width: 38px;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-tertiary) 42%, transparent);
+}
+
+.reminder-summary-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 20px 16px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.reminder-summary-header > div {
+  min-width: 0;
+}
+
+.reminder-summary-header p {
+  overflow: hidden;
+  margin: 0 0 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reminder-summary-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(22px, 5.5vw, 29px);
+  line-height: 1.14;
+  letter-spacing: -0.04em;
+}
+
+.reminder-summary-header button {
+  flex: none;
+  min-height: 32px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reminder-summary-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 20px calc(28px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+
+.reminder-summary-overview {
+  margin: 0 0 28px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.7;
+  letter-spacing: -0.018em;
+}
+
+.reminder-summary-section + .reminder-summary-section {
+  margin-top: 26px;
+}
+
+.reminder-summary-section h3 {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+}
+
+.reminder-summary-section ul {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0 0 0 18px;
+}
+
+.reminder-summary-section li {
+  padding-left: 2px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.58;
+  letter-spacing: -0.015em;
+}
+
+.todo-stage5 .todo-item-main.has-summary {
+  cursor: pointer;
+}
+
+.todo-stage5 .todo-item-main.has-summary:active {
+  opacity: 0.68;
+}
+
+@media (max-width: 430px) {
+  .reminder-attachment-selected {
+    align-items: flex-start;
+  }
+
+  .reminder-attachment-selected > div:first-child {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .reminder-attachment-selected small {
+    grid-column: 2;
+  }
+
+  .reminder-summary-header,
+  .reminder-summary-scroll {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reminder-summary-backdrop {
+    animation: none;
+  }
+
+  .reminder-summary-sheet {
+    transition: none;
+  }
+}
