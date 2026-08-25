@@ -136,7 +136,7 @@ function normalizeTime(hour, minute, period = '') {
 }
 
 function resolveTime(text) {
-  let match = text.match(/(오전|오후)\s*(\d{1,2})시(?:\s*(\d{1,2})분|\s*(반))?/) 
+  let match = text.match(/(오전|오후)\s*(\d{1,2})시(?:\s*(\d{1,2})분|\s*(반))?/)
   if (match) {
     const minute = match[4] ? 30 : Number(match[3] || 0)
     const value = normalizeTime(match[2], minute, match[1])
@@ -161,7 +161,7 @@ function resolveTime(text) {
 
 function resolveType(text) {
   if (/(모의고사|전국연합|평가원|수능|시험|고사|중간고사|기말고사)/.test(text)) return 'exam'
-  if (/(수행평가|수행\b|발표|프레젠테이션|PPT|피피티)/i.test(text)) return 'performance'
+  if (/(수행평가|수행|발표|프레젠테이션|PPT|피피티)/i.test(text)) return 'performance'
   if (/(준비물|챙기기|챙겨|가져가기|가져와|지참)/.test(text)) return 'material'
   return 'task'
 }
