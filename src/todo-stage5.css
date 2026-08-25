@@ -237,6 +237,65 @@ html body .app-content:has(> .todo-page) {
   min-width: 0;
 }
 
+.todo-stage5 .todo-item {
+  grid-template-columns: 48px 62px minmax(0, 1fr);
+  min-height: 88px;
+}
+
+.todo-stage5 .todo-item.is-completed {
+  grid-template-columns: 48px 62px minmax(0, 1fr) 58px;
+}
+
+.todo-date-tile {
+  align-self: stretch;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  min-width: 0;
+  border-inline: 1px solid var(--divider);
+  background: color-mix(in srgb, var(--surface-soft) 88%, transparent);
+  color: var(--text);
+  text-align: center;
+  pointer-events: none;
+}
+
+.todo-date-tile > strong {
+  font-size: 27px;
+  font-weight: 720;
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+}
+
+.todo-date-tile > small {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.015em;
+}
+
+.todo-stage5 .todo-item.is-completed .todo-date-tile {
+  opacity: 0.52;
+}
+
+.todo-stage5 .todo-item-main {
+  padding-left: 14px;
+}
+
+@media (max-width: 430px) {
+  .todo-stage5 .todo-item {
+    grid-template-columns: 44px 56px minmax(0, 1fr);
+  }
+
+  .todo-stage5 .todo-item.is-completed {
+    grid-template-columns: 44px 56px minmax(0, 1fr) 54px;
+  }
+
+  .todo-date-tile > strong {
+    font-size: 25px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reminder-natural-fields.is-visible,
   .reminder-manual-fields.is-visible,
