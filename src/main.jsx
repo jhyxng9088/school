@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './styles.css'
 import './timetable.css'
 import './motion.css'
+import './stage3.css'
 import {
   PERIODS,
   WEEKDAYS,
@@ -16,10 +17,18 @@ import {
   getWeekDates,
   loadOverrides,
   loadWeeklySchedule,
+  pruneExpiredOverrides,
   saveOverrides,
   saveWeeklySchedule,
   timeToMinutes,
 } from './timetable'
+import {
+  AcademicPage,
+  AcademicPreview,
+  MealPage as Stage3MealPage,
+  MealPreview as Stage3MealPreview,
+  useSchoolData,
+} from './stage3'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -59,6 +68,9 @@ function Icon({ type, size = 22 }) {
   }
   if (type === 'meal') {
     return <svg {...common}><path d="M4.5 4.5v6.2a3 3 0 0 0 3 3h.5"/><path d="M7.5 4.5v15"/><path d="M15.5 4.5v6.2"/><path d="M19.5 4.5v6.2"/><path d="M15.5 8.2h4"/><path d="M17.5 10.7v8.8"/></svg>
+  }
+  if (type === 'academic') {
+    return <svg {...common}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v3"/><path d="M16.5 3.5v3"/><path d="M3.5 9h17"/><path d="M8 13h3"/><path d="M8 16.5h8"/><path d="M15 12.5h1.5v1.5H15z"/></svg>
   }
   if (type === 'clock') {
     return <svg {...common}><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 2"/></svg>
@@ -155,6 +167,7 @@ const tabs = [
   { id: 'todo', label: '투두' },
   { id: 'timetable', label: '시간표' },
   { id: 'meal', label: '급식' },
+  { id: 'academic', label: '학사일정' },
 ]
 
 function useNow() {
@@ -324,17 +337,7 @@ function TimetablePreview({ schedule, now, configured }) {
   )
 }
 
-function MealPreview() {
-  return (
-    <section className="home-section meal-preview">
-      <SectionTitle>오늘 급식</SectionTitle>
-      <p className="meal-empty">급식 연결 전</p>
-      <p className="section-note">Stage 3에서 NEIS 급식 정보를 연결할게.</p>
-    </section>
-  )
-}
-
-function Home({ name, now, weeklySchedule, overrides }) {
+function Home({ name, now, weeklySchedule, overrides, schoolData }) {
   const today = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
@@ -360,7 +363,8 @@ function Home({ name, now, weeklySchedule, overrides }) {
           now={now}
           configured={schoolState.configured}
         />
-        <MealPreview />
+        <AcademicPreview now={now} schoolData={schoolData} />
+        <Stage3MealPreview now={now} schoolData={schoolData} />
       </div>
     </>
   )
@@ -441,7 +445,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
         dayLabel: WEEKDAYS[dayIndex].label,
         ...period,
       })),
-  )
+  ).sort((a, b) => dateKey(a.date).localeCompare(dateKey(b.date)) || a.number - b.number)
 
   function startEditing() {
     setDraft(cloneWeeklySchedule(weeklySchedule))
@@ -809,8 +813,16 @@ function AppShell({ name }) {
   const [weeklySchedule, setWeeklySchedule] = useState(loadWeeklySchedule)
   const [overrides, setOverrides] = useState(loadOverrides)
   const now = useNow()
+  const schoolData = useSchoolData(now)
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
+
+  useEffect(() => {
+    const pruned = pruneExpiredOverrides(overrides, now)
+    if (JSON.stringify(pruned) === JSON.stringify(overrides)) return
+    saveOverrides(pruned)
+    setOverrides(pruned)
+  }, [now, overrides])
 
   function commitWeeklySchedule(nextSchedule) {
     saveWeeklySchedule(nextSchedule)
@@ -818,12 +830,21 @@ function AppShell({ name }) {
   }
 
   function commitOverrides(nextOverrides) {
-    saveOverrides(nextOverrides)
-    setOverrides(nextOverrides)
+    const pruned = pruneExpiredOverrides(nextOverrides, now)
+    saveOverrides(pruned)
+    setOverrides(pruned)
   }
 
   const content = {
-    home: <Home name={name} now={now} weeklySchedule={weeklySchedule} overrides={overrides} />,
+    home: (
+      <Home
+        name={name}
+        now={now}
+        weeklySchedule={weeklySchedule}
+        overrides={overrides}
+        schoolData={schoolData}
+      />
+    ),
     todo: <StandardPage title="투두"><EmptyPanel title="아직 비어 있어" description="Stage 4에서 할 일과 수행평가를 연결할게." /></StandardPage>,
     timetable: (
       <TimetablePage
@@ -834,7 +855,8 @@ function AppShell({ name }) {
         onSaveOverrides={commitOverrides}
       />
     ),
-    meal: <StandardPage title="급식"><EmptyPanel title="급식 연결 전" description="Stage 3에서 NEIS 급식 정보를 연결할게." /></StandardPage>,
+    meal: <Stage3MealPage schoolData={schoolData} />,
+    academic: <AcademicPage now={now} schoolData={schoolData} />,
   }
 
   function changeTab(nextTab) {
@@ -899,27 +921,15 @@ createRoot(document.getElementById('root')).render(
 )
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    const hadController = Boolean(navigator.serviceWorker.controller)
-    let refreshing = false
-
-    if (hadController) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (refreshing) return
-        refreshing = true
-        window.location.reload()
-      })
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, {
-        updateViaCache: 'none',
-      })
-
-      await registration.update()
-      if (registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' })
-    } catch {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, {
+      updateViaCache: 'none',
+    }).then((registration) => {
+      window.setTimeout(() => {
+        registration.update().catch(() => {})
+      }, 5000)
+    }).catch(() => {
       // The app still works online even if service worker registration fails.
-    }
+    })
   })
 }
