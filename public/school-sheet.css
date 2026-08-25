@@ -101,16 +101,17 @@ body .change-editor .change-field select {
   overflow: hidden;
 }
 
-/* Make the native iOS/iPadOS date field visually match the other controls. */
+/* Keep the native iOS/iPadOS date value optically centered like the other controls. */
 body .change-editor .change-field input[type="date"] {
+  position: relative;
   inline-size: 100%;
   min-inline-size: 0;
   height: 46px;
-  padding: 0 14px;
-  text-align: left;
+  padding: 0 46px;
+  text-align: center;
   line-height: 46px;
-  -webkit-text-align-last: left;
-  text-align-last: left;
+  -webkit-text-align-last: center;
+  text-align-last: center;
 }
 
 body .change-editor .change-field input[type="date"]::-webkit-date-and-time-value {
@@ -118,20 +119,23 @@ body .change-editor .change-field input[type="date"]::-webkit-date-and-time-valu
   min-height: 1.2em;
   margin: 0;
   padding: 0;
-  text-align: left;
+  text-align: center;
 }
 
 body .change-editor .change-field input[type="date"]::-webkit-datetime-edit {
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
   min-width: 0;
   padding: 0;
-  text-align: left;
+  text-align: center;
 }
 
 body .change-editor .change-field input[type="date"]::-webkit-calendar-picker-indicator {
-  margin-left: auto;
+  position: absolute;
+  right: 14px;
+  margin: 0;
 }
 
 body .change-editor .change-field input[type="date"]:focus {
