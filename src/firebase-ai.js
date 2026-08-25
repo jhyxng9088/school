@@ -172,8 +172,10 @@ async function prepareAttachment(file) {
   let blob = file
   let name = originalName
   let mimeType = originalType
+  const needsJpegNormalization = originalType === 'image/heic' || originalType === 'image/heif'
+  const needsImageCompression = originalType.startsWith('image/') && file.size > MAX_ATTACHMENT_BYTES
 
-  if (originalType.startsWith('image/') && file.size > MAX_ATTACHMENT_BYTES) {
+  if (needsJpegNormalization || needsImageCompression) {
     if (file.size > MAX_ORIGINAL_IMAGE_BYTES) {
       throw reminderError('사진 용량이 너무 커. 20MB 이하 사진을 사용해줘.', 'school-ai/file-too-large', 413)
     }
