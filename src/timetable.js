@@ -18,8 +18,65 @@ export const WEEKDAYS = [
   { id: 'fri', label: '금', jsDay: 5, periodCount: 7, regularPeriodCount: 7 },
 ]
 
-export const TIMETABLE_STORAGE_KEY = 'school.timetable.weekly.v1'
+// v2 intentionally installs the confirmed 2학년 1반 timetable instead of an old test/empty v1 table.
+export const TIMETABLE_STORAGE_KEY = 'school.timetable.weekly.v2'
 export const OVERRIDES_STORAGE_KEY = 'school.timetable.overrides.v1'
+
+export const DEFAULT_WEEKLY_SCHEDULE = {
+  mon: {
+    1: '역학',
+    2: '영어 II',
+    3: '스과',
+    4: '화언A',
+    5: '정보',
+    6: '세포',
+  },
+  tue: {
+    1: '물질',
+    2: '진로',
+    3: '정보',
+    4: '기하2',
+    5: '미적2',
+    6: '영어 II',
+  },
+  wed: {
+    1: '물질',
+    2: '정보',
+    3: '역학',
+    4: '기하2',
+    5: '미적2',
+    6: '화언B',
+    7: '세포',
+  },
+  thu: {
+    1: '정보',
+    2: '기하2',
+    3: '역학',
+    4: '미적2',
+    5: '영어 II',
+    6: '화언B',
+  },
+  fri: {
+    1: '영어 II',
+    2: '세포',
+    3: '화언A',
+    4: '물질',
+    5: '미적2',
+    6: '자율',
+    7: '자율',
+  },
+}
+
+const FULL_SUBJECT_NAMES = {
+  역학: '역학과 에너지',
+  스과: '스포츠과학',
+  화언A: '화법과 언어A',
+  화언B: '화법과 언어B',
+  세포: '세포와 물질대사',
+  물질: '물질과 에너지',
+  미적2: '미적분',
+  기하2: '기하',
+}
 
 const DAY_BY_JS = Object.fromEntries(WEEKDAYS.map((day) => [day.jsDay, day]))
 
@@ -37,6 +94,10 @@ export function createEmptyWeeklySchedule() {
       ),
     ]),
   )
+}
+
+export function createDefaultWeeklySchedule() {
+  return normalizeWeeklySchedule(DEFAULT_WEEKLY_SCHEDULE)
 }
 
 export function normalizeWeeklySchedule(value) {
@@ -78,9 +139,11 @@ export function normalizeOverrides(value) {
 
 export function loadWeeklySchedule() {
   try {
-    return normalizeWeeklySchedule(JSON.parse(localStorage.getItem(TIMETABLE_STORAGE_KEY) || 'null'))
+    const stored = localStorage.getItem(TIMETABLE_STORAGE_KEY)
+    if (!stored) return createDefaultWeeklySchedule()
+    return normalizeWeeklySchedule(JSON.parse(stored))
   } catch {
-    return createEmptyWeeklySchedule()
+    return createDefaultWeeklySchedule()
   }
 }
 
@@ -169,11 +232,29 @@ export function hasAnyBaseSchedule(weeklySchedule) {
   )
 }
 
+export function getFullSubjectName(subject) {
+  const compact = typeof subject === 'string' ? subject.trim() : ''
+  if (!compact) return '과목 미설정'
+  return FULL_SUBJECT_NAMES[compact] || compact
+}
+
+function displayPeriod(period, { currentSentence = false } = {}) {
+  if (!period) return null
+  const fullName = getFullSubjectName(period.subject)
+  return {
+    ...period,
+    subject: currentSentence && fullName !== '과목 미설정'
+      ? `지금은 ${fullName} 시간입니다.`
+      : fullName,
+  }
+}
+
 function nextScheduledPeriod(schedule, nowMinutes) {
   return schedule.find((period) => timeToMinutes(period.start) > nowMinutes) || null
 }
 
 export function getSchoolState(now, weeklySchedule, overrides) {
+  // schedule always keeps compact class labels for the timetable UI.
   const schedule = getScheduleForDate(now, weeklySchedule, overrides)
   const day = getDayForDate(now)
   const configured = hasAnyBaseSchedule(weeklySchedule)
@@ -194,7 +275,7 @@ export function getSchoolState(now, weeklySchedule, overrides) {
       configured: false,
       schedule,
       current: null,
-      next: schedule[0] || null,
+      next: displayPeriod(schedule[0] || null),
     }
   }
 
@@ -210,7 +291,13 @@ export function getSchoolState(now, weeklySchedule, overrides) {
 
   if (current) {
     const next = schedule.find((period) => period.number === current.number + 1) || null
-    return { kind: 'class', configured: true, schedule, current, next }
+    return {
+      kind: 'class',
+      configured: true,
+      schedule,
+      current: displayPeriod(current, { currentSentence: true }),
+      next: displayPeriod(next),
+    }
   }
 
   if (nowMinutes >= lunchStart && nowMinutes < lunchEnd) {
@@ -219,18 +306,31 @@ export function getSchoolState(now, weeklySchedule, overrides) {
       configured: true,
       schedule,
       current: null,
-      next: schedule.find((period) => period.number === 5) || null,
+      next: displayPeriod(schedule.find((period) => period.number === 5) || null),
     }
   }
 
   const first = schedule[0]
   if (first && nowMinutes < timeToMinutes(first.start)) {
-    return { kind: 'before', configured: true, schedule, current: null, next: first }
+    return {
+      kind: 'before',
+      configured: true,
+      schedule,
+      current: null,
+      next: displayPeriod(first),
+    }
   }
 
   const last = schedule[schedule.length - 1]
   if (last && nowMinutes >= timeToMinutes(last.end)) {
-    return { kind: 'done', configured: true, schedule, current: null, next: null, last }
+    return {
+      kind: 'done',
+      configured: true,
+      schedule,
+      current: null,
+      next: null,
+      last: displayPeriod(last),
+    }
   }
 
   return {
@@ -238,7 +338,7 @@ export function getSchoolState(now, weeklySchedule, overrides) {
     configured: true,
     schedule,
     current: null,
-    next: nextScheduledPeriod(schedule, nowMinutes),
+    next: displayPeriod(nextScheduledPeriod(schedule, nowMinutes)),
   }
 }
 
