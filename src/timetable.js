@@ -229,6 +229,32 @@ export function normalizeOverrides(value) {
   return normalized
 }
 
+function overrideIsExpired(dateKeyValue, periodNumber, now = new Date()) {
+  const today = dateKey(now)
+  if (dateKeyValue < today) return true
+  if (dateKeyValue > today) return false
+
+  const period = PERIODS.find((item) => item.number === Number(periodNumber))
+  if (!period) return true
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  return nowMinutes >= timeToMinutes(period.end)
+}
+
+export function pruneExpiredOverrides(value, now = new Date()) {
+  const normalized = normalizeOverrides(value)
+  const next = {}
+
+  for (const [dateKeyValue, periodMap] of Object.entries(normalized)) {
+    const activePeriods = {}
+    for (const [period, subject] of Object.entries(periodMap)) {
+      if (!overrideIsExpired(dateKeyValue, Number(period), now)) activePeriods[period] = subject
+    }
+    if (Object.keys(activePeriods).length) next[dateKeyValue] = activePeriods
+  }
+
+  return next
+}
+
 export function loadWeeklySchedule() {
   try {
     const stored = localStorage.getItem(TIMETABLE_STORAGE_KEY)
@@ -241,7 +267,12 @@ export function loadWeeklySchedule() {
 
 export function loadOverrides() {
   try {
-    return normalizeOverrides(JSON.parse(localStorage.getItem(OVERRIDES_STORAGE_KEY) || 'null'))
+    const normalized = normalizeOverrides(JSON.parse(localStorage.getItem(OVERRIDES_STORAGE_KEY) || 'null'))
+    const pruned = pruneExpiredOverrides(normalized)
+    if (JSON.stringify(pruned) !== JSON.stringify(normalized)) {
+      localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(pruned))
+    }
+    return pruned
   } catch {
     return {}
   }
@@ -252,7 +283,7 @@ export function saveWeeklySchedule(schedule) {
 }
 
 export function saveOverrides(overrides) {
-  localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(normalizeOverrides(overrides)))
+  localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(pruneExpiredOverrides(overrides)))
 }
 
 export function getDayForDate(date) {
@@ -295,7 +326,11 @@ export function getScheduleForDate(date, weeklySchedule, overrides) {
   const day = getDayForDate(date)
   if (!day) return []
 
-  const dateOverrides = overrides?.[dateKey(date)] || {}
+  const key = dateKey(date)
+  const storedDateOverrides = overrides?.[key] || {}
+  const dateOverrides = Object.fromEntries(
+    Object.entries(storedDateOverrides).filter(([period]) => !overrideIsExpired(key, Number(period))),
+  )
   const overridePeriods = Object.keys(dateOverrides)
     .map(Number)
     .filter((period) => Number.isInteger(period) && period >= 1 && period <= PERIODS.length)
