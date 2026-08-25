@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
+import { getToken, initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'
 
 const firebaseConfig = {
@@ -14,10 +14,11 @@ const firebaseConfig = {
 
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
 const AI_LOGIC_TIMEOUT_MS = 12000
+const APPCHECK_DEBUG_TIMEOUT_MS = 8000
 
 const firebaseApp = initializeApp(firebaseConfig)
 
-initializeAppCheck(firebaseApp, {
+const appCheck = initializeAppCheck(firebaseApp, {
   provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
   isTokenAutoRefreshEnabled: true,
 })
@@ -63,18 +64,45 @@ Rules:
 
 const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])
 
-function timeoutError(milliseconds) {
-  const error = new Error(`AI Logic timed out after ${milliseconds}ms`)
-  error.code = 'school-ai/timeout'
+function timeoutError(milliseconds, label = 'AI Logic') {
+  const error = new Error(`${label} timed out after ${milliseconds}ms`)
+  error.code = label === 'App Check' ? 'school-appcheck/timeout' : 'school-ai/timeout'
   return error
 }
 
-function withTimeout(promise, milliseconds) {
+function withTimeout(promise, milliseconds, label = 'AI Logic') {
   let timeoutId
   const timeout = new Promise((_, reject) => {
-    timeoutId = window.setTimeout(() => reject(timeoutError(milliseconds)), milliseconds)
+    timeoutId = window.setTimeout(() => reject(timeoutError(milliseconds, label)), milliseconds)
   })
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId))
+}
+
+if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
+  window.__SCHOOL_APPCHECK_DIAGNOSE__ = async () => {
+    const startedAt = Date.now()
+    try {
+      const result = await withTimeout(
+        getToken(appCheck, true),
+        APPCHECK_DEBUG_TIMEOUT_MS,
+        'App Check',
+      )
+      return {
+        ok: true,
+        tokenLength: String(result?.token || '').length,
+        elapsedMs: Date.now() - startedAt,
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        name: error?.name || null,
+        code: error?.code || null,
+        message: error?.message || String(error),
+        status: error?.status || null,
+        elapsedMs: Date.now() - startedAt,
+      }
+    }
+  }
 }
 
 function validDateKey(value) {
