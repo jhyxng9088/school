@@ -12,8 +12,10 @@ const firebaseConfig = {
 }
 
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
-const MODEL_NAMES = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite']
-const AI_ATTEMPT_TIMEOUT_MS = 12000
+const MODEL_POLICIES = [
+  { name: 'gemini-3.5-flash-lite', timeoutMs: 4000 },
+  { name: 'gemini-3.1-flash-lite', timeoutMs: 12000 },
+]
 const APPCHECK_DEBUG_TIMEOUT_MS = 8000
 const APPCHECK_DEBUG_STORAGE_KEY = 'school.appcheck.debugToken.session'
 
@@ -91,11 +93,12 @@ async function fetchGenerateContent({
   prompt,
   appCheckToken,
   modelName,
+  timeoutMs,
   structured = false,
 }) {
   const controller = new AbortController()
   const startedAt = Date.now()
-  const timeoutId = window.setTimeout(() => controller.abort(), AI_ATTEMPT_TIMEOUT_MS)
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
 
   const body = {
     contents: [
@@ -163,7 +166,7 @@ async function fetchGenerateContent({
     }
   } catch (error) {
     if (error?.name === 'AbortError') {
-      const timedOut = timeoutError(AI_ATTEMPT_TIMEOUT_MS, `AI ${modelName}`)
+      const timedOut = timeoutError(timeoutMs, `AI ${modelName}`)
       timedOut.modelName = modelName
       timedOut.phase = 'waiting-for-response'
       throw timedOut
@@ -192,13 +195,14 @@ async function generateWithFallback({ prompt, appCheckToken, structured = false 
   const attempts = []
   let lastError = null
 
-  for (const modelName of MODEL_NAMES) {
+  for (const policy of MODEL_POLICIES) {
     const startedAt = Date.now()
     try {
       const result = await fetchGenerateContent({
         prompt,
         appCheckToken,
-        modelName,
+        modelName: policy.name,
+        timeoutMs: policy.timeoutMs,
         structured,
       })
       return {
@@ -207,7 +211,7 @@ async function generateWithFallback({ prompt, appCheckToken, structured = false 
       }
     } catch (error) {
       const elapsedMs = Date.now() - startedAt
-      attempts.push(attemptSummary(modelName, error, elapsedMs))
+      attempts.push(attemptSummary(policy.name, error, elapsedMs))
       lastError = error
       if (!shouldTryNextModel(error)) break
     }
