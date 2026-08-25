@@ -3,14 +3,38 @@
   const CELL_SELECTOR = '.period-item, .week-cell:not(.editor-cell)'
   const CHANGE_SECTION_SELECTOR = '.week-changes'
   const CHANGE_ITEM_SELECTOR = '.change-item'
+  const TIMETABLE_PAGE_SELECTOR = '.timetable-page'
   const SOFT_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
+  const PAGE_READY_DELAY = 1120
 
   const queuedCells = new Set()
   const runningCellAnimations = new WeakMap()
+  const readyTimers = new WeakMap()
   let cellFrame = null
 
+  function timetablePageFor(node) {
+    return node?.closest?.(TIMETABLE_PAGE_SELECTOR) || null
+  }
+
+  function isTimetableReady(node) {
+    const page = timetablePageFor(node)
+    return Boolean(page && page.dataset.schoolTimetableMotionReady === 'true')
+  }
+
+  function schedulePageReady(page) {
+    if (!page || page.dataset.schoolTimetableMotionReady === 'true' || readyTimers.has(page)) return
+
+    const timer = window.setTimeout(() => {
+      readyTimers.delete(page)
+      if (!page.isConnected) return
+      page.dataset.schoolTimetableMotionReady = 'true'
+    }, reducedMotion.matches ? 0 : PAGE_READY_DELAY)
+
+    readyTimers.set(page, timer)
+  }
+
   function queueCell(cell) {
-    if (!cell || reducedMotion.matches) return
+    if (!cell || reducedMotion.matches || !isTimetableReady(cell)) return
     queuedCells.add(cell)
     if (cellFrame !== null) return
 
@@ -22,7 +46,7 @@
   }
 
   function animateCellChange(cell) {
-    if (!cell.isConnected) return
+    if (!cell.isConnected || !isTimetableReady(cell)) return
 
     runningCellAnimations.get(cell)?.cancel()
 
@@ -52,81 +76,6 @@
       if (runningCellAnimations.get(cell) === animation) runningCellAnimations.delete(cell)
     }
     animation.oncancel = animation.onfinish
-  }
-
-  function animateSectionIn(section) {
-    if (!section?.isConnected || reducedMotion.matches || section.dataset.schoolMotionEntered === 'true') return
-    section.dataset.schoolMotionEntered = 'true'
-
-    const targetHeight = Math.max(section.scrollHeight, section.getBoundingClientRect().height)
-    const finalMarginTop = getComputedStyle(section).marginTop
-    section.style.overflow = 'hidden'
-
-    const animation = section.animate(
-      [
-        {
-          height: '0px',
-          marginTop: '0px',
-          opacity: 0,
-          transform: 'translate3d(0, 8px, 0)',
-        },
-        {
-          height: `${targetHeight}px`,
-          marginTop: finalMarginTop,
-          opacity: 1,
-          transform: 'translate3d(0, 0, 0)',
-        },
-      ],
-      {
-        duration: 840,
-        easing: SOFT_EASE,
-        fill: 'both',
-      },
-    )
-
-    animation.onfinish = () => {
-      animation.cancel()
-      section.style.overflow = ''
-    }
-  }
-
-  function animateItemIn(item) {
-    if (!item?.isConnected || reducedMotion.matches || item.dataset.schoolMotionEntered === 'true') return
-    item.dataset.schoolMotionEntered = 'true'
-
-    const targetHeight = item.getBoundingClientRect().height
-    item.style.overflow = 'hidden'
-    item.style.minHeight = '0px'
-
-    const animation = item.animate(
-      [
-        {
-          height: '0px',
-          opacity: 0,
-          transform: 'translate3d(0, 6px, 0)',
-          paddingTop: '0px',
-          paddingBottom: '0px',
-        },
-        {
-          height: `${targetHeight}px`,
-          opacity: 1,
-          transform: 'translate3d(0, 0, 0)',
-          paddingTop: '10px',
-          paddingBottom: '10px',
-        },
-      ],
-      {
-        duration: 700,
-        easing: SOFT_EASE,
-        fill: 'both',
-      },
-    )
-
-    animation.onfinish = () => {
-      animation.cancel()
-      item.style.overflow = ''
-      item.style.minHeight = ''
-    }
   }
 
   function finishRemove(button) {
@@ -182,7 +131,7 @@
   document.addEventListener('click', (event) => {
     const button = event.target.closest('.remove-change')
     if (!button || button.dataset.schoolTimetableMotionPassthrough === 'true') return
-    if (reducedMotion.matches) return
+    if (reducedMotion.matches || !isTimetableReady(button)) return
 
     const item = button.closest(CHANGE_ITEM_SELECTOR)
     const section = button.closest(CHANGE_SECTION_SELECTOR)
@@ -197,9 +146,6 @@
   }, true)
 
   const observer = new MutationObserver((mutations) => {
-    const newSections = new Set()
-    const newItems = new Set()
-
     for (const mutation of mutations) {
       if (mutation.type === 'attributes') {
         const cell = mutation.target.matches?.(CELL_SELECTOR) ? mutation.target : null
@@ -216,18 +162,14 @@
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue
 
-        if (node.matches(CHANGE_SECTION_SELECTOR)) newSections.add(node)
-        node.querySelectorAll?.(CHANGE_SECTION_SELECTOR).forEach((section) => newSections.add(section))
+        if (node.matches(TIMETABLE_PAGE_SELECTOR)) schedulePageReady(node)
+        node.querySelectorAll?.(TIMETABLE_PAGE_SELECTOR).forEach(schedulePageReady)
 
-        if (node.matches(CHANGE_ITEM_SELECTOR)) newItems.add(node)
-        node.querySelectorAll?.(CHANGE_ITEM_SELECTOR).forEach((item) => newItems.add(item))
+        if (isTimetableReady(node)) {
+          if (node.matches(CELL_SELECTOR)) queueCell(node)
+          node.querySelectorAll?.(CELL_SELECTOR).forEach(queueCell)
+        }
       }
-    }
-
-    for (const section of newSections) animateSectionIn(section)
-    for (const item of newItems) {
-      const section = item.closest(CHANGE_SECTION_SELECTOR)
-      if (!newSections.has(section)) animateItemIn(item)
     }
   })
 
@@ -238,4 +180,6 @@
     attributes: true,
     attributeFilter: ['class'],
   })
+
+  document.querySelectorAll(TIMETABLE_PAGE_SELECTOR).forEach(schedulePageReady)
 })()
