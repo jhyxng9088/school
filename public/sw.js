@@ -1,5 +1,5 @@
-const CACHE_NAME = 'school-shell-v29'
-const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './school-sheet.css', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './school-academic-supplement.js', './school-sheet.js', './school-timetable-motion.js', './school-home-nav.js']
+const CACHE_NAME = 'school-shell-v30'
+const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './school-sheet.css', './reminder-sheet.css', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './school-academic-supplement.js', './reminder-sheet.js', './school-sheet.js', './school-timetable-motion.js', './school-home-nav.js']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
