@@ -8,10 +8,12 @@ export const SUJI_SCHOOL = {
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const MEAL_CACHE_KEY = 'school.stage3.meals.v1'
-const ACADEMIC_CACHE_KEY = 'school.stage3.academic.v1'
+const ACADEMIC_CACHE_KEY = 'school.stage3.academic.v2'
 const MEAL_CACHE_AGE = 1000 * 60 * 60 * 12
 const ACADEMIC_CACHE_AGE = 1000 * 60 * 60 * 6
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+const DETAIL_EXIT_MS = 215
+const DETAIL_ENTER_MS = 760
 
 function pad(value) {
   return String(value).padStart(2, '0')
@@ -83,18 +85,28 @@ function getRows(payload, key) {
   return section.find((block) => Array.isArray(block?.row))?.row || []
 }
 
-async function neisRequest(path, params, signal) {
+function rootResult(payload) {
+  const result = payload?.RESULT
+  return result && typeof result === 'object' ? result : null
+}
+
+async function neisRequest(path, params, signal, pSize = 500) {
   const url = new URL(`${NEIS_BASE}/${path}`)
   url.searchParams.set('Type', 'json')
   url.searchParams.set('pIndex', '1')
-  url.searchParams.set('pSize', '1000')
+  url.searchParams.set('pSize', String(pSize))
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value))
   }
 
   const response = await fetch(url.toString(), { cache: 'no-store', signal })
   if (!response.ok) throw new Error(`NEIS ${path} ${response.status}`)
-  return response.json()
+  const payload = await response.json()
+  const result = rootResult(payload)
+  if (result?.CODE && result.CODE !== 'INFO-000' && result.CODE !== 'INFO-200') {
+    throw new Error(result.MESSAGE || `NEIS ${path} ${result.CODE}`)
+  }
+  return payload
 }
 
 function cleanDish(value) {
@@ -124,13 +136,14 @@ function normalizeMeal(row) {
 
 function normalizeAcademic(row) {
   const raw = String(row.AA_YMD || '')
+  const gradeMarker = String(row.TW_GRADE_EVENT_YN ?? '').trim().toUpperCase()
   return {
     rawDate: raw,
     date: dateFromRaw(raw),
     name: String(row.EVENT_NM || '').trim(),
     content: String(row.EVENT_CNTNT || '').trim(),
     dayOffType: String(row.SBTR_DD_SC_NM || '').trim(),
-    secondGrade: row.TW_GRADE_EVENT_YN !== 'N',
+    secondGrade: gradeMarker === 'Y' || gradeMarker === '',
   }
 }
 
@@ -140,7 +153,7 @@ async function fetchMealRange(fromDate, toDate, signal) {
     SD_SCHUL_CODE: SUJI_SCHOOL.schoolCode,
     MLSV_FROM_YMD: rawDate(fromDate),
     MLSV_TO_YMD: rawDate(toDate),
-  }, signal)
+  }, signal, 100)
 
   return getRows(payload, 'mealServiceDietInfo')
     .map(normalizeMeal)
@@ -149,17 +162,35 @@ async function fetchMealRange(fromDate, toDate, signal) {
 }
 
 async function fetchAcademicRange(fromDate, toDate, signal) {
-  const payload = await neisRequest('SchoolSchedule', {
-    ATPT_OFCDC_SC_CODE: SUJI_SCHOOL.officeCode,
-    SD_SCHUL_CODE: SUJI_SCHOOL.schoolCode,
-    AA_FROM_YMD: rawDate(fromDate),
-    AA_TO_YMD: rawDate(toDate),
-  }, signal)
+  const rows = []
+  let cursor = dayStart(fromDate)
+  const finalDate = dayStart(toDate)
 
-  return getRows(payload, 'SchoolSchedule')
+  // Smaller windows are more reliable than one long semester-sized request,
+  // and still preserve the same NEIS source of truth.
+  while (cursor <= finalDate) {
+    const chunkEnd = addDays(cursor, 89)
+    const safeEnd = chunkEnd > finalDate ? finalDate : chunkEnd
+    const payload = await neisRequest('SchoolSchedule', {
+      ATPT_OFCDC_SC_CODE: SUJI_SCHOOL.officeCode,
+      SD_SCHUL_CODE: SUJI_SCHOOL.schoolCode,
+      AA_FROM_YMD: rawDate(cursor),
+      AA_TO_YMD: rawDate(safeEnd),
+    }, signal, 500)
+    rows.push(...getRows(payload, 'SchoolSchedule'))
+    cursor = addDays(safeEnd, 1)
+  }
+
+  if (!rows.length) throw new Error('NEIS 학사일정 응답이 비어 있어.')
+
+  const normalized = rows
     .map(normalizeAcademic)
-    .filter((event) => event.date && event.name && event.secondGrade)
+    .filter((event) => event.date && event.name)
     .sort((a, b) => a.rawDate.localeCompare(b.rawDate) || a.name.localeCompare(b.name))
+
+  const secondGradeEvents = normalized.filter((event) => event.secondGrade)
+  if (!secondGradeEvents.length) throw new Error('2학년 학사일정을 찾지 못했어.')
+  return secondGradeEvents
 }
 
 function hydrateMealRanges() {
@@ -176,7 +207,7 @@ function hydrateAcademic(now) {
   const key = rangeKey(from, to)
   const cached = readStore(ACADEMIC_CACHE_KEY).ranges?.[key]
   return {
-    events: Array.isArray(cached?.events)
+    events: Array.isArray(cached?.events) && cached.events.length
       ? cached.events.map((event) => ({ ...event, date: dateFromRaw(event.rawDate) }))
       : [],
   }
@@ -238,9 +269,11 @@ export function useSchoolData(now) {
     const key = rangeKey(from, to)
     const store = readStore(ACADEMIC_CACHE_KEY)
     const cached = store.ranges?.[key]
-    const fresh = cached && Date.now() - Number(cached.savedAt || 0) < ACADEMIC_CACHE_AGE
+    const hasCachedEvents = Array.isArray(cached?.events) && cached.events.length > 0
+    const fresh = hasCachedEvents && Date.now() - Number(cached.savedAt || 0) < ACADEMIC_CACHE_AGE
 
-    if (!force && fresh && Array.isArray(cached.events)) {
+    // An empty cache must never suppress a real NEIS retry.
+    if (!force && fresh) {
       setAcademicEvents(cached.events.map((event) => ({ ...event, date: dateFromRaw(event.rawDate) })))
       return
     }
@@ -262,7 +295,12 @@ export function useSchoolData(now) {
         },
       })
     } catch (error) {
-      if (error.name !== 'AbortError') setAcademicError(error)
+      if (error.name !== 'AbortError') {
+        setAcademicError(error)
+        if (hasCachedEvents) {
+          setAcademicEvents(cached.events.map((event) => ({ ...event, date: dateFromRaw(event.rawDate) })))
+        }
+      }
     } finally {
       if (academicRequestRef.current === controller) academicRequestRef.current = null
       setAcademicLoading(false)
@@ -359,39 +397,96 @@ export function MealPreview({ now, schoolData }) {
 }
 
 export function MealPage({ schoolData }) {
-  const [weekOffset, setWeekOffset] = useState(0)
-  const [selectedIndex, setSelectedIndex] = useState(() => {
+  const initialIndex = (() => {
     const day = new Date().getDay()
     return day >= 1 && day <= 5 ? day - 1 : 0
-  })
-  const [direction, setDirection] = useState(1)
+  })()
+  const [weekOffset, setWeekOffset] = useState(0)
+  const [selectedIndex, setSelectedIndex] = useState(initialIndex)
+  const [displaySelection, setDisplaySelection] = useState({ weekOffset: 0, index: initialIndex })
+  const [motion, setMotion] = useState({ phase: 'steady', direction: 1 })
+  const weekOffsetRef = useRef(0)
+  const selectedIndexRef = useRef(initialIndex)
+  const latestSelectionRef = useRef({ weekOffset: 0, index: initialIndex, direction: 1 })
+  const motionPhaseRef = useRef('steady')
+  const exitTimerRef = useRef(null)
+  const enterTimerRef = useRef(null)
+
   const week = schoolData.mealWeek(weekOffset)
-  const selectedDate = week.dates[selectedIndex] || week.dates[0]
-  const meal = mealForDate(week.meals, selectedDate)
+  const displayWeek = schoolData.mealWeek(displaySelection.weekOffset)
+  const displayDate = displayWeek.dates[displaySelection.index] || displayWeek.dates[0]
+  const displayMeal = mealForDate(displayWeek.meals, displayDate)
 
   useEffect(() => {
     schoolData.ensureMealWeek(weekOffset)
   }, [weekOffset])
 
+  useEffect(() => () => {
+    window.clearTimeout(exitTimerRef.current)
+    window.clearTimeout(enterTimerRef.current)
+  }, [])
+
+  function setMotionPhase(phase, direction) {
+    motionPhaseRef.current = phase
+    setMotion({ phase, direction })
+  }
+
+  function startPendingTransition() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const latest = latestSelectionRef.current
+      setDisplaySelection({ weekOffset: latest.weekOffset, index: latest.index })
+      setMotionPhase('steady', latest.direction)
+      return
+    }
+
+    window.clearTimeout(exitTimerRef.current)
+    window.clearTimeout(enterTimerRef.current)
+    const latest = latestSelectionRef.current
+    setMotionPhase('out', latest.direction)
+
+    exitTimerRef.current = window.setTimeout(() => {
+      const next = latestSelectionRef.current
+      setDisplaySelection({ weekOffset: next.weekOffset, index: next.index })
+      setMotionPhase('in', next.direction)
+      enterTimerRef.current = window.setTimeout(() => {
+        setMotionPhase('steady', latestSelectionRef.current.direction)
+      }, DETAIL_ENTER_MS)
+    }, DETAIL_EXIT_MS)
+  }
+
+  function queueSelection(nextWeekOffset, nextIndex, direction) {
+    latestSelectionRef.current = { weekOffset: nextWeekOffset, index: nextIndex, direction }
+    if (motionPhaseRef.current === 'out') return
+    startPendingTransition()
+  }
+
   function selectDay(index) {
-    if (index === selectedIndex) return
-    setDirection(index > selectedIndex ? 1 : -1)
+    if (index === selectedIndexRef.current) return
+    const previous = selectedIndexRef.current
+    selectedIndexRef.current = index
     setSelectedIndex(index)
+    queueSelection(weekOffsetRef.current, index, index > previous ? 1 : -1)
   }
 
   function moveWeek(delta) {
-    setDirection(delta > 0 ? 1 : -1)
-    setWeekOffset((value) => value + delta)
+    const nextOffset = weekOffsetRef.current + delta
+    weekOffsetRef.current = nextOffset
+    setWeekOffset(nextOffset)
+    queueSelection(nextOffset, selectedIndexRef.current, delta > 0 ? 1 : -1)
   }
 
   function backToCurrentWeek() {
-    if (weekOffset === 0) return
-    setDirection(weekOffset > 0 ? -1 : 1)
+    if (weekOffsetRef.current === 0) return
+    const direction = weekOffsetRef.current > 0 ? -1 : 1
+    weekOffsetRef.current = 0
     setWeekOffset(0)
+    queueSelection(0, selectedIndexRef.current, direction)
   }
 
+  const detailClass = `stage3-detail stage3-detail-motion is-${motion.phase}`
+
   return (
-    <section className="stage3-page">
+    <section className="stage3-page meal-page">
       <header className="page-header stage3-page-header">
         <p className="date-label">{SUJI_SCHOOL.schoolName}</p>
         <h1>급식</h1>
@@ -419,27 +514,23 @@ export function MealPage({ schoolData }) {
         ))}
       </div>
 
-      <section
-        className="stage3-detail stage3-detail-motion"
-        key={`${weekOffset}-${selectedIndex}`}
-        style={{ '--stage3-direction': direction }}
-      >
-        {meal ? (
+      <section className={detailClass} style={{ '--stage3-direction': motion.direction }}>
+        {displayMeal ? (
           <>
-            <p className="stage3-detail-date">{formatDate(selectedDate)} · {meal.mealName}</p>
+            <p className="stage3-detail-date">{formatDate(displayDate)} · {displayMeal.mealName}</p>
             <h2>급식</h2>
             <ul className="stage3-meal-list">
-              {meal.dishes.map((dish) => <li key={dish}>{dish}</li>)}
+              {displayMeal.dishes.map((dish, index) => <li key={`${dish}-${index}`}>{dish}</li>)}
             </ul>
-            {meal.calories ? <p className="stage3-detail-meta">{meal.calories}</p> : null}
+            {displayMeal.calories ? <p className="stage3-detail-meta">{displayMeal.calories}</p> : null}
           </>
-        ) : week.loading ? (
-          <div className="stage3-status"><strong>급식 불러오는 중</strong><p>{formatWeekRange(week.dates)} 급식을 확인하고 있어.</p></div>
+        ) : displayWeek.loading ? (
+          <div className="stage3-status"><strong>급식 불러오는 중</strong><p>{formatWeekRange(displayWeek.dates)} 급식을 확인하고 있어.</p></div>
         ) : (
           <div className="stage3-status">
-            <strong>{week.error ? '급식을 불러오지 못했어' : '등록된 급식이 없어'}</strong>
-            <p>{week.error ? '인터넷 연결이나 NEIS 응답을 확인해줘.' : `${formatDate(selectedDate)} 급식이 아직 NEIS에 등록되지 않았어.`}</p>
-            {week.error ? <button onClick={() => schoolData.ensureMealWeek(weekOffset, true)}>다시 불러오기</button> : null}
+            <strong>{displayWeek.error ? '급식을 불러오지 못했어' : '등록된 급식이 없어'}</strong>
+            <p>{displayWeek.error ? '인터넷 연결이나 NEIS 응답을 확인해줘.' : `${formatDate(displayDate)} 급식이 아직 NEIS에 등록되지 않았어.`}</p>
+            {displayWeek.error ? <button onClick={() => schoolData.ensureMealWeek(displaySelection.weekOffset, true)}>다시 불러오기</button> : null}
           </div>
         )}
       </section>
@@ -452,7 +543,7 @@ function isRoutineAcademic(event) {
 }
 
 function isImportantExam(event) {
-  return /중간|기말|정기시험|정기고사|지필/.test(event.name)
+  return /중간|기말|정기시험|정기고사|지필|1차.*(시험|고사)|2차.*(시험|고사)/.test(event.name)
 }
 
 function groupAcademicEvents(events) {
