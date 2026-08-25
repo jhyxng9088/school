@@ -8,6 +8,7 @@
 
   const running = new WeakMap()
   const readyTimers = new WeakMap()
+  const pendingDirections = new WeakMap()
   const pendingFrames = new WeakMap()
 
   function scheduleReady(page) {
@@ -48,24 +49,24 @@
     return 0
   }
 
-  function animateDetail(page, direction) {
+  function animateCommittedDetail(page, direction) {
     if (!page?.isConnected || page.dataset.schoolMealMotionReady !== 'true' || reducedMotion.matches) return
 
     const detail = page.querySelector(DETAIL_SELECTOR)
     if (!detail) return
 
     const previous = running.get(detail)
-    let fromOpacity = '0.9'
-    let fromTransform = `translate3d(${direction * 8}px, 2px, 0)`
-    let duration = 780
+    let fromOpacity = 0.88
+    let fromTransform = `translate3d(${direction * 9}px, 2px, 0)`
+    let duration = 740
 
     if (previous) {
       const computed = getComputedStyle(detail)
-      fromOpacity = computed.opacity || '1'
+      fromOpacity = Number.parseFloat(computed.opacity) || 1
       fromTransform = computed.transform && computed.transform !== 'none'
         ? computed.transform
         : 'translate3d(0, 0, 0)'
-      duration = 620
+      duration = 560
       previous.cancel()
     }
 
@@ -94,18 +95,25 @@
     animation.oncancel = finish
   }
 
-  function queueInteraction(page, direction) {
-    if (!page || direction === 0) return
+  function animateAfterCommit(page) {
+    const direction = pendingDirections.get(page)
+    if (!direction) return
+    pendingDirections.delete(page)
 
     const previousFrame = pendingFrames.get(page)
     if (previousFrame) cancelAnimationFrame(previousFrame)
 
-    const frame = requestAnimationFrame(() => {
-      pendingFrames.delete(page)
-      animateDetail(page, direction)
+    // Wait until React has committed the new meal DOM and the browser has had
+    // a frame to settle layout. Motion starts only after the content is real.
+    const firstFrame = requestAnimationFrame(() => {
+      const secondFrame = requestAnimationFrame(() => {
+        pendingFrames.delete(page)
+        animateCommittedDetail(page, direction)
+      })
+      pendingFrames.set(page, secondFrame)
     })
 
-    pendingFrames.set(page, frame)
+    pendingFrames.set(page, firstFrame)
   }
 
   document.addEventListener('click', (event) => {
@@ -118,19 +126,35 @@
     const direction = interactionDirection(button, page)
     if (!direction) return
 
-    queueInteraction(page, direction)
+    // Record only intent here. React owns the actual state change and render.
+    // The observer below starts the animation after that render is committed.
+    pendingDirections.set(page, direction)
   }, true)
 
   const observer = new MutationObserver((mutations) => {
+    const pagesToAnimate = new Set()
+
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue
         if (node.matches(PAGE_SELECTOR)) scheduleReady(node)
         node.querySelectorAll?.(PAGE_SELECTOR).forEach(scheduleReady)
       }
+
+      const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement
+      const page = target?.closest?.(PAGE_SELECTOR)
+      const detail = target?.closest?.(DETAIL_SELECTOR)
+      if (page && detail && pendingDirections.has(page)) pagesToAnimate.add(page)
     }
+
+    for (const page of pagesToAnimate) animateAfterCommit(page)
   })
 
-  observer.observe(document.documentElement, { subtree: true, childList: true })
+  observer.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+  })
+
   document.querySelectorAll(PAGE_SELECTOR).forEach(scheduleReady)
 })()
