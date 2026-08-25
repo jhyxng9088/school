@@ -108,6 +108,73 @@ async function directDebugTokenExchange(debugToken) {
   }
 }
 
+async function directAIDiagnostic(appCheckToken) {
+  const endpoint = `https://firebasevertexai.googleapis.com/v1beta/projects/${firebaseConfig.projectId}/models/gemini-3.7-flash:generateContent`
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), AI_LOGIC_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': firebaseConfig.apiKey,
+        'X-Firebase-AppCheck': appCheckToken,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'Reply with OK' }],
+          },
+        ],
+      }),
+      signal: controller.signal,
+    })
+
+    const rawText = await response.text()
+    let payload = null
+    try {
+      payload = rawText ? JSON.parse(rawText) : null
+    } catch {
+      payload = null
+    }
+
+    const responseText = String(
+      payload?.candidates?.[0]?.content?.parts
+        ?.map((part) => part?.text || '')
+        .join('') || '',
+    )
+      .trim()
+      .slice(0, 120)
+
+    return {
+      ok: response.ok,
+      httpStatus: response.status,
+      statusText: response.statusText || '',
+      serverStatus: payload?.error?.status || null,
+      serverMessage: payload?.error?.message || null,
+      responseText,
+      rawPreview: rawText.slice(0, 220),
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      httpStatus: null,
+      statusText: '',
+      serverStatus: null,
+      serverMessage:
+        error?.name === 'AbortError'
+          ? `Direct REST timed out after ${AI_LOGIC_TIMEOUT_MS}ms`
+          : error?.message || String(error),
+      responseText: '',
+      rawPreview: '',
+    }
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
   window.__SCHOOL_APPCHECK_DIAGNOSE__ = async () => {
     const startedAt = Date.now()
@@ -160,24 +227,50 @@ if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
 
   window.__SCHOOL_AI_DIAGNOSE__ = async () => {
     const startedAt = Date.now()
+
     try {
       const appCheckResult = await withTimeout(
         getToken(appCheck, false),
         APPCHECK_DEBUG_TIMEOUT_MS,
         'App Check',
       )
+      const appCheckToken = String(appCheckResult?.token || '')
 
-      const result = await withTimeout(
-        debugModel.generateContent('Reply with OK'),
-        AI_LOGIC_TIMEOUT_MS,
-        'AI Logic',
-      )
+      const direct = await directAIDiagnostic(appCheckToken)
+      if (!direct.ok) {
+        return {
+          ok: false,
+          name: 'DirectREST',
+          code: 'school-ai/direct-fetch-error',
+          status: direct.httpStatus,
+          elapsedMs: Date.now() - startedAt,
+          message: `direct ${direct.httpStatus || '?'} ${direct.serverStatus || direct.statusText || ''} — ${direct.serverMessage || direct.rawPreview || 'no server message'}`,
+        }
+      }
 
-      return {
-        ok: true,
-        elapsedMs: Date.now() - startedAt,
-        appCheckTokenLength: String(appCheckResult?.token || '').length,
-        responseText: String(result.response.text() || '').trim().slice(0, 120),
+      try {
+        const sdkStartedAt = Date.now()
+        const result = await withTimeout(
+          debugModel.generateContent('Reply with OK'),
+          AI_LOGIC_TIMEOUT_MS,
+          'AI Logic',
+        )
+
+        return {
+          ok: true,
+          elapsedMs: Date.now() - startedAt,
+          appCheckTokenLength: appCheckToken.length,
+          responseText: `direct 200: ${direct.responseText || 'OK'} · SDK ${Date.now() - sdkStartedAt}ms: ${String(result.response.text() || '').trim().slice(0, 80)}`,
+        }
+      } catch (sdkError) {
+        return {
+          ok: false,
+          name: sdkError?.name || 'Error',
+          code: sdkError?.code || 'school-ai/sdk-failed-direct-ok',
+          status: sdkError?.status || 200,
+          elapsedMs: Date.now() - startedAt,
+          message: `direct 200 OK (${direct.responseText || 'response received'}) | SDK 실패 — ${sdkError?.message || String(sdkError)}`,
+        }
       }
     } catch (error) {
       return {
