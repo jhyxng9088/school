@@ -6,6 +6,8 @@
   const RECAPTCHA_ACTION = 'fire_app_check'
   const AI_HOST = 'firebasevertexai.googleapis.com'
   const TOKEN_REFRESH_SAFETY_MS = 5 * 60 * 1000
+  const STORAGE_KEY = 'school.pwa.appcheck.token.v2'
+  const WIDGET_ID = 'school_pwa_appcheck_widget'
 
   const isStandalone =
     window.matchMedia?.('(display-mode: standalone)').matches ||
@@ -17,29 +19,84 @@
 
   if (!isStandalone || !isAppleTouch) return
 
+  const nativeFetch = window.fetch.bind(window)
   const state = {
     token: '',
     expiresAt: 0,
     inFlight: null,
+    widgetId: null,
+    widgetSucceeded: null,
     lastStage: 'installed',
     lastError: '',
     lastHttpStatus: 0,
+    recaptchaHost: window.grecaptcha?.enterprise ? 'preloaded' : 'recaptcha.net',
   }
+
   window.__SCHOOL_PWA_APPCHECK_BRIDGE__ = state
 
-  if (!window.grecaptcha?.enterprise && document.readyState === 'loading') {
-    const src = `https://www.google.com/recaptcha/enterprise.js?render=${encodeURIComponent(SITE_KEY)}`
-    document.write(`<script src="${src}"><\/script>`)
+  try {
+    const cached = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null')
+    if (
+      cached?.token &&
+      Number(cached?.expiresAt) > Date.now() + TOKEN_REFRESH_SAFETY_MS
+    ) {
+      state.token = String(cached.token)
+      state.expiresAt = Number(cached.expiresAt)
+      state.lastStage = 'cached-token'
+    }
+  } catch {
+    window.localStorage.removeItem(STORAGE_KEY)
   }
 
-  const nativeFetch = window.fetch.bind(window)
+  function persistToken() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        token: state.token,
+        expiresAt: state.expiresAt,
+      }))
+    } catch {
+      // Storage is optional. The in-memory token still works for this session.
+    }
+  }
 
-  function waitForEnterprise(timeoutMs = 10000) {
+  function clearToken() {
+    state.token = ''
+    state.expiresAt = 0
+    try {
+      window.localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // Ignore storage cleanup failures.
+    }
+  }
+
+  let googleFallbackPromise = null
+
+  function loadGoogleFallback() {
+    if (window.grecaptcha?.enterprise) return Promise.resolve()
+    if (googleFallbackPromise) return googleFallbackPromise
+
+    googleFallbackPromise = new Promise((resolve, reject) => {
+      state.lastStage = 'recaptcha-google-fallback-load'
+      const script = document.createElement('script')
+      script.src = 'https://www.google.com/recaptcha/enterprise.js?render=explicit'
+      script.async = true
+      script.onload = () => {
+        state.recaptchaHost = 'google.com'
+        resolve()
+      }
+      script.onerror = () => reject(new Error('Google reCAPTCHA fallback script failed to load'))
+      document.head.appendChild(script)
+    })
+
+    return googleFallbackPromise
+  }
+
+  function waitForEnterprise(timeoutMs = 5000) {
     return new Promise((resolve, reject) => {
       const startedAt = Date.now()
       const poll = () => {
         const enterprise = window.grecaptcha?.enterprise
-        if (enterprise?.ready && enterprise?.execute) {
+        if (enterprise?.ready && enterprise?.render && enterprise?.execute) {
           enterprise.ready(() => resolve(enterprise))
           return
         }
@@ -51,6 +108,48 @@
       }
       poll()
     })
+  }
+
+  async function getEnterprise() {
+    state.lastStage = 'recaptcha-ready'
+    try {
+      return await waitForEnterprise(5000)
+    } catch (firstError) {
+      await loadGoogleFallback()
+      try {
+        return await waitForEnterprise(7000)
+      } catch (secondError) {
+        secondError.cause = firstError
+        throw secondError
+      }
+    }
+  }
+
+  function ensureWidget(enterprise) {
+    if (state.widgetId !== null) return state.widgetId
+
+    let container = document.getElementById(WIDGET_ID)
+    if (!container) {
+      container = document.createElement('div')
+      container.id = WIDGET_ID
+      container.style.display = 'none'
+      document.body.appendChild(container)
+    }
+
+    state.lastStage = 'recaptcha-render'
+    state.widgetSucceeded = null
+    state.widgetId = enterprise.render(container, {
+      sitekey: SITE_KEY,
+      size: 'invisible',
+      callback: () => {
+        state.widgetSucceeded = true
+      },
+      'error-callback': () => {
+        state.widgetSucceeded = false
+      },
+    })
+
+    return state.widgetId
   }
 
   async function exchangeEnterpriseToken(recaptchaToken) {
@@ -83,27 +182,35 @@
     state.expiresAt = Date.now() + (Number.isFinite(ttlSeconds) ? ttlSeconds * 1000 : 30 * 60 * 1000)
     state.lastStage = 'ready'
     state.lastError = ''
+    state.lastHttpStatus = response.status
+    persistToken()
     return state.token
   }
 
-  async function issueProductionAppCheckToken() {
-    if (state.token && Date.now() < state.expiresAt - TOKEN_REFRESH_SAFETY_MS) {
+  async function issueProductionAppCheckToken(forceRefresh = false) {
+    if (
+      !forceRefresh &&
+      state.token &&
+      Date.now() < state.expiresAt - TOKEN_REFRESH_SAFETY_MS
+    ) {
       return state.token
     }
     if (state.inFlight) return state.inFlight
 
     state.inFlight = (async () => {
       try {
-        state.lastStage = 'recaptcha-ready'
-        const enterprise = await waitForEnterprise()
+        if (forceRefresh) clearToken()
+        const enterprise = await getEnterprise()
+        const widgetId = ensureWidget(enterprise)
         state.lastStage = 'recaptcha-execute'
-        const recaptchaToken = await enterprise.execute(SITE_KEY, { action: RECAPTCHA_ACTION })
+        state.widgetSucceeded = null
+        const recaptchaToken = await enterprise.execute(widgetId, { action: RECAPTCHA_ACTION })
         if (!recaptchaToken) throw new Error('reCAPTCHA Enterprise returned an empty token')
+        if (state.widgetSucceeded === false) throw new Error('reCAPTCHA Enterprise widget reported an error')
         return await exchangeEnterpriseToken(recaptchaToken)
       } catch (error) {
         state.lastError = error?.message || String(error)
-        state.token = ''
-        state.expiresAt = 0
+        clearToken()
         throw error
       } finally {
         state.inFlight = null
@@ -112,6 +219,8 @@
 
     return state.inFlight
   }
+
+  state.getToken = issueProductionAppCheckToken
 
   function requestUrl(input) {
     if (typeof input === 'string') return input
@@ -128,6 +237,26 @@
     return headers
   }
 
+  function stageLabel() {
+    const labels = {
+      'recaptcha-ready': 'reCAPTCHA 로드',
+      'recaptcha-google-fallback-load': 'reCAPTCHA 보조 로드',
+      'recaptcha-render': 'reCAPTCHA 초기화',
+      'recaptcha-execute': 'reCAPTCHA 인증',
+      'appcheck-exchange': 'App Check 교환',
+    }
+    return labels[state.lastStage] || state.lastStage
+  }
+
+  const observer = new MutationObserver(() => {
+    if (!state.lastError) return
+    document.querySelectorAll('.reminder-ai-status').forEach((node) => {
+      if (!node.textContent?.includes('AI 연결이 안 돼서')) return
+      node.textContent = `AI 연결 실패 · ${stageLabel()}${state.lastHttpStatus ? ` · HTTP ${state.lastHttpStatus}` : ''}`
+    })
+  })
+  observer.observe(document.documentElement, { childList: true, subtree: true })
+
   window.fetch = async (input, init) => {
     let url
     try {
@@ -139,10 +268,9 @@
     if (url.hostname !== AI_HOST) return nativeFetch(input, init)
 
     const headers = mergedHeaders(input, init)
-    if (headers.has('X-Firebase-AppCheck')) return nativeFetch(input, init)
 
     try {
-      const token = await issueProductionAppCheckToken()
+      const token = await issueProductionAppCheckToken(false)
       headers.set('X-Firebase-AppCheck', token)
 
       if (input instanceof Request) {
