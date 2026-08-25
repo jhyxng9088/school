@@ -36,10 +36,10 @@
 /* Standard */
 .app-content > .page-header,
 .app-content > .empty-panel,
-/* Todo */
-.todo-page > .todo-header,
-.todo-page > .todo-summary,
-.todo-page > .todo-list-section,
+/* Reminder: only while the page itself is entering. */
+.todo-page.is-page-entering > .todo-header,
+.todo-page.is-page-entering > .todo-summary,
+.todo-page.is-page-entering > .todo-list-section,
 /* Timetable */
 .timetable-page > .timetable-header,
 .timetable-page > .week-summary,
@@ -57,35 +57,35 @@
 }
 
 .app-content > .page-header,
-.todo-page > .todo-header,
+.todo-page.is-page-entering > .todo-header,
 .timetable-page > .timetable-header,
 .stage3-page > .stage3-page-header {
   animation-delay: 35ms;
 }
 
 .app-content > .empty-panel,
-.todo-page > .todo-summary,
+.todo-page.is-page-entering > .todo-summary,
 .timetable-page > .week-summary,
 .meal-page > .stage3-week-nav,
 .academic-page > .academic-focus-card {
   animation-delay: 115ms;
 }
 
-.todo-page > .todo-list-section:nth-of-type(2),
+.todo-page.is-page-entering > .todo-list-section:nth-of-type(2),
 .timetable-page > .week-table-wrap,
 .meal-page > .stage3-day-strip,
 .academic-page > .academic-list-head {
   animation-delay: 195ms;
 }
 
-.todo-page > .todo-list-section:nth-of-type(n+3),
+.todo-page.is-page-entering > .todo-list-section:nth-of-type(n+3),
 .timetable-page > .editor-actions,
 .timetable-page > .week-changes,
 .meal-page > .stage3-detail {
   animation-delay: 275ms;
 }
 
-/* Let stable page controls arrive in a soft sequence. Todo rows use their own state motion. */
+/* Let stable page controls arrive in a soft sequence. Reminder rows use their own state motion. */
 .timetable-actions > button,
 .stage3-day-strip > .stage3-day-button,
 .academic-list > .academic-list-item,
@@ -151,9 +151,9 @@ body .stage3-detail-body-motion > .stage3-status { animation-delay: 55ms; }
 @media (prefers-reduced-motion: reduce) {
   .app-content > .page-header,
   .app-content > .empty-panel,
-  .todo-page > .todo-header,
-  .todo-page > .todo-summary,
-  .todo-page > .todo-list-section,
+  .todo-page.is-page-entering > .todo-header,
+  .todo-page.is-page-entering > .todo-summary,
+  .todo-page.is-page-entering > .todo-list-section,
   .timetable-page > .timetable-header,
   .timetable-page > .week-summary,
   .timetable-page > .week-table-wrap,
