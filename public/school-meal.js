@@ -27,15 +27,6 @@
     return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`
   }
 
-  function localDateKey(date) {
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-  }
-
-  function dateFromRaw(value) {
-    if (!/^\d{8}$/.test(value || '')) return null
-    return new Date(Number(value.slice(0, 4)), Number(value.slice(4, 6)) - 1, Number(value.slice(6, 8)), 12, 0, 0, 0)
-  }
-
   function getWeekDates(anchor = new Date()) {
     const start = new Date(anchor)
     start.setHours(12, 0, 0, 0)
@@ -308,7 +299,7 @@
     } else {
       detail = `
         <p class="school-meal-date">${escapeHtml(formatSelectedDate(selected))} · ${escapeHtml(meal.mealName)}</p>
-        <h2>오늘의 급식</h2>
+        <h2>급식</h2>
         <ul class="school-meal-dishes">
           ${meal.dishes.map((dish) => `<li>${escapeHtml(dish)}</li>`).join('')}
         </ul>
@@ -367,7 +358,15 @@
     if (retry) fetchWeek(true)
   })
 
-  const observer = new MutationObserver(() => scheduleRender())
+  function mutationIsInsideMealUi(mutation) {
+    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement
+    return Boolean(target?.closest?.('.school-meal-home-mount, .school-meal-page'))
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    if (mutations.every(mutationIsInsideMealUi)) return
+    scheduleRender()
+  })
   observer.observe(document.documentElement, { childList: true, subtree: true })
 
   scheduleRender()
