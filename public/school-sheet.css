@@ -14,7 +14,8 @@ html.school-sheet-open #root {
   -webkit-user-select: none;
 }
 
-html.school-sheet-open body .change-editor {
+html.school-sheet-open body .change-editor,
+html.school-sheet-open body [data-school-sheet] {
   pointer-events: auto;
   user-select: auto;
   -webkit-user-select: auto;
