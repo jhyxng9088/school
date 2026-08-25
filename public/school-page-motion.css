@@ -109,7 +109,8 @@
 
 /*
   Meal date changes do not move the whole detail surface anymore.
-  React replaces only the inner content; each text row then settles in sequence.
+  React replaces only the inner content; each text row uses the same calm
+  duration and stagger cadence as the rest of the app's page-entry rhythm.
 */
 body .stage3-detail-body-motion {
   animation: none !important;
@@ -123,21 +124,21 @@ body .stage3-detail-body-motion > h2,
 body .stage3-detail-body-motion > .stage3-meal-list > li,
 body .stage3-detail-body-motion > .stage3-detail-meta,
 body .stage3-detail-body-motion > .stage3-status {
-  animation: school-meal-text-in 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: school-meal-text-in 980ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 body .stage3-detail-body-motion > .stage3-detail-date { animation-delay: 0ms; }
 body .stage3-detail-body-motion > h2 { animation-delay: 55ms; }
 body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(1) { animation-delay: 110ms; }
-body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(2) { animation-delay: 155ms; }
-body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(3) { animation-delay: 200ms; }
-body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(4) { animation-delay: 245ms; }
-body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(5) { animation-delay: 290ms; }
-body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(6) { animation-delay: 335ms; }
-body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(7) { animation-delay: 380ms; }
-body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(n+8) { animation-delay: 410ms; }
-body .stage3-detail-body-motion > .stage3-detail-meta { animation-delay: 430ms; }
-body .stage3-detail-body-motion > .stage3-status { animation-delay: 45ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(2) { animation-delay: 165ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(3) { animation-delay: 220ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(4) { animation-delay: 275ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(5) { animation-delay: 330ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(6) { animation-delay: 385ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(7) { animation-delay: 440ms; }
+body .stage3-detail-body-motion > .stage3-meal-list > li:nth-child(n+8) { animation-delay: 495ms; }
+body .stage3-detail-body-motion > .stage3-detail-meta { animation-delay: 520ms; }
+body .stage3-detail-body-motion > .stage3-status { animation-delay: 55ms; }
 
 @media (prefers-reduced-motion: reduce) {
   .app-content > .page-header,
