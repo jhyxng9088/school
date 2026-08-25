@@ -23,6 +23,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - run: node scripts/repair-attachment-summary-runner.mjs
       - run: node scripts/apply-attachment-summary.mjs
       - run: npm install
       - run: npm run build
