@@ -13,6 +13,8 @@ const firebaseConfig = {
 }
 
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
+const APP_CHECK_TIMEOUT_MS = 6000
+const AI_LOGIC_TIMEOUT_MS = 12000
 
 const firebaseApp = initializeApp(firebaseConfig)
 
@@ -82,6 +84,20 @@ function clearDiagnostic() {
   window.dispatchEvent(new CustomEvent('school-ai-diagnostic', { detail: null }))
 }
 
+function timeoutError(stage, milliseconds) {
+  const error = new Error(`${stage} timed out after ${milliseconds}ms`)
+  error.code = 'school-ai/timeout'
+  return error
+}
+
+function withTimeout(promise, milliseconds, stage) {
+  let timeoutId
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(timeoutError(stage, milliseconds)), milliseconds)
+  })
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId))
+}
+
 function validDateKey(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false
   const [year, month, day] = value.split('-').map(Number)
@@ -119,7 +135,7 @@ export async function parseReminderWithAI(input, now = new Date()) {
   clearDiagnostic()
 
   try {
-    const tokenResult = await getToken(appCheck, true)
+    const tokenResult = await withTimeout(getToken(appCheck, false), APP_CHECK_TIMEOUT_MS, 'App Check')
     if (!tokenResult?.token) throw new Error('App Check returned an empty token')
   } catch (error) {
     setDiagnostic('app-check', error)
@@ -130,7 +146,7 @@ export async function parseReminderWithAI(input, now = new Date()) {
 
   let responseText
   try {
-    const result = await model.generateContent(prompt)
+    const result = await withTimeout(model.generateContent(prompt), AI_LOGIC_TIMEOUT_MS, 'AI Logic')
     responseText = result.response.text()
   } catch (error) {
     setDiagnostic('ai-logic', error)
