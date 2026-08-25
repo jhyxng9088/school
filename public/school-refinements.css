@@ -1,0 +1,52 @@
+/* Small visual refinements layered after the core School UI. */
+
+/* Only the current class is highlighted. Future classes stay at the normal surface level. */
+body .period-item.is-next:not(.is-current) {
+  opacity: 1 !important;
+  background: var(--surface) !important;
+  box-shadow:
+    inset 0 1px 0 var(--specular-edge),
+    inset 0 -1px 0 var(--lower-edge) !important;
+}
+
+body .period-item.is-next:not(.is-current) strong {
+  color: var(--text-secondary) !important;
+  font-weight: 650 !important;
+}
+
+body .week-cell.is-next:not(.is-current),
+body .week-cell.is-next.is-override:not(.is-current) {
+  opacity: 1 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body .week-cell.is-next:not(.is-current) .subject {
+  color: var(--text) !important;
+  font-weight: 650 !important;
+}
+
+/* Keep the current-class card restrained, but make the hierarchy easier to scan. */
+body .current-class-label {
+  color: color-mix(in srgb, var(--text) 72%, var(--text-secondary));
+  font-weight: 720;
+}
+
+body .current-class-copy h2 {
+  margin-bottom: 8px;
+  font-size: 25px;
+  line-height: 1.12;
+  font-weight: 760;
+  letter-spacing: -0.045em;
+}
+
+body .current-class-copy > p:last-child {
+  color: color-mix(in srgb, var(--text) 68%, var(--text-secondary));
+  font-size: 14px;
+  font-weight: 570;
+  line-height: 1.45;
+}
+
+body .next-class-row strong {
+  font-weight: 700;
+}
