@@ -1,0 +1,104 @@
+/* Preserve the original reminder row layout. Only replace the former 9/1 text area with a compact calendar-style date. */
+.todo-stage5 .todo-item {
+  position: relative;
+  grid-template-columns: 48px minmax(0, 1fr) !important;
+  min-height: 82px;
+}
+
+.todo-stage5 .todo-item.is-completed {
+  grid-template-columns: 48px minmax(0, 1fr) 58px !important;
+}
+
+.todo-stage5 .todo-check {
+  grid-column: 1;
+}
+
+.todo-stage5 .todo-item-main {
+  grid-column: 2;
+  padding: 13px 78px 13px 0 !important;
+}
+
+.todo-stage5 .todo-item.is-completed .todo-item-main {
+  grid-column: 2;
+  padding-right: 78px !important;
+}
+
+.todo-stage5 .todo-permanent-delete {
+  grid-column: 3;
+}
+
+.todo-stage5 .todo-date-tile {
+  position: absolute !important;
+  z-index: 1;
+  top: 50%;
+  right: 13px;
+  width: 54px;
+  height: 58px;
+  box-sizing: border-box;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding-left: 10px;
+  border: 0 !important;
+  border-left: 1px solid var(--divider) !important;
+  background: transparent !important;
+  transform: translateY(-50%);
+  color: var(--text);
+  pointer-events: none;
+}
+
+.todo-stage5 .todo-item.is-completed .todo-date-tile {
+  right: 58px;
+  opacity: 0.48;
+}
+
+.todo-stage5 .todo-date-tile > strong {
+  font-size: 28px !important;
+  font-weight: 720;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+}
+
+.todo-stage5 .todo-date-tile > small {
+  display: block !important;
+  color: var(--text-secondary);
+  font-size: 12px !important;
+  font-weight: 620;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.todo-stage5 .todo-item-main > small {
+  display: none !important;
+}
+
+@media (max-width: 430px) {
+  .todo-stage5 .todo-item {
+    grid-template-columns: 44px minmax(0, 1fr) !important;
+  }
+
+  .todo-stage5 .todo-item.is-completed {
+    grid-template-columns: 44px minmax(0, 1fr) 54px !important;
+  }
+
+  .todo-stage5 .todo-item-main,
+  .todo-stage5 .todo-item.is-completed .todo-item-main {
+    padding-right: 70px !important;
+  }
+
+  .todo-stage5 .todo-date-tile {
+    right: 10px;
+    width: 50px;
+    padding-left: 8px;
+  }
+
+  .todo-stage5 .todo-item.is-completed .todo-date-tile {
+    right: 54px;
+  }
+
+  .todo-stage5 .todo-date-tile > strong {
+    font-size: 26px !important;
+  }
+}
