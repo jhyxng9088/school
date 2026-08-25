@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 const TODO_STORAGE_KEY = 'school.todos.v1'
 
 export const TODO_TYPES = [
-  { id: 'task', label: '할 일' },
+  { id: 'task', label: '일반' },
   { id: 'performance', label: '수행평가' },
   { id: 'exam', label: '시험' },
   { id: 'material', label: '준비물' },
@@ -111,7 +111,7 @@ export function useTodos() {
 }
 
 function typeLabel(typeId) {
-  return TODO_TYPES.find((type) => type.id === typeId)?.label || '할 일'
+  return TODO_TYPES.find((type) => type.id === typeId)?.label || '일반'
 }
 
 function dueLabel(todo, now) {
@@ -136,7 +136,7 @@ export function TodoHomePreview({ todos, now }) {
   return (
     <section className="home-section todo-home-preview">
       <div className="section-heading">
-        <h2>할 일</h2>
+        <h2>리마인더</h2>
         <span>{upcoming.length}개</span>
       </div>
       {visible.length ? (
@@ -152,7 +152,7 @@ export function TodoHomePreview({ todos, now }) {
           ))}
         </div>
       ) : (
-        <div className="compact-empty">아직 등록된 할 일이 없어.</div>
+        <div className="compact-empty">아직 등록된 리마인더가 없어.</div>
       )}
     </section>
   )
@@ -173,10 +173,16 @@ export function TodoPage({ now, todoData }) {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [draft, setDraft] = useState(() => emptyDraft(now))
   const [motion, setMotion] = useState({ id: '', phase: '' })
+  const [pageEntering, setPageEntering] = useState(true)
 
   const sorted = useMemo(() => sortTodos(todos), [todos])
   const active = sorted.filter((todo) => !todo.completed)
   const completed = sorted.filter((todo) => todo.completed)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPageEntering(false), 1150)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   function openCreate() {
     setDraft(emptyDraft(now))
@@ -200,7 +206,7 @@ export function TodoPage({ now, todoData }) {
       setMotion((current) => current.id === id && current.phase === 'enter'
         ? { id: '', phase: '' }
         : current)
-    }, 480)
+    }, 380)
   }
 
   function submitTodo() {
@@ -216,7 +222,7 @@ export function TodoPage({ now, todoData }) {
     window.setTimeout(() => {
       toggleTodo(id)
       markEntering(id)
-    }, 150)
+    }, 120)
   }
 
   function animatePermanentDelete(id) {
@@ -225,7 +231,7 @@ export function TodoPage({ now, todoData }) {
     window.setTimeout(() => {
       removeTodo(id)
       setMotion({ id: '', phase: '' })
-    }, 150)
+    }, 120)
   }
 
   function deleteEditing() {
@@ -242,11 +248,11 @@ export function TodoPage({ now, todoData }) {
   }
 
   return (
-    <section className="todo-page">
+    <section className={`todo-page ${pageEntering ? 'is-page-entering' : ''}`}>
       <header className="todo-header">
         <div>
           <p className="date-label">학교생활 일정</p>
-          <h1>투두</h1>
+          <h1>리마인더</h1>
         </div>
         <button className="todo-add-button" onClick={openCreate}>추가</button>
       </header>
@@ -279,15 +285,18 @@ export function TodoPage({ now, todoData }) {
           </div>
         ) : (
           <div className="todo-empty">
-            <strong>예정된 일이 없어</strong>
-            <span>추가 버튼으로 첫 일정을 등록해봐.</span>
+            <strong>예정된 리마인더가 없어</strong>
+            <span>추가 버튼으로 첫 리마인더를 등록해봐.</span>
           </div>
         )}
       </section>
 
-      {completed.length ? (
-        <section className="todo-list-section todo-completed-section">
-          <h2>완료</h2>
+      <section
+        className={`todo-list-section todo-completed-section ${completed.length ? '' : 'is-empty'}`}
+        aria-hidden={!completed.length}
+      >
+        <h2>완료</h2>
+        {completed.length ? (
           <div className="todo-list">
             {completed.map((todo) => (
               <article className={`todo-item is-completed ${motionClass(todo.id)}`} key={todo.id}>
@@ -314,20 +323,20 @@ export function TodoPage({ now, todoData }) {
               </article>
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : null}
+      </section>
 
       {sheetOpen ? (
         <section className="todo-sheet" data-school-sheet>
           <div className="change-editor-head">
             <div>
-              <h2>{draft.id ? '일정 수정' : '일정 추가'}</h2>
+              <h2>{draft.id ? '리마인더 수정' : '리마인더 추가'}</h2>
               <p>필요한 정보만 간단하게 입력해.</p>
             </div>
           </div>
 
           <div className="todo-sheet-form">
-            <div className="todo-type-picker" role="group" aria-label="일정 종류">
+            <div className="todo-type-picker" role="group" aria-label="리마인더 종류">
               {TODO_TYPES.map((type) => (
                 <button
                   type="button"
