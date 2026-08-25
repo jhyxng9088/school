@@ -25,13 +25,16 @@ service cloud.firestore {
 
     function validTimetable() {
       return request.resource.data.keys().hasOnly(['weeklySchedule', 'overrides', 'updatedAt'])
-        && request.resource.data.weeklySchedule is map
-        && request.resource.data.overrides is map
-        && request.resource.data.updatedAt is int;
+        && request.resource.data.keys().hasAll(['updatedAt'])
+        && request.resource.data.get('weeklySchedule', {}) is map
+        && request.resource.data.get('overrides', {}) is map
+        && request.resource.data.updatedAt is int
+        && request.resource.data.keys().hasAny(['weeklySchedule', 'overrides']);
     }
 
     function validPersonalTodoState() {
       return request.resource.data.keys().hasOnly(['completed', 'hidden', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['completed', 'hidden', 'updatedAt'])
         && request.resource.data.completed is bool
         && request.resource.data.hidden is bool
         && request.resource.data.updatedAt is int;
