@@ -18,9 +18,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: node scripts/apply-cloud-sync.mjs
-      - run: npm ci
+      - run: npm install
       - run: npm run build
       - name: Commit verified migration
         run: |
