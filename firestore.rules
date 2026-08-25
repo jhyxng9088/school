@@ -1,0 +1,62 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function validReminder(todoId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'type', 'title', 'dueDate', 'dueTime', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.id == todoId
+        && request.resource.data.type in ['task', 'performance', 'exam', 'material']
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.dueDate is string
+        && request.resource.data.dueDate.size() == 10
+        && request.resource.data.dueTime is string
+        && request.resource.data.dueTime.size() <= 5
+        && request.resource.data.createdAt is int
+        && request.resource.data.updatedAt is int;
+    }
+
+    function validTimetable() {
+      return request.resource.data.keys().hasOnly(['weeklySchedule', 'overrides', 'updatedAt'])
+        && request.resource.data.weeklySchedule is map
+        && request.resource.data.overrides is map
+        && request.resource.data.updatedAt is int;
+    }
+
+    function validPersonalTodoState() {
+      return request.resource.data.keys().hasOnly(['completed', 'hidden', 'updatedAt'])
+        && request.resource.data.completed is bool
+        && request.resource.data.hidden is bool
+        && request.resource.data.updatedAt is int;
+    }
+
+    match /classes/{classId}/todos/{todoId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validReminder(todoId);
+      allow delete: if false;
+    }
+
+    match /classes/{classId}/settings/timetable {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validTimetable();
+      allow delete: if false;
+    }
+
+    match /students/{studentId}/todoState/{todoId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validPersonalTodoState();
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
