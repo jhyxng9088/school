@@ -63,6 +63,10 @@ Rules:
 - Be conservative: if a typo could change the meaning, leave that part as written rather than guessing.`,
 })
 
+const debugModel = getGenerativeModel(ai, {
+  model: 'gemini-3.7-flash',
+})
+
 const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])
 
 function timeoutError(milliseconds, label = 'AI Logic') {
@@ -149,6 +153,39 @@ if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
         code: error?.code || null,
         message: `${error?.message || String(error)}${directDetail}`,
         status: direct?.httpStatus || error?.status || null,
+        elapsedMs: Date.now() - startedAt,
+      }
+    }
+  }
+
+  window.__SCHOOL_AI_DIAGNOSE__ = async () => {
+    const startedAt = Date.now()
+    try {
+      const appCheckResult = await withTimeout(
+        getToken(appCheck, false),
+        APPCHECK_DEBUG_TIMEOUT_MS,
+        'App Check',
+      )
+
+      const result = await withTimeout(
+        debugModel.generateContent('Reply with OK'),
+        AI_LOGIC_TIMEOUT_MS,
+        'AI Logic',
+      )
+
+      return {
+        ok: true,
+        elapsedMs: Date.now() - startedAt,
+        appCheckTokenLength: String(appCheckResult?.token || '').length,
+        responseText: String(result.response.text() || '').trim().slice(0, 120),
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        name: error?.name || null,
+        code: error?.code || null,
+        message: error?.message || String(error),
+        status: error?.status || null,
         elapsedMs: Date.now() - startedAt,
       }
     }
