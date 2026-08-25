@@ -13,7 +13,7 @@ const firebaseConfig = {
 
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
 const MODEL_NAME = 'gemini-3.7-flash'
-const AI_LOGIC_TIMEOUT_MS = 12000
+const AI_LOGIC_TIMEOUT_MS = 30000
 const APPCHECK_DEBUG_TIMEOUT_MS = 8000
 const APPCHECK_DEBUG_STORAGE_KEY = 'school.appcheck.debugToken.session'
 const AI_ENDPOINT = `https://firebasevertexai.googleapis.com/v1beta/projects/${firebaseConfig.projectId}/models/${MODEL_NAME}:generateContent`
@@ -169,60 +169,93 @@ async function directDebugTokenExchange(debugToken) {
     payload = null
   }
 
+  const token = response.ok ? String(payload?.token || '') : ''
+
   return {
-    ok: response.ok,
+    ok: response.ok && Boolean(token),
     httpStatus: response.status,
     serverStatus: payload?.error?.status || null,
     serverMessage: payload?.error?.message || null,
-    returnedTokenLength: response.ok ? String(payload?.token || '').length : 0,
+    returnedTokenLength: token.length,
+    token,
   }
+}
+
+async function getUsableAppCheckToken(forceRefresh = false) {
+  let sdkError = null
+
+  try {
+    const result = await withTimeout(
+      getToken(appCheck, forceRefresh),
+      APPCHECK_DEBUG_TIMEOUT_MS,
+      'App Check',
+    )
+    const token = String(result?.token || '')
+    if (token) {
+      return {
+        token,
+        source: 'sdk',
+        sdkError: null,
+      }
+    }
+
+    sdkError = new Error('Firebase App Check token was empty')
+    sdkError.code = 'school-appcheck/empty-token'
+  } catch (error) {
+    sdkError = error
+  }
+
+  const debugToken = typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__
+    ? String(window.sessionStorage.getItem(APPCHECK_DEBUG_STORAGE_KEY) || '').trim()
+    : ''
+
+  if (!debugToken) throw sdkError
+
+  const direct = await withTimeout(
+    directDebugTokenExchange(debugToken),
+    APPCHECK_DEBUG_TIMEOUT_MS,
+    'App Check',
+  )
+
+  if (direct.ok && direct.token) {
+    return {
+      token: direct.token,
+      source: 'direct-debug',
+      sdkError,
+    }
+  }
+
+  const error = new Error(
+    `Direct App Check debug exchange failed: ${direct.httpStatus || '?'} ${direct.serverStatus || ''} ${direct.serverMessage || ''}`.trim(),
+  )
+  error.code = 'school-appcheck/direct-debug-exchange-failed'
+  error.status = direct.httpStatus || null
+  error.customData = {
+    sdkErrorCode: sdkError?.code || null,
+    sdkErrorMessage: sdkError?.message || null,
+  }
+  throw error
 }
 
 if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
   window.__SCHOOL_APPCHECK_DIAGNOSE__ = async () => {
     const startedAt = Date.now()
     try {
-      const result = await withTimeout(
-        getToken(appCheck, true),
-        APPCHECK_DEBUG_TIMEOUT_MS,
-        'App Check',
-      )
+      const result = await getUsableAppCheckToken(true)
       return {
         ok: true,
-        tokenLength: String(result?.token || '').length,
+        tokenLength: result.token.length,
         elapsedMs: Date.now() - startedAt,
+        source: result.source,
+        sdkFallbackCode: result.sdkError?.code || null,
       }
     } catch (error) {
-      const debugToken = String(window.sessionStorage.getItem(APPCHECK_DEBUG_STORAGE_KEY) || '').trim()
-      let direct = null
-
-      if (debugToken) {
-        try {
-          direct = await withTimeout(
-            directDebugTokenExchange(debugToken),
-            APPCHECK_DEBUG_TIMEOUT_MS,
-            'App Check',
-          )
-        } catch (directError) {
-          direct = {
-            ok: false,
-            httpStatus: directError?.status || null,
-            serverStatus: null,
-            serverMessage: directError?.message || String(directError),
-          }
-        }
-      }
-
-      const directDetail = direct
-        ? ` | direct ${direct.httpStatus || '?'} ${direct.serverStatus || ''} — ${direct.serverMessage || (direct.ok ? 'exchange succeeded' : 'no server message')}`
-        : ''
-
       return {
         ok: false,
         name: error?.name || null,
         code: error?.code || null,
-        message: `${error?.message || String(error)}${directDetail}`,
-        status: direct?.httpStatus || error?.status || null,
+        message: error?.message || String(error),
+        status: error?.status || null,
         elapsedMs: Date.now() - startedAt,
       }
     }
@@ -232,21 +265,17 @@ if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
     const startedAt = Date.now()
 
     try {
-      const appCheckResult = await withTimeout(
-        getToken(appCheck, false),
-        APPCHECK_DEBUG_TIMEOUT_MS,
-        'App Check',
-      )
-      const appCheckToken = String(appCheckResult?.token || '')
+      const appCheckResult = await getUsableAppCheckToken(false)
       const direct = await fetchGenerateContent({
         prompt: 'Reply with OK',
-        appCheckToken,
+        appCheckToken: appCheckResult.token,
       })
 
       return {
         ok: true,
         elapsedMs: Date.now() - startedAt,
-        appCheckTokenLength: appCheckToken.length,
+        appCheckTokenLength: appCheckResult.token.length,
+        appCheckSource: appCheckResult.source,
         responseText: direct.responseText || 'OK',
       }
     } catch (error) {
@@ -296,17 +325,8 @@ export async function parseReminderWithAI(input, now = new Date()) {
   const text = String(input || '').trim()
   if (!text) return null
 
-  const appCheckResult = await withTimeout(
-    getToken(appCheck, false),
-    APPCHECK_DEBUG_TIMEOUT_MS,
-    'App Check',
-  )
-  const appCheckToken = String(appCheckResult?.token || '')
-  if (!appCheckToken) {
-    const error = new Error('Firebase App Check token was empty')
-    error.code = 'school-appcheck/empty-token'
-    throw error
-  }
+  const appCheckResult = await getUsableAppCheckToken(false)
+  const appCheckToken = appCheckResult.token
 
   const prompt = `Reference local datetime: ${localReference(now)} (Asia/Seoul)\nReminder: ${text}`
   const result = await fetchGenerateContent({
