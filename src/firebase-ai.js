@@ -15,6 +15,7 @@ const firebaseConfig = {
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
 const AI_LOGIC_TIMEOUT_MS = 12000
 const APPCHECK_DEBUG_TIMEOUT_MS = 8000
+const APPCHECK_DEBUG_STORAGE_KEY = 'school.appcheck.debugToken.session'
 
 const firebaseApp = initializeApp(firebaseConfig)
 
@@ -78,6 +79,31 @@ function withTimeout(promise, milliseconds, label = 'AI Logic') {
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId))
 }
 
+async function directDebugTokenExchange(debugToken) {
+  const appResource = `projects/${firebaseConfig.messagingSenderId}/apps/${firebaseConfig.appId}`
+  const endpoint = `https://firebaseappcheck.googleapis.com/v1/${appResource}:exchangeDebugToken?key=${encodeURIComponent(firebaseConfig.apiKey)}`
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ debugToken, limitedUse: false }),
+  })
+
+  let payload = null
+  try {
+    payload = await response.json()
+  } catch {
+    payload = null
+  }
+
+  return {
+    ok: response.ok,
+    httpStatus: response.status,
+    serverStatus: payload?.error?.status || null,
+    serverMessage: payload?.error?.message || null,
+    returnedTokenLength: response.ok ? String(payload?.token || '').length : 0,
+  }
+}
+
 if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
   window.__SCHOOL_APPCHECK_DIAGNOSE__ = async () => {
     const startedAt = Date.now()
@@ -93,12 +119,36 @@ if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
         elapsedMs: Date.now() - startedAt,
       }
     } catch (error) {
+      const debugToken = String(window.sessionStorage.getItem(APPCHECK_DEBUG_STORAGE_KEY) || '').trim()
+      let direct = null
+
+      if (debugToken) {
+        try {
+          direct = await withTimeout(
+            directDebugTokenExchange(debugToken),
+            APPCHECK_DEBUG_TIMEOUT_MS,
+            'App Check',
+          )
+        } catch (directError) {
+          direct = {
+            ok: false,
+            httpStatus: directError?.status || null,
+            serverStatus: null,
+            serverMessage: directError?.message || String(directError),
+          }
+        }
+      }
+
+      const directDetail = direct
+        ? ` | direct ${direct.httpStatus || '?'} ${direct.serverStatus || ''} — ${direct.serverMessage || (direct.ok ? 'exchange succeeded' : 'no server message')}`
+        : ''
+
       return {
         ok: false,
         name: error?.name || null,
         code: error?.code || null,
-        message: error?.message || String(error),
-        status: error?.status || null,
+        message: `${error?.message || String(error)}${directDetail}`,
+        status: direct?.httpStatus || error?.status || null,
         elapsedMs: Date.now() - startedAt,
       }
     }
