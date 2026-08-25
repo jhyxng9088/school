@@ -14,14 +14,13 @@ body .period-item.is-next:not(.is-current) strong {
   font-weight: 650 !important;
 }
 
-body .week-cell.is-next:not(.is-current),
-body .week-cell.is-next.is-override:not(.is-current) {
+body .week-cell.is-next:not(.is-current):not(.is-override) {
   opacity: 1 !important;
   background: transparent !important;
   box-shadow: none !important;
 }
 
-body .week-cell.is-next:not(.is-current) .subject {
+body .week-cell.is-next:not(.is-current):not(.is-override) .subject {
   color: var(--text) !important;
   font-weight: 650 !important;
 }
