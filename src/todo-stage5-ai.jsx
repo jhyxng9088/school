@@ -327,7 +327,7 @@ export function TodoPage({ now, todoData }) {
 
   const aiBusy = aiState === 'waiting' || aiState === 'loading'
   const saveDisabled = sheetMode === 'natural'
-    ? !naturalResult?.title || aiBusy
+    ? !naturalResult?.title
     : !draft.title.trim() || !draft.dueDate
 
   const summaryText = filter === 'all'
@@ -523,7 +523,7 @@ export function TodoPage({ now, todoData }) {
                 disabled={saveDisabled}
                 onClick={submitCurrent}
               >
-                {sheetMode === 'natural' ? (aiBusy ? '확인 중' : '추가') : '저장'}
+                {sheetMode === 'natural' ? '추가' : '저장'}
               </button>
             </div>
           </div>
