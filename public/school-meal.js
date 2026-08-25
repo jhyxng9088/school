@@ -234,7 +234,7 @@
     const empty = host.querySelector('.empty-panel')
     if (empty) empty.style.display = 'none'
     const eyebrow = host.querySelector('.page-header .date-label')
-    if (eyebrow) eyebrow.textContent = SCHOOL.schoolName
+    if (eyebrow && eyebrow.textContent.trim() !== SCHOOL.schoolName) eyebrow.textContent = SCHOOL.schoolName
 
     let mount = host.querySelector('.school-meal-page')
     if (!mount) {
