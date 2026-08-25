@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
-import { getAI, getGenerativeModel, GoogleAIBackend } from 'firebase/ai'
+import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0',
@@ -23,33 +23,25 @@ initializeAppCheck(firebaseApp, {
 
 const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() })
 
-const responseJsonSchema = {
-  type: 'object',
+// Firebase AI Logic Web SDK expects a Schema instance in `responseSchema`.
+// All properties are required by default unless listed in optionalProperties.
+const responseSchema = Schema.object({
   properties: {
-    type: {
-      type: 'string',
+    type: Schema.enumString({
       enum: ['task', 'performance', 'exam', 'material'],
-    },
-    title: { type: 'string' },
-    dueDate: {
-      type: 'string',
-      description: 'YYYY-MM-DD',
-    },
-    dueTime: {
-      type: 'string',
-      description: 'HH:MM in 24-hour time, or an empty string when no time was provided',
-    },
-    assumedDate: { type: 'boolean' },
+    }),
+    title: Schema.string(),
+    dueDate: Schema.string(),
+    dueTime: Schema.string(),
+    assumedDate: Schema.boolean(),
   },
-  required: ['type', 'title', 'dueDate', 'dueTime', 'assumedDate'],
-  additionalProperties: false,
-}
+})
 
 const model = getGenerativeModel(ai, {
   model: 'gemini-3.7-flash',
   generationConfig: {
     responseMimeType: 'application/json',
-    responseJsonSchema,
+    responseSchema,
     maxOutputTokens: 220,
   },
   systemInstruction: `You parse short Korean school reminders for a high-school student.
