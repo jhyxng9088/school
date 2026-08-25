@@ -1,4 +1,4 @@
-/* Stage 3 — meals + academic schedule. Calm motion, no bounce. */
+/* Stage 3 — meals + academic schedule. Calm motion, immediate input, no bounce. */
 
 .bottom-nav {
   width: min(calc(100% - 30px), 460px);
@@ -7,14 +7,57 @@
 
 .bottom-nav .nav-button span {
   font-size: 10px;
+  text-align: center;
+}
+
+/* Keep the existing React icon geometry out of layout for these two tabs,
+   then draw icons that are clearly distinct from the timetable calendar. */
+.bottom-nav .nav-button:nth-of-type(4) svg,
+.bottom-nav .nav-button:nth-of-type(5) svg {
+  display: none;
+}
+
+.bottom-nav .nav-button:nth-of-type(4)::before,
+.bottom-nav .nav-button:nth-of-type(5)::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  display: block;
+  background: currentColor;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 22px 22px;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: 22px 22px;
+}
+
+/* Spoon + chopsticks */
+.bottom-nav .nav-button:nth-of-type(4)::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='7' cy='6.3' rx='2.5' ry='3.3'/%3E%3Cpath d='M7 9.6V21'/%3E%3Cpath d='M14 3.5 12.8 21'/%3E%3Cpath d='M18.3 3.5 17.1 21'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='7' cy='6.3' rx='2.5' ry='3.3'/%3E%3Cpath d='M7 9.6V21'/%3E%3Cpath d='M14 3.5 12.8 21'/%3E%3Cpath d='M18.3 3.5 17.1 21'/%3E%3C/svg%3E");
+}
+
+/* Checklist / planner — intentionally not another calendar grid. */
+.bottom-nav .nav-button:nth-of-type(5)::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.5 4.5h10a2 2 0 0 1 2 2v13H6a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2h1.5Z'/%3E%3Cpath d='m7 10 1.4 1.4L11 8.8'/%3E%3Cpath d='M13.5 10h3'/%3E%3Cpath d='m7 15.3 1.4 1.4 2.6-2.6'/%3E%3Cpath d='M13.5 15.3h3'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.5 4.5h10a2 2 0 0 1 2 2v13H6a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2h1.5Z'/%3E%3Cpath d='m7 10 1.4 1.4L11 8.8'/%3E%3Cpath d='M13.5 10h3'/%3E%3Cpath d='m7 15.3 1.4 1.4 2.6-2.6'/%3E%3Cpath d='M13.5 15.3h3'/%3E%3C/svg%3E");
 }
 
 .stage3-page {
+  width: 100%;
   min-width: 0;
+  margin-inline: auto;
 }
 
 .stage3-page-header {
   padding-bottom: 24px;
+  text-align: center;
+}
+
+.stage3-page-header .date-label,
+.stage3-page-header h1 {
+  text-align: center;
 }
 
 .stage3-home-block {
@@ -52,6 +95,17 @@
   line-height: 1.5;
 }
 
+.stage3-week-nav,
+.stage3-day-strip,
+.stage3-detail,
+.academic-focus-card,
+.academic-list-head,
+.academic-list,
+.academic-status {
+  width: min(100%, 680px);
+  margin-inline: auto;
+}
+
 .stage3-week-nav {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr) 42px;
@@ -87,6 +141,7 @@
   place-items: center;
   align-content: center;
   gap: 2px;
+  text-align: center;
 }
 
 .stage3-week-title strong {
@@ -166,19 +221,43 @@
   will-change: transform, opacity;
 }
 
+/* Input responds instantly; only the content layer takes its time. */
 .stage3-detail-motion {
-  animation: stage3-detail-in 690ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.stage3-detail-motion.is-out {
+  opacity: 0.48;
+  transform: translate3d(calc(var(--stage3-direction, 1) * -9px), 1px, 0);
+  transition:
+    opacity 215ms cubic-bezier(0.4, 0, 1, 1),
+    transform 215ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.stage3-detail-motion.is-in {
+  animation: stage3-detail-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.stage3-detail-motion.is-steady {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 @keyframes stage3-detail-in {
   from {
-    opacity: 0.76;
-    transform: translate3d(calc(var(--stage3-direction, 1) * 7px), 2px, 0);
+    opacity: 0.48;
+    transform: translate3d(calc(var(--stage3-direction, 1) * 9px), 2px, 0);
   }
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
   }
+}
+
+.stage3-detail-date,
+.stage3-detail h2 {
+  text-align: center;
 }
 
 .stage3-detail-date {
@@ -224,6 +303,7 @@
   color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 580;
+  text-align: center;
 }
 
 .stage3-status {
@@ -331,6 +411,7 @@
   border-radius: 24px;
   background: color-mix(in srgb, var(--focus-accent-soft, var(--surface-soft)) 50%, var(--surface));
   box-shadow: inset 0 1px 0 var(--specular-edge, rgba(255, 255, 255, 0.06));
+  text-align: center;
 }
 
 .academic-focus-card > p {
@@ -343,7 +424,7 @@
 .academic-focus-card > div {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: center;
   gap: 16px;
 }
 
@@ -377,7 +458,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin: 0 2px 10px;
+  margin-bottom: 10px;
 }
 
 .academic-list-head h2 {
@@ -474,6 +555,7 @@
 @media (min-width: 700px) {
   .stage3-page {
     max-width: 720px;
+    margin-inline: auto;
   }
 
   .stage3-detail {
@@ -498,7 +580,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stage3-detail-motion {
+  .stage3-detail-motion,
+  .stage3-detail-motion.is-out,
+  .stage3-detail-motion.is-in {
     animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
