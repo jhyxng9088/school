@@ -101,8 +101,8 @@ service cloud.firestore {
 
     match /classes/{classId}/members/{studentId} {
       allow read: if signedIn();
-      allow create: if signedIn() && validMember();
-      allow update, delete: if false;
+      allow create, update: if signedIn() && validMember();
+      allow delete: if false;
     }
 
     match /classes/{classId}/presence/{presenceId} {
