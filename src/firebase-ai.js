@@ -12,7 +12,7 @@ const firebaseConfig = {
 }
 
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
-const MODEL_NAMES = ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite']
+const MODEL_NAMES = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite']
 const AI_ATTEMPT_TIMEOUT_MS = 12000
 const APPCHECK_DEBUG_TIMEOUT_MS = 8000
 const APPCHECK_DEBUG_STORAGE_KEY = 'school.appcheck.debugToken.session'
@@ -176,8 +176,8 @@ async function fetchGenerateContent({
 
 function shouldTryNextModel(error) {
   if (error?.code === 'school-ai/timeout') return true
-  if (error?.status === 429 || error?.status === 503) return true
-  if (error?.code === 'RESOURCE_EXHAUSTED' || error?.code === 'UNAVAILABLE') return true
+  if (error?.status === 404 || error?.status === 429 || error?.status === 503) return true
+  if (error?.code === 'NOT_FOUND' || error?.code === 'RESOURCE_EXHAUSTED' || error?.code === 'UNAVAILABLE') return true
   return false
 }
 
