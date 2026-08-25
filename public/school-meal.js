@@ -19,6 +19,7 @@
     renderFrame: null,
     transitionBusy: false,
     pendingDataMotion: false,
+    pendingRender: false,
   }
 
   function pad(value) {
@@ -443,6 +444,10 @@
     )
 
     state.transitionBusy = false
+    if (state.pendingRender) {
+      state.pendingRender = false
+      scheduleRender()
+    }
   }
 
   async function navigateWeek(delta) {
@@ -482,6 +487,10 @@
     )
 
     state.transitionBusy = false
+    if (state.pendingRender) {
+      state.pendingRender = false
+      scheduleRender()
+    }
     await fetchPromise
   }
 
@@ -511,6 +520,10 @@
   }
 
   function scheduleRender() {
+    if (state.transitionBusy) {
+      state.pendingRender = true
+      return
+    }
     if (state.renderFrame !== null) return
     state.renderFrame = requestAnimationFrame(() => {
       state.renderFrame = null
