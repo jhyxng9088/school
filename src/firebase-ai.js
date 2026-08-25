@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
+import { getToken, initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'
 
 const firebaseConfig = {
@@ -16,15 +16,13 @@ const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
 
 const firebaseApp = initializeApp(firebaseConfig)
 
-initializeAppCheck(firebaseApp, {
+const appCheck = initializeAppCheck(firebaseApp, {
   provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
   isTokenAutoRefreshEnabled: true,
 })
 
 const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() })
 
-// Firebase AI Logic Web SDK expects a Schema instance in `responseSchema`.
-// All properties are required by default unless listed in optionalProperties.
 const responseSchema = Schema.object({
   properties: {
     type: Schema.enumString({
@@ -64,6 +62,26 @@ Rules:
 
 const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])
 
+function setDiagnostic(stage, error) {
+  const rawCode = String(error?.code || error?.status || 'unknown')
+  const rawMessage = String(error?.message || error || 'Unknown error')
+  const message = rawMessage.replace(/\s+/g, ' ').trim().slice(0, 220)
+  const diagnostic = {
+    stage,
+    code: rawCode,
+    message,
+    time: Date.now(),
+  }
+  window.__schoolAIDiagnostic = diagnostic
+  window.dispatchEvent(new CustomEvent('school-ai-diagnostic', { detail: diagnostic }))
+  return diagnostic
+}
+
+function clearDiagnostic() {
+  window.__schoolAIDiagnostic = null
+  window.dispatchEvent(new CustomEvent('school-ai-diagnostic', { detail: null }))
+}
+
 function validDateKey(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false
   const [year, month, day] = value.split('-').map(Number)
@@ -98,9 +116,35 @@ export async function parseReminderWithAI(input, now = new Date()) {
   const text = String(input || '').trim()
   if (!text) return null
 
+  clearDiagnostic()
+
+  try {
+    const tokenResult = await getToken(appCheck, true)
+    if (!tokenResult?.token) throw new Error('App Check returned an empty token')
+  } catch (error) {
+    setDiagnostic('app-check', error)
+    throw error
+  }
+
   const prompt = `Reference local datetime: ${localReference(now)} (Asia/Seoul)\nReminder: ${text}`
-  const result = await model.generateContent(prompt)
-  const responseText = result.response.text()
-  const parsed = JSON.parse(responseText)
-  return normalizeResult(parsed)
+
+  let responseText
+  try {
+    const result = await model.generateContent(prompt)
+    responseText = result.response.text()
+  } catch (error) {
+    setDiagnostic('ai-logic', error)
+    throw error
+  }
+
+  try {
+    const parsed = JSON.parse(responseText)
+    const normalized = normalizeResult(parsed)
+    if (!normalized) throw new Error('AI response did not match the reminder schema')
+    clearDiagnostic()
+    return normalized
+  } catch (error) {
+    setDiagnostic('response', error)
+    throw error
+  }
 }
