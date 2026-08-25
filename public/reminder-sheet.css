@@ -22,19 +22,25 @@
 
 body .todo-sheet.reminder-sheet-managed {
   --school-sheet-y: 0px;
+  --reminder-drag-y: 0px;
   z-index: 90;
   overflow-x: hidden;
   transform: translate3d(-50%, calc(100% + 28px), 0) !important;
   opacity: 0;
   will-change: transform, opacity;
   transition:
-    transform 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 260ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform 560ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 body .todo-sheet.reminder-sheet-managed.is-open {
-  transform: translate3d(-50%, 0, 0) !important;
+  transform: translate3d(-50%, var(--reminder-drag-y), 0) !important;
   opacity: 1;
+}
+
+body .todo-sheet.reminder-sheet-managed.is-dragging {
+  transition: none !important;
+  will-change: transform;
 }
 
 body .todo-sheet.reminder-sheet-managed.is-closing {
@@ -46,10 +52,16 @@ body .todo-sheet.reminder-sheet-managed.is-closing {
   pointer-events: none;
 }
 
-/* The handle stays visual only. The reminder sheet no longer runs a JS spring/drag loop. */
+/* The handle/head follows the finger directly; no spring loop is involved. */
 body .todo-sheet.reminder-sheet-managed .change-editor-head {
-  cursor: default;
-  touch-action: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body .todo-sheet.reminder-sheet-managed.is-dragging .change-editor-head {
+  cursor: grabbing;
 }
 
 /* Native iPad date/time controls keep their picker behavior, but not their layout. */
