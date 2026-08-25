@@ -302,7 +302,6 @@ export function TodoPage({ now, todoData }) {
                 onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value.slice(0, 80) }))}
                 placeholder="예: 영어 수행평가 PPT"
                 autoComplete="off"
-                autoFocus={!draft.id}
               />
             </label>
 
