@@ -77,6 +77,7 @@
       }
       #school-appcheck-debug-submit,
       #school-appcheck-debug-check,
+      #school-appcheck-debug-ai,
       #school-appcheck-debug-reset {
         min-height: 44px;
         border: 0;
@@ -86,7 +87,8 @@
         font-weight: 750;
       }
       #school-appcheck-debug-submit,
-      #school-appcheck-debug-check {
+      #school-appcheck-debug-check,
+      #school-appcheck-debug-ai {
         background: #fff;
         color: #111;
       }
@@ -104,7 +106,7 @@
         right: 12px;
         bottom: max(12px, env(safe-area-inset-bottom));
         margin: 0 auto;
-        width: min(calc(100% - 24px), 640px);
+        width: min(calc(100% - 24px), 700px);
         box-sizing: border-box;
         display: grid;
         gap: 8px;
@@ -122,6 +124,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+        flex-wrap: wrap;
       }
       .school-appcheck-debug-status-head strong {
         font-size: 13px;
@@ -129,17 +132,22 @@
       .school-appcheck-debug-status-actions {
         display: flex;
         gap: 8px;
+        flex-wrap: wrap;
       }
-      #school-appcheck-debug-result {
+      #school-appcheck-debug-result,
+      #school-appcheck-debug-ai-result {
         margin: 0;
         font-size: 11px;
         line-height: 1.45;
         overflow-wrap: anywhere;
         color: rgba(255,255,255,.66);
       }
-      #school-appcheck-debug-result.is-success { color: #8ee6a8; }
-      #school-appcheck-debug-result.is-error { color: #ff9f9f; }
-      #school-appcheck-debug-check:disabled { opacity: .55; }
+      #school-appcheck-debug-result.is-success,
+      #school-appcheck-debug-ai-result.is-success { color: #8ee6a8; }
+      #school-appcheck-debug-result.is-error,
+      #school-appcheck-debug-ai-result.is-error { color: #ff9f9f; }
+      #school-appcheck-debug-check:disabled,
+      #school-appcheck-debug-ai:disabled { opacity: .55; }
     `
     document.head.appendChild(style)
   }
@@ -182,12 +190,13 @@
     })
   }
 
-  const waitForDiagnose = () => new Promise((resolve) => {
+  const waitForDiagnostics = () => new Promise((resolve) => {
     let tries = 0
     const tick = () => {
-      const diagnose = window.__SCHOOL_APPCHECK_DIAGNOSE__
-      if (typeof diagnose === 'function') {
-        resolve(diagnose)
+      const appCheckDiagnose = window.__SCHOOL_APPCHECK_DIAGNOSE__
+      const aiDiagnose = window.__SCHOOL_AI_DIAGNOSE__
+      if (typeof appCheckDiagnose === 'function' && typeof aiDiagnose === 'function') {
+        resolve({ appCheckDiagnose, aiDiagnose })
         return
       }
       tries += 1
@@ -210,51 +219,86 @@
         <div class="school-appcheck-debug-status-actions">
           <button id="school-appcheck-debug-reset" type="button">토큰 다시 입력</button>
           <button id="school-appcheck-debug-check" type="button" disabled>준비 중…</button>
+          <button id="school-appcheck-debug-ai" type="button" disabled>AI 연결 테스트</button>
         </div>
       </div>
       <p id="school-appcheck-debug-result" aria-live="polite">Firebase App Check 초기화를 기다리는 중…</p>
+      <p id="school-appcheck-debug-ai-result" aria-live="polite">App Check가 성공하면 같은 세션에서 AI를 바로 테스트할 수 있어.</p>
     `
     document.body.appendChild(panel)
 
     const check = panel.querySelector('#school-appcheck-debug-check')
+    const aiCheck = panel.querySelector('#school-appcheck-debug-ai')
     const reset = panel.querySelector('#school-appcheck-debug-reset')
     const result = panel.querySelector('#school-appcheck-debug-result')
+    const aiResult = panel.querySelector('#school-appcheck-debug-ai-result')
 
     reset?.addEventListener('click', () => {
       window.sessionStorage.removeItem(storageKey)
       window.location.reload()
     })
 
-    waitForDiagnose().then((diagnose) => {
-      if (!diagnose) {
+    waitForDiagnostics().then((diagnostics) => {
+      if (!diagnostics) {
         result.className = 'is-error'
         result.textContent = '진단 함수가 준비되지 않았어. 새로고침 후 다시 시도해.'
         check.disabled = true
         check.textContent = '사용 불가'
+        aiCheck.disabled = true
         return
       }
 
+      const { appCheckDiagnose, aiDiagnose } = diagnostics
+
       check.disabled = false
       check.textContent = 'App Check 상태 확인'
-      result.textContent = '버튼을 눌러 실제 App Check 토큰 발급을 확인해.'
+      result.textContent = '먼저 App Check 토큰 발급을 확인해.'
 
       check.addEventListener('click', async () => {
         check.disabled = true
+        aiCheck.disabled = true
         check.textContent = '확인 중…'
         result.className = ''
         result.textContent = 'Firebase App Check 토큰을 강제로 새로 발급하는 중…'
 
-        const info = await diagnose()
+        const info = await appCheckDiagnose()
         if (info?.ok) {
           result.className = 'is-success'
           result.textContent = `성공 · ${info.elapsedMs}ms · Firebase App Check token length ${info.tokenLength}`
+          aiCheck.disabled = false
+          aiResult.className = ''
+          aiResult.textContent = 'App Check 성공. 이제 AI 연결 테스트를 눌러.'
         } else {
           result.className = 'is-error'
           result.textContent = `[${info?.name || 'Error'}] ${info?.code || ''} ${info?.status || ''} — ${info?.message || '알 수 없는 오류'}`
+          aiCheck.disabled = true
+          aiResult.className = ''
+          aiResult.textContent = 'App Check가 실패해서 AI 테스트는 잠가뒀어.'
         }
 
         check.disabled = false
         check.textContent = '다시 확인'
+      })
+
+      aiCheck.addEventListener('click', async () => {
+        aiCheck.disabled = true
+        check.disabled = true
+        aiCheck.textContent = 'AI 확인 중…'
+        aiResult.className = ''
+        aiResult.textContent = '같은 App Check 세션으로 gemini-3.7-flash에 최소 요청을 보내는 중…'
+
+        const info = await aiDiagnose()
+        if (info?.ok) {
+          aiResult.className = 'is-success'
+          aiResult.textContent = `AI 성공 · ${info.elapsedMs}ms · App Check token ${info.appCheckTokenLength} · 응답: ${info.responseText || '(빈 응답)'}`
+        } else {
+          aiResult.className = 'is-error'
+          aiResult.textContent = `[${info?.name || 'Error'}] ${info?.code || ''} ${info?.status || ''} — ${info?.message || '알 수 없는 오류'}`
+        }
+
+        aiCheck.disabled = false
+        check.disabled = false
+        aiCheck.textContent = 'AI 다시 테스트'
       })
     })
   }
