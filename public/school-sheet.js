@@ -13,6 +13,32 @@
     }
   }
 
+  function formatDateDisplay(value) {
+    const [year, month, day] = String(value || '').split('-').map(Number)
+    if (!year || !month || !day) return '날짜 선택'
+    return `${month}/${day}/${String(year).slice(-2)}`
+  }
+
+  function ensureDateField(sheet) {
+    const input = sheet.querySelector('input[type="date"]')
+    const field = input?.closest('.change-field')
+    if (!input || !field) return
+
+    field.classList.add('school-date-field')
+
+    const sync = () => {
+      field.dataset.schoolDateDisplay = formatDateDisplay(input.value)
+    }
+
+    if (input.dataset.schoolDateSync !== 'true') {
+      input.dataset.schoolDateSync = 'true'
+      input.addEventListener('input', sync)
+      input.addEventListener('change', sync)
+    }
+
+    sync()
+  }
+
   function createBackdrop() {
     const backdrop = document.createElement('div')
     backdrop.className = 'school-sheet-backdrop'
@@ -47,7 +73,9 @@
   }
 
   function enhanceSheet(sheet) {
-    if (!sheet || sheet.dataset.schoolSheetReady === 'true') return
+    if (!sheet) return
+    ensureDateField(sheet)
+    if (sheet.dataset.schoolSheetReady === 'true') return
 
     if (activeController && activeController.sheet !== sheet) {
       activeController.destroy()
@@ -123,7 +151,6 @@
       }
 
       const isClosing = target > 0
-      // Opening is faster now, but remains overdamped and never bounces past rest.
       const stiffness = isClosing ? 56 : 82
       const damping = isClosing ? 19 : 20.5
       const mass = 1
@@ -141,7 +168,6 @@
         state.velocity += acceleration * dt
         state.y += state.velocity * dt
 
-        // Opening never overshoots the resting position.
         if (!isClosing && state.y < 0) {
           state.y = 0
           state.velocity = 0
