@@ -6,7 +6,7 @@
 .school-meal-home-summary {
   padding: 14px 2px 1px;
   border-top: 1px solid var(--divider);
-  animation: school-meal-settle 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: school-meal-settle 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .school-meal-home-menu {
@@ -39,29 +39,81 @@
 
 .school-meal-page {
   display: grid;
-  gap: 20px;
-  animation: school-meal-settle 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  gap: 18px;
+  animation: school-meal-settle 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.school-meal-week-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 14px;
-  margin: 0 2px;
+.school-meal-week-nav {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 8px;
 }
 
-.school-meal-week-head strong {
+.school-meal-week-arrow {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0 0 3px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 25px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 720ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 720ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 720ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.school-meal-week-title {
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
   color: var(--text);
-  font-size: 14px;
-  font-weight: 690;
+  cursor: pointer;
+}
+
+.school-meal-week-title:disabled {
+  cursor: default;
+}
+
+.school-meal-week-title strong {
+  font-size: 13px;
+  font-weight: 720;
   letter-spacing: -0.025em;
 }
 
-.school-meal-week-head span {
+.school-meal-week-title span {
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 580;
+}
+
+.school-meal-week-title:not(:disabled)::after {
+  content: "이번 주로 돌아가기";
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 560;
+  opacity: 0.78;
+}
+
+.school-meal-week-body {
+  display: grid;
+  gap: 18px;
+  will-change: opacity, transform;
 }
 
 .school-meal-days {
@@ -84,25 +136,23 @@
   color: var(--text-secondary);
   cursor: pointer;
   transition:
-    background-color 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    color 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.school-meal-day:active {
-  transform: scale(0.987);
+    background-color 760ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 760ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 760ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 760ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .school-meal-day strong {
   font-size: 11.5px;
   font-weight: 700;
+  transition: color 760ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .school-meal-day span {
   color: var(--text-tertiary);
   font-size: 9.5px;
   font-weight: 580;
+  transition: color 760ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .school-meal-day.is-today:not(.is-selected) {
@@ -113,6 +163,7 @@
   border-color: color-mix(in srgb, var(--focus-accent, var(--text)) 46%, transparent);
   background: var(--focus-accent-soft, var(--surface-soft));
   color: var(--text);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--specular-edge, transparent) 72%, transparent);
 }
 
 .school-meal-detail {
@@ -122,10 +173,7 @@
   border-radius: 24px;
   background: var(--surface);
   box-shadow: inset 0 1px 0 var(--specular-edge, rgba(255, 255, 255, 0.06));
-}
-
-.school-meal-detail.is-changing {
-  animation: school-meal-detail-change 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
 }
 
 .school-meal-date {
@@ -210,7 +258,7 @@
 }
 
 .school-meal-cache-note {
-  margin: -9px 2px 0;
+  margin: -8px 2px 0;
   color: var(--text-tertiary);
   font-size: 10.5px;
   line-height: 1.4;
@@ -220,17 +268,6 @@
   from {
     opacity: 0;
     transform: translate3d(0, 5px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes school-meal-detail-change {
-  from {
-    opacity: 0.72;
-    transform: translate3d(0, 3px, 0);
   }
   to {
     opacity: 1;
@@ -250,8 +287,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .school-meal-home-summary,
-  .school-meal-page,
-  .school-meal-detail.is-changing {
+  .school-meal-page {
     animation: none !important;
+  }
+
+  .school-meal-day,
+  .school-meal-week-arrow {
+    transition: none !important;
   }
 }
