@@ -12,11 +12,10 @@ const firebaseConfig = {
 }
 
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
-const MODEL_NAME = 'gemini-3.5-flash-lite'
-const AI_LOGIC_TIMEOUT_MS = 30000
+const MODEL_NAMES = ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite']
+const AI_ATTEMPT_TIMEOUT_MS = 12000
 const APPCHECK_DEBUG_TIMEOUT_MS = 8000
 const APPCHECK_DEBUG_STORAGE_KEY = 'school.appcheck.debugToken.session'
-const AI_ENDPOINT = `https://firebasevertexai.googleapis.com/v1beta/projects/${firebaseConfig.projectId}/models/${MODEL_NAME}:generateContent`
 
 const SYSTEM_INSTRUCTION = `You parse short Korean school reminders for a high-school student.
 Return only the structured response required by the JSON schema.
@@ -73,23 +72,30 @@ function withTimeout(promise, milliseconds, label = 'AI Logic') {
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId))
 }
 
-function buildAIError(response, payload, rawText) {
+function buildAIError(response, payload, rawText, modelName) {
   const message = payload?.error?.message || rawText || `AI request failed with HTTP ${response.status}`
   const error = new Error(message)
   error.name = 'FirebaseAIError'
   error.code = payload?.error?.status || `school-ai/http-${response.status}`
   error.status = response.status
+  error.modelName = modelName
   error.customData = payload?.error || null
   return error
+}
+
+function aiEndpoint(modelName) {
+  return `https://firebasevertexai.googleapis.com/v1beta/projects/${firebaseConfig.projectId}/models/${modelName}:generateContent`
 }
 
 async function fetchGenerateContent({
   prompt,
   appCheckToken,
+  modelName,
   structured = false,
 }) {
   const controller = new AbortController()
-  const timeoutId = window.setTimeout(() => controller.abort(), AI_LOGIC_TIMEOUT_MS)
+  const startedAt = Date.now()
+  const timeoutId = window.setTimeout(() => controller.abort(), AI_ATTEMPT_TIMEOUT_MS)
 
   const body = {
     contents: [
@@ -107,13 +113,13 @@ async function fetchGenerateContent({
     body.generationConfig = {
       responseMimeType: 'application/json',
       responseSchema: REMINDER_RESPONSE_SCHEMA,
-      maxOutputTokens: 220,
+      maxOutputTokens: 160,
       temperature: 0.1,
     }
   }
 
   try {
-    const response = await fetch(AI_ENDPOINT, {
+    const response = await fetch(aiEndpoint(modelName), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -124,7 +130,9 @@ async function fetchGenerateContent({
       signal: controller.signal,
     })
 
+    const headersAtMs = Date.now() - startedAt
     const rawText = await response.text()
+    const bodyAtMs = Date.now() - startedAt
     let payload = null
 
     try {
@@ -133,24 +141,88 @@ async function fetchGenerateContent({
       payload = null
     }
 
-    if (!response.ok) throw buildAIError(response, payload, rawText)
+    if (!response.ok) {
+      const error = buildAIError(response, payload, rawText, modelName)
+      error.headersAtMs = headersAtMs
+      error.bodyAtMs = bodyAtMs
+      throw error
+    }
 
     return {
       payload,
       rawText,
+      modelName,
       responseText: String(
         payload?.candidates?.[0]?.content?.parts
           ?.map((part) => part?.text || '')
           .join('') || '',
       ).trim(),
       httpStatus: response.status,
+      headersAtMs,
+      bodyAtMs,
     }
   } catch (error) {
-    if (error?.name === 'AbortError') throw timeoutError(AI_LOGIC_TIMEOUT_MS, 'AI Logic')
+    if (error?.name === 'AbortError') {
+      const timedOut = timeoutError(AI_ATTEMPT_TIMEOUT_MS, `AI ${modelName}`)
+      timedOut.modelName = modelName
+      timedOut.phase = 'waiting-for-response'
+      throw timedOut
+    }
     throw error
   } finally {
     window.clearTimeout(timeoutId)
   }
+}
+
+function shouldTryNextModel(error) {
+  if (error?.code === 'school-ai/timeout') return true
+  if (error?.status === 429 || error?.status === 503) return true
+  if (error?.code === 'RESOURCE_EXHAUSTED' || error?.code === 'UNAVAILABLE') return true
+  return false
+}
+
+function attemptSummary(modelName, error, elapsedMs) {
+  const code = error?.code || error?.name || 'Error'
+  const status = error?.status ? ` HTTP ${error.status}` : ''
+  const phase = error?.phase ? ` ${error.phase}` : ''
+  return `${modelName}: ${code}${status}${phase} (${elapsedMs}ms)`
+}
+
+async function generateWithFallback({ prompt, appCheckToken, structured = false }) {
+  const attempts = []
+  let lastError = null
+
+  for (const modelName of MODEL_NAMES) {
+    const startedAt = Date.now()
+    try {
+      const result = await fetchGenerateContent({
+        prompt,
+        appCheckToken,
+        modelName,
+        structured,
+      })
+      return {
+        ...result,
+        attempts,
+      }
+    } catch (error) {
+      const elapsedMs = Date.now() - startedAt
+      attempts.push(attemptSummary(modelName, error, elapsedMs))
+      lastError = error
+      if (!shouldTryNextModel(error)) break
+    }
+  }
+
+  const error = new Error(attempts.join(' | ') || lastError?.message || 'All AI models failed')
+  error.name = lastError?.name || 'AIModelFallbackError'
+  error.code = 'school-ai/all-models-failed'
+  error.status = lastError?.status || null
+  error.customData = {
+    attempts,
+    lastCode: lastError?.code || null,
+    lastMessage: lastError?.message || null,
+  }
+  throw error
 }
 
 async function directDebugTokenExchange(debugToken) {
@@ -266,17 +338,18 @@ if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
 
     try {
       const appCheckResult = await getUsableAppCheckToken(false)
-      const direct = await fetchGenerateContent({
+      const direct = await generateWithFallback({
         prompt: 'Reply with OK',
         appCheckToken: appCheckResult.token,
       })
 
+      const priorAttempts = direct.attempts.length ? ` · fallback: ${direct.attempts.join(' | ')}` : ''
       return {
         ok: true,
         elapsedMs: Date.now() - startedAt,
         appCheckTokenLength: appCheckResult.token.length,
         appCheckSource: appCheckResult.source,
-        responseText: direct.responseText || 'OK',
+        responseText: `${direct.modelName} · ${direct.responseText || 'OK'} · headers ${direct.headersAtMs}ms · body ${direct.bodyAtMs}ms${priorAttempts}`,
       }
     } catch (error) {
       return {
@@ -326,12 +399,10 @@ export async function parseReminderWithAI(input, now = new Date()) {
   if (!text) return null
 
   const appCheckResult = await getUsableAppCheckToken(false)
-  const appCheckToken = appCheckResult.token
-
   const prompt = `Reference local datetime: ${localReference(now)} (Asia/Seoul)\nReminder: ${text}`
-  const result = await fetchGenerateContent({
+  const result = await generateWithFallback({
     prompt,
-    appCheckToken,
+    appCheckToken: appCheckResult.token,
     structured: true,
   })
 
