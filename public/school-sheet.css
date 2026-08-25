@@ -8,8 +8,9 @@ html.school-sheet-open .app-content {
   transform: none !important;
 }
 
+/* The backdrop already blocks background taps. Do not disable the whole app root,
+   because a late spring cleanup must never leave the bottom nav input-locked. */
 html.school-sheet-open #root {
-  pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
 }
