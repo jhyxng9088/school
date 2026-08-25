@@ -1,0 +1,16 @@
+.reminder-ai-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.reminder-ai-status.is-working {
+  opacity: 0.68;
+}
+
+.reminder-ai-status.is-ready {
+  color: var(--text-secondary);
+}
