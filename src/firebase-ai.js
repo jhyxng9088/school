@@ -147,10 +147,24 @@ async function resizeImage(file, maxEdge, quality) {
   return canvasToBlob(canvas, quality)
 }
 
+function inferredAttachmentType(file) {
+  const explicit = String(file?.type || '').toLowerCase().trim()
+  if (SUPPORTED_ATTACHMENT_TYPES.has(explicit)) return explicit
+  const name = String(file?.name || '').toLowerCase()
+  const extensionMap = [
+    ['.jpeg', 'image/jpeg'], ['.jpg', 'image/jpeg'], ['.png', 'image/png'],
+    ['.webp', 'image/webp'], ['.bmp', 'image/bmp'], ['.heic', 'image/heic'],
+    ['.heif', 'image/heif'], ['.pdf', 'application/pdf'], ['.json', 'application/json'],
+    ['.txt', 'text/plain'], ['.csv', 'text/csv'], ['.rtf', 'text/rtf'],
+    ['.html', 'text/html'], ['.htm', 'text/html'], ['.xml', 'text/xml'],
+  ]
+  return extensionMap.find(([extension]) => name.endsWith(extension))?.[1] || explicit
+}
+
 async function prepareAttachment(file) {
   if (!(file instanceof Blob)) throw reminderError('첨부 파일을 읽을 수 없어.', 'school-ai/invalid-file')
   const originalName = String(file.name || '첨부파일').slice(0, 120)
-  const originalType = String(file.type || '').toLowerCase()
+  const originalType = inferredAttachmentType(file)
   if (!SUPPORTED_ATTACHMENT_TYPES.has(originalType)) {
     throw reminderError('이 파일 형식은 바로 분석할 수 없어. 사진, PDF 또는 텍스트 파일을 사용해줘.', 'school-ai/unsupported-file', 415)
   }

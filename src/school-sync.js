@@ -4,10 +4,13 @@ import { browserLocalPersistence, getAuth, setPersistence, signInAnonymously } f
 import {
   collection,
   doc,
+  getCountFromServer,
   getDoc,
   getFirestore,
   onSnapshot,
+  query,
   setDoc,
+  where,
 } from 'firebase/firestore'
 import {
   loadOverrides,
@@ -76,9 +79,8 @@ function safeAttachment(value) {
   return { name, mimeType, size }
 }
 
-const PRESENCE_ACTIVE_MS = 90 * 1000
-const PRESENCE_HEARTBEAT_MS = 30 * 1000
-const PRESENCE_RECOUNT_MS = 15 * 1000
+const PRESENCE_ACTIVE_MS = 150 * 1000
+const PRESENCE_REFRESH_MS = 60 * 1000
 
 function normalizeName(value) {
   return String(value || '')
@@ -206,8 +208,8 @@ function classPresenceCollection(profile) {
   return collection(db, 'classes', classKeyFor(profile), 'presence')
 }
 
-function classPresenceRef(profile, uid) {
-  return doc(db, 'classes', classKeyFor(profile), 'presence', uid)
+function classPresenceRef(profile) {
+  return doc(db, 'classes', classKeyFor(profile), 'presence', studentKeyFor(profile))
 }
 
 function safeSharedTodo(todo) {
@@ -291,51 +293,60 @@ export function listenStudentTodoState(profile, onValue, onError = () => {}) {
 
 export function useClassPresence(profile) {
   const signature = profileSignature(profile)
-  const memberCountRef = useRef(0)
-  const presenceRowsRef = useRef([])
   const [counts, setCounts] = useState({ online: 0, total: 0 })
 
   useEffect(() => {
     if (!signature) return undefined
 
     let stopped = false
-    let unsubscribeMembers = () => {}
-    let unsubscribePresence = () => {}
-    let heartbeatTimer = null
-    let recountTimer = null
-
-    const recount = () => {
-      if (stopped) return
-      const threshold = Date.now() - PRESENCE_ACTIVE_MS
-      const activeStudents = new Set(
-        presenceRowsRef.current
-          .filter((item) => item.lastSeenMs >= threshold)
-          .map((item) => item.studentKey)
-          .filter(Boolean),
-      )
-      setCounts({ online: activeStudents.size, total: memberCountRef.current })
-    }
+    let refreshTimer = null
 
     const heartbeat = async () => {
       if (stopped || document.hidden) return
+      await ensureSignedIn()
+      if (stopped) return
+      const studentKey = studentKeyFor(profile)
+      await setDoc(classPresenceRef(profile), {
+        studentKey,
+        lastSeenMs: Date.now(),
+      })
+    }
+
+    const recount = async () => {
+      if (stopped) return
+      await ensureSignedIn()
+      if (stopped) return
+      const threshold = Date.now() - PRESENCE_ACTIVE_MS
+      const [memberSnapshot, onlineSnapshot] = await Promise.all([
+        getCountFromServer(classMembersCollection(profile)),
+        getCountFromServer(query(
+          classPresenceCollection(profile),
+          where('lastSeenMs', '>=', threshold),
+        )),
+      ])
+      if (stopped) return
+      setCounts({
+        online: onlineSnapshot.data().count,
+        total: memberSnapshot.data().count,
+      })
+    }
+
+    const refreshPresence = async () => {
+      if (stopped || document.hidden) return
       try {
-        const user = await ensureSignedIn()
-        if (stopped) return
-        await setDoc(classPresenceRef(profile, user.uid), {
-          studentKey: studentKeyFor(profile),
-          lastSeenMs: Date.now(),
-        })
+        await heartbeat()
+        await recount()
       } catch (error) {
-        console.error('Class presence heartbeat failed:', error)
+        console.error('Class presence refresh failed:', error)
       }
     }
 
     const handleVisibility = () => {
-      if (!document.hidden) heartbeat()
+      if (!document.hidden) refreshPresence()
     }
 
     ensureSignedIn()
-      .then(async (user) => {
+      .then(async () => {
         if (stopped) return
         const member = classMemberRef(profile)
         const existing = await getDoc(member)
@@ -344,48 +355,19 @@ export function useClassPresence(profile) {
         }
         if (stopped) return
 
-        await setDoc(classPresenceRef(profile, user.uid), {
-          studentKey: studentKeyFor(profile),
-          lastSeenMs: Date.now(),
-        })
+        await refreshPresence()
         if (stopped) return
-
-        unsubscribeMembers = onSnapshot(
-          classMembersCollection(profile),
-          (snapshot) => {
-            memberCountRef.current = snapshot.size
-            recount()
-          },
-          (error) => console.error('Class member count sync failed:', error),
-        )
-
-        unsubscribePresence = onSnapshot(
-          classPresenceCollection(profile),
-          (snapshot) => {
-            presenceRowsRef.current = snapshot.docs.map((item) => ({
-              studentKey: String(item.data()?.studentKey || ''),
-              lastSeenMs: Number(item.data()?.lastSeenMs || 0),
-            }))
-            recount()
-          },
-          (error) => console.error('Class presence sync failed:', error),
-        )
-
-        heartbeatTimer = window.setInterval(heartbeat, PRESENCE_HEARTBEAT_MS)
-        recountTimer = window.setInterval(recount, PRESENCE_RECOUNT_MS)
+        refreshTimer = window.setInterval(refreshPresence, PRESENCE_REFRESH_MS)
         document.addEventListener('visibilitychange', handleVisibility)
-        window.addEventListener('focus', heartbeat)
+        window.addEventListener('focus', refreshPresence)
       })
       .catch((error) => console.error('Class presence connection failed:', error))
 
     return () => {
       stopped = true
-      unsubscribeMembers()
-      unsubscribePresence()
-      if (heartbeatTimer) window.clearInterval(heartbeatTimer)
-      if (recountTimer) window.clearInterval(recountTimer)
+      if (refreshTimer) window.clearInterval(refreshTimer)
       document.removeEventListener('visibilitychange', handleVisibility)
-      window.removeEventListener('focus', heartbeat)
+      window.removeEventListener('focus', refreshPresence)
     }
   }, [signature])
 

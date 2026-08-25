@@ -108,7 +108,7 @@ service cloud.firestore {
     match /classes/{classId}/presence/{presenceId} {
       allow read: if signedIn();
       allow create, update: if signedIn()
-        && presenceId == request.auth.uid
+        && presenceId == request.resource.data.studentKey
         && validPresence();
       allow delete: if false;
     }

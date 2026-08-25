@@ -117,6 +117,7 @@
   background: rgba(0, 0, 0, 0.22);
   opacity: 1;
   pointer-events: auto;
+  touch-action: none;
   animation: reminder-summary-backdrop-in 280ms ease both;
 }
 
