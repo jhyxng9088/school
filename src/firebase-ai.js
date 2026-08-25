@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getToken, initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'
 
 const firebaseConfig = {
@@ -13,12 +13,11 @@ const firebaseConfig = {
 }
 
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
-const APP_CHECK_TIMEOUT_MS = 6000
 const AI_LOGIC_TIMEOUT_MS = 12000
 
 const firebaseApp = initializeApp(firebaseConfig)
 
-const appCheck = initializeAppCheck(firebaseApp, {
+initializeAppCheck(firebaseApp, {
   provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
   isTokenAutoRefreshEnabled: true,
 })
@@ -64,36 +63,16 @@ Rules:
 
 const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])
 
-function setDiagnostic(stage, error) {
-  const rawCode = String(error?.code || error?.status || 'unknown')
-  const rawMessage = String(error?.message || error || 'Unknown error')
-  const message = rawMessage.replace(/\s+/g, ' ').trim().slice(0, 220)
-  const diagnostic = {
-    stage,
-    code: rawCode,
-    message,
-    time: Date.now(),
-  }
-  window.__schoolAIDiagnostic = diagnostic
-  window.dispatchEvent(new CustomEvent('school-ai-diagnostic', { detail: diagnostic }))
-  return diagnostic
-}
-
-function clearDiagnostic() {
-  window.__schoolAIDiagnostic = null
-  window.dispatchEvent(new CustomEvent('school-ai-diagnostic', { detail: null }))
-}
-
-function timeoutError(stage, milliseconds) {
-  const error = new Error(`${stage} timed out after ${milliseconds}ms`)
+function timeoutError(milliseconds) {
+  const error = new Error(`AI Logic timed out after ${milliseconds}ms`)
   error.code = 'school-ai/timeout'
   return error
 }
 
-function withTimeout(promise, milliseconds, stage) {
+function withTimeout(promise, milliseconds) {
   let timeoutId
   const timeout = new Promise((_, reject) => {
-    timeoutId = window.setTimeout(() => reject(timeoutError(stage, milliseconds)), milliseconds)
+    timeoutId = window.setTimeout(() => reject(timeoutError(milliseconds)), milliseconds)
   })
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId))
 }
@@ -132,35 +111,11 @@ export async function parseReminderWithAI(input, now = new Date()) {
   const text = String(input || '').trim()
   if (!text) return null
 
-  clearDiagnostic()
-
-  try {
-    const tokenResult = await withTimeout(getToken(appCheck, false), APP_CHECK_TIMEOUT_MS, 'App Check')
-    if (!tokenResult?.token) throw new Error('App Check returned an empty token')
-  } catch (error) {
-    setDiagnostic('app-check', error)
-    throw error
-  }
-
   const prompt = `Reference local datetime: ${localReference(now)} (Asia/Seoul)\nReminder: ${text}`
-
-  let responseText
-  try {
-    const result = await withTimeout(model.generateContent(prompt), AI_LOGIC_TIMEOUT_MS, 'AI Logic')
-    responseText = result.response.text()
-  } catch (error) {
-    setDiagnostic('ai-logic', error)
-    throw error
-  }
-
-  try {
-    const parsed = JSON.parse(responseText)
-    const normalized = normalizeResult(parsed)
-    if (!normalized) throw new Error('AI response did not match the reminder schema')
-    clearDiagnostic()
-    return normalized
-  } catch (error) {
-    setDiagnostic('response', error)
-    throw error
-  }
+  const result = await withTimeout(model.generateContent(prompt), AI_LOGIC_TIMEOUT_MS)
+  const responseText = result.response.text()
+  const parsed = JSON.parse(responseText)
+  const normalized = normalizeResult(parsed)
+  if (!normalized) throw new Error('AI response did not match the reminder schema')
+  return normalized
 }
