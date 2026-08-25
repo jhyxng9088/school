@@ -414,7 +414,7 @@ export function TodoPage({ now, todoData }) {
       </section>
 
       {sheetOpen ? (
-        <section className="todo-sheet" data-school-sheet>
+        <section className="todo-sheet">
           <div className="change-editor-head">
             <div>
               <h2>{draft.id ? '리마인더 수정' : '리마인더 추가'}</h2>
