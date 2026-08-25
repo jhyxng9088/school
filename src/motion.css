@@ -95,6 +95,53 @@
   transform: scale(0.985);
 }
 
+/* Time hierarchy: past recedes, next lifts slightly, current is the clearest surface. */
+.period-item.is-next {
+  opacity: 1;
+  background: color-mix(in srgb, var(--surface) 91%, var(--text) 9%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--specular-edge) 82%, transparent),
+    inset 0 0 0 0.75px color-mix(in srgb, var(--text) 13%, transparent);
+}
+
+.period-item.is-current {
+  opacity: 1;
+  background: color-mix(in srgb, var(--surface) 82%, var(--text) 18%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--specular-edge) 92%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--focus-accent) 72%, transparent);
+}
+
+.period-item.is-next strong,
+.period-item.is-current strong {
+  color: var(--text);
+  font-weight: 720;
+}
+
+.week-cell.is-past {
+  opacity: 0.42;
+}
+
+.week-cell.is-next,
+.week-cell.is-next.is-override {
+  opacity: 1;
+  background: color-mix(in srgb, var(--surface) 91%, var(--text) 9%);
+  box-shadow: inset 0 0 0 0.75px color-mix(in srgb, var(--text) 13%, transparent);
+}
+
+.week-cell.is-current,
+.week-cell.is-current.is-override {
+  opacity: 1;
+  background: color-mix(in srgb, var(--surface) 82%, var(--text) 18%);
+  box-shadow: inset 0 0 0 1.5px var(--focus-accent, var(--text));
+}
+
+.week-cell.is-next .subject,
+.week-cell.is-current .subject {
+  color: var(--text);
+  font-weight: 720;
+}
+
 /* Two material layers: translucent shell outside, denser moving selection inside. */
 .bottom-nav {
   isolation: isolate;
