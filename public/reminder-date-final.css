@@ -1,8 +1,9 @@
-/* Preserve the original reminder row layout. Only replace the former 9/1 text area with a compact calendar-style date. */
+/* Keep the reminder row visually identical to the original layout.
+   Only restyle the due date on the right as a compact day/month stack. */
 .todo-stage5 .todo-item {
   position: relative;
   grid-template-columns: 48px minmax(0, 1fr) !important;
-  min-height: 82px;
+  min-height: 80px;
 }
 
 .todo-stage5 .todo-item.is-completed {
@@ -15,12 +16,25 @@
 
 .todo-stage5 .todo-item-main {
   grid-column: 2;
-  padding: 13px 78px 13px 0 !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 3px !important;
+  padding: 13px 66px 13px 0 !important;
+}
+
+.todo-stage5 .todo-item-main .todo-kind,
+.todo-stage5 .todo-item-main > strong,
+.todo-stage5 .todo-item-main > small {
+  grid-column: 1 !important;
+}
+
+.todo-stage5 .todo-item-main > small {
+  justify-self: start;
+  font-size: 11px;
 }
 
 .todo-stage5 .todo-item.is-completed .todo-item-main {
   grid-column: 2;
-  padding-right: 78px !important;
+  padding-right: 66px !important;
 }
 
 .todo-stage5 .todo-permanent-delete {
@@ -31,34 +45,33 @@
   position: absolute !important;
   z-index: 1;
   top: 50%;
-  right: 13px;
-  width: 54px;
-  height: 58px;
-  box-sizing: border-box;
+  right: 18px;
+  width: 42px;
+  height: 52px;
   display: flex !important;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding-left: 10px;
+  padding: 0 !important;
   border: 0 !important;
-  border-left: 1px solid var(--divider) !important;
   background: transparent !important;
-  transform: translateY(-50%);
   color: var(--text);
+  transform: translateY(-50%);
+  text-align: center;
   pointer-events: none;
 }
 
 .todo-stage5 .todo-item.is-completed .todo-date-tile {
-  right: 58px;
+  right: 66px;
   opacity: 0.48;
 }
 
 .todo-stage5 .todo-date-tile > strong {
-  font-size: 28px !important;
-  font-weight: 720;
-  line-height: 0.9;
-  letter-spacing: -0.045em;
+  font-size: 30px !important;
+  font-weight: 730;
+  line-height: 0.88;
+  letter-spacing: -0.05em;
 }
 
 .todo-stage5 .todo-date-tile > small {
@@ -68,10 +81,6 @@
   font-weight: 620;
   line-height: 1;
   letter-spacing: -0.02em;
-}
-
-.todo-stage5 .todo-item-main > small {
-  display: none !important;
 }
 
 @media (max-width: 430px) {
@@ -85,20 +94,19 @@
 
   .todo-stage5 .todo-item-main,
   .todo-stage5 .todo-item.is-completed .todo-item-main {
-    padding-right: 70px !important;
+    padding-right: 60px !important;
   }
 
   .todo-stage5 .todo-date-tile {
-    right: 10px;
-    width: 50px;
-    padding-left: 8px;
+    right: 14px;
+    width: 40px;
   }
 
   .todo-stage5 .todo-item.is-completed .todo-date-tile {
-    right: 54px;
+    right: 60px;
   }
 
   .todo-stage5 .todo-date-tile > strong {
-    font-size: 26px !important;
+    font-size: 28px !important;
   }
 }
