@@ -68,13 +68,17 @@
   }
 
   function enhance(sheet) {
-    if (!sheet || sheet.dataset.reminderSheetReady === 'true') return
+    if (!sheet) return
+
+    // React can restore this declarative attribute on any state rerender.
+    // Strip it every time before checking our own ready flag so the shared
+    // timetable sheet engine can never take ownership of a reminder sheet.
+    sheet.removeAttribute('data-school-sheet')
+
+    if (sheet.dataset.reminderSheetReady === 'true') return
 
     if (active && active.sheet !== sheet) active.cleanup()
 
-    // Remove the shared-sheet hook synchronously so the timetable spring engine
-    // never takes ownership of this reminder modal.
-    sheet.removeAttribute('data-school-sheet')
     sheet.dataset.reminderSheetReady = 'true'
     sheet.classList.add('reminder-sheet-managed')
 
@@ -111,7 +115,6 @@
       drag.active = false
       drag.pointerId = null
       sheet.classList.remove('is-dragging')
-      // Force the dragged position to be committed before re-enabling the normal transition.
       void sheet.offsetHeight
       sheet.style.setProperty('--reminder-drag-y', '0px')
       backdrop.style.opacity = ''
@@ -252,7 +255,12 @@
     else if (active) active.cleanup()
   })
 
-  observer.observe(document.documentElement, { childList: true, subtree: true })
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['data-school-sheet'],
+  })
   const existing = document.querySelector(SHEET_SELECTOR)
   if (existing) enhance(existing)
 })()
