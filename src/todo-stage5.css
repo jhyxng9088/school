@@ -1,3 +1,9 @@
+/* Reminder owns its entrance rhythm. Disable the parent app-content entrance only
+   while it contains the reminder page so the same copy is not animated twice. */
+html body .app-content:has(> .todo-page) {
+  animation: none !important;
+}
+
 .reminder-natural-fields,
 .reminder-manual-fields {
   display: none;
