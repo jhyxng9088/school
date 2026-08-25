@@ -1,5 +1,4 @@
 import { initializeApp } from 'firebase/app'
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'
 
 const firebaseConfig = {
@@ -12,16 +11,9 @@ const firebaseConfig = {
   measurementId: 'G-PFCP63TWQS',
 }
 
-const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
 const AI_LOGIC_TIMEOUT_MS = 12000
 
 const firebaseApp = initializeApp(firebaseConfig)
-
-initializeAppCheck(firebaseApp, {
-  provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
-  isTokenAutoRefreshEnabled: true,
-})
-
 const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() })
 
 const responseSchema = Schema.object({
