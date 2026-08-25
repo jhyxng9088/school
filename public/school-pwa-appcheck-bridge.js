@@ -28,6 +28,7 @@
     widgetSucceeded: null,
     lastStage: 'installed',
     lastError: '',
+    lastCode: '',
     lastHttpStatus: 0,
     recaptchaHost: window.grecaptcha?.enterprise ? 'preloaded' : 'recaptcha.net',
   }
@@ -68,6 +69,81 @@
       // Ignore storage cleanup failures.
     }
   }
+
+  function stageLabel() {
+    const labels = {
+      installed: 'PWA 브리지 시작',
+      'cached-token': '저장된 App Check 토큰',
+      'recaptcha-ready': 'reCAPTCHA 로드',
+      'recaptcha-google-fallback-load': 'reCAPTCHA 보조 로드',
+      'recaptcha-render': 'reCAPTCHA 초기화',
+      'recaptcha-execute': 'reCAPTCHA 인증',
+      'appcheck-exchange': 'App Check 교환',
+      ready: 'App Check 준비',
+      'ai-request': 'Gemini 요청',
+      'ai-network': 'Gemini 네트워크',
+      'ai-request-ok': 'Gemini 응답',
+    }
+    return labels[state.lastStage] || state.lastStage
+  }
+
+  function diagnosticText() {
+    const parts = ['AI 연결 실패', stageLabel()]
+    if (state.lastCode) parts.push(state.lastCode)
+    if (state.lastHttpStatus) parts.push(`HTTP ${state.lastHttpStatus}`)
+    if (state.lastError) parts.push(String(state.lastError).replace(/\s+/g, ' ').slice(0, 140))
+    return parts.join(' · ')
+  }
+
+  state.describeFailure = diagnosticText
+
+  function applyVisibleDiagnostic() {
+    if (!state.lastError) return
+    const text = diagnosticText()
+    document.querySelectorAll('.reminder-ai-status').forEach((node) => {
+      if (node.classList.contains('is-ready') || node.classList.contains('is-working')) return
+      const current = node.textContent || ''
+      if (
+        current.includes('AI 연결이 안 돼서') ||
+        current.includes('AI 연결 실패') ||
+        node.dataset.schoolAiDiagnostic === 'true'
+      ) {
+        node.dataset.schoolAiDiagnostic = 'true'
+        if (node.textContent !== text) node.textContent = text
+      }
+    })
+  }
+
+  function scheduleVisibleDiagnostic() {
+    applyVisibleDiagnostic()
+    ;[50, 150, 300, 600, 1200, 2000].forEach((delay) => {
+      window.setTimeout(applyVisibleDiagnostic, delay)
+    })
+  }
+
+  function recordFailure(error, stage = state.lastStage) {
+    state.lastStage = stage
+    state.lastError = error?.message || String(error || 'Unknown error')
+    state.lastCode = String(error?.code || error?.name || '')
+    if (error?.status) state.lastHttpStatus = Number(error.status) || state.lastHttpStatus
+    scheduleVisibleDiagnostic()
+  }
+
+  function clearFailure(stage = state.lastStage) {
+    state.lastStage = stage
+    state.lastError = ''
+    state.lastCode = ''
+    state.lastHttpStatus = 0
+  }
+
+  const observer = new MutationObserver(() => {
+    if (state.lastError) applyVisibleDiagnostic()
+  })
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  })
 
   let googleFallbackPromise = null
 
@@ -172,7 +248,7 @@
     if (!response.ok || !payload?.token) {
       const message = payload?.error?.message || `App Check exchange failed with HTTP ${response.status}`
       const error = new Error(message)
-      error.code = 'school-pwa-appcheck/exchange-failed'
+      error.code = payload?.error?.status || 'school-pwa-appcheck/exchange-failed'
       error.status = response.status
       throw error
     }
@@ -180,8 +256,7 @@
     const ttlSeconds = Number(String(payload.ttl || '').replace(/s$/, ''))
     state.token = String(payload.token)
     state.expiresAt = Date.now() + (Number.isFinite(ttlSeconds) ? ttlSeconds * 1000 : 30 * 60 * 1000)
-    state.lastStage = 'ready'
-    state.lastError = ''
+    clearFailure('ready')
     state.lastHttpStatus = response.status
     persistToken()
     return state.token
@@ -209,8 +284,8 @@
         if (state.widgetSucceeded === false) throw new Error('reCAPTCHA Enterprise widget reported an error')
         return await exchangeEnterpriseToken(recaptchaToken)
       } catch (error) {
-        state.lastError = error?.message || String(error)
         clearToken()
+        recordFailure(error)
         throw error
       } finally {
         state.inFlight = null
@@ -237,25 +312,27 @@
     return headers
   }
 
-  function stageLabel() {
-    const labels = {
-      'recaptcha-ready': 'reCAPTCHA 로드',
-      'recaptcha-google-fallback-load': 'reCAPTCHA 보조 로드',
-      'recaptcha-render': 'reCAPTCHA 초기화',
-      'recaptcha-execute': 'reCAPTCHA 인증',
-      'appcheck-exchange': 'App Check 교환',
-    }
-    return labels[state.lastStage] || state.lastStage
-  }
+  async function sendAIRequest(input, init, headers) {
+    try {
+      state.lastStage = 'ai-request'
+      const response = input instanceof Request
+        ? await nativeFetch(new Request(input, { ...init, headers }))
+        : await nativeFetch(input, { ...init, headers })
 
-  const observer = new MutationObserver(() => {
-    if (!state.lastError) return
-    document.querySelectorAll('.reminder-ai-status').forEach((node) => {
-      if (!node.textContent?.includes('AI 연결이 안 돼서')) return
-      node.textContent = `AI 연결 실패 · ${stageLabel()}${state.lastHttpStatus ? ` · HTTP ${state.lastHttpStatus}` : ''}`
-    })
-  })
-  observer.observe(document.documentElement, { childList: true, subtree: true })
+      if (!response.ok) {
+        const error = new Error(`Firebase AI returned HTTP ${response.status}`)
+        error.code = `HTTP_${response.status}`
+        error.status = response.status
+        recordFailure(error, 'ai-request')
+      } else {
+        clearFailure('ai-request-ok')
+      }
+      return response
+    } catch (error) {
+      recordFailure(error, 'ai-network')
+      throw error
+    }
+  }
 
   window.fetch = async (input, init) => {
     let url
@@ -272,12 +349,9 @@
     try {
       const token = await issueProductionAppCheckToken(false)
       headers.set('X-Firebase-AppCheck', token)
-
-      if (input instanceof Request) {
-        return nativeFetch(new Request(input, { ...init, headers }))
-      }
-      return nativeFetch(input, { ...init, headers })
+      return await sendAIRequest(input, init, headers)
     } catch (error) {
+      if (!state.lastError) recordFailure(error)
       const wrapped = new Error(`PWA App Check bridge failed at ${state.lastStage}: ${error?.message || String(error)}`)
       wrapped.code = error?.code || 'school-pwa-appcheck/bridge-failed'
       wrapped.status = error?.status || state.lastHttpStatus || null
