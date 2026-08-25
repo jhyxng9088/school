@@ -12,7 +12,7 @@ const firebaseConfig = {
 }
 
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
-const MODEL_NAME = 'gemini-3.7-flash'
+const MODEL_NAME = 'gemini-3.5-flash-lite'
 const AI_LOGIC_TIMEOUT_MS = 30000
 const APPCHECK_DEBUG_TIMEOUT_MS = 8000
 const APPCHECK_DEBUG_STORAGE_KEY = 'school.appcheck.debugToken.session'
