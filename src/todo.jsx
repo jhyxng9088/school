@@ -157,24 +157,19 @@ export function useTodos(profile) {
     const dueTime = String(input.dueTime || '')
 
     if (input.id) {
-      const updatedAt = Date.now()
-      let nextTodo = null
-      setSharedTodos((current) => current.map((todo) => {
-        if (todo.id !== input.id) return todo
-        nextTodo = {
-          ...todo,
-          type,
-          title,
-          dueDate,
-          dueTime,
-          updatedAt,
-        }
-        return nextTodo
-      }))
-      if (nextTodo) {
-        writeSharedTodo(profile, nextTodo)
-          .catch((error) => console.error('Shared reminder update failed:', error))
+      const currentTodo = sharedTodos.find((todo) => todo.id === input.id)
+      if (!currentTodo) return ''
+      const nextTodo = {
+        ...currentTodo,
+        type,
+        title,
+        dueDate,
+        dueTime,
+        updatedAt: Date.now(),
       }
+      setSharedTodos((current) => current.map((todo) => todo.id === input.id ? nextTodo : todo))
+      writeSharedTodo(profile, nextTodo)
+        .catch((error) => console.error('Shared reminder update failed:', error))
       return input.id
     }
 

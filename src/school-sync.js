@@ -264,11 +264,27 @@ export async function migrateLegacyTodos(profile, legacyTodos) {
   localStorage.setItem(marker, 'done')
 }
 
-async function writeTimetable(profile, value) {
+async function writeInitialTimetable(profile, value) {
   await ensureSignedIn()
   await setDoc(timetableRef(profile), {
     weeklySchedule: normalizeWeeklySchedule(value.weeklySchedule),
     overrides: pruneExpiredOverrides(value.overrides || {}),
+    updatedAt: Date.now(),
+  })
+}
+
+async function writeWeeklyScheduleCloud(profile, weeklySchedule) {
+  await ensureSignedIn()
+  await setDoc(timetableRef(profile), {
+    weeklySchedule: normalizeWeeklySchedule(weeklySchedule),
+    updatedAt: Date.now(),
+  }, { merge: true })
+}
+
+async function writeOverridesCloud(profile, overrides) {
+  await ensureSignedIn()
+  await setDoc(timetableRef(profile), {
+    overrides: pruneExpiredOverrides(overrides || {}),
     updatedAt: Date.now(),
   }, { merge: true })
 }
@@ -295,7 +311,7 @@ export function useSharedTimetable(profile, now) {
           timetableRef(profile),
           (snapshot) => {
             if (!snapshot.exists()) {
-              writeTimetable(profile, {
+              writeInitialTimetable(profile, {
                 weeklySchedule: initialWeeklyRef.current,
                 overrides: initialOverridesRef.current,
               }).catch((error) => console.error('Initial timetable sync failed:', error))
@@ -325,17 +341,17 @@ export function useSharedTimetable(profile, now) {
     const normalized = normalizeWeeklySchedule(nextSchedule)
     saveWeeklySchedule(normalized)
     setWeeklySchedule(normalized)
-    writeTimetable(profile, { weeklySchedule: normalized, overrides })
+    writeWeeklyScheduleCloud(profile, normalized)
       .catch((error) => console.error('Shared timetable save failed:', error))
-  }, [signature, overrides])
+  }, [signature])
 
   const commitOverrides = useCallback((nextOverrides) => {
     const normalized = pruneExpiredOverrides(nextOverrides, now)
     saveOverrides(normalized)
     setOverrides(normalized)
-    writeTimetable(profile, { weeklySchedule, overrides: normalized })
+    writeOverridesCloud(profile, normalized)
       .catch((error) => console.error('Shared timetable override save failed:', error))
-  }, [signature, weeklySchedule, now])
+  }, [signature, now])
 
   return {
     weeklySchedule,
