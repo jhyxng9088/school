@@ -31,7 +31,7 @@ import {
   useSchoolData,
 } from './stage3'
 import { TodoHomePreview, TodoPage, useTodos } from './todo'
-import { readStudentProfile, saveStudentProfile, useSharedTimetable } from './school-sync'
+import { readStudentProfile, saveStudentProfile, useClassPresence, useSharedTimetable } from './school-sync'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -371,7 +371,7 @@ function TimetablePreview({ schedule, now, configured }) {
   )
 }
 
-function Home({ name, now, weeklySchedule, overrides, schoolData, todoData }) {
+function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, presence }) {
   const today = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
@@ -384,7 +384,15 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData }) {
       <header className="home-topbar">
         <div>
           <p className="date-label">{today}</p>
-          <h1>홈</h1>
+          <div className="home-title-row">
+            <h1>홈</h1>
+            <span
+              className="class-presence-count"
+              aria-label={`현재 접속 ${presence.online}명, 반 인원 ${presence.total}명`}
+            >
+              {presence.online}/{presence.total}
+            </span>
+          </div>
         </div>
         <span className="user-name">{name}</span>
       </header>
@@ -853,6 +861,7 @@ function AppShell({ profile }) {
   } = useSharedTimetable(profile, now)
   const schoolData = useSchoolData(now)
   const todoData = useTodos(profile)
+  const presence = useClassPresence(profile)
   const name = profile.name
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
@@ -872,6 +881,7 @@ function AppShell({ profile }) {
         overrides={overrides}
         schoolData={schoolData}
         todoData={todoData}
+        presence={presence}
       />
     ),
     todo: <TodoPage now={now} todoData={todoData} />,

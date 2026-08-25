@@ -30,16 +30,10 @@ function typeLabel(typeId) {
   return TODO_TYPES.find((type) => type.id === typeId)?.label || '일반'
 }
 
-function dateTileParts(todo) {
+function dueDateLabel(todo) {
   const [year, month, day] = String(todo.dueDate || '').split('-').map(Number)
-  if (!year || !month || !day) {
-    return { day: '—', month: '', label: String(todo.dueDate || '날짜 없음') }
-  }
-  return {
-    day: String(day),
-    month: `${month}월`,
-    label: `${month}월 ${day}일`,
-  }
+  if (!year || !month || !day) return String(todo.dueDate || '날짜 없음')
+  return `${month}월 ${day}일`
 }
 
 function dueMetaLabel(todo, now) {
@@ -87,7 +81,7 @@ function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
 }
 
 function ReminderRow({ todo, now, completed = false, deleting = false, onToggle, onEdit, onDelete }) {
-  const dateTile = dateTileParts(todo)
+  const dateLabel = dueDateLabel(todo)
   const meta = dueMetaLabel(todo, now)
 
   return (
@@ -102,25 +96,33 @@ function ReminderRow({ todo, now, completed = false, deleting = false, onToggle,
       >
         <span />
       </button>
-      <span className="todo-date-tile" aria-label={dateTile.label}>
-        <strong>{dateTile.day}</strong>
-        <small>{dateTile.month}</small>
-      </span>
-      <button className="todo-item-main" onClick={() => onEdit(todo)}>
+      <div className="todo-item-main">
         <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
         <AnimatedText as="strong" value={todo.title} delay={45} />
         {meta ? <AnimatedText as="small" value={meta} delay={90} /> : null}
-      </button>
-      {completed ? (
-        <button
-          className="todo-permanent-delete"
-          type="button"
-          aria-label={`${todo.title} 영구 삭제`}
-          onClick={() => onDelete(todo.id)}
-        >
-          삭제
-        </button>
-      ) : null}
+      </div>
+      <div className="todo-row-actions">
+        <span className="todo-date-text">{dateLabel}</span>
+        {completed ? (
+          <button
+            className="todo-permanent-delete"
+            type="button"
+            aria-label={`${todo.title} 영구 삭제`}
+            onClick={() => onDelete(todo.id)}
+          >
+            삭제
+          </button>
+        ) : (
+          <button
+            className="todo-edit-button"
+            type="button"
+            aria-label={`${todo.title} 수정`}
+            onClick={() => onEdit(todo)}
+          >
+            수정
+          </button>
+        )}
+      </div>
     </article>
   )
 }

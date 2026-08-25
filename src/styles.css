@@ -281,6 +281,22 @@ button {
   font-weight: 740;
 }
 
+.home-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.class-presence-count {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 1;
+  letter-spacing: 0.045em;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-2px);
+}
+
 .user-name {
   flex: none;
   margin-bottom: 3px;

@@ -31,6 +31,9 @@ const firebaseConfig = {
 
 export const STUDENT_PROFILE_KEY = 'school.studentProfile.v1'
 const MIGRATION_VERSION = 'v1'
+const PRESENCE_ACTIVE_MS = 90 * 1000
+const PRESENCE_HEARTBEAT_MS = 30 * 1000
+const PRESENCE_RECOUNT_MS = 15 * 1000
 
 function normalizeName(value) {
   return String(value || '')
@@ -146,6 +149,22 @@ function timetableRef(profile) {
   return doc(db, 'classes', classKeyFor(profile), 'settings', 'timetable')
 }
 
+function classMembersCollection(profile) {
+  return collection(db, 'classes', classKeyFor(profile), 'members')
+}
+
+function classMemberRef(profile) {
+  return doc(db, 'classes', classKeyFor(profile), 'members', studentKeyFor(profile))
+}
+
+function classPresenceCollection(profile) {
+  return collection(db, 'classes', classKeyFor(profile), 'presence')
+}
+
+function classPresenceRef(profile, uid) {
+  return doc(db, 'classes', classKeyFor(profile), 'presence', uid)
+}
+
 function safeSharedTodo(todo) {
   if (!todo || typeof todo !== 'object') return null
   const id = String(todo.id || '')
@@ -219,6 +238,109 @@ export function listenStudentTodoState(profile, onValue, onError = () => {}) {
     stopped = true
     unsubscribe()
   }
+}
+
+export function useClassPresence(profile) {
+  const signature = profileSignature(profile)
+  const memberCountRef = useRef(0)
+  const presenceRowsRef = useRef([])
+  const [counts, setCounts] = useState({ online: 0, total: 0 })
+
+  useEffect(() => {
+    if (!signature) return undefined
+
+    let stopped = false
+    let unsubscribeMembers = () => {}
+    let unsubscribePresence = () => {}
+    let heartbeatTimer = null
+    let recountTimer = null
+
+    const recount = () => {
+      if (stopped) return
+      const threshold = Date.now() - PRESENCE_ACTIVE_MS
+      const activeStudents = new Set(
+        presenceRowsRef.current
+          .filter((item) => item.lastSeenMs >= threshold)
+          .map((item) => item.studentKey)
+          .filter(Boolean),
+      )
+      setCounts({ online: activeStudents.size, total: memberCountRef.current })
+    }
+
+    const heartbeat = async () => {
+      if (stopped || document.hidden) return
+      try {
+        const user = await ensureSignedIn()
+        if (stopped) return
+        await setDoc(classPresenceRef(profile, user.uid), {
+          studentKey: studentKeyFor(profile),
+          lastSeenMs: Date.now(),
+        })
+      } catch (error) {
+        console.error('Class presence heartbeat failed:', error)
+      }
+    }
+
+    const handleVisibility = () => {
+      if (!document.hidden) heartbeat()
+    }
+
+    ensureSignedIn()
+      .then(async (user) => {
+        if (stopped) return
+        const member = classMemberRef(profile)
+        const existing = await getDoc(member)
+        if (!existing.exists()) {
+          await setDoc(member, { joinedAt: Date.now() })
+        }
+        if (stopped) return
+
+        await setDoc(classPresenceRef(profile, user.uid), {
+          studentKey: studentKeyFor(profile),
+          lastSeenMs: Date.now(),
+        })
+        if (stopped) return
+
+        unsubscribeMembers = onSnapshot(
+          classMembersCollection(profile),
+          (snapshot) => {
+            memberCountRef.current = snapshot.size
+            recount()
+          },
+          (error) => console.error('Class member count sync failed:', error),
+        )
+
+        unsubscribePresence = onSnapshot(
+          classPresenceCollection(profile),
+          (snapshot) => {
+            presenceRowsRef.current = snapshot.docs.map((item) => ({
+              studentKey: String(item.data()?.studentKey || ''),
+              lastSeenMs: Number(item.data()?.lastSeenMs || 0),
+            }))
+            recount()
+          },
+          (error) => console.error('Class presence sync failed:', error),
+        )
+
+        heartbeatTimer = window.setInterval(heartbeat, PRESENCE_HEARTBEAT_MS)
+        recountTimer = window.setInterval(recount, PRESENCE_RECOUNT_MS)
+        document.addEventListener('visibilitychange', handleVisibility)
+        window.addEventListener('focus', heartbeat)
+      })
+      .catch((error) => console.error('Class presence connection failed:', error))
+
+    return () => {
+      stopped = true
+      unsubscribeMembers()
+      unsubscribePresence()
+      if (heartbeatTimer) window.clearInterval(heartbeatTimer)
+      if (recountTimer) window.clearInterval(recountTimer)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', heartbeat)
+    }
+  }, [signature])
+
+  return counts
 }
 
 export async function writeSharedTodo(profile, todo) {

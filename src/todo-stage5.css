@@ -237,25 +237,20 @@ html body .app-content:has(> .todo-page) {
   min-width: 0;
 }
 
-/* Keep the original reminder row structure. The due date is only plain text on the right. */
-.todo-stage5 .todo-item {
+/* Reminder rows keep date and action in one explicit right-side rail. */
+.todo-stage5 .todo-item,
+.todo-stage5 .todo-item.is-completed {
   position: relative;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 48px minmax(0, 1fr) auto;
   min-height: 78px;
 }
 
-.todo-stage5 .todo-item.is-completed {
-  grid-template-columns: 48px minmax(0, 1fr) 58px;
-}
-
-.todo-stage5 .todo-item-main {
-  grid-column: 2;
-  padding: 13px 94px 13px 0;
-}
-
+.todo-stage5 .todo-item-main,
 .todo-stage5 .todo-item.is-completed .todo-item-main {
   grid-column: 2;
-  padding-right: 94px;
+  min-width: 0;
+  padding: 13px 4px 13px 0;
+  cursor: default;
 }
 
 .todo-stage5 .todo-item-main > small {
@@ -264,72 +259,76 @@ html body .app-content:has(> .todo-page) {
   font-size: 11px;
 }
 
-.todo-stage5 .todo-permanent-delete {
+.todo-stage5 .todo-row-actions {
   grid-column: 3;
-}
-
-.todo-stage5 .todo-date-tile {
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  right: 18px;
   display: flex;
-  flex-direction: row-reverse;
-  align-items: baseline;
-  gap: 4px;
-  width: auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
   min-width: 0;
-  height: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  text-align: right;
+  padding: 0 16px 0 10px;
   white-space: nowrap;
-  pointer-events: none;
-  transform: translateY(-50%);
 }
 
-.todo-stage5 .todo-item.is-completed .todo-date-tile {
-  right: 70px;
-  opacity: 0.52;
-}
-
-.todo-stage5 .todo-date-tile > strong,
-.todo-stage5 .todo-date-tile > small {
-  display: inline;
-  margin: 0;
-  color: inherit;
+.todo-stage5 .todo-date-text {
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 620;
   line-height: 1;
   letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
 }
 
-.todo-stage5 .todo-date-tile > strong::after {
-  content: '일';
+.todo-stage5 .todo-item.is-completed .todo-date-text {
+  opacity: 0.52;
+}
+
+.todo-stage5 .todo-edit-button,
+.todo-stage5 .todo-permanent-delete {
+  flex: none;
+  min-width: 28px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
+
+.todo-stage5 .todo-edit-button {
+  color: var(--text-secondary);
+}
+
+.todo-stage5 .todo-permanent-delete {
+  grid-column: auto;
+  align-self: auto;
+  color: #d84d49;
+  opacity: 0.82;
+}
+
+.todo-stage5 .todo-edit-button:active,
+.todo-stage5 .todo-permanent-delete:active {
+  opacity: 0.52;
 }
 
 @media (max-width: 430px) {
-  .todo-stage5 .todo-item {
-    grid-template-columns: 44px minmax(0, 1fr);
-  }
-
+  .todo-stage5 .todo-item,
   .todo-stage5 .todo-item.is-completed {
-    grid-template-columns: 44px minmax(0, 1fr) 54px;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
   }
 
-  .todo-stage5 .todo-item-main,
-  .todo-stage5 .todo-item.is-completed .todo-item-main {
-    padding-right: 84px;
+  .todo-stage5 .todo-row-actions {
+    gap: 11px;
+    padding-right: 13px;
+    padding-left: 8px;
   }
 
-  .todo-stage5 .todo-date-tile {
-    right: 14px;
-  }
-
-  .todo-stage5 .todo-item.is-completed .todo-date-tile {
-    right: 64px;
+  .todo-stage5 .todo-date-text,
+  .todo-stage5 .todo-edit-button,
+  .todo-stage5 .todo-permanent-delete {
+    font-size: 11px;
   }
 }
 
