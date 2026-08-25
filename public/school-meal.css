@@ -1,0 +1,257 @@
+/* Stage 3 meal UI — restrained, information-first, and consistent with School motion. */
+.school-meal-home-mount {
+  margin-top: 1px;
+}
+
+.school-meal-home-summary {
+  padding: 14px 2px 1px;
+  border-top: 1px solid var(--divider);
+  animation: school-meal-settle 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.school-meal-home-menu {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 620;
+  line-height: 1.55;
+  letter-spacing: -0.025em;
+  word-break: keep-all;
+}
+
+.school-meal-home-meta {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 560;
+}
+
+.school-meal-home-empty,
+.school-meal-home-loading {
+  margin: 0;
+  padding: 14px 2px 1px;
+  border-top: 1px solid var(--divider);
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.school-meal-page {
+  display: grid;
+  gap: 20px;
+  animation: school-meal-settle 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.school-meal-week-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 2px;
+}
+
+.school-meal-week-head strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 690;
+  letter-spacing: -0.025em;
+}
+
+.school-meal-week-head span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 580;
+}
+
+.school-meal-days {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.school-meal-day {
+  min-width: 0;
+  min-height: 59px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
+  padding: 7px 3px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 520ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 520ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 520ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.school-meal-day:active {
+  transform: scale(0.987);
+}
+
+.school-meal-day strong {
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.school-meal-day span {
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+  font-weight: 580;
+}
+
+.school-meal-day.is-today:not(.is-selected) {
+  border-color: color-mix(in srgb, var(--focus-accent, var(--text)) 34%, var(--border));
+}
+
+.school-meal-day.is-selected {
+  border-color: color-mix(in srgb, var(--focus-accent, var(--text)) 46%, transparent);
+  background: var(--focus-accent-soft, var(--surface-soft));
+  color: var(--text);
+}
+
+.school-meal-detail {
+  min-height: 220px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--specular-edge, rgba(255, 255, 255, 0.06));
+}
+
+.school-meal-detail.is-changing {
+  animation: school-meal-detail-change 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.school-meal-date {
+  margin: 0 0 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.school-meal-detail h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 23px;
+  line-height: 1.2;
+  font-weight: 740;
+  letter-spacing: -0.04em;
+}
+
+.school-meal-dishes {
+  display: grid;
+  gap: 0;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--divider);
+}
+
+.school-meal-dishes li {
+  min-height: 41px;
+  display: flex;
+  align-items: center;
+  padding: 8px 1px;
+  border-bottom: 1px solid var(--divider);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 570;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+
+.school-meal-calories {
+  margin: 12px 1px 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 580;
+}
+
+.school-meal-status {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.school-meal-status strong {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 690;
+}
+
+.school-meal-status p {
+  max-width: 300px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.school-meal-retry {
+  min-height: 34px;
+  margin-top: 4px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.school-meal-cache-note {
+  margin: -9px 2px 0;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+@keyframes school-meal-settle {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 5px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes school-meal-detail-change {
+  from {
+    opacity: 0.72;
+    transform: translate3d(0, 3px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (min-width: 700px) {
+  .school-meal-page {
+    max-width: 720px;
+  }
+
+  .school-meal-detail {
+    padding: 23px 25px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .school-meal-home-summary,
+  .school-meal-page,
+  .school-meal-detail.is-changing {
+    animation: none !important;
+  }
+}
