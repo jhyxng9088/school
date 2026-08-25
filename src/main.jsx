@@ -4,6 +4,7 @@ import './styles.css'
 import './timetable.css'
 import './motion.css'
 import './stage3.css'
+import './todo.css'
 import {
   PERIODS,
   WEEKDAYS,
@@ -29,6 +30,7 @@ import {
   MealPreview as Stage3MealPreview,
   useSchoolData,
 } from './stage3'
+import { TodoHomePreview, TodoPage, useTodos } from './todo'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -337,7 +339,7 @@ function TimetablePreview({ schedule, now, configured }) {
   )
 }
 
-function Home({ name, now, weeklySchedule, overrides, schoolData }) {
+function Home({ name, now, weeklySchedule, overrides, schoolData, todoData }) {
   const today = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
@@ -357,7 +359,7 @@ function Home({ name, now, weeklySchedule, overrides, schoolData }) {
 
       <div className="home-stack">
         <CurrentClassPreview schoolState={schoolState} now={now} />
-        <TodoPreview />
+        <TodoHomePreview todos={todoData.todos} now={now} />
         <TimetablePreview
           schedule={schoolState.schedule}
           now={now}
@@ -814,6 +816,7 @@ function AppShell({ name }) {
   const [overrides, setOverrides] = useState(loadOverrides)
   const now = useNow()
   const schoolData = useSchoolData(now)
+  const todoData = useTodos()
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
 
@@ -843,9 +846,10 @@ function AppShell({ name }) {
         weeklySchedule={weeklySchedule}
         overrides={overrides}
         schoolData={schoolData}
+        todoData={todoData}
       />
     ),
-    todo: <StandardPage title="투두"><EmptyPanel title="아직 비어 있어" description="Stage 4에서 할 일과 수행평가를 연결할게." /></StandardPage>,
+    todo: <TodoPage now={now} todoData={todoData} />,
     timetable: (
       <TimetablePage
         now={now}
