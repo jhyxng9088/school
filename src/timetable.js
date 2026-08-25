@@ -18,9 +18,7 @@ export const WEEKDAYS = [
   { id: 'fri', label: '금', jsDay: 5, periodCount: 7, regularPeriodCount: 7 },
 ]
 
-// v2 intentionally installs the confirmed 2학년 1반 timetable instead of an old test/empty v1 table.
 export const TIMETABLE_STORAGE_KEY = 'school.timetable.weekly.v2'
-// v2 clears only the old test overrides; new changes are stored from this point forward.
 export const OVERRIDES_STORAGE_KEY = 'school.timetable.overrides.v2'
 
 export const DEFAULT_WEEKLY_SCHEDULE = {
@@ -79,7 +77,100 @@ const FULL_SUBJECT_NAMES = {
   기하2: '기하',
 }
 
+const SUBJECT_ALIASES = {
+  역학: ['역학', '역학과 에너지', '역학에너지'],
+  '영어 II': ['영어 II', '영어II', '영어Ⅱ', '영어2'],
+  스과: ['스과', '스포츠과학', '스포츠 과학'],
+  화언A: ['화언A', '화언 A', '화법과 언어A', '화법과언어A'],
+  정보: ['정보'],
+  세포: ['세포', '세포와 물질대사', '세포물질대사'],
+  물질: ['물질', '물질과 에너지', '물질에너지'],
+  진로: ['진로'],
+  기하2: ['기하2', '기하', '기하 II', '기하Ⅱ'],
+  미적2: ['미적2', '미적분', '미적분2', '미적분 II', '미적분Ⅱ'],
+  화언B: ['화언B', '화언 B', '화법과 언어B', '화법과언어B'],
+  자율: ['자율'],
+}
+
 const DAY_BY_JS = Object.fromEntries(WEEKDAYS.map((day) => [day.jsDay, day]))
+
+function simplifySubject(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^0-9a-z가-힣]/g, '')
+}
+
+const ALIAS_ENTRIES = Object.entries(SUBJECT_ALIASES).flatMap(([canonical, aliases]) =>
+  aliases.map((alias) => ({ canonical, key: simplifySubject(alias) })),
+)
+
+const EXACT_ALIAS_MAP = new Map(ALIAS_ENTRIES.map(({ canonical, key }) => [key, canonical]))
+
+function editDistance(left, right) {
+  const a = Array.from(left)
+  const b = Array.from(right)
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i]
+    for (let j = 1; j <= b.length; j += 1) {
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      )
+    }
+    for (let j = 0; j <= b.length; j += 1) previous[j] = current[j]
+  }
+
+  return previous[b.length]
+}
+
+function hasConflictingMarker(inputKey, aliasKey) {
+  const inputDigit = inputKey.match(/\d$/)?.[0]
+  const aliasDigit = aliasKey.match(/\d$/)?.[0]
+  if (inputDigit && aliasDigit && inputDigit !== aliasDigit) return true
+
+  const inputLetter = inputKey.match(/[ab]$/)?.[0]
+  const aliasLetter = aliasKey.match(/[ab]$/)?.[0]
+  return Boolean(inputLetter && aliasLetter && inputLetter !== aliasLetter)
+}
+
+export function normalizeSubjectInput(value) {
+  const original = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : ''
+  if (!original) return ''
+
+  const inputKey = simplifySubject(original)
+  const exact = EXACT_ALIAS_MAP.get(inputKey)
+  if (exact) return exact
+  if (inputKey.length < 3) return original.slice(0, 20)
+
+  let bestDistance = Infinity
+  let bestCanonical = null
+  let bestAliasLength = 0
+  let ambiguous = false
+
+  for (const { canonical, key } of ALIAS_ENTRIES) {
+    if (hasConflictingMarker(inputKey, key)) continue
+    const distance = editDistance(inputKey, key)
+
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestCanonical = canonical
+      bestAliasLength = key.length
+      ambiguous = false
+    } else if (distance === bestDistance && canonical !== bestCanonical) {
+      ambiguous = true
+    }
+  }
+
+  const comparisonLength = Math.max(inputKey.length, bestAliasLength)
+  const allowedDistance = comparisonLength >= 8 ? 2 : 1
+  if (!ambiguous && bestCanonical && bestDistance <= allowedDistance) return bestCanonical
+
+  return original.slice(0, 20)
+}
 
 export function timeToMinutes(value) {
   const [hour, minute] = value.split(':').map(Number)
@@ -129,7 +220,7 @@ export function normalizeOverrides(value) {
     for (let period = 1; period <= PERIODS.length; period += 1) {
       if (!Object.prototype.hasOwnProperty.call(periodMap, period)) continue
       const subject = periodMap[period]
-      if (typeof subject === 'string') nextMap[period] = subject.slice(0, 20)
+      if (typeof subject === 'string') nextMap[period] = normalizeSubjectInput(subject)
     }
 
     if (Object.keys(nextMap).length) normalized[dateKeyValue] = nextMap
@@ -214,8 +305,10 @@ export function getScheduleForDate(date, weeklySchedule, overrides) {
     const baseSubject = period.number <= day.regularPeriodCount
       ? weeklySchedule?.[day.id]?.[period.number] || ''
       : ''
-    const isOverride = Object.prototype.hasOwnProperty.call(dateOverrides, period.number)
-    const subject = isOverride ? dateOverrides[period.number] : baseSubject
+    const hasOverride = Object.prototype.hasOwnProperty.call(dateOverrides, period.number)
+    const overrideSubject = hasOverride ? normalizeSubjectInput(dateOverrides[period.number]) : ''
+    const subject = hasOverride ? overrideSubject : baseSubject
+    const isOverride = hasOverride && overrideSubject !== baseSubject
 
     return {
       ...period,
@@ -239,14 +332,11 @@ export function getFullSubjectName(subject) {
   return FULL_SUBJECT_NAMES[compact] || compact
 }
 
-function displayPeriod(period, { currentSentence = false } = {}) {
+function displayPeriod(period) {
   if (!period) return null
-  const fullName = getFullSubjectName(period.subject)
   return {
     ...period,
-    subject: currentSentence && fullName !== '과목 미설정'
-      ? `지금은 ${fullName} 시간입니다.`
-      : fullName,
+    subject: getFullSubjectName(period.subject),
   }
 }
 
@@ -255,7 +345,6 @@ function nextScheduledPeriod(schedule, nowMinutes) {
 }
 
 export function getSchoolState(now, weeklySchedule, overrides) {
-  // schedule always keeps compact class labels for the timetable UI.
   const schedule = getScheduleForDate(now, weeklySchedule, overrides)
   const day = getDayForDate(now)
   const configured = hasAnyBaseSchedule(weeklySchedule)
@@ -296,7 +385,7 @@ export function getSchoolState(now, weeklySchedule, overrides) {
       kind: 'class',
       configured: true,
       schedule,
-      current: displayPeriod(current, { currentSentence: true }),
+      current: displayPeriod(current),
       next: displayPeriod(next),
     }
   }
