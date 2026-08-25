@@ -1,6 +1,5 @@
 import { initializeApp } from 'firebase/app'
 import { getToken, initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
-import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0',
@@ -13,40 +12,14 @@ const firebaseConfig = {
 }
 
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
+const MODEL_NAME = 'gemini-3.7-flash'
 const AI_LOGIC_TIMEOUT_MS = 12000
 const APPCHECK_DEBUG_TIMEOUT_MS = 8000
 const APPCHECK_DEBUG_STORAGE_KEY = 'school.appcheck.debugToken.session'
+const AI_ENDPOINT = `https://firebasevertexai.googleapis.com/v1beta/projects/${firebaseConfig.projectId}/models/${MODEL_NAME}:generateContent`
 
-const firebaseApp = initializeApp(firebaseConfig)
-
-const appCheck = initializeAppCheck(firebaseApp, {
-  provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
-  isTokenAutoRefreshEnabled: true,
-})
-
-const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() })
-
-const responseSchema = Schema.object({
-  properties: {
-    type: Schema.enumString({
-      enum: ['task', 'performance', 'exam', 'material'],
-    }),
-    title: Schema.string(),
-    dueDate: Schema.string(),
-    dueTime: Schema.string(),
-    assumedDate: Schema.boolean(),
-  },
-})
-
-const model = getGenerativeModel(ai, {
-  model: 'gemini-3.7-flash',
-  generationConfig: {
-    responseMimeType: 'application/json',
-    responseSchema,
-    maxOutputTokens: 220,
-  },
-  systemInstruction: `You parse short Korean school reminders for a high-school student.
-Return only the structured response required by the schema.
+const SYSTEM_INSTRUCTION = `You parse short Korean school reminders for a high-school student.
+Return only the structured response required by the JSON schema.
 
 Rules:
 - Correct obvious Korean typos, spacing mistakes, and common abbreviations when the intended meaning is clear. Do not invent content.
@@ -60,14 +33,31 @@ Rules:
 - If no date was expressed, use the reference date and set assumedDate to true.
 - If no time was expressed, dueTime must be an empty string.
 - dueDate must always be a valid YYYY-MM-DD date and dueTime must be HH:MM or empty.
-- Be conservative: if a typo could change the meaning, leave that part as written rather than guessing.`,
-})
+- Be conservative: if a typo could change the meaning, leave that part as written rather than guessing.`
 
-const debugModel = getGenerativeModel(ai, {
-  model: 'gemini-3.7-flash',
-})
+const REMINDER_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    type: {
+      type: 'string',
+      enum: ['task', 'performance', 'exam', 'material'],
+    },
+    title: { type: 'string' },
+    dueDate: { type: 'string' },
+    dueTime: { type: 'string' },
+    assumedDate: { type: 'boolean' },
+  },
+  required: ['type', 'title', 'dueDate', 'dueTime', 'assumedDate'],
+}
 
 const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])
+
+const firebaseApp = initializeApp(firebaseConfig)
+
+const appCheck = initializeAppCheck(firebaseApp, {
+  provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
+  isTokenAutoRefreshEnabled: true,
+})
 
 function timeoutError(milliseconds, label = 'AI Logic') {
   const error = new Error(`${label} timed out after ${milliseconds}ms`)
@@ -81,6 +71,86 @@ function withTimeout(promise, milliseconds, label = 'AI Logic') {
     timeoutId = window.setTimeout(() => reject(timeoutError(milliseconds, label)), milliseconds)
   })
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId))
+}
+
+function buildAIError(response, payload, rawText) {
+  const message = payload?.error?.message || rawText || `AI request failed with HTTP ${response.status}`
+  const error = new Error(message)
+  error.name = 'FirebaseAIError'
+  error.code = payload?.error?.status || `school-ai/http-${response.status}`
+  error.status = response.status
+  error.customData = payload?.error || null
+  return error
+}
+
+async function fetchGenerateContent({
+  prompt,
+  appCheckToken,
+  structured = false,
+}) {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), AI_LOGIC_TIMEOUT_MS)
+
+  const body = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: prompt }],
+      },
+    ],
+  }
+
+  if (structured) {
+    body.systemInstruction = {
+      parts: [{ text: SYSTEM_INSTRUCTION }],
+    }
+    body.generationConfig = {
+      responseMimeType: 'application/json',
+      responseSchema: REMINDER_RESPONSE_SCHEMA,
+      maxOutputTokens: 220,
+      temperature: 0.1,
+    }
+  }
+
+  try {
+    const response = await fetch(AI_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': firebaseConfig.apiKey,
+        'X-Firebase-AppCheck': appCheckToken,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+
+    const rawText = await response.text()
+    let payload = null
+
+    try {
+      payload = rawText ? JSON.parse(rawText) : null
+    } catch {
+      payload = null
+    }
+
+    if (!response.ok) throw buildAIError(response, payload, rawText)
+
+    return {
+      payload,
+      rawText,
+      responseText: String(
+        payload?.candidates?.[0]?.content?.parts
+          ?.map((part) => part?.text || '')
+          .join('') || '',
+      ).trim(),
+      httpStatus: response.status,
+    }
+  } catch (error) {
+    if (error?.name === 'AbortError') throw timeoutError(AI_LOGIC_TIMEOUT_MS, 'AI Logic')
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 }
 
 async function directDebugTokenExchange(debugToken) {
@@ -105,73 +175,6 @@ async function directDebugTokenExchange(debugToken) {
     serverStatus: payload?.error?.status || null,
     serverMessage: payload?.error?.message || null,
     returnedTokenLength: response.ok ? String(payload?.token || '').length : 0,
-  }
-}
-
-async function directAIDiagnostic(appCheckToken) {
-  const endpoint = `https://firebasevertexai.googleapis.com/v1beta/projects/${firebaseConfig.projectId}/models/gemini-3.7-flash:generateContent`
-  const controller = new AbortController()
-  const timeoutId = window.setTimeout(() => controller.abort(), AI_LOGIC_TIMEOUT_MS)
-
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': firebaseConfig.apiKey,
-        'X-Firebase-AppCheck': appCheckToken,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: 'Reply with OK' }],
-          },
-        ],
-      }),
-      signal: controller.signal,
-    })
-
-    const rawText = await response.text()
-    let payload = null
-    try {
-      payload = rawText ? JSON.parse(rawText) : null
-    } catch {
-      payload = null
-    }
-
-    const responseText = String(
-      payload?.candidates?.[0]?.content?.parts
-        ?.map((part) => part?.text || '')
-        .join('') || '',
-    )
-      .trim()
-      .slice(0, 120)
-
-    return {
-      ok: response.ok,
-      httpStatus: response.status,
-      statusText: response.statusText || '',
-      serverStatus: payload?.error?.status || null,
-      serverMessage: payload?.error?.message || null,
-      responseText,
-      rawPreview: rawText.slice(0, 220),
-    }
-  } catch (error) {
-    return {
-      ok: false,
-      httpStatus: null,
-      statusText: '',
-      serverStatus: null,
-      serverMessage:
-        error?.name === 'AbortError'
-          ? `Direct REST timed out after ${AI_LOGIC_TIMEOUT_MS}ms`
-          : error?.message || String(error),
-      responseText: '',
-      rawPreview: '',
-    }
-  } finally {
-    window.clearTimeout(timeoutId)
   }
 }
 
@@ -235,42 +238,16 @@ if (typeof window !== 'undefined' && self.__SCHOOL_APPCHECK_DEBUG__) {
         'App Check',
       )
       const appCheckToken = String(appCheckResult?.token || '')
+      const direct = await fetchGenerateContent({
+        prompt: 'Reply with OK',
+        appCheckToken,
+      })
 
-      const direct = await directAIDiagnostic(appCheckToken)
-      if (!direct.ok) {
-        return {
-          ok: false,
-          name: 'DirectREST',
-          code: 'school-ai/direct-fetch-error',
-          status: direct.httpStatus,
-          elapsedMs: Date.now() - startedAt,
-          message: `direct ${direct.httpStatus || '?'} ${direct.serverStatus || direct.statusText || ''} — ${direct.serverMessage || direct.rawPreview || 'no server message'}`,
-        }
-      }
-
-      try {
-        const sdkStartedAt = Date.now()
-        const result = await withTimeout(
-          debugModel.generateContent('Reply with OK'),
-          AI_LOGIC_TIMEOUT_MS,
-          'AI Logic',
-        )
-
-        return {
-          ok: true,
-          elapsedMs: Date.now() - startedAt,
-          appCheckTokenLength: appCheckToken.length,
-          responseText: `direct 200: ${direct.responseText || 'OK'} · SDK ${Date.now() - sdkStartedAt}ms: ${String(result.response.text() || '').trim().slice(0, 80)}`,
-        }
-      } catch (sdkError) {
-        return {
-          ok: false,
-          name: sdkError?.name || 'Error',
-          code: sdkError?.code || 'school-ai/sdk-failed-direct-ok',
-          status: sdkError?.status || 200,
-          elapsedMs: Date.now() - startedAt,
-          message: `direct 200 OK (${direct.responseText || 'response received'}) | SDK 실패 — ${sdkError?.message || String(sdkError)}`,
-        }
+      return {
+        ok: true,
+        elapsedMs: Date.now() - startedAt,
+        appCheckTokenLength: appCheckToken.length,
+        responseText: direct.responseText || 'OK',
       }
     } catch (error) {
       return {
@@ -319,10 +296,26 @@ export async function parseReminderWithAI(input, now = new Date()) {
   const text = String(input || '').trim()
   if (!text) return null
 
+  const appCheckResult = await withTimeout(
+    getToken(appCheck, false),
+    APPCHECK_DEBUG_TIMEOUT_MS,
+    'App Check',
+  )
+  const appCheckToken = String(appCheckResult?.token || '')
+  if (!appCheckToken) {
+    const error = new Error('Firebase App Check token was empty')
+    error.code = 'school-appcheck/empty-token'
+    throw error
+  }
+
   const prompt = `Reference local datetime: ${localReference(now)} (Asia/Seoul)\nReminder: ${text}`
-  const result = await withTimeout(model.generateContent(prompt), AI_LOGIC_TIMEOUT_MS)
-  const responseText = result.response.text()
-  const parsed = JSON.parse(responseText)
+  const result = await fetchGenerateContent({
+    prompt,
+    appCheckToken,
+    structured: true,
+  })
+
+  const parsed = JSON.parse(result.responseText)
   const normalized = normalizeResult(parsed)
   if (!normalized) throw new Error('AI response did not match the reminder schema')
   return normalized
