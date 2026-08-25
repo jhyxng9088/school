@@ -142,13 +142,11 @@ html body .todo-page .todo-permanent-delete:active {
   animation: reminder-delete-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
-/* Empty-copy changes use the same stagger language as the rest of the app. */
-.todo-page:not(.is-page-entering) .todo-empty > strong {
-  animation: reminder-text-refresh 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.todo-page:not(.is-page-entering) .todo-empty > span {
-  animation: reminder-text-refresh 720ms cubic-bezier(0.16, 1, 0.3, 1) 55ms both;
+/* Empty-state copy participates only in the page-entry motion.
+   Do not start a second text animation when .is-page-entering is removed. */
+.todo-page .todo-empty > strong,
+.todo-page .todo-empty > span {
+  animation: none;
 }
 
 @media (prefers-color-scheme: light) {
@@ -162,9 +160,7 @@ html body .todo-page .todo-permanent-delete:active {
 @media (prefers-reduced-motion: reduce) {
   .todo-page .is-reminder-text-changing,
   .todo-home-preview .is-reminder-text-changing,
-  .todo-page .todo-item.is-deleting,
-  .todo-page:not(.is-page-entering) .todo-empty > strong,
-  .todo-page:not(.is-page-entering) .todo-empty > span {
+  .todo-page .todo-item.is-deleting {
     animation: none !important;
   }
 
