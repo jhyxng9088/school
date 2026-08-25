@@ -16,7 +16,9 @@
   function formatDateDisplay(value) {
     const [year, month, day] = String(value || '').split('-').map(Number)
     if (!year || !month || !day) return '날짜 선택'
-    return `${month}/${day}/${String(year).slice(-2)}`
+    const date = new Date(year, month - 1, day, 12, 0, 0, 0)
+    const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
+    return `${year}년 ${month}월 ${day}일 ${weekdays[date.getDay()]}`
   }
 
   function ensureDateField(sheet) {
