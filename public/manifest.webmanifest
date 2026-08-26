@@ -1,16 +1,16 @@
 {
-  "name": "School",
-  "short_name": "School",
+  "name": "S-Hub",
+  "short_name": "S-Hub",
   "description": "우리 반 학교생활을 한곳에서 확인하는 PWA",
   "lang": "ko-KR",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#292d30",
-  "theme_color": "#292d30",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
-      "src": "./icon.svg?v=4",
+      "src": "./icon.svg?v=5",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
