@@ -33,7 +33,7 @@ jobs:
               'src/todo.jsx',
           ]:
               path = Path(name)
-              text = path.read_text()
+              text = path.read_text().rstrip()
               path.write_text('\n'.join(line.rstrip() for line in text.splitlines()) + '\n')
           PY
       - name: Capture diff diagnostics
