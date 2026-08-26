@@ -9,6 +9,7 @@ import {
   getFirestore,
   onSnapshot,
   setDoc,
+  writeBatch,
 } from 'firebase/firestore'
 import {
   classKeyFor,
@@ -23,6 +24,7 @@ if (!syncApp) throw new Error('School sync app is not initialized')
 const auth = getAuth(syncApp)
 const db = getFirestore(syncApp)
 let authPromise = null
+const identityPromises = new Map()
 
 async function ensureSignedIn() {
   if (auth.currentUser) return auth.currentUser
@@ -62,19 +64,30 @@ async function ensureIdentity(profile) {
   const normalized = currentProfile(profile)
   if (!normalized) throw new Error('학생 정보가 없어.')
   const user = await ensureSignedIn()
-  const payload = {
-    classId: classKeyFor(normalized),
-    studentKey: studentKeyFor(normalized),
-    name: normalized.name,
-    updatedAt: Date.now(),
-  }
-  const ref = identityRef(user.uid)
-  const snapshot = await getDoc(ref)
-  await setDoc(ref, {
-    ...payload,
-    createdAt: snapshot.exists() ? Number(snapshot.data()?.createdAt || Date.now()) : Date.now(),
-  }, { merge: true })
-  return { ...payload, uid: user.uid, profile: normalized }
+  const cacheKey = `${user.uid}|${profileSignature(normalized)}`
+  if (identityPromises.has(cacheKey)) return identityPromises.get(cacheKey)
+
+  const pending = (async () => {
+    const payload = {
+      classId: classKeyFor(normalized),
+      studentKey: studentKeyFor(normalized),
+      name: normalized.name,
+      updatedAt: Date.now(),
+    }
+    const ref = identityRef(user.uid)
+    const snapshot = await getDoc(ref)
+    await setDoc(ref, {
+      ...payload,
+      createdAt: snapshot.exists() ? Number(snapshot.data()?.createdAt || Date.now()) : Date.now(),
+    }, { merge: true })
+    return { ...payload, uid: user.uid, profile: normalized }
+  })().catch((error) => {
+    identityPromises.delete(cacheKey)
+    throw error
+  })
+
+  identityPromises.set(cacheKey, pending)
+  return pending
 }
 
 function activityCollection(profile) {
@@ -139,18 +152,33 @@ export function useClassActivity(profile = null) {
   return activity
 }
 
-export async function recordClassActivity(profile, entityType, entityId, action = 'edited') {
+export async function recordClassActivities(profile, entries) {
   const normalized = currentProfile(profile)
-  if (!normalized || !entityType || !entityId) return
+  const items = Array.isArray(entries) ? entries.filter((entry) => entry?.entityType && entry?.entityId) : []
+  if (!normalized || !items.length) return
+
   const identity = await ensureIdentity(normalized)
-  await setDoc(activityRef(normalized, entityType, entityId), {
-    entityType: String(entityType).slice(0, 30),
-    entityId: String(entityId).slice(0, 120),
-    actorName: identity.profile.name,
-    actorStudentKey: identity.studentKey,
-    action: action === 'added' ? 'added' : 'edited',
-    updatedAt: Date.now(),
+  const batch = writeBatch(db)
+  const updatedAt = Date.now()
+
+  items.forEach((entry) => {
+    const entityType = String(entry.entityType).slice(0, 30)
+    const entityId = String(entry.entityId).slice(0, 120)
+    batch.set(activityRef(normalized, entityType, entityId), {
+      entityType,
+      entityId,
+      actorName: identity.profile.name,
+      actorStudentKey: identity.studentKey,
+      action: entry.action === 'added' ? 'added' : 'edited',
+      updatedAt,
+    })
   })
+
+  await batch.commit()
+}
+
+export function recordClassActivity(profile, entityType, entityId, action = 'edited') {
+  return recordClassActivities(profile, [{ entityType, entityId, action }])
 }
 
 function academicCollection(profile) {

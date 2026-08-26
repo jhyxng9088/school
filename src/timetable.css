@@ -207,8 +207,8 @@
   margin-top: 0;
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: clamp(6.5px, 1.7vw, 8px);
-  font-weight: 560;
+  font-size: clamp(7.5px, 1.7vw, 9px);
+  font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.04em;
   opacity: 0.7;
@@ -275,26 +275,6 @@
 
 .week-cell.editor-cell input:focus {
   background: var(--focus-accent-soft, var(--surface-soft));
-}
-
-/* Row 7 is displayed across the week, but Mon/Tue/Thu are empty unless a date override adds a class. */
-.week-grid > .week-cell:nth-child(44):not(.is-override),
-.week-grid > .week-cell:nth-child(45):not(.is-override),
-.week-grid > .week-cell:nth-child(47):not(.is-override) {
-  background: color-mix(in srgb, var(--surface-soft) 28%, transparent);
-}
-
-.week-grid > .week-cell:nth-child(44):not(.is-override) .subject,
-.week-grid > .week-cell:nth-child(45):not(.is-override) .subject,
-.week-grid > .week-cell:nth-child(47):not(.is-override) .subject {
-  visibility: hidden;
-}
-
-.week-grid > .editor-cell:nth-child(44) input,
-.week-grid > .editor-cell:nth-child(45) input,
-.week-grid > .editor-cell:nth-child(47) input {
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .editor-actions {
@@ -654,7 +634,11 @@
 }
 
 .change-item-main .activity-attribution {
+  display: block;
   margin-top: 4px;
+  color: var(--text-secondary);
   font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
   opacity: 0.7;
 }

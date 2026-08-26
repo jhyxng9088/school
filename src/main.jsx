@@ -27,7 +27,7 @@ import {
 import { TodoHomePreview, TodoPage, useTodos } from './todo'
 import { readStudentProfile, saveStudentProfile, useClassPresence, useSharedTimetable } from './school-sync'
 import { SharedAcademicPage, SharedAcademicPreview } from './academic-shared'
-import { activityKey, activityLabel, recordClassActivity, useClassActivity, useSharedAcademic } from './class-activity'
+import { activityKey, activityLabel, recordClassActivities, useClassActivity, useSharedAcademic } from './class-activity'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -471,17 +471,26 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
 
   function saveBaseSchedule() {
     const changedCells = WEEKDAYS.flatMap((day) =>
-      getPeriodsForDay(day.id)
+      PERIODS
+        .filter((period) => period.number <= day.regularPeriodCount)
         .filter((period) => String(weeklySchedule?.[day.id]?.[period.number] || '').trim() !== String(draft?.[day.id]?.[period.number] || '').trim())
         .map((period) => ({ dayId: day.id, period: period.number })),
     )
+
+    if (!changedCells.length) {
+      setEditing(false)
+      return
+    }
+
     onSaveWeekly(draft)
-    recordClassActivity(profile, 'timetable', 'weekly', 'edited')
-      .catch((error) => console.error('Timetable attribution save failed:', error))
-    changedCells.forEach(({ dayId, period }) => {
-      recordClassActivity(profile, 'timetable', 'base-' + dayId + '-' + period, 'edited')
-        .catch((error) => console.error('Timetable cell attribution save failed:', error))
-    })
+    recordClassActivities(profile, [
+      { entityType: 'timetable', entityId: 'weekly', action: 'edited' },
+      ...changedCells.map(({ dayId, period }) => ({
+        entityType: 'timetable',
+        entityId: 'base-' + dayId + '-' + period,
+        action: 'edited',
+      })),
+    ]).catch((error) => console.error('Timetable attribution save failed:', error))
     setEditing(false)
   }
 
@@ -504,8 +513,11 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     else delete next[changeDate]
 
     onSaveOverrides(next)
-    recordClassActivity(profile, 'timetable', `${changeDate}-${changePeriod}`, activityAction)
-      .catch((error) => console.error('Timetable change attribution save failed:', error))
+    recordClassActivities(profile, [{
+      entityType: 'timetable',
+      entityId: `${changeDate}-${changePeriod}`,
+      action: activityAction,
+    }]).catch((error) => console.error('Timetable change attribution save failed:', error))
     setChangeSubject('')
     setChangeOpen(false)
   }
@@ -573,11 +585,15 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
               </div>
 
               {WEEKDAYS.map((day, dayIndex) => {
-                if (period.number > day.periodCount) {
-                  return <div className="week-cell not-applicable" key={`${day.id}-${period.number}`}>—</div>
-                }
+                const date = weekDates[dayIndex]
+                const daySchedule = getScheduleForDate(date, weeklySchedule, overrides)
+                const item = daySchedule.find((entry) => entry.number === period.number)
+                const outsideBaseSchedule = period.number > day.regularPeriodCount
 
                 if (editing) {
+                  if (outsideBaseSchedule) {
+                    return <div className="week-cell not-applicable" key={`${day.id}-${period.number}`}>—</div>
+                  }
                   return (
                     <div className="week-cell editor-cell" key={`${day.id}-${period.number}`}>
                       <input
@@ -592,9 +608,9 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                   )
                 }
 
-                const date = weekDates[dayIndex]
-                const daySchedule = getScheduleForDate(date, weeklySchedule, overrides)
-                const item = daySchedule.find((entry) => entry.number === period.number)
+                if (outsideBaseSchedule && !item?.isOverride) {
+                  return <div className="week-cell not-applicable" key={`${day.id}-${period.number}`}>—</div>
+                }
                 const cellActivity = item?.isOverride
                   ? activity?.[activityKey('timetable', dateKey(date) + '-' + period.number)] || null
                   : activity?.[activityKey('timetable', 'base-' + day.id + '-' + period.number)] || null
