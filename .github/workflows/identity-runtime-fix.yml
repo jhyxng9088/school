@@ -1,0 +1,33 @@
+name: Fix identity runtime guard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/identity-runtime-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore identity promise cache
+        run: python3 -c "from pathlib import Path; p=Path('src/class-activity.js'); t=p.read_text(); old='const db = getFirestore(syncApp)\n'; new='const db = getFirestore(syncApp)\nconst identityPromises = new Map()\n'; assert old in t and 'const identityPromises = new Map()' not in t; p.write_text(t.replace(old,new,1))"
+      - name: Verify
+        run: |
+          git diff --check
+          npm install
+          npm run build
+      - name: Commit verified fix
+        run: |
+          rm .github/workflows/identity-runtime-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/class-activity.js .github/workflows/identity-runtime-fix.yml
+          git commit -m "Restore shared identity promise cache"
+          git push
