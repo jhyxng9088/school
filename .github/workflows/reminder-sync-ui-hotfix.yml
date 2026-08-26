@@ -1,0 +1,49 @@
+name: Validate reminder realtime UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/reminder-sync-ui-hotfix.mjs'
+      - '.github/workflows/reminder-sync-ui-hotfix.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reminder-sync-ui-hotfix
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply guarded reminder UI patch
+        run: node scripts/reminder-sync-ui-hotfix.mjs
+      - name: Install dependencies
+        run: npm install --package-lock=false --no-audit --no-fund
+      - name: Production build
+        run: npm run build
+      - name: Verify active reminder UI awaits server
+        run: |
+          grep -q 'const savedId = await saveTodo' src/todo-stage5-ai.jsx
+          grep -q 'serverSaving' src/todo-stage5-ai.jsx
+          grep -q 'serverSaveError' src/todo-stage5-ai.jsx
+          grep -q 'school-shell-v95' public/sw.js
+      - name: Remove temporary patch files
+        run: |
+          rm -f scripts/reminder-sync-ui-hotfix.mjs
+          rm -f .github/workflows/reminder-sync-ui-hotfix.yml
+      - name: Commit validated changes
+        run: |
+          git config user.name 'school-pwa-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Await server writes in reminder UI' || exit 0
+          git push
