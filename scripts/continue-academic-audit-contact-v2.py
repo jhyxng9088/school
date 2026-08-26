@@ -227,5 +227,4 @@ insert_before(
 ''',
     'academic rules',
 )
-replace_once('public/sw.js', "const CACHE_NAME = 'school-shell-v72'", "const CACHE_NAME = 'school-shell-v73'", 'cache bump')
 print('academic audit continuation v2 applied')
