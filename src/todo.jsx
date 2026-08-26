@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   classKeyFor,
+  deleteExpiredSharedTodo,
   getReminderOriginal,
   listenClassTodos,
   listenStudentTodoState,
@@ -74,6 +75,22 @@ function dateKey(date) {
 function parseDue(todo) {
   const time = todo.dueTime || '23:59'
   return new Date(`${todo.dueDate}T${time}:00`)
+}
+
+
+function todoExpiryMs(todo) {
+  const dueDate = String(todo?.dueDate || '')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return Number.POSITIVE_INFINITY
+  const expiry = Date.parse(`${dueDate}T23:59:59.000+09:00`)
+  return Number.isFinite(expiry) ? expiry : Number.POSITIVE_INFINITY
+}
+
+function isTodoExpired(todo, nowMs = Date.now()) {
+  return todoExpiryMs(todo) <= nowMs
+}
+
+function visibleUnexpiredTodos(todos, nowMs = Date.now()) {
+  return (todos || []).filter((todo) => !isTodoExpired(todo, nowMs))
 }
 
 function sortTodos(todos) {
@@ -218,15 +235,57 @@ export function useTodos(profile) {
   const [personalState, setPersonalState] = useState(() => readPersonalTodoStateCache(profile))
   const [bootTodos, setBootTodos] = useState(() => readVisibleTodosCache(profile) ?? mergeSharedTodos(readSharedTodosCache(profile), readPersonalTodoStateCache(profile)))
   const [remoteReady, setRemoteReady] = useState(false)
+  const [expiryClock, setExpiryClock] = useState(() => Date.now())
+  const expiryDeleteAttemptsRef = useRef(new Set())
   const firstRemoteReadyRef = useRef(false)
   const remoteSharedRef = useRef(null)
   const remotePersonalRef = useRef(null)
   const mergedTodos = useMemo(() => mergeSharedTodos(sharedTodos, personalState), [sharedTodos, personalState])
-  const todos = remoteReady ? mergedTodos : bootTodos
+  const sourceTodos = remoteReady ? mergedTodos : bootTodos
+  const todos = useMemo(() => visibleUnexpiredTodos(sourceTodos, expiryClock), [sourceTodos, expiryClock])
 
   useEffect(() => {
     writeVisibleTodosCache(profile, todos)
   }, [signature, todos])
+
+
+  useEffect(() => {
+    const syncExpiryClock = () => setExpiryClock(Date.now())
+    const upcoming = sourceTodos
+      .map(todoExpiryMs)
+      .filter((time) => Number.isFinite(time) && time > Date.now())
+      .sort((a, b) => a - b)[0]
+    const delay = upcoming
+      ? Math.max(20, Math.min(upcoming - Date.now() + 20, 2_147_000_000))
+      : 2_147_000_000
+    const timer = window.setTimeout(syncExpiryClock, delay)
+    const onVisibility = () => {
+      if (!document.hidden) syncExpiryClock()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', syncExpiryClock)
+    window.addEventListener('online', syncExpiryClock)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', syncExpiryClock)
+      window.removeEventListener('online', syncExpiryClock)
+    }
+  }, [sourceTodos])
+
+  useEffect(() => {
+    if (!signature || navigator.onLine === false) return
+    const expired = sourceTodos.filter((todo) => isTodoExpired(todo, expiryClock))
+    expired.forEach((todo) => {
+      if (expiryDeleteAttemptsRef.current.has(todo.id)) return
+      expiryDeleteAttemptsRef.current.add(todo.id)
+      deleteExpiredSharedTodo(profile, todo.id)
+        .catch((error) => {
+          console.error('Expired shared reminder delete failed:', error)
+          window.setTimeout(() => expiryDeleteAttemptsRef.current.delete(todo.id), 60_000)
+        })
+    })
+  }, [signature, sourceTodos, expiryClock])
 
   useEffect(() => {
     try { localStorage.removeItem('school.todos.v1') } catch { /* stale cache cleanup is best-effort */ }
@@ -261,7 +320,7 @@ export function useTodos(profile) {
       sharedTodosRef.current = nextShared
       setSharedTodos(nextShared)
       setPersonalState(nextPersonal)
-      const nextVisible = mergeSharedTodos(nextShared, nextPersonal)
+      const nextVisible = visibleUnexpiredTodos(mergeSharedTodos(nextShared, nextPersonal))
       writeVisibleTodosCache(profile, nextVisible)
       setBootTodos(nextVisible)
       setRemoteReady(true)
@@ -412,7 +471,7 @@ export function useTodos(profile) {
     setPersonalState((current) => {
       const next = { ...current, [id]: nextEntry }
       writePersonalTodoStateCache(profile, next)
-      const nextVisible = mergeSharedTodos(sharedTodos, next)
+      const nextVisible = visibleUnexpiredTodos(mergeSharedTodos(sharedTodos, next))
       writeVisibleTodosCache(profile, nextVisible)
       if (!firstRemoteReadyRef.current) setBootTodos(nextVisible)
       return next

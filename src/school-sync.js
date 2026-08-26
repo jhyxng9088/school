@@ -3,6 +3,7 @@ import { getApp, getApps, initializeApp } from 'firebase/app'
 import { browserLocalPersistence, getAuth, setPersistence, signInAnonymously } from 'firebase/auth'
 import {
   collection,
+  deleteDoc,
   doc,
   getCountFromServer,
   getDoc,
@@ -579,6 +580,15 @@ export async function writeSharedTodo(profile, todo) {
   if (!normalized) throw new Error('Invalid shared reminder')
   await ensureSignedIn()
   await setDoc(classTodoRef(profile, normalized.id), normalized, { merge: true })
+}
+
+
+export async function deleteExpiredSharedTodo(profile, todoId) {
+  const id = String(todoId || '').trim()
+  if (!id) return false
+  await ensureSignedIn()
+  await deleteDoc(classTodoRef(profile, id))
+  return true
 }
 
 export async function writeStudentTodoState(profile, todoId, state) {
