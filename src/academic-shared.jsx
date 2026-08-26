@@ -40,7 +40,7 @@ function isRoutineAcademic(event) {
 }
 
 function isImportantExam(event) {
-  return /중간|기말|정기시험|정기고사|지필|1차.*(시험|고사)|2차.*(시험|고사)|모의고사|전국연합|학력평가|평가원|수능|대학수학능력시험/.test(String(event?.name || event?.title || ''))
+  return Boolean(event?.important) || /중간|기말|정기시험|정기고사|지필|1차.*(시험|고사)|2차.*(시험|고사)|모의고사|전국연합|학력평가|평가원|수능|대학수학능력시험/.test(String(event?.name || event?.title || ''))
 }
 
 function groupOfficialEvents(events) {
@@ -111,7 +111,7 @@ function attribution(event) {
 
 function emptyDraft(now) {
   const today = dateKey(now)
-  return { id: '', title: '', startDate: today, endDate: today, detail: '' }
+  return { id: '', title: '', startDate: today, endDate: today, detail: '', important: false }
 }
 
 function academicErrorMessage(error, fallback) {
@@ -142,7 +142,7 @@ export function SharedAcademicPreview({ now, schoolData, academicData }) {
           </div>
         ) : null}
         {others.map((group) => (
-          <div className="academic-home-item" key={group.id}>
+          <div className={`academic-home-item ${isImportantExam(group) ? 'is-important' : ''}`.trim()} key={group.id}>
             <div>
               <span>{dateRangeLabel(group)}</span>
               <strong>{group.title}</strong>
@@ -194,7 +194,17 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
       nodes.forEach((node) => {
         const previous = academicRectsRef.current.get(node.dataset.academicId)
         const current = currentRects.get(node.dataset.academicId)
-        if (!previous || !current) return
+        if (!current) return
+        if (!previous) {
+          node.animate(
+            [
+              { opacity: 0, transform: 'translate3d(0, 7px, 0)' },
+              { opacity: 1, transform: 'translate3d(0, 0, 0)' },
+            ],
+            { duration: 480, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'none' },
+          )
+          return
+        }
         const deltaY = previous.top - current.top
         if (Math.abs(deltaY) < 0.5) return
         node.animate(
@@ -236,6 +246,7 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
       startDate: dateKey(group.startDate),
       endDate: dateKey(group.endDate),
       detail: group.detail || '',
+      important: Boolean(group.important),
     })
   }
 
@@ -288,7 +299,7 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
 
       {exam ? (
         <section className="academic-focus-card">
-          <p>가장 가까운 중요 시험</p>
+          <p>가장 가까운 중요 일정</p>
           <div><h2>{exam.title}</h2><strong>{dDayLabel(now, exam.startDate)}</strong></div>
           <span>{dateRangeLabel(exam)}</span>
           {attribution(exam) ? <small className="activity-attribution">{attribution(exam)}</small> : null}
@@ -375,6 +386,19 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
                 <span>메모 · 선택</span>
                 <input value={draft.detail} onChange={(event) => setDraft((current) => ({ ...current, detail: event.target.value.slice(0, 500) }))} placeholder="메모" autoComplete="off" />
               </label>
+
+              <button
+                className={`academic-important-toggle ${draft.important ? 'is-selected' : ''}`.trim()}
+                type="button"
+                aria-pressed={draft.important}
+                onClick={() => setDraft((current) => ({ ...current, important: !current.important }))}
+              >
+                <span>
+                  <strong>중요 일정</strong>
+                  <small>시험 일정처럼 강조해서 표시</small>
+                </span>
+                <i aria-hidden="true" />
+              </button>
 
               {error ? <p className="change-warning academic-save-error">{error}</p> : null}
 

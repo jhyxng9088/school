@@ -4,20 +4,18 @@ import './unified-sheet.css'
 
 const OPEN_MS = 560
 const CLOSE_MS = 320
+const SWIPE_VELOCITY = 1150
+const SWIPE_MIN_DISTANCE = 48
 
-function nextFrame(callback) {
-  const first = window.requestAnimationFrame(() => {
-    const second = window.requestAnimationFrame(callback)
-    callback._secondFrame = second
+function afterTwoFrames(callback) {
+  const state = { first: 0, second: 0 }
+  state.first = window.requestAnimationFrame(() => {
+    state.second = window.requestAnimationFrame(callback)
   })
-  callback._firstFrame = first
-}
-
-function cancelNextFrame(callback) {
-  if (callback._firstFrame) window.cancelAnimationFrame(callback._firstFrame)
-  if (callback._secondFrame) window.cancelAnimationFrame(callback._secondFrame)
-  callback._firstFrame = 0
-  callback._secondFrame = 0
+  return () => {
+    if (state.first) window.cancelAnimationFrame(state.first)
+    if (state.second) window.cancelAnimationFrame(state.second)
+  }
 }
 
 export function UnifiedBottomSheet({
@@ -36,25 +34,81 @@ export function UnifiedBottomSheet({
   const sheetRef = useRef(null)
   const backdropRef = useRef(null)
   const closeTimerRef = useRef(null)
-  const openFrameRef = useRef(() => setVisualOpen(true))
-  const dragRef = useRef({ active: false, pointerId: null, startY: 0, y: 0, lastY: 0, lastTime: 0, velocity: 0 })
+  const cancelOpenFramesRef = useRef(() => {})
+  const dragFrameRef = useRef(0)
+  const dragRef = useRef({
+    active: false,
+    pointerId: null,
+    startY: 0,
+    y: 0,
+    pendingY: 0,
+    lastY: 0,
+    lastTime: 0,
+    velocity: 0,
+    height: 1,
+  })
+
+  function clearCloseTimer() {
+    if (!closeTimerRef.current) return
+    window.clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = null
+  }
+
+  function cancelDragFrame() {
+    if (!dragFrameRef.current) return
+    window.cancelAnimationFrame(dragFrameRef.current)
+    dragFrameRef.current = 0
+  }
+
+  function paintDrag(y) {
+    const sheet = sheetRef.current
+    if (!sheet) return
+    const drag = dragRef.current
+    const clamped = Math.max(0, y)
+    drag.y = clamped
+    sheet.style.setProperty('--unified-sheet-drag-y', `${clamped}px`)
+    const backdrop = backdropRef.current
+    if (backdrop) {
+      const progress = Math.min(clamped / Math.max(drag.height, 1), 1)
+      backdrop.style.setProperty('--unified-backdrop-drag-opacity', String(1 - progress * 0.68))
+    }
+  }
+
+  function scheduleDragPaint(y) {
+    dragRef.current.pendingY = Math.max(0, y)
+    if (dragFrameRef.current) return
+    dragFrameRef.current = window.requestAnimationFrame(() => {
+      dragFrameRef.current = 0
+      paintDrag(dragRef.current.pendingY)
+    })
+  }
+
+  function clearDrag({ paint = true } = {}) {
+    cancelDragFrame()
+    const drag = dragRef.current
+    drag.active = false
+    drag.pointerId = null
+    drag.velocity = 0
+    drag.pendingY = 0
+    sheetRef.current?.classList.remove('is-dragging')
+    if (paint) paintDrag(0)
+  }
 
   useEffect(() => {
-    const openFrame = openFrameRef.current
-    cancelNextFrame(openFrame)
-    if (closeTimerRef.current) {
-      window.clearTimeout(closeTimerRef.current)
-      closeTimerRef.current = null
-    }
+    cancelOpenFramesRef.current()
+    clearCloseTimer()
 
     if (open) {
+      clearDrag()
       setRendered(true)
       setClosing(false)
-      nextFrame(openFrame)
-      return () => cancelNextFrame(openFrame)
+      setVisualOpen(false)
+      cancelOpenFramesRef.current = afterTwoFrames(() => setVisualOpen(true))
+      return () => cancelOpenFramesRef.current()
     }
 
     if (rendered) {
+      clearDrag({ paint: false })
       setClosing(true)
       setVisualOpen(false)
       closeTimerRef.current = window.setTimeout(() => {
@@ -64,8 +118,8 @@ export function UnifiedBottomSheet({
       }, CLOSE_MS)
     }
 
-    return () => cancelNextFrame(openFrame)
-  }, [open, rendered])
+    return undefined
+  }, [open])
 
   useEffect(() => {
     if (!rendered) return undefined
@@ -113,8 +167,9 @@ export function UnifiedBottomSheet({
   }, [rendered])
 
   useEffect(() => () => {
-    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
-    cancelNextFrame(openFrameRef.current)
+    clearCloseTimer()
+    cancelOpenFramesRef.current()
+    cancelDragFrame()
   }, [])
 
   function requestClose() {
@@ -122,70 +177,61 @@ export function UnifiedBottomSheet({
     onClose?.()
   }
 
-  function paintDrag(y) {
-    const sheet = sheetRef.current
-    const backdrop = backdropRef.current
-    if (!sheet) return
-    const clamped = Math.max(0, y)
-    dragRef.current.y = clamped
-    sheet.style.setProperty('--unified-sheet-drag-y', `${clamped}px`)
-    if (backdrop) {
-      const height = Math.max(sheet.offsetHeight, 1)
-      const progress = Math.min(clamped / height, 1)
-      backdrop.style.setProperty('--unified-backdrop-drag-opacity', String(1 - progress * 0.72))
-    }
-  }
-
-  function resetDrag() {
-    dragRef.current.active = false
-    dragRef.current.pointerId = null
-    dragRef.current.velocity = 0
-    sheetRef.current?.classList.remove('is-dragging')
-    paintDrag(0)
-  }
-
   function onPointerDown(event) {
     if (closeDisabled || closing || event.button > 0) return
     if (event.target.closest('button, input, select, textarea, a')) return
+    const sheet = sheetRef.current
+    if (!sheet) return
     const drag = dragRef.current
     drag.active = true
     drag.pointerId = event.pointerId
     drag.startY = event.clientY
     drag.y = 0
+    drag.pendingY = 0
     drag.lastY = event.clientY
     drag.lastTime = performance.now()
     drag.velocity = 0
-    sheetRef.current?.classList.add('is-dragging')
+    drag.height = Math.max(sheet.getBoundingClientRect().height, 1)
+    sheet.classList.add('is-dragging')
     event.currentTarget.setPointerCapture?.(event.pointerId)
   }
 
   function onPointerMove(event) {
     const drag = dragRef.current
     if (!drag.active || event.pointerId !== drag.pointerId) return
+    if (event.cancelable) event.preventDefault()
     const now = performance.now()
     const y = Math.max(0, event.clientY - drag.startY)
-    const dt = Math.max((now - drag.lastTime) / 1000, 0.001)
-    drag.velocity = (event.clientY - drag.lastY) / dt
+    const dt = Math.max((now - drag.lastTime) / 1000, 0.008)
+    const instantVelocity = (event.clientY - drag.lastY) / dt
+    drag.velocity = drag.velocity * 0.72 + instantVelocity * 0.28
     drag.lastY = event.clientY
     drag.lastTime = now
-    paintDrag(y)
+    scheduleDragPaint(y)
   }
 
   function finishPointer(event, cancelled = false) {
     const drag = dragRef.current
     if (!drag.active || event.pointerId !== drag.pointerId) return
     event.currentTarget.releasePointerCapture?.(event.pointerId)
-    const sheet = sheetRef.current
-    const threshold = Math.min(Math.max((sheet?.offsetHeight || 0) * 0.22, 92), 150)
-    const shouldClose = !cancelled && (drag.y >= threshold || drag.velocity > 680)
-    if (shouldClose) {
-      drag.active = false
-      drag.pointerId = null
-      sheet?.classList.remove('is-dragging')
-      requestClose()
-    } else {
-      resetDrag()
+    cancelDragFrame()
+    paintDrag(drag.pendingY)
+
+    if (cancelled) {
+      clearDrag()
+      return
     }
+
+    const threshold = Math.min(Math.max(drag.height * 0.24, 104), 170)
+    const velocityClose = drag.y >= SWIPE_MIN_DISTANCE && drag.velocity > SWIPE_VELOCITY
+    const shouldClose = drag.y >= threshold || velocityClose
+
+    drag.active = false
+    drag.pointerId = null
+    sheetRef.current?.classList.remove('is-dragging')
+
+    if (shouldClose) requestClose()
+    else clearDrag()
   }
 
   if (!rendered) return null

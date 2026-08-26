@@ -210,6 +210,23 @@ function validDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))
 }
 
+const ACADEMIC_IMPORTANT_PREFIX = '\u2063school-important\u2063'
+
+function decodeAcademicDetail(value) {
+  const raw = String(value || '').trim().slice(0, 500)
+  const important = raw.startsWith(ACADEMIC_IMPORTANT_PREFIX)
+  return {
+    important,
+    detail: important ? raw.slice(ACADEMIC_IMPORTANT_PREFIX.length).trimStart() : raw,
+  }
+}
+
+function encodeAcademicDetail(value, important) {
+  const room = Math.max(0, 500 - (important ? ACADEMIC_IMPORTANT_PREFIX.length : 0))
+  const detail = String(value || '').trim().slice(0, room)
+  return important ? `${ACADEMIC_IMPORTANT_PREFIX}${detail}` : detail
+}
+
 function safeAcademicEvent(value) {
   if (!value || typeof value !== 'object') return null
   const id = safeId(value.id)
@@ -217,12 +234,14 @@ function safeAcademicEvent(value) {
   const startDate = String(value.startDate || '')
   const endDate = String(value.endDate || startDate)
   if (!id || !title || !validDate(startDate) || !validDate(endDate) || endDate < startDate) return null
+  const detailState = decodeAcademicDetail(value.detail)
   return {
     id,
     title,
     startDate,
     endDate,
-    detail: String(value.detail || '').trim().slice(0, 500),
+    detail: detailState.detail,
+    important: Boolean(value.important) || detailState.important,
     createdAt: Number(value.createdAt || Date.now()),
     updatedAt: Number(value.updatedAt || value.createdAt || Date.now()),
     creatorStudentKey: String(value.creatorStudentKey || ''),
@@ -339,7 +358,8 @@ export function useSharedAcademic(profile) {
       title: input?.title,
       startDate,
       endDate,
-      detail: input?.detail,
+      detail: encodeAcademicDetail(input?.detail, Boolean(input?.important)),
+      important: Boolean(input?.important),
       createdAt: existing?.createdAt || Date.now(),
       updatedAt: Date.now(),
       creatorStudentKey: existing?.creatorStudentKey || identity.studentKey,
@@ -349,7 +369,9 @@ export function useSharedAcademic(profile) {
       lastAction: existing ? 'edited' : 'added',
     })
     if (!candidate) throw new Error('학사일정 정보를 확인해줘.')
-    await setDoc(ref, candidate)
+    const { important: _important, ...storedCandidate } = candidate
+    storedCandidate.detail = encodeAcademicDetail(candidate.detail, candidate.important)
+    await setDoc(ref, storedCandidate)
     return candidate
   }, [signature])
 
