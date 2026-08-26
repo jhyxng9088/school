@@ -128,22 +128,7 @@
     animation.onfinish = () => finishRemove(button)
   }
 
-  document.addEventListener('click', (event) => {
-    const button = event.target.closest('.remove-change')
-    if (!button || button.dataset.schoolTimetableMotionPassthrough === 'true') return
-    if (reducedMotion.matches || !isTimetableReady(button)) return
-
-    const item = button.closest(CHANGE_ITEM_SELECTOR)
-    const section = button.closest(CHANGE_SECTION_SELECTOR)
-    if (!item || !section) return
-
-    event.preventDefault()
-    event.stopPropagation()
-
-    const items = section.querySelectorAll(CHANGE_ITEM_SELECTOR)
-    if (items.length === 1) animateRemoval(section, button, { wholeSection: true })
-    else animateRemoval(item, button)
-  }, true)
+  // Revert buttons execute their React handler immediately; motion must never block data changes.
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {

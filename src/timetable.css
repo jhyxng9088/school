@@ -642,3 +642,25 @@
   line-height: 1.2;
   opacity: 0.7;
 }
+
+
+.week-changes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.week-changes-head h2 {
+  margin: 0;
+}
+
+.clear-changes {
+  border: 0;
+  background: transparent;
+  color: var(--muted, #8e8e93);
+  font: inherit;
+  font-size: 12px;
+  opacity: 0.72;
+  padding: 6px 0 6px 10px;
+}

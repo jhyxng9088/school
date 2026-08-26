@@ -532,6 +532,11 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     onSaveOverrides(next)
   }
 
+  function clearAllChanges() {
+    if (!Object.keys(overrides || {}).length) return
+    onSaveOverrides({})
+  }
+
   return (
     <section className="timetable-page">
       <header className="timetable-header">
@@ -716,7 +721,10 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
 
       {!editing && weekChanges.length ? (
         <section className="week-changes">
-          <h2>이번 주 변경</h2>
+          <div className="week-changes-head">
+            <h2>이번 주 변경</h2>
+            <button className="clear-changes" onClick={clearAllChanges}>변경 모두 지우기</button>
+          </div>
           <div className="change-list">
             {weekChanges.map((change) => (
               <div className="change-item" key={`${dateKey(change.date)}-${change.number}`}>
