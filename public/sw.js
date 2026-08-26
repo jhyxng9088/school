@@ -1,5 +1,5 @@
-const CACHE_NAME = 'school-shell-v87'
-const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-light.svg', './icon-dark.svg', './school-sheet.css', './reminder-sheet.css', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './school-academic-supplement.js', './reminder-sheet.js', './school-sheet.js', './school-timetable-motion.js', './school-home-nav.js', './first-run-notice.js']
+const CACHE_NAME = 'school-shell-v88'
+const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './school-sheet.css', './reminder-sheet.css', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './school-academic-supplement.js', './reminder-sheet.js', './school-sheet.js', './school-timetable-motion.js', './school-home-nav.js', './first-run-notice.js']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
