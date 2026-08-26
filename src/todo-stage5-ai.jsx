@@ -64,6 +64,14 @@ function resultSignature(result) {
   return [result.type, result.title, result.dueDate, result.dueTime || '', Boolean(result.assumedDate)].join('|')
 }
 
+function attachmentErrorMessage(error) {
+  const message = String(error?.message || '')
+  if (/timed out|timeout|gemini-3\.[67]/i.test(message)) {
+    return '이미지 분석 시간이 초과됐어. 최적화된 이미지로 다시 분석해줘.'
+  }
+  return message || '첨부 분석에 실패했어. 다시 시도해줘.'
+}
+
 function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
   const Tag = as
   const previous = useRef(value)
@@ -157,6 +165,7 @@ export function TodoPage({ now, todoData }) {
   const [aiState, setAiState] = useState('idle')
   const [aiError, setAiError] = useState(null)
   const [attachmentFile, setAttachmentFile] = useState(null)
+  const [attachmentRetryKey, setAttachmentRetryKey] = useState(0)
   const [summaryTodo, setSummaryTodo] = useState(null)
   const pageRef = useRef(null)
   const previousRectsRef = useRef(new Map())
@@ -170,8 +179,9 @@ export function TodoPage({ now, todoData }) {
   const visibleCompleted = filter === 'all' ? completed : completed.filter((todo) => todo.type === filter)
   const selectedFilterLabel = FILTERS.find((item) => item.id === filter)?.label || '전체'
   const localNaturalResult = useMemo(() => parseReminderText(naturalText, now), [naturalText, now])
-  const naturalResult = attachmentFile ? aiResult : (aiResult || localNaturalResult)
+  const naturalResult = aiResult || localNaturalResult
   const aiAdjusted = Boolean(!attachmentFile && aiResult && resultSignature(aiResult) !== resultSignature(localNaturalResult))
+  const aiTrigger = attachmentFile || naturalText
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPageEntering(false), 1150)
@@ -217,7 +227,7 @@ export function TodoPage({ now, todoData }) {
     }, hasAttachment ? 420 : 650)
 
     return () => window.clearTimeout(timer)
-  }, [naturalText, attachmentFile, sheetOpen, sheetMode])
+  }, [aiTrigger, attachmentRetryKey, sheetOpen, sheetMode])
 
   useLayoutEffect(() => {
     const root = pageRef.current
@@ -293,6 +303,7 @@ export function TodoPage({ now, todoData }) {
   function openCreate() {
     setNaturalText('')
     setAttachmentFile(null)
+    setAttachmentRetryKey(0)
     setSummaryTodo(null)
     setDraft(emptyDraft(now))
     setSheetMode('natural')
@@ -320,7 +331,14 @@ export function TodoPage({ now, todoData }) {
 
   function changeAttachment(file) {
     setAttachmentFile(file)
+    setAttachmentRetryKey(0)
     resetAI()
+  }
+
+  function retryAttachment() {
+    if (!attachmentFile) return
+    resetAI()
+    setAttachmentRetryKey((current) => current + 1)
   }
 
   function syncPickerDisplays() {
@@ -510,8 +528,9 @@ export function TodoPage({ now, todoData }) {
                 file={attachmentFile}
                 busy={aiBusy}
                 ready={Boolean(aiResult?.summary)}
-                error={attachmentFile && aiState === 'error' ? (aiError?.message || '첨부 분석에 실패했어. 다시 시도해줘.') : ''}
+                error={attachmentFile && aiState === 'error' ? attachmentErrorMessage(aiError) : ''}
                 onChange={changeAttachment}
+                onRetry={retryAttachment}
               />
 
               {naturalResult ? (
@@ -523,11 +542,11 @@ export function TodoPage({ now, todoData }) {
                     <span>{formatParsedDue(naturalResult, now)}</span>
                   </div>
                   {aiBusy ? (
-                    <small className="reminder-ai-status is-working">AI가 오타와 문맥을 확인하는 중…</small>
+                    <small className="reminder-ai-status is-working">{attachmentFile ? '텍스트는 이해했고, 첨부 내용을 읽는 중…' : 'AI가 오타와 문맥을 확인하는 중…'}</small>
                   ) : aiState === 'ready' ? (
                     <small className="reminder-ai-status is-ready">{attachmentFile ? '첨부 내용 분석과 요약 완료' : aiAdjusted ? 'AI가 오타·축약을 보정했어.' : 'AI 확인 완료'}</small>
                   ) : aiState === 'error' ? (
-                    <small className="reminder-ai-status">{attachmentFile ? '첨부를 분석하지 못했어.' : 'AI 연결이 안 돼서 기기 분석 결과를 사용해.'}</small>
+                    <small className="reminder-ai-status">{attachmentFile ? '텍스트는 유지했어. 첨부만 다시 분석해줘.' : 'AI 연결이 안 돼서 기기 분석 결과를 사용해.'}</small>
                   ) : naturalResult.assumedDate ? (
                     <small>날짜를 안 써서 오늘로 잡았어. 다르면 직접 입력에서 바꿀 수 있어.</small>
                   ) : null}

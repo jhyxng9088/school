@@ -2,6 +2,7 @@ const REMINDER_API_URL = 'https://school-ai-backend-ruby.vercel.app/api/reminder
 const TEXT_REQUEST_TIMEOUT_MS = 18000
 const ATTACHMENT_REQUEST_TIMEOUT_MS = 45000
 const MAX_ATTACHMENT_BYTES = 2_500_000
+const MAX_IMAGE_BYTES = 900_000
 const MAX_ORIGINAL_IMAGE_BYTES = 20_000_000
 const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])
 const SUPPORTED_ATTACHMENT_TYPES = new Set([
@@ -172,21 +173,30 @@ async function prepareAttachment(file) {
   let blob = file
   let name = originalName
   let mimeType = originalType
+  const isImage = originalType.startsWith('image/')
   const needsJpegNormalization = originalType === 'image/heic' || originalType === 'image/heif'
-  const needsImageCompression = originalType.startsWith('image/') && file.size > MAX_ATTACHMENT_BYTES
+  const needsImageCompression = isImage && file.size > MAX_IMAGE_BYTES
 
   if (needsJpegNormalization || needsImageCompression) {
     if (file.size > MAX_ORIGINAL_IMAGE_BYTES) {
       throw reminderError('사진 용량이 너무 커. 20MB 이하 사진을 사용해줘.', 'school-ai/file-too-large', 413)
     }
-    blob = await resizeImage(file, 1800, 0.82)
-    if (blob.size > MAX_ATTACHMENT_BYTES) blob = await resizeImage(file, 1400, 0.7)
+    blob = await resizeImage(file, 1440, 0.72)
+    if (blob.size > MAX_IMAGE_BYTES) blob = await resizeImage(file, 1200, 0.62)
+    if (blob.size > MAX_IMAGE_BYTES) blob = await resizeImage(file, 1024, 0.56)
     name = originalName.replace(/\.[^.]+$/, '') + '.jpg'
     mimeType = 'image/jpeg'
   }
 
-  if (!blob.size || blob.size > MAX_ATTACHMENT_BYTES) {
-    throw reminderError('첨부 파일은 2.5MB 이하만 분석할 수 있어. PDF는 용량을 줄여서 다시 올려줘.', 'school-ai/file-too-large', 413)
+  const maxPreparedBytes = isImage ? MAX_IMAGE_BYTES : MAX_ATTACHMENT_BYTES
+  if (!blob.size || blob.size > maxPreparedBytes) {
+    throw reminderError(
+      isImage
+        ? '사진을 분석용 크기로 줄이지 못했어. 다른 사진으로 다시 시도해줘.'
+        : '첨부 파일은 2.5MB 이하만 분석할 수 있어. PDF는 용량을 줄여서 다시 올려줘.',
+      'school-ai/file-too-large',
+      413,
+    )
   }
 
   const dataBase64 = await new Promise((resolve, reject) => {

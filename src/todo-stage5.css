@@ -286,10 +286,7 @@ html body .app-content:has(> .todo-page) {
 .todo-stage5 .todo-edit-button,
 .todo-stage5 .todo-permanent-delete {
   flex: none;
-  min-width: 28px;
-  padding: 8px 0;
-  border: 0;
-  background: transparent;
+  min-height: 30px;
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
@@ -298,12 +295,21 @@ html body .app-content:has(> .todo-page) {
 }
 
 .todo-stage5 .todo-edit-button {
+  min-width: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
   color: var(--text-secondary);
 }
 
 .todo-stage5 .todo-permanent-delete {
   grid-column: auto;
   align-self: auto;
+  min-width: 30px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
   color: #d84d49;
   opacity: 0.82;
 }

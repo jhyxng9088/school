@@ -33,7 +33,7 @@ function fileSizeLabel(size) {
   return `${(bytes / 1_000_000).toFixed(1)}MB`
 }
 
-export function AttachmentPicker({ file, busy = false, ready = false, error = '', onChange }) {
+export function AttachmentPicker({ file, busy = false, ready = false, error = '', onChange, onRetry = () => {} }) {
   const inputRef = useRef(null)
 
   function chooseFile() {
@@ -76,15 +76,20 @@ export function AttachmentPicker({ file, busy = false, ready = false, error = ''
       )}
 
       {file ? (
-        <p className={`reminder-attachment-status ${error ? 'is-error' : ready ? 'is-ready' : busy ? 'is-working' : ''}`} aria-live="polite">
-          {error
-            ? error
-            : ready
-              ? '첨부 내용을 읽고 요약까지 정리했어.'
-              : busy
-                ? '첨부 내용을 읽고 정리하는 중…'
-                : '첨부를 분석할 준비가 됐어.'}
-        </p>
+        <div className={`reminder-attachment-status ${error ? 'is-error' : ready ? 'is-ready' : busy ? 'is-working' : ''}`} aria-live="polite">
+          <span>
+            {error
+              ? error
+              : ready
+                ? '첨부 내용을 읽고 요약까지 정리했어.'
+                : busy
+                  ? '첨부 내용을 읽고 정리하는 중…'
+                  : '첨부를 분석할 준비가 됐어.'}
+          </span>
+          {error ? (
+            <button className="reminder-attachment-retry" type="button" onClick={onRetry}>다시 분석</button>
+          ) : null}
+        </div>
       ) : (
         <p className="reminder-attachment-help">사진은 자동으로 용량을 줄여 분석하고, PDF·텍스트 파일은 2.5MB 이하를 지원해.</p>
       )}
