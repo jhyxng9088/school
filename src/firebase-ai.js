@@ -277,6 +277,49 @@ async function parseReminderWithAISingle(input, now = new Date(), attachmentFile
   }
 }
 
+function shouldUseDirectRecovery(error) {
+  const status = Number(error?.status || 0)
+  const code = String(error?.code || '').toUpperCase()
+  return status === 429 || status >= 500 ||
+    code.includes('RESOURCE_EXHAUSTED') ||
+    code.includes('UNAVAILABLE') ||
+    code.includes('TIMEOUT') ||
+    code.includes('ALL-MODELS-FAILED')
+}
+
+async function directReminderResult(input, now, files, { titleOnly = false, smartRecovery = false } = {}) {
+  const prepared = await Promise.all((files || []).map(prepareAttachment))
+  const { generateDirectReminder } = await import('./firebase-ai-direct.js')
+  const direct = await generateDirectReminder({
+    text: String(input || '').trim().slice(0, 140),
+    reference: localReference(now),
+    attachments: prepared,
+    titleOnly,
+    smartRecovery,
+  })
+  const base = normalizeResult(direct?.value)
+  if (!base) {
+    const error = new Error('Direct AI response did not match the reminder schema')
+    error.name = 'ReminderAIError'
+    error.code = 'school-ai/direct-invalid-response'
+    throw error
+  }
+  if (titleOnly || !files?.length) return { ...base, modelName: direct.modelName }
+  const summary = normalizeSummary(direct?.value?.summary)
+  if (!summary) {
+    const error = new Error('Direct AI summary response was empty')
+    error.name = 'ReminderAIError'
+    error.code = 'school-ai/direct-summary-empty'
+    throw error
+  }
+  return {
+    ...base,
+    summary,
+    modelName: direct.modelName,
+    attachments: [],
+  }
+}
+
 function mergeAttachmentResults(results, files) {
   if (!results.length) return null
   if (results.length === 1) {
@@ -334,21 +377,32 @@ export async function parseReminderTitleWithAI(input, now = new Date(), attachme
     ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
     : attachmentInput instanceof Blob ? [attachmentInput] : []
 
-  const meaningfulText = text.replace(/\s+/g, '').length >= 4
-  let parsed = null
-  if (meaningfulText || !files.length) {
-    parsed = await parseReminderWithAISingle(text, now, null)
-  } else {
-    parsed = await parseReminderWithAISingle(text, now, files[0])
+  // With attachments, title extraction is a genuinely separate lightweight multimodal request.
+  // It never waits for the full summary path unless the direct title route itself is unavailable.
+  if (files.length) {
+    try {
+      return await directReminderResult(text, now, files, { titleOnly: true, smartRecovery: false })
+    } catch (titleError) {
+      console.warn('Direct attachment title extraction failed; falling back to full backend analysis.', titleError)
+      const full = await parseReminderWithAI(text, now, files)
+      if (!full) return null
+      return {
+        type: full.type,
+        title: full.title,
+        dueDate: full.dueDate,
+        dueTime: full.dueTime || '',
+        assumedDate: Boolean(full.assumedDate),
+        source: 'ai',
+        modelName: full.modelName || '',
+      }
+    }
   }
-  if (!parsed) return null
-  return {
-    type: parsed.type,
-    title: parsed.title,
-    dueDate: parsed.dueDate,
-    dueTime: parsed.dueTime || '',
-    assumedDate: Boolean(parsed.assumedDate),
-    source: 'ai',
+
+  try {
+    return await parseReminderWithAISingle(text, now, null)
+  } catch (error) {
+    if (!shouldUseDirectRecovery(error)) throw error
+    return directReminderResult(text, now, [], { titleOnly: true, smartRecovery: true })
   }
 }
 
@@ -357,7 +411,22 @@ export async function parseReminderWithAI(input, now = new Date(), attachmentInp
     ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
     : attachmentInput instanceof Blob ? [attachmentInput] : []
 
-  if (!files.length) return parseReminderWithAISingle(input, now, null)
-  const results = await Promise.all(files.map((file) => parseReminderWithAISingle(input, now, file)))
-  return mergeAttachmentResults(results.filter(Boolean), files)
+  if (!files.length) {
+    try {
+      return await parseReminderWithAISingle(input, now, null)
+    } catch (error) {
+      if (!shouldUseDirectRecovery(error)) throw error
+      return directReminderResult(input, now, [], { titleOnly: true, smartRecovery: true })
+    }
+  }
+
+  try {
+    const results = await Promise.all(files.map((file) => parseReminderWithAISingle(input, now, file)))
+    return mergeAttachmentResults(results.filter(Boolean), files)
+  } catch (error) {
+    if (!shouldUseDirectRecovery(error)) throw error
+    // Quota / capacity recovery uses the smartest supported multimodal model first,
+    // then the latest stable Flash model if Pro is unavailable for this project.
+    return directReminderResult(input, now, files, { titleOnly: false, smartRecovery: true })
+  }
 }

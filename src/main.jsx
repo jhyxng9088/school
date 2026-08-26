@@ -686,7 +686,8 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
         ariaLabel="변경 시간표 추가"
         className="timetable-unified-sheet"
       >
-        <div className="change-form">
+        <div className="timetable-sheet-form">
+          <div className="timetable-sheet-primary-grid">
             <label className="change-field">
               <span>날짜</span>
               <input
@@ -711,35 +712,37 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                 ))}
               </select>
             </label>
-            <label className="change-field full">
-              <span>변경 과목</span>
-              <input
-                value={changeSubject}
-                onChange={(event) => setChangeSubject(event.target.value)}
-                placeholder="변경된 과목 입력"
-                maxLength={20}
-                disabled={!selectedDay || !availablePeriods.length}
-              />
-            </label>
-            {!selectedDay ? (
-              <p className="change-warning">토·일요일에는 정규 시간표를 변경할 수 없어.</p>
-            ) : selectedDateIsPast ? (
-              <p className="change-warning">지난 날짜의 시간표는 변경할 수 없어.</p>
-            ) : !availablePeriods.length ? (
-              <p className="change-warning">오늘 이미 끝난 교시는 변경할 수 없어.</p>
-            ) : (
-              <p className="change-base">기본: {baseSubject.trim() || '미설정'}</p>
-            )}
-            <div className="change-submit-row">
-              <button onClick={() => setChangeOpen(false)}>취소</button>
-              <button
-                className="save-change"
-                onClick={saveChange}
-                disabled={!selectedDay || !selectedPeriodIsAvailable || !changeSubject.trim()}
-              >
-                변경 저장
-              </button>
-            </div>
+          </div>
+          <label className="change-field">
+            <span>변경 과목</span>
+            <input
+              value={changeSubject}
+              onChange={(event) => setChangeSubject(event.target.value)}
+              placeholder="변경된 과목 입력"
+              maxLength={20}
+              disabled={!selectedDay || !availablePeriods.length}
+            />
+          </label>
+          {!selectedDay ? (
+            <p className="change-warning">토·일요일에는 정규 시간표를 변경할 수 없어.</p>
+          ) : selectedDateIsPast ? (
+            <p className="change-warning">지난 날짜의 시간표는 변경할 수 없어.</p>
+          ) : !availablePeriods.length ? (
+            <p className="change-warning">오늘 이미 끝난 교시는 변경할 수 없어.</p>
+          ) : (
+            <p className="change-base">기본: {baseSubject.trim() || '미설정'}</p>
+          )}
+          <div className="timetable-sheet-actions">
+            <button type="button" onClick={() => setChangeOpen(false)}>취소</button>
+            <button
+              type="button"
+              className="save-change"
+              onClick={saveChange}
+              disabled={!selectedDay || !selectedPeriodIsAvailable || !changeSubject.trim()}
+            >
+              변경 저장
+            </button>
+          </div>
         </div>
       </UnifiedBottomSheet>
 

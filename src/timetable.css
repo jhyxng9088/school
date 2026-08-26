@@ -664,3 +664,91 @@
   opacity: 0.72;
   padding: 6px 0 6px 10px;
 }
+
+
+/* Timetable's unified sheet owns a dedicated form/footer so legacy change-editor rules cannot overlap buttons. */
+body .unified-school-sheet.timetable-unified-sheet .timetable-sheet-form {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 12px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 1px 0 4px !important;
+}
+
+body .unified-school-sheet.timetable-unified-sheet .timetable-sheet-primary-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.46fr) !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+body .unified-school-sheet.timetable-unified-sheet .change-field,
+body .unified-school-sheet.timetable-unified-sheet .change-field input,
+body .unified-school-sheet.timetable-unified-sheet .change-field select {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+body .unified-school-sheet.timetable-unified-sheet .change-warning,
+body .unified-school-sheet.timetable-unified-sheet .change-base {
+  grid-column: auto !important;
+  width: auto !important;
+  margin-left: 2px !important;
+  margin-right: 2px !important;
+}
+
+body .unified-school-sheet.timetable-unified-sheet .timetable-sheet-actions {
+  position: sticky !important;
+  z-index: 4 !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr) !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 3px 0 0 !important;
+  padding: 10px 0 2px !important;
+  background: var(--surface) !important;
+  transform: none !important;
+}
+
+body .unified-school-sheet.timetable-unified-sheet .timetable-sheet-actions > button {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  box-sizing: border-box !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  background: var(--surface-soft) !important;
+  color: var(--text-secondary) !important;
+  font-size: 13px !important;
+  font-weight: 680 !important;
+  line-height: 1 !important;
+  transform: none !important;
+}
+
+body .unified-school-sheet.timetable-unified-sheet .timetable-sheet-actions > .save-change {
+  border-color: transparent !important;
+  background: var(--text) !important;
+  color: var(--bg) !important;
+}
+
+body .unified-school-sheet.timetable-unified-sheet .timetable-sheet-actions > button:disabled {
+  opacity: 0.35 !important;
+}
+
+@media (max-width: 430px) {
+  body .unified-school-sheet.timetable-unified-sheet .timetable-sheet-primary-grid {
+    grid-template-columns: minmax(0, 1fr) 94px !important;
+  }
+}

@@ -237,7 +237,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const visibleCompleted = filter === 'all' ? completed : completed.filter((todo) => todo.type === filter)
   const selectedFilterLabel = FILTERS.find((item) => item.id === filter)?.label || '전체'
   const localNaturalResult = useMemo(() => parseReminderText(naturalText, now), [naturalText, now])
-  const naturalResult = aiResult || localNaturalResult
+  const naturalResult = attachmentFiles.length ? aiResult : (aiResult || localNaturalResult)
   const attachmentSignature = attachmentFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`).join('|')
   const aiAdjusted = Boolean(!attachmentFiles.length && aiResult && resultSignature(aiResult) !== resultSignature(localNaturalResult))
   const aiTrigger = attachmentSignature ? `${naturalText}|${attachmentSignature}` : naturalText
@@ -506,8 +506,10 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
       title: result.title,
       dueDate: result.dueDate,
       dueTime: result.dueTime || '',
-      summary: files.length ? createPendingReminderSummary(files) : null,
-      attachment: null,
+      summary: files.length
+        ? (summaryResult?.summary ? withAttachmentManifest(summaryResult.summary, files) : createPendingReminderSummary(files))
+        : null,
+      attachment: summaryResult?.attachment || null,
     })
     setSheetOpen(false)
 
@@ -755,7 +757,13 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
                 <div className="reminder-original-save-status is-error"><span>{originalSaveError}</span></div>
               ) : null}
 
-              {naturalResult ? (
+              {attachmentFiles.length && aiBusy && !aiResult ? (
+                <section className="reminder-parse-preview is-title-loading" aria-live="polite">
+                  <p>첨부에서 제목을 찾는 중</p>
+                  <strong>제목 분석 중…</strong>
+                  <small className="reminder-ai-status is-working">전체 요약도 동시에 시작했어.</small>
+                </section>
+              ) : naturalResult ? (
                 <section className="reminder-parse-preview" aria-live="polite">
                   <p>이렇게 이해했어</p>
                   <strong>{naturalResult.title}</strong>
