@@ -687,7 +687,6 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                   <div className={classes} key={`${day.id}-${period.number}`}>
                     {item?.isOverride ? <span className="change-dot" aria-label="변경 시간표" /> : null}
                     <span className="subject">{item?.subject?.trim() || '—'}</span>
-                    {cellActivity ? <small className="activity-attribution week-cell-attribution">{activityLabel(cellActivity)}</small> : null}
                   </div>
                 )
               })}
