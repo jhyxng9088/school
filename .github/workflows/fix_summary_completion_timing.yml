@@ -1,0 +1,35 @@
+name: Fix reminder summary completion timing
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix_summary_completion_timing.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply summary completion timing fix
+        run: python3 .github/scripts/fix_summary_completion_timing.py
+      - name: Verify diff
+        run: git diff --check
+      - name: Install dependencies
+        run: npm install
+      - name: Production build
+        run: npm run build
+      - name: Commit verified timing fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/todo-stage5-ai.jsx
+          git commit -m "Finish reminder summary before original uploads" || exit 0
+          git push
