@@ -34,6 +34,7 @@ function fileSizeLabel(size) {
 }
 
 export const REMINDER_ATTACHMENT_MANIFEST_HEADING = '\u2063school-attachments\u2063'
+export const REMINDER_SUMMARY_PENDING_HEADING = '\u2063school-summary-pending\u2063'
 
 export function withAttachmentManifest(summary, files) {
   const source = summary && typeof summary === 'object' ? summary : {}
@@ -49,6 +50,18 @@ export function withAttachmentManifest(summary, files) {
     overview: String(source.overview || '').slice(0, 2400),
     sections,
   }
+}
+
+export function createPendingReminderSummary(files = []) {
+  return withAttachmentManifest({
+    overview: '',
+    sections: [{ heading: REMINDER_SUMMARY_PENDING_HEADING, items: ['pending'] }],
+  }, files)
+}
+
+export function isReminderSummaryPending(summary) {
+  const sections = Array.isArray(summary?.sections) ? summary.sections : []
+  return sections.some((section) => section?.heading === REMINDER_SUMMARY_PENDING_HEADING)
 }
 
 function attachmentManifest(todo) {
@@ -236,7 +249,7 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
   const [originalError, setOriginalError] = useState('')
 
   const sections = Array.isArray(todo?.summary?.sections) ? todo.summary.sections : []
-  const visibleSections = sections.filter((section) => section?.heading !== REMINDER_ATTACHMENT_MANIFEST_HEADING)
+  const visibleSections = sections.filter((section) => section?.heading !== REMINDER_ATTACHMENT_MANIFEST_HEADING && section?.heading !== REMINDER_SUMMARY_PENDING_HEADING)
   const originalEntries = attachmentManifest(todo)
   const canShowOriginal = Boolean(originalEntries.length && loadOriginal)
 

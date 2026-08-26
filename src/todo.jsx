@@ -214,6 +214,7 @@ function writePersonalTodoStateCache(profile, state) {
 export function useTodos(profile) {
   const signature = profileSignature(profile)
   const [sharedTodos, setSharedTodos] = useState(() => readSharedTodosCache(profile))
+  const sharedTodosRef = useRef(sharedTodos)
   const [personalState, setPersonalState] = useState(() => readPersonalTodoStateCache(profile))
   const [bootTodos, setBootTodos] = useState(() => readVisibleTodosCache(profile) ?? mergeSharedTodos(readSharedTodosCache(profile), readPersonalTodoStateCache(profile)))
   const [remoteReady, setRemoteReady] = useState(false)
@@ -233,6 +234,7 @@ export function useTodos(profile) {
 
   useEffect(() => {
     if (!signature) {
+      sharedTodosRef.current = []
       setSharedTodos([])
       setPersonalState({})
       return undefined
@@ -241,6 +243,7 @@ export function useTodos(profile) {
     let disposed = false
     const cachedShared = readSharedTodosCache(profile)
     const cachedPersonal = readPersonalTodoStateCache(profile)
+    sharedTodosRef.current = cachedShared
     setSharedTodos(cachedShared)
     setPersonalState(cachedPersonal)
     setBootTodos(readVisibleTodosCache(profile) ?? mergeSharedTodos(cachedShared, cachedPersonal))
@@ -255,6 +258,7 @@ export function useTodos(profile) {
       firstRemoteReadyRef.current = true
       const nextShared = remoteSharedRef.current
       const nextPersonal = remotePersonalRef.current
+      sharedTodosRef.current = nextShared
       setSharedTodos(nextShared)
       setPersonalState(nextPersonal)
       const nextVisible = mergeSharedTodos(nextShared, nextPersonal)
@@ -270,8 +274,10 @@ export function useTodos(profile) {
         const next = remoteTodos.map(sharedTodoShape)
         writeSharedTodosCache(profile, next)
         remoteSharedRef.current = next
-        if (firstRemoteReadyRef.current) setSharedTodos(next)
-        else commitFirstRemotePair()
+        if (firstRemoteReadyRef.current) {
+          sharedTodosRef.current = next
+          setSharedTodos(next)
+        } else commitFirstRemotePair()
       },
       (error) => console.error('Class reminder sync failed:', error),
     )
@@ -299,6 +305,7 @@ export function useTodos(profile) {
   function updateSharedTodos(updater) {
     setSharedTodos((current) => {
       const next = updater(current)
+      sharedTodosRef.current = next
       writeSharedTodosCache(profile, next)
       if (!firstRemoteReadyRef.current) {
         const nextVisible = mergeSharedTodos(next, personalState)
@@ -376,6 +383,31 @@ export function useTodos(profile) {
     return todo.id
   }
 
+  async function enrichTodo(id, enrichment = {}) {
+    const currentTodo = sharedTodosRef.current.find((todo) => todo.id === id)
+    if (!currentTodo) return false
+    const summary = safeSummary(enrichment.summary)
+    if (!summary) return false
+    const attachment = safeAttachment(enrichment.attachment)
+    const nextTodo = {
+      ...currentTodo,
+      summary,
+      updatedAt: Date.now(),
+      ...(attachment ? { attachment } : {}),
+    }
+
+    updateSharedTodos((current) => current.map((todo) => todo.id === id ? nextTodo : todo))
+    try {
+      await writeSharedTodo(profile, nextTodo)
+      return true
+    } catch (error) {
+      updateSharedTodos((current) => current.map((todo) => (
+        todo.id === id && todo.updatedAt === nextTodo.updatedAt ? currentTodo : todo
+      )))
+      throw error
+    }
+  }
+
   function updatePersonalStateOnServer(id, nextEntry, previousEntry) {
     setPersonalState((current) => {
       const next = { ...current, [id]: nextEntry }
@@ -439,6 +471,7 @@ export function useTodos(profile) {
   return {
     todos,
     saveTodo,
+    enrichTodo,
     toggleTodo,
     removeTodo,
     createTodoId,

@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { TODO_TYPES } from './todo.jsx'
 import { formatParsedDue, parseReminderText } from './reminder-parser.js'
-import { parseReminderWithAI } from './firebase-ai.js'
-import { AttachmentPicker, SummarySheet, withAttachmentManifest } from './reminder-summary.jsx'
+import { parseReminderTitleWithAI, parseReminderWithAI } from './firebase-ai.js'
+import { AttachmentPicker, SummarySheet, createPendingReminderSummary, isReminderSummaryPending, withAttachmentManifest } from './reminder-summary.jsx'
 import { activityKey, activityLabel, useClassActivity } from './class-activity'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import './todo-stage5.css'
@@ -94,15 +94,51 @@ function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
   )
 }
 
+function SummaryPendingStatus({ pending, withAttribution = false }) {
+  const [rendered, setRendered] = useState(Boolean(pending))
+  const [resolving, setResolving] = useState(false)
+
+  useEffect(() => {
+    if (pending) {
+      setRendered(true)
+      setResolving(false)
+      return undefined
+    }
+    if (!rendered) return undefined
+    setResolving(true)
+    const timer = window.setTimeout(() => {
+      setRendered(false)
+      setResolving(false)
+    }, 380)
+    return () => window.clearTimeout(timer)
+  }, [pending, rendered])
+
+  if (!rendered) return null
+  return (
+    <span className={`reminder-summary-pending ${resolving ? 'is-resolving' : ''}`.trim()}>
+      <span>요약중</span>
+      <span className="reminder-summary-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
+      {withAttribution ? <span className="reminder-summary-separator">·</span> : null}
+    </span>
+  )
+}
+
 function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEdit, onDelete, onOpenSummary, attribution }) {
   const dateLabel = dueDateLabel(todo)
   const meta = completed ? '' : dueMetaLabel(todo, now)
+  const summaryPending = isReminderSummaryPending(todo.summary)
+  const readableSummary = Boolean(todo.summary && !summaryPending)
   const content = (
     <>
       <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
       <AnimatedText as="strong" value={todo.title} delay={45} />
       {meta ? <AnimatedText as="small" value={meta} delay={90} /> : null}
-      {attribution ? <span className="activity-attribution reminder-attribution">{activityLabel(attribution)}</span> : null}
+      {(summaryPending || attribution) ? (
+        <span className="reminder-attribution-line">
+          <SummaryPendingStatus pending={summaryPending} withAttribution={Boolean(attribution)} />
+          {attribution ? <span className="activity-attribution reminder-attribution">{activityLabel(attribution)}</span> : null}
+        </span>
+      ) : null}
     </>
   )
 
@@ -118,7 +154,7 @@ function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEd
       >
         <span />
       </button>
-      {todo.summary ? (
+      {readableSummary ? (
         <button
           className="todo-item-main has-summary"
           type="button"
@@ -156,10 +192,11 @@ function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEd
   )
 }
 
-export function TodoPage({ now, todoData }) {
+export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const {
     todos,
     saveTodo,
+    enrichTodo,
     toggleTodo,
     removeTodo,
     createTodoId,
@@ -176,6 +213,9 @@ export function TodoPage({ now, todoData }) {
   const [aiResult, setAiResult] = useState(null)
   const [aiState, setAiState] = useState('idle')
   const [aiError, setAiError] = useState(null)
+  const [summaryResult, setSummaryResult] = useState(null)
+  const [summaryState, setSummaryState] = useState('idle')
+  const [summaryError, setSummaryError] = useState(null)
   const [attachmentFiles, setAttachmentFiles] = useState([])
   const [attachmentRetryKey, setAttachmentRetryKey] = useState(0)
   const [originalSaving, setOriginalSaving] = useState(false)
@@ -187,6 +227,7 @@ export function TodoPage({ now, todoData }) {
   const pageRef = useRef(null)
   const rowMotionRef = useRef(new Set())
   const aiRequestRef = useRef(0)
+  const summaryPromiseRef = useRef(null)
   const pendingCreateIdRef = useRef('')
 
   const sorted = useMemo(() => sortTodos(todos), [todos])
@@ -208,41 +249,73 @@ export function TodoPage({ now, todoData }) {
 
   useEffect(() => {
     const text = naturalText.trim()
-    const hasAttachment = attachmentFiles.length > 0
+    const files = attachmentFiles.slice()
+    const hasAttachment = files.length > 0
     const requestId = aiRequestRef.current + 1
     aiRequestRef.current = requestId
+    summaryPromiseRef.current = null
     setAiResult(null)
     setAiError(null)
+    setSummaryResult(null)
+    setSummaryError(null)
 
     if (!sheetOpen || sheetMode !== 'natural' || (!hasAttachment && text.length < 2)) {
       setAiState('idle')
+      setSummaryState('idle')
       return undefined
     }
 
     setAiState('waiting')
-    const timer = window.setTimeout(async () => {
+    setSummaryState(hasAttachment ? 'waiting' : 'idle')
+    const timer = window.setTimeout(() => {
       if (aiRequestRef.current !== requestId) return
+      const requestNow = new Date()
       setAiState('loading')
 
-      try {
-        const parsed = await parseReminderWithAI(text, new Date(), attachmentFiles)
-        if (aiRequestRef.current !== requestId) return
-        if (parsed) setAiResult(parsed)
-        setAiError(null)
-        setAiState(parsed ? 'ready' : 'error')
-      } catch (error) {
-        if (aiRequestRef.current !== requestId) return
-        console.error('Reminder AI failed:', error)
-        setAiError({
-          name: error?.name || null,
-          code: error?.code || null,
-          message: error?.message || null,
-          status: error?.status || null,
-          customData: error?.customData ? JSON.stringify(error.customData) : null,
+      parseReminderTitleWithAI(text, requestNow, files)
+        .then((parsed) => {
+          if (aiRequestRef.current !== requestId) return
+          if (parsed) setAiResult(parsed)
+          setAiError(null)
+          setAiState(parsed ? 'ready' : 'error')
         })
-        setAiState('error')
+        .catch((error) => {
+          if (aiRequestRef.current !== requestId) return
+          console.error('Reminder title AI failed:', error)
+          setAiError({
+            name: error?.name || null,
+            code: error?.code || null,
+            message: error?.message || null,
+            status: error?.status || null,
+            customData: error?.customData ? JSON.stringify(error.customData) : null,
+          })
+          setAiState('error')
+        })
+
+      if (hasAttachment) {
+        setSummaryState('loading')
+        const promise = parseReminderWithAI(text, requestNow, files)
+        summaryPromiseRef.current = { requestId, promise }
+        promise
+          .then((parsed) => {
+            if (aiRequestRef.current !== requestId) return
+            if (parsed?.summary) setSummaryResult(parsed)
+            setSummaryError(null)
+            setSummaryState(parsed?.summary ? 'ready' : 'error')
+          })
+          .catch((error) => {
+            if (aiRequestRef.current !== requestId) return
+            console.error('Reminder summary AI failed:', error)
+            setSummaryError({
+              name: error?.name || null,
+              code: error?.code || null,
+              message: error?.message || null,
+              status: error?.status || null,
+            })
+            setSummaryState('error')
+          })
       }
-    }, hasAttachment ? 420 : 650)
+    }, hasAttachment ? 220 : 550)
 
     return () => window.clearTimeout(timer)
   }, [aiTrigger, attachmentRetryKey, sheetOpen, sheetMode])
@@ -250,12 +323,17 @@ export function TodoPage({ now, todoData }) {
 
   function resetAI() {
     aiRequestRef.current += 1
+    summaryPromiseRef.current = null
     setAiResult(null)
     setAiState('idle')
     setAiError(null)
+    setSummaryResult(null)
+    setSummaryState('idle')
+    setSummaryError(null)
   }
 
   function openCreate() {
+    if (!requireOnline('리마인더를 추가')) return
     setNaturalText('')
     setAttachmentFiles([])
     setAttachmentRetryKey(0)
@@ -272,6 +350,7 @@ export function TodoPage({ now, todoData }) {
   }
 
   function openEdit(todo) {
+    if (!requireOnline('리마인더를 수정')) return
     setNaturalText('')
     setAttachmentFiles([])
     setServerSaving(false)
@@ -343,7 +422,7 @@ export function TodoPage({ now, todoData }) {
       title: naturalResult.title,
       dueDate: naturalResult.dueDate,
       dueTime: naturalResult.dueTime || '',
-      summary: attachmentFiles.length ? withAttachmentManifest(naturalResult.summary, attachmentFiles) : naturalResult.summary || null,
+      summary: attachmentFiles.length ? createPendingReminderSummary(attachmentFiles) : naturalResult.summary || null,
       attachment: naturalResult.attachment || null,
     } : emptyDraft(now))
     resetAI()
@@ -351,38 +430,71 @@ export function TodoPage({ now, todoData }) {
     syncPickerDisplays()
   }
 
-  async function submitNatural() {
-    if (!naturalResult?.title || !naturalResult?.dueDate || originalSaving || serverSaving) return
-    const createId = pendingCreateIdRef.current || createTodoId()
-    pendingCreateIdRef.current = createId
-
-    if (attachmentFiles.length) {
-      setOriginalSaving(true)
-      setOriginalSaveError('')
+  async function finishReminderEnrichment(todoId, text, files, existingSummaryPromise = null) {
+    if (!todoId || !files.length) return
+    const uploadResultsPromise = Promise.all(files.map(async (file, index) => {
       try {
-        for (let index = 0; index < attachmentFiles.length; index += 1) {
-          await uploadOriginalAttachment(createId, attachmentFiles[index], `a${index}`)
-        }
+        await uploadOriginalAttachment(todoId, file, `a${index}`)
+        return true
       } catch (error) {
-        console.error('Original reminder attachment save failed:', error)
-        setOriginalSaveError(error?.message || '원본 파일 저장에 실패했어. 다시 시도해줘.')
-        return
-      } finally {
-        setOriginalSaving(false)
+        console.error(`Original reminder attachment ${index + 1} background save failed:`, error)
+        return false
+      }
+    }))
+
+    let parsed = null
+    try {
+      parsed = await (existingSummaryPromise || parseReminderWithAI(text, new Date(), files))
+    } catch (error) {
+      console.error('Background reminder summary failed:', error)
+    }
+
+    if (!parsed?.summary && navigator.onLine !== false) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1600))
+      try {
+        parsed = await parseReminderWithAI(text, new Date(), files)
+      } catch (error) {
+        console.error('Background reminder summary retry failed:', error)
       }
     }
+
+    const uploadResults = await uploadResultsPromise
+    if (!parsed?.summary) return
+    const finalSummary = uploadResults.every(Boolean)
+      ? withAttachmentManifest(parsed.summary, files)
+      : parsed.summary
+    try {
+      await enrichTodo(todoId, {
+        summary: finalSummary,
+        attachment: parsed.attachment || null,
+      })
+    } catch (error) {
+      console.error('Background reminder enrichment save failed:', error)
+    }
+  }
+
+  async function submitNatural() {
+    const fallbackResult = aiState === 'error' && !attachmentFiles.length ? localNaturalResult : null
+    const result = aiResult || fallbackResult
+    if (!result?.title || !result?.dueDate || serverSaving) return
+    if (!requireOnline('리마인더를 추가')) return
+    const createId = pendingCreateIdRef.current || createTodoId()
+    pendingCreateIdRef.current = createId
+    const files = attachmentFiles.slice()
+    const text = naturalText.trim()
+    const summaryPromise = summaryPromiseRef.current?.promise || (summaryResult ? Promise.resolve(summaryResult) : null)
 
     setServerSaving(true)
     setServerSaveError('')
     const savePromise = saveTodo({
       id: '',
       createId,
-      type: naturalResult.type,
-      title: naturalResult.title,
-      dueDate: naturalResult.dueDate,
-      dueTime: naturalResult.dueTime || '',
-      summary: attachmentFiles.length ? withAttachmentManifest(naturalResult.summary, attachmentFiles) : naturalResult.summary || null,
-      attachment: naturalResult.attachment || null,
+      type: result.type,
+      title: result.title,
+      dueDate: result.dueDate,
+      dueTime: result.dueTime || '',
+      summary: files.length ? createPendingReminderSummary(files) : null,
+      attachment: null,
     })
     setSheetOpen(false)
 
@@ -393,6 +505,7 @@ export function TodoPage({ now, todoData }) {
         return
       }
       pendingCreateIdRef.current = ''
+      if (files.length) void finishReminderEnrichment(savedId, text, files, summaryPromise)
       resetAI()
     } catch (error) {
       console.error('Shared reminder save failed:', error)
@@ -404,31 +517,17 @@ export function TodoPage({ now, todoData }) {
   }
 
   async function submitManual() {
-    if (serverSaving || originalSaving) return
+    if (serverSaving) return
+    if (!requireOnline(draft.id ? '리마인더를 수정' : '리마인더를 추가')) return
     const createId = draft.id ? '' : (pendingCreateIdRef.current || createTodoId())
     if (createId) pendingCreateIdRef.current = createId
-
-    if (createId && attachmentFiles.length) {
-      setOriginalSaving(true)
-      setOriginalSaveError('')
-      try {
-        for (let index = 0; index < attachmentFiles.length; index += 1) {
-          await uploadOriginalAttachment(createId, attachmentFiles[index], `a${index}`)
-        }
-      } catch (error) {
-        console.error('Original reminder attachment save failed:', error)
-        setOriginalSaveError(error?.message || '원본 파일 저장에 실패했어. 다시 시도해줘.')
-        return
-      } finally {
-        setOriginalSaving(false)
-      }
-    }
+    const files = attachmentFiles.slice()
+    const draftToSave = createId && files.length
+      ? { ...draft, summary: createPendingReminderSummary(files), attachment: null }
+      : draft
 
     setServerSaving(true)
     setServerSaveError('')
-    const draftToSave = attachmentFiles.length
-      ? { ...draft, summary: withAttachmentManifest(draft.summary, attachmentFiles) }
-      : draft
     const savePromise = saveTodo(createId ? { ...draftToSave, createId } : draftToSave)
     setSheetOpen(false)
 
@@ -439,6 +538,7 @@ export function TodoPage({ now, todoData }) {
         return
       }
       pendingCreateIdRef.current = ''
+      if (createId && files.length) void finishReminderEnrichment(savedId, draft.title.trim(), files, null)
     } catch (error) {
       console.error('Shared reminder save failed:', error)
       setServerSaveError('서버에 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
@@ -484,22 +584,30 @@ export function TodoPage({ now, todoData }) {
   }
 
   function animateToggleTodo(id) {
+    const target = todos.find((todo) => todo.id === id)
+    const action = target?.completed ? '리마인더 완료를 취소' : '리마인더를 완료'
+    if (!requireOnline(action)) return
     beginRowExit(id, 'toggle')
   }
 
   function animatePermanentDelete(id) {
+    if (!requireOnline('리마인더를 삭제')) return
     beginRowExit(id, 'delete')
   }
 
   function deleteEditing() {
     if (!draft.id) return
+    if (!requireOnline('리마인더를 삭제')) return
     removeTodo(draft.id)
     setSheetOpen(false)
   }
 
   const aiBusy = aiState === 'waiting' || aiState === 'loading'
-  const saveDisabled = originalSaving || serverSaving || (sheetMode === 'natural'
-    ? (attachmentFiles.length ? !aiResult?.title || !aiResult?.summary : !naturalResult?.title)
+  const summaryBusy = summaryState === 'waiting' || summaryState === 'loading'
+  const aiTitleReady = Boolean(aiResult?.title && aiResult?.dueDate)
+  const localFallbackReady = aiState === 'error' && !attachmentFiles.length && Boolean(localNaturalResult?.title && localNaturalResult?.dueDate)
+  const saveDisabled = serverSaving || (sheetMode === 'natural'
+    ? !(aiTitleReady || localFallbackReady)
     : !draft.title.trim() || !draft.dueDate)
 
   const summaryText = filter === 'all'
@@ -598,7 +706,7 @@ export function TodoPage({ now, todoData }) {
       <UnifiedBottomSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        closeDisabled={originalSaving || serverSaving}
+        closeDisabled={serverSaving}
         title={draft.id ? '리마인더 수정' : '리마인더 추가'}
         subtitle={sheetMode === 'natural' ? '해야 할 일을 그냥 한 문장으로 적어.' : '필요한 정보만 직접 수정해.'}
         ariaLabel={draft.id ? '리마인더 수정' : '리마인더 추가'}
@@ -620,9 +728,9 @@ export function TodoPage({ now, todoData }) {
 
               <AttachmentPicker
                 files={attachmentFiles}
-                busy={aiBusy}
-                ready={Boolean(aiResult?.summary)}
-                error={attachmentFiles.length && aiState === 'error' ? attachmentErrorMessage(aiError) : ''}
+                busy={summaryBusy}
+                ready={summaryState === 'ready'}
+                error={attachmentFiles.length && summaryState === 'error' ? attachmentErrorMessage(summaryError) : ''}
                 onAdd={addAttachments}
                 onRemove={removeAttachment}
                 onRetry={retryAttachment}
@@ -643,11 +751,15 @@ export function TodoPage({ now, todoData }) {
                     <span>{formatParsedDue(naturalResult, now)}</span>
                   </div>
                   {aiBusy ? (
-                    <small className="reminder-ai-status is-working">{attachmentFiles.length ? '분석 중' : '확인 중'}</small>
+                    <small className="reminder-ai-status is-working">AI가 제목을 정리하는 중…</small>
                   ) : aiState === 'ready' ? (
-                    <small className="reminder-ai-status is-ready">{attachmentFiles.length ? '분석 완료' : aiAdjusted ? '오타·축약을 보정했어.' : '확인 완료'}</small>
+                    <small className="reminder-ai-status is-ready">
+                      {attachmentFiles.length
+                        ? summaryState === 'ready' ? '제목·요약 준비 완료' : '제목 준비됨 · 추가하면 요약은 뒤에서 계속돼.'
+                        : aiAdjusted ? '오타·축약을 보정했어.' : 'AI 제목 준비 완료'}
+                    </small>
                   ) : aiState === 'error' ? (
-                    <small className="reminder-ai-status">{attachmentFiles.length ? '텍스트는 유지했어. 첨부만 다시 분석해줘.' : 'AI 연결이 안 돼서 기기 분석 결과를 사용해.'}</small>
+                    <small className="reminder-ai-status">{attachmentFiles.length ? 'AI 제목 생성에 실패했어. 다시 분석하거나 직접 입력해줘.' : 'AI 연결이 안 돼서 기기 분석 결과를 사용할 수 있어.'}</small>
                   ) : naturalResult.assumedDate ? (
                     <small>날짜를 안 써서 오늘로 잡았어. 다르면 직접 입력에서 바꿀 수 있어.</small>
                   ) : null}
@@ -717,7 +829,7 @@ export function TodoPage({ now, todoData }) {
                 disabled={saveDisabled}
                 onClick={submitCurrent}
               >
-                {originalSaving || serverSaving ? '저장 중…' : sheetMode === 'natural' ? '추가' : '저장'}
+                {serverSaving ? '저장 중…' : sheetMode === 'natural' ? '추가' : '저장'}
               </button>
             </div>
         </div>

@@ -328,6 +328,30 @@ function mergeAttachmentResults(results, files) {
   }
 }
 
+export async function parseReminderTitleWithAI(input, now = new Date(), attachmentInput = null) {
+  const text = String(input || '').trim().slice(0, 140)
+  const files = Array.isArray(attachmentInput)
+    ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
+    : attachmentInput instanceof Blob ? [attachmentInput] : []
+
+  const meaningfulText = text.replace(/\s+/g, '').length >= 4
+  let parsed = null
+  if (meaningfulText || !files.length) {
+    parsed = await parseReminderWithAISingle(text, now, null)
+  } else {
+    parsed = await parseReminderWithAISingle(text, now, files[0])
+  }
+  if (!parsed) return null
+  return {
+    type: parsed.type,
+    title: parsed.title,
+    dueDate: parsed.dueDate,
+    dueTime: parsed.dueTime || '',
+    assumedDate: Boolean(parsed.assumedDate),
+    source: 'ai',
+  }
+}
+
 export async function parseReminderWithAI(input, now = new Date(), attachmentInput = null) {
   const files = Array.isArray(attachmentInput)
     ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
