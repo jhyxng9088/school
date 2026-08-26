@@ -458,18 +458,31 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
       }
     }
 
-    const uploadResults = await uploadResultsPromise
-    if (!parsed?.summary) return
-    const finalSummary = uploadResults.every(Boolean)
-      ? withAttachmentManifest(parsed.summary, files)
-      : parsed.summary
+    if (!parsed?.summary) {
+      await uploadResultsPromise
+      return
+    }
+
     try {
       await enrichTodo(todoId, {
-        summary: finalSummary,
+        summary: parsed.summary,
         attachment: parsed.attachment || null,
       })
     } catch (error) {
-      console.error('Background reminder enrichment save failed:', error)
+      console.error('Background reminder summary save failed:', error)
+      await uploadResultsPromise
+      return
+    }
+
+    const uploadResults = await uploadResultsPromise
+    if (!uploadResults.every(Boolean)) return
+    try {
+      await enrichTodo(todoId, {
+        summary: withAttachmentManifest(parsed.summary, files),
+        attachment: parsed.attachment || null,
+      })
+    } catch (error) {
+      console.error('Background reminder original manifest save failed:', error)
     }
   }
 
