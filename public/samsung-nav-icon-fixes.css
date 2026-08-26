@@ -1,0 +1,10 @@
+/* Samsung Internet: only replace the two masks that fail as data-URI SVGs. */
+html.school-samsung .bottom-nav .nav-button:nth-of-type(4)::before {
+  -webkit-mask-image: url("./samsung-nav-meal.svg?v=1") !important;
+  mask-image: url("./samsung-nav-meal.svg?v=1") !important;
+}
+
+html.school-samsung .bottom-nav .nav-button:nth-of-type(5)::before {
+  -webkit-mask-image: url("./samsung-nav-academic.svg?v=1") !important;
+  mask-image: url("./samsung-nav-academic.svg?v=1") !important;
+}
