@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './academic-shared.css'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+const SHEET_CLOSE_MS = 300
 
 function pad(value) {
   return String(value).padStart(2, '0')
@@ -18,7 +19,15 @@ function rawDate(date) {
 function dateFromKey(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null
   const [year, month, day] = value.split('-').map(Number)
-  return new Date(year, month - 1, day, 12, 0, 0, 0)
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0)
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null
+  return date
+}
+
+function dateInputLabel(value) {
+  const date = dateFromKey(value)
+  if (!date) return '날짜 선택'
+  return `${date.getMonth() + 1}월 ${date.getDate()}일 ${WEEKDAY_LABELS[date.getDay()]}`
 }
 
 function daysBetween(from, to) {
@@ -106,6 +115,12 @@ function emptyDraft(now) {
   return { id: '', title: '', startDate: today, endDate: today, detail: '' }
 }
 
+function academicErrorMessage(error, fallback) {
+  const code = String(error?.code || '')
+  if (code.includes('permission-denied')) return '서버 권한 설정이 아직 적용되지 않았어.'
+  return error?.message || fallback
+}
+
 export function SharedAcademicPreview({ now, schoolData, academicData }) {
   const groups = useMemo(() => allGroups(schoolData, academicData), [schoolData?.academicEvents, academicData?.events])
   const today = rawDate(now)
@@ -150,30 +165,67 @@ export function SharedAcademicPreview({ now, schoolData, academicData }) {
 export function SharedAcademicPage({ now, schoolData, academicData }) {
   const groups = useMemo(() => allGroups(schoolData, academicData), [schoolData?.academicEvents, academicData?.events])
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetClosing, setSheetClosing] = useState(false)
   const [draft, setDraft] = useState(() => emptyDraft(now))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const closeTimerRef = useRef(null)
   const todayRaw = rawDate(now)
   const upcoming = groups.filter((group) => group.endRawDate >= todayRaw)
   const exam = upcoming.find(isImportantExam) || null
 
-  function openCreate() {
-    setDraft(emptyDraft(now))
+  useEffect(() => () => {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+  }, [])
+
+  function cancelPendingClose() {
+    if (!closeTimerRef.current) return
+    window.clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = null
+  }
+
+  function openSheet(nextDraft) {
+    cancelPendingClose()
+    setDraft(nextDraft)
     setError('')
+    setSheetClosing(false)
     setSheetOpen(true)
+  }
+
+  function closeSheet() {
+    if (!sheetOpen || sheetClosing || saving) return
+    setSheetClosing(true)
+    cancelPendingClose()
+    closeTimerRef.current = window.setTimeout(() => {
+      setSheetOpen(false)
+      setSheetClosing(false)
+      closeTimerRef.current = null
+    }, SHEET_CLOSE_MS)
+  }
+
+  function closeAfterSave() {
+    setSheetClosing(true)
+    cancelPendingClose()
+    closeTimerRef.current = window.setTimeout(() => {
+      setSheetOpen(false)
+      setSheetClosing(false)
+      closeTimerRef.current = null
+    }, SHEET_CLOSE_MS)
+  }
+
+  function openCreate() {
+    openSheet(emptyDraft(now))
   }
 
   function openEdit(group) {
     if (group.source !== 'custom') return
-    setDraft({
+    openSheet({
       id: group.id,
       title: group.title,
       startDate: dateKey(group.startDate),
       endDate: dateKey(group.endDate),
       detail: group.detail || '',
     })
-    setError('')
-    setSheetOpen(true)
   }
 
   async function save() {
@@ -182,9 +234,9 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
     setError('')
     try {
       await academicData.saveEvent(draft)
-      setSheetOpen(false)
+      closeAfterSave()
     } catch (saveError) {
-      setError(saveError?.message || '학사일정을 저장하지 못했어.')
+      setError(academicErrorMessage(saveError, '학사일정을 저장하지 못했어.'))
     } finally {
       setSaving(false)
     }
@@ -196,9 +248,9 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
     setError('')
     try {
       await academicData.deleteEvent(draft.id)
-      setSheetOpen(false)
+      closeAfterSave()
     } catch (deleteError) {
-      setError(deleteError?.message || '학사일정을 삭제하지 못했어.')
+      setError(academicErrorMessage(deleteError, '학사일정을 삭제하지 못했어.'))
     } finally {
       setSaving(false)
     }
@@ -255,42 +307,85 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
       ) : null}
 
       {sheetOpen ? (
-        <section className="change-editor academic-editor" data-school-sheet>
-          <div className="change-editor-head">
-            <div>
+        <>
+          <div
+            className={`academic-sheet-backdrop ${sheetClosing ? 'is-closing' : ''}`}
+            aria-hidden="true"
+            onClick={closeSheet}
+          />
+          <section
+            className={`change-editor academic-editor ${sheetClosing ? 'is-closing' : ''}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={draft.id ? '학사일정 수정' : '학사일정 추가'}
+          >
+            <div className="change-editor-head academic-editor-head">
               <h2>{draft.id ? '학사일정 수정' : '학사일정 추가'}</h2>
-              <p>반 전체에 바로 공유돼.</p>
+              <button className="academic-sheet-close" type="button" onClick={closeSheet} disabled={saving} aria-label="닫기">×</button>
             </div>
-          </div>
-          <div className="change-form academic-form">
-            <label className="change-field full">
-              <span>일정 이름</span>
-              <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value.slice(0, 80) }))} placeholder="예: 체육대회" autoComplete="off" />
-            </label>
-            <label className="change-field">
-              <span>시작일</span>
-              <input type="date" value={draft.startDate} onChange={(event) => setDraft((current) => ({ ...current, startDate: event.target.value, endDate: current.endDate < event.target.value ? event.target.value : current.endDate }))} />
-            </label>
-            <label className="change-field">
-              <span>종료일</span>
-              <input type="date" min={draft.startDate} value={draft.endDate} onChange={(event) => setDraft((current) => ({ ...current, endDate: event.target.value }))} />
-            </label>
-            <label className="change-field full">
-              <span>메모 · 선택</span>
-              <input value={draft.detail} onChange={(event) => setDraft((current) => ({ ...current, detail: event.target.value.slice(0, 500) }))} placeholder="필요한 설명이 있으면 적어." autoComplete="off" />
-            </label>
-            {error ? <p className="change-warning">{error}</p> : null}
-            {draft.id ? (
-              canDelete
-                ? <button className="academic-delete-button" type="button" onClick={remove} disabled={saving}>삭제</button>
-                : <p className="academic-delete-owner-note">삭제는 이 일정을 처음 추가한 학생만 할 수 있어.</p>
-            ) : null}
-            <div className="change-submit-row">
-              <button type="button" onClick={() => setSheetOpen(false)}>취소</button>
-              <button className="save-change" type="button" onClick={save} disabled={saving || !draft.title.trim() || !draft.startDate || !draft.endDate || draft.endDate < draft.startDate}>{saving ? '저장 중…' : '저장'}</button>
+            <div className="change-form academic-form">
+              <label className="change-field full">
+                <span>일정 이름</span>
+                <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value.slice(0, 80) }))} placeholder="일정 이름" autoComplete="off" />
+              </label>
+
+              <div className="academic-date-grid">
+                <label className="change-field academic-date-field">
+                  <span>시작일</span>
+                  <span className="academic-date-control">
+                    <span className="academic-date-display" aria-hidden="true">{dateInputLabel(draft.startDate)}</span>
+                    <input
+                      type="date"
+                      value={draft.startDate}
+                      onChange={(event) => setDraft((current) => ({
+                        ...current,
+                        startDate: event.target.value,
+                        endDate: current.endDate < event.target.value ? event.target.value : current.endDate,
+                      }))}
+                    />
+                  </span>
+                </label>
+                <label className="change-field academic-date-field">
+                  <span>종료일</span>
+                  <span className="academic-date-control">
+                    <span className="academic-date-display" aria-hidden="true">{dateInputLabel(draft.endDate)}</span>
+                    <input
+                      type="date"
+                      min={draft.startDate}
+                      value={draft.endDate}
+                      onChange={(event) => setDraft((current) => ({ ...current, endDate: event.target.value }))}
+                    />
+                  </span>
+                </label>
+              </div>
+
+              <label className="change-field full">
+                <span>메모 · 선택</span>
+                <input value={draft.detail} onChange={(event) => setDraft((current) => ({ ...current, detail: event.target.value.slice(0, 500) }))} placeholder="메모" autoComplete="off" />
+              </label>
+
+              {error ? <p className="change-warning academic-save-error">{error}</p> : null}
+
+              {draft.id ? (
+                canDelete
+                  ? <button className="academic-delete-button" type="button" onClick={remove} disabled={saving}>삭제</button>
+                  : <p className="academic-delete-owner-note">삭제는 처음 추가한 학생만 할 수 있어.</p>
+              ) : null}
+
+              <div className="change-submit-row academic-submit-row">
+                <button type="button" onClick={closeSheet} disabled={saving}>취소</button>
+                <button
+                  className="save-change"
+                  type="button"
+                  onClick={save}
+                  disabled={saving || !draft.title.trim() || !draft.startDate || !draft.endDate || draft.endDate < draft.startDate}
+                >
+                  {saving ? '저장 중…' : '저장'}
+                </button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </>
       ) : null}
     </section>
   )
