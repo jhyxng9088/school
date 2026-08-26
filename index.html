@@ -11,21 +11,8 @@
     <meta name="apple-mobile-web-app-title" content="School" />
     <meta name="format-detection" content="telephone=no" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="icon" href="./icon-light.svg?v=2" type="image/svg+xml" media="(prefers-color-scheme: light)" />
-    <link rel="icon" href="./icon-dark.svg?v=2" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
-    <link id="school-touch-icon" rel="apple-touch-icon" href="./icon-light.svg?v=2" />
-    <script>
-      (() => {
-        const scheme = window.matchMedia('(prefers-color-scheme: dark)')
-        const touchIcon = document.getElementById('school-touch-icon')
-        const applyTouchIcon = () => {
-          touchIcon.href = scheme.matches ? './icon-dark.svg?v=2' : './icon-light.svg?v=2'
-        }
-        applyTouchIcon()
-        if (scheme.addEventListener) scheme.addEventListener('change', applyTouchIcon)
-        else if (scheme.addListener) scheme.addListener(applyTouchIcon)
-      })()
-    </script>
+    <link rel="icon" href="./icon.svg?v=4" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon.svg?v=4" />
     <link rel="stylesheet" href="./school-sheet.css" />
     <link rel="stylesheet" href="./reminder-sheet.css" />
     <link rel="stylesheet" href="./school-refinements.css" />
