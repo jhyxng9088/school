@@ -1,0 +1,52 @@
+name: Validate final shared features
+
+on:
+  push:
+    branches: [feature/final-shared-audit-motion]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: ${{ !contains(github.event.head_commit.message, '[final-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feature/final-shared-audit-motion
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Apply guarded integration
+        run: |
+          python3 scripts/integrate-final-features.py
+          python3 scripts/harden-academic-owner.py
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate Firestore rules
+        run: npx --yes firebase-tools@latest emulators:exec --only firestore "echo firestore-rules-ok" --project school-adeda
+
+      - name: Commit verified integration
+        run: |
+          git config user.name "jhyxng9088"
+          git config user.email "j.hyxng9088@gmail.com"
+          git add index.html src/main.jsx src/todo.jsx src/todo-stage5-ai.jsx src/reminder-summary.jsx src/academic-shared.jsx src/academic-shared.css src/class-activity.js src/todo-ai.css src/reminder-summary.css firestore.rules public/sw.js
+          git commit -m "[final-applied] Wire shared editing attribution and reminder motion"
+          git push origin HEAD:feature/final-shared-audit-motion
