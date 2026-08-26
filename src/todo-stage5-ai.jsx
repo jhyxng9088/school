@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { TODO_TYPES } from './todo.jsx'
 import { formatParsedDue, parseReminderText } from './reminder-parser.js'
 import { parseReminderWithAI } from './firebase-ai.js'

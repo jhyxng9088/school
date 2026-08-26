@@ -87,7 +87,7 @@
     document.documentElement.classList.add('school-sheet-open')
     lockBackground()
 
-    const { closeButton, saveButton } = findActionButtons(sheet)
+    const { closeButton } = findActionButtons(sheet)
     const dragSurface = sheet.querySelector('.change-editor-head') || sheet
     const backdrop = createBackdrop()
 

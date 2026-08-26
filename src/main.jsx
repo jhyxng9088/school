@@ -16,11 +16,7 @@ import {
   getScheduleForDate,
   getSchoolState,
   getWeekDates,
-  loadOverrides,
-  loadWeeklySchedule,
   pruneExpiredOverrides,
-  saveOverrides,
-  saveWeeklySchedule,
   timeToMinutes,
 } from './timetable'
 import {
@@ -319,15 +315,6 @@ function CurrentClassPreview({ schoolState, now }) {
   )
 }
 
-function TodoPreview() {
-  return (
-    <section className="home-section">
-      <SectionTitle aside="0개">할 일</SectionTitle>
-      <div className="compact-empty">아직 등록된 할 일이 없어.</div>
-    </section>
-  )
-}
-
 function TimetablePreview({ schedule, now, configured }) {
   if (!schedule.length) {
     return (
@@ -338,7 +325,6 @@ function TimetablePreview({ schedule, now, configured }) {
     )
   }
 
-  const hasOverride = schedule.some((period) => period.isOverride)
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const nextPeriod = schedule.find((period) => timeToMinutes(period.start) > nowMinutes) || null
 
@@ -406,27 +392,6 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
         <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} />
         <Stage3MealPreview now={now} schoolData={schoolData} />
       </div>
-    </>
-  )
-}
-
-function EmptyPanel({ title, description }) {
-  return (
-    <section className="empty-panel">
-      <h2>{title}</h2>
-      <p>{description}</p>
-    </section>
-  )
-}
-
-function StandardPage({ eyebrow = 'School', title, children }) {
-  return (
-    <>
-      <header className="page-header">
-        <p className="date-label">{eyebrow}</p>
-        <h1>{title}</h1>
-      </header>
-      {children}
     </>
   )
 }
