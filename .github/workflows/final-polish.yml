@@ -1,0 +1,45 @@
+name: Final School polish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/final-polish.mjs'
+      - '.github/workflows/final-polish.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply guarded polish
+        run: node scripts/final-polish.mjs
+      - name: Install dependencies
+        run: npm install --package-lock=false --no-audit --no-fund
+      - name: Production build
+        run: npm run build
+      - name: Verify School identity and icon assets
+        run: |
+          grep -q '"name": "School"' public/manifest.webmanifest
+          grep -q 'icon-light.svg' index.html
+          grep -q 'icon-dark.svg' index.html
+          grep -q 'animateTimetableExit' src/main.jsx
+      - name: Remove temporary validation files
+        run: |
+          rm -f scripts/final-polish.mjs
+          rm -f .github/workflows/final-polish.yml
+      - name: Commit validated changes
+        run: |
+          git config user.name 'school-pwa-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Polish timetable removal and install icon' || exit 0
+          git push
