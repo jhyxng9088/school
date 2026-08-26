@@ -24,14 +24,14 @@ import {
   timeToMinutes,
 } from './timetable'
 import {
-  AcademicPage,
-  AcademicPreview,
   MealPage as Stage3MealPage,
   MealPreview as Stage3MealPreview,
   useSchoolData,
 } from './stage3'
 import { TodoHomePreview, TodoPage, useTodos } from './todo'
 import { readStudentProfile, saveStudentProfile, useClassPresence, useSharedTimetable } from './school-sync'
+import { SharedAcademicPage, SharedAcademicPreview } from './academic-shared'
+import { activityKey, activityLabel, recordClassActivity, useClassActivity, useSharedAcademic } from './class-activity'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -405,7 +405,7 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
           now={now}
           configured={schoolState.configured}
         />
-        <AcademicPreview now={now} schoolData={schoolData} />
+        <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} />
         <Stage3MealPreview now={now} schoolData={schoolData} />
       </div>
     </>
@@ -446,7 +446,7 @@ function formatWeekRange(weekDates) {
   return `${first.getMonth() + 1}월 ${first.getDate()}일–${last.getMonth() + 1}월 ${last.getDate()}일`
 }
 
-function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOverrides }) {
+function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOverrides, activity, profile }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(() => cloneWeeklySchedule(weeklySchedule))
   const [changeOpen, setChangeOpen] = useState(false)
@@ -486,6 +486,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
         date,
         dayLabel: WEEKDAYS[dayIndex].label,
         ...period,
+        activity: activity?.[activityKey('timetable', `${dateKey(date)}-${period.number}`)] || null,
       })),
   ).sort((a, b) => dateKey(a.date).localeCompare(dateKey(b.date)) || a.number - b.number)
 
@@ -507,6 +508,8 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
 
   function saveBaseSchedule() {
     onSaveWeekly(draft)
+    recordClassActivity(profile, 'timetable', 'weekly', 'edited')
+      .catch((error) => console.error('Timetable attribution save failed:', error))
     setEditing(false)
   }
 
@@ -514,6 +517,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     if (!selectedDay || !selectedPeriodIsAvailable) return
     const subject = changeSubject.trim()
     if (!subject) return
+    const activityAction = overrides?.[changeDate]?.[changePeriod] ? 'edited' : 'added'
 
     const next = { ...overrides }
     const dateOverrides = { ...(next[changeDate] || {}) }
@@ -528,6 +532,8 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     else delete next[changeDate]
 
     onSaveOverrides(next)
+    recordClassActivity(profile, 'timetable', `${changeDate}-${changePeriod}`, activityAction)
+      .catch((error) => console.error('Timetable change attribution save failed:', error))
     setChangeSubject('')
     setChangeOpen(false)
   }
@@ -567,6 +573,9 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
         <div className="week-legend">
           {!editing ? <span className="legend-item"><i className="legend-dot" />변경</span> : null}
           {!editing ? <span className="legend-item"><i className="legend-ring" />현재</span> : null}
+          {!editing && activity?.[activityKey('timetable', 'weekly')] ? (
+            <span className="activity-attribution timetable-attribution">{activityLabel(activity[activityKey('timetable', 'weekly')])}</span>
+          ) : null}
           {editing ? <span>7교시는 수·금만</span> : null}
         </div>
       </div>
@@ -722,6 +731,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                 <div className="change-item-main">
                   <strong>{change.date.getMonth() + 1}/{change.date.getDate()} {change.dayLabel} · {change.number}교시</strong>
                   <span>{change.baseSubject.trim() || '미설정'} → {change.subject.trim() || '수업 없음'}</span>
+                  {change.activity ? <small className="activity-attribution">{activityLabel(change.activity)}</small> : null}
                 </div>
                 <button className="remove-change" onClick={() => removeChange(change.date, change.number)}>되돌리기</button>
               </div>
@@ -862,6 +872,8 @@ function AppShell({ profile }) {
   const schoolData = useSchoolData(now)
   const todoData = useTodos(profile)
   const presence = useClassPresence(profile)
+  const academicData = useSharedAcademic(profile)
+  const activity = useClassActivity(profile)
   const name = profile.name
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
@@ -892,10 +904,12 @@ function AppShell({ profile }) {
         overrides={overrides}
         onSaveWeekly={commitWeeklySchedule}
         onSaveOverrides={commitOverrides}
+        activity={activity}
+        profile={profile}
       />
     ),
     meal: <Stage3MealPage schoolData={schoolData} />,
-    academic: <AcademicPage now={now} schoolData={schoolData} />,
+    academic: <SharedAcademicPage now={now} schoolData={schoolData} academicData={academicData} />,
   }
 
   function changeTab(nextTab) {

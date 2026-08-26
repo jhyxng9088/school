@@ -632,3 +632,15 @@
     animation-duration: 0.01ms;
   }
 }
+
+.timetable-attribution {
+  margin: 0;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.change-item-main .activity-attribution {
+  margin-top: 4px;
+  font-size: 9px;
+  opacity: 0.7;
+}

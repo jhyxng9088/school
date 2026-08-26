@@ -9,6 +9,7 @@ import {
   writeSharedTodo,
   writeStudentTodoState,
 } from './school-sync'
+import { recordClassActivity } from './class-activity'
 
 const TODO_STORAGE_KEY = 'school.todos.v1'
 
@@ -236,6 +237,8 @@ export function useTodos(profile) {
       setSharedTodos((current) => current.map((todo) => todo.id === input.id ? nextTodo : todo))
       writeSharedTodo(profile, nextTodo)
         .catch((error) => console.error('Shared reminder update failed:', error))
+      recordClassActivity(profile, 'reminder', input.id, 'edited')
+        .catch((error) => console.error('Reminder attribution update failed:', error))
       return input.id
     }
 
@@ -254,6 +257,8 @@ export function useTodos(profile) {
     setSharedTodos((current) => [...current, todo])
     writeSharedTodo(profile, todo)
       .catch((error) => console.error('Shared reminder create failed:', error))
+    recordClassActivity(profile, 'reminder', todo.id, 'added')
+      .catch((error) => console.error('Reminder attribution create failed:', error))
     return todo.id
   }
 

@@ -3,6 +3,7 @@ import { TODO_TYPES } from './todo.jsx'
 import { formatParsedDue, parseReminderText } from './reminder-parser.js'
 import { parseReminderWithAI } from './firebase-ai.js'
 import { AttachmentPicker, SummarySheet } from './reminder-summary.jsx'
+import { activityKey, activityLabel, useClassActivity } from './class-activity'
 import './todo-stage5.css'
 import './todo-ai.css'
 
@@ -91,7 +92,7 @@ function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
   )
 }
 
-function ReminderRow({ todo, now, completed = false, deleting = false, onToggle, onEdit, onDelete, onOpenSummary }) {
+function ReminderRow({ todo, now, completed = false, deleting = false, onToggle, onEdit, onDelete, onOpenSummary, attribution }) {
   const dateLabel = dueDateLabel(todo)
   const meta = completed ? '' : dueMetaLabel(todo, now)
   const content = (
@@ -99,6 +100,7 @@ function ReminderRow({ todo, now, completed = false, deleting = false, onToggle,
       <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
       <AnimatedText as="strong" value={todo.title} delay={45} />
       {meta ? <AnimatedText as="small" value={meta} delay={90} /> : null}
+      {attribution ? <span className="activity-attribution reminder-attribution">{activityLabel(attribution)}</span> : null}
     </>
   )
 
@@ -177,6 +179,7 @@ export function TodoPage({ now, todoData }) {
   const [originalSaving, setOriginalSaving] = useState(false)
   const [originalSaveError, setOriginalSaveError] = useState('')
   const [summaryTodo, setSummaryTodo] = useState(null)
+  const activity = useClassActivity()
   const pageRef = useRef(null)
   const previousRectsRef = useRef(new Map())
   const motionReadyRef = useRef(false)
@@ -491,6 +494,7 @@ export function TodoPage({ now, todoData }) {
                 onEdit={openEdit}
                 onDelete={animatePermanentDelete}
                 onOpenSummary={setSummaryTodo}
+                attribution={activity[activityKey('reminder', todo.id)] || null}
                 key={todo.id}
               />
             ))}
@@ -521,6 +525,7 @@ export function TodoPage({ now, todoData }) {
                   onEdit={openEdit}
                   onDelete={animatePermanentDelete}
                   onOpenSummary={setSummaryTodo}
+                  attribution={activity[activityKey('reminder', todo.id)] || null}
                   key={todo.id}
                 />
               ))}
@@ -582,7 +587,7 @@ export function TodoPage({ now, todoData }) {
                     <span>{formatParsedDue(naturalResult, now)}</span>
                   </div>
                   {aiBusy ? (
-                    <small className="reminder-ai-status is-working">{attachmentFile ? '텍스트는 이해했고, 첨부 내용을 읽는 중…' : 'AI가 오타와 문맥을 확인하는 중…'}</small>
+                    <small className="reminder-ai-status is-working">{attachmentFile ? '텍스트는 이해했고, 첨부 내용을 읽는 중' : 'AI가 오타와 문맥을 확인하는 중'}</small>
                   ) : aiState === 'ready' ? (
                     <small className="reminder-ai-status is-ready">{attachmentFile ? '첨부 내용 분석과 요약 완료' : aiAdjusted ? 'AI가 오타·축약을 보정했어.' : 'AI 확인 완료'}</small>
                   ) : aiState === 'error' ? (

@@ -107,12 +107,116 @@ service cloud.firestore {
         && request.resource.data.data.size() <= 600000;
     }
 
+    function validUserIdentity() {
+      return request.resource.data.keys().hasOnly(['classId', 'studentKey', 'name', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['classId', 'studentKey', 'name', 'createdAt', 'updatedAt'])
+        && request.resource.data.classId is string
+        && request.resource.data.classId.size() >= 7
+        && request.resource.data.classId.size() <= 20
+        && request.resource.data.studentKey is string
+        && request.resource.data.studentKey.size() >= 16
+        && request.resource.data.studentKey.size() <= 80
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 20
+        && request.resource.data.createdAt is int
+        && request.resource.data.updatedAt is int;
+    }
+
+    function belongsToClass(classId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classId == classId;
+    }
+
+    function validActivity() {
+      return request.resource.data.keys().hasOnly(['entityType', 'entityId', 'actorName', 'actorStudentKey', 'action', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['entityType', 'entityId', 'actorName', 'actorStudentKey', 'action', 'updatedAt'])
+        && request.resource.data.entityType in ['reminder', 'timetable', 'academic']
+        && request.resource.data.entityId is string
+        && request.resource.data.entityId.size() > 0
+        && request.resource.data.entityId.size() <= 120
+        && request.resource.data.actorName is string
+        && request.resource.data.actorName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
+        && request.resource.data.actorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey
+        && request.resource.data.action in ['added', 'edited']
+        && request.resource.data.updatedAt is int;
+    }
+
+    function validAcademicEvent(eventId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'title', 'startDate', 'endDate', 'detail', 'createdAt', 'updatedAt',
+          'creatorStudentKey', 'creatorName', 'lastEditedByStudentKey', 'lastEditedByName', 'lastAction'
+        ])
+        && request.resource.data.keys().hasAll([
+          'id', 'title', 'startDate', 'endDate', 'detail', 'createdAt', 'updatedAt',
+          'creatorStudentKey', 'creatorName', 'lastEditedByStudentKey', 'lastEditedByName', 'lastAction'
+        ])
+        && request.resource.data.id == eventId
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.startDate is string
+        && request.resource.data.startDate.size() == 10
+        && request.resource.data.endDate is string
+        && request.resource.data.endDate.size() == 10
+        && request.resource.data.detail is string
+        && request.resource.data.detail.size() <= 500
+        && request.resource.data.createdAt is int
+        && request.resource.data.updatedAt is int
+        && request.resource.data.creatorStudentKey is string
+        && request.resource.data.creatorName is string
+        && request.resource.data.lastEditedByStudentKey is string
+        && request.resource.data.lastEditedByName is string
+        && request.resource.data.lastAction in ['added', 'edited'];
+    }
+
     function validPersonalTodoState() {
       return request.resource.data.keys().hasOnly(['completed', 'hidden', 'updatedAt'])
         && request.resource.data.keys().hasAll(['completed', 'hidden', 'updatedAt'])
         && request.resource.data.completed is bool
         && request.resource.data.hidden is bool
         && request.resource.data.updatedAt is int;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid && validUserIdentity();
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && validUserIdentity()
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.studentKey == resource.data.studentKey
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
+    }
+
+    match /classes/{classId}/activity/{activityId} {
+      allow read: if belongsToClass(classId);
+      allow create, update: if belongsToClass(classId) && validActivity();
+      allow delete: if false;
+    }
+
+    match /classes/{classId}/academicEvents/{eventId} {
+      allow read: if belongsToClass(classId);
+      allow create: if belongsToClass(classId)
+        && validAcademicEvent(eventId)
+        && request.resource.data.creatorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey
+        && request.resource.data.creatorName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
+        && request.resource.data.lastEditedByStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey
+        && request.resource.data.lastEditedByName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
+        && request.resource.data.lastAction == 'added';
+      allow update: if belongsToClass(classId)
+        && validAcademicEvent(eventId)
+        && request.resource.data.creatorStudentKey == resource.data.creatorStudentKey
+        && request.resource.data.creatorName == resource.data.creatorName
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.lastEditedByStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey
+        && request.resource.data.lastEditedByName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
+        && request.resource.data.lastAction == 'edited';
+      allow delete: if belongsToClass(classId)
+        && resource.data.creatorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
     }
 
     match /classes/{classId}/todos/{todoId} {

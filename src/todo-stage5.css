@@ -363,3 +363,11 @@ html body .app-content:has(> .todo-page) {
     transition: none !important;
   }
 }
+
+.todo-stage5 .reminder-attribution {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  margin-top: 1px;
+  font-size: 9px;
+  opacity: 0.7;
+}

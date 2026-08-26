@@ -459,3 +459,67 @@
     animation: none;
   }
 }
+
+.reminder-attachment-status.is-working > span::after,
+.reminder-ai-status.is-working::after {
+  content: '...';
+  display: inline-block;
+  width: 1.25em;
+  margin-left: 2px;
+  overflow: hidden;
+  vertical-align: bottom;
+  white-space: nowrap;
+  animation: reminder-quiet-dots 1.25s steps(4, end) infinite;
+}
+
+@keyframes reminder-quiet-dots {
+  0% { width: 0; opacity: 0.38; }
+  75%, 100% { width: 1.25em; opacity: 0.82; }
+}
+
+.reminder-original-backdrop {
+  animation: reminder-original-backdrop-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.reminder-original-image-wrap img {
+  animation: reminder-original-image-in 440ms cubic-bezier(0.16, 1, 0.3, 1) 55ms both;
+}
+
+.reminder-original-viewer.is-closing .reminder-original-backdrop {
+  animation: reminder-original-backdrop-out 280ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.reminder-original-viewer.is-closing .reminder-original-panel {
+  animation: reminder-original-out 280ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes reminder-original-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes reminder-original-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes reminder-original-image-in {
+  from { opacity: 0; transform: scale(0.992) translate3d(0, 5px, 0); }
+  to { opacity: 1; transform: scale(1) translate3d(0, 0, 0); }
+}
+
+@keyframes reminder-original-out {
+  from { opacity: 1; transform: scale(1) translate3d(0, 0, 0); }
+  to { opacity: 0; transform: scale(0.992) translate3d(0, 7px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reminder-attachment-status.is-working > span::after,
+  .reminder-ai-status.is-working::after,
+  .reminder-original-backdrop,
+  .reminder-original-image-wrap img,
+  .reminder-original-viewer.is-closing .reminder-original-backdrop,
+  .reminder-original-viewer.is-closing .reminder-original-panel {
+    animation: none !important;
+  }
+}
