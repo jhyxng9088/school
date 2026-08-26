@@ -653,7 +653,7 @@ button {
 
 html.school-mobile-compat .nav-indicator {
   left: var(--nav-padding);
-  width: calc((100% - (var(--nav-padding) * 2)) / 5);
+  width: calc((100% - var(--nav-padding) - var(--nav-padding)) / 5);
   transform: translate3d(var(--indicator-x, 0%), 0, 0) !important;
   border-radius: 19px !important;
   transition: transform 440ms cubic-bezier(0.16, 1, 0.3, 1) !important;
