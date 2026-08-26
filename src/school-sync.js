@@ -282,18 +282,24 @@ export async function writeReminderOriginal(profile, todoId, file) {
   }
   if (!chunks.length || chunks.length > 24) throw new Error('원본 파일을 저장 가능한 크기로 나눌 수 없어.')
 
-  const batch = writeBatch(db)
-  batch.set(originalAttachmentRef(profile, safeId), {
+  // Keep each Firestore commit comfortably below the 10 MiB request limit.
+  // Metadata is written last so readers never see a partially uploaded original.
+  const chunksPerBatch = 8
+  for (let start = 0; start < chunks.length; start += chunksPerBatch) {
+    const batch = writeBatch(db)
+    chunks.slice(start, start + chunksPerBatch).forEach((data, offset) => {
+      batch.set(originalAttachmentChunkRef(profile, safeId, start + offset), { data })
+    })
+    await batch.commit()
+  }
+
+  await setDoc(originalAttachmentRef(profile, safeId), {
     name: String(file.name || '원본 파일').slice(0, 120),
     mimeType,
     size,
     chunkCount: chunks.length,
     createdAt: Date.now(),
   })
-  chunks.forEach((data, index) => {
-    batch.set(originalAttachmentChunkRef(profile, safeId, index), { data })
-  })
-  await batch.commit()
 }
 
 export async function getReminderOriginal(profile, todoId) {
