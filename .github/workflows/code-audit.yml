@@ -1,0 +1,76 @@
+name: Full code audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/code-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install project dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build and report bundle sizes
+        run: |
+          npm run build
+          echo '===== DIST SIZES ====='
+          find dist -type f -printf '%s %p\n' | sort -nr | head -30
+      - name: Unused symbol audit
+        run: |
+          cat >/tmp/eslint.config.mjs <<'EOF'
+          export default [{
+            files: ['src/**/*.{js,jsx}', 'public/*.js'],
+            languageOptions: {
+              ecmaVersion: 'latest',
+              sourceType: 'module',
+              parserOptions: { ecmaFeatures: { jsx: true } },
+              globals: {
+                window: 'readonly', document: 'readonly', navigator: 'readonly', localStorage: 'readonly',
+                sessionStorage: 'readonly', MutationObserver: 'readonly', URL: 'readonly', Blob: 'readonly',
+                File: 'readonly', FileReader: 'readonly', Image: 'readonly', fetch: 'readonly',
+                requestAnimationFrame: 'readonly', cancelAnimationFrame: 'readonly', performance: 'readonly',
+                setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
+                console: 'readonly', self: 'readonly', caches: 'readonly'
+              }
+            },
+            rules: {
+              'no-unused-vars': ['warn', { args: 'after-used', argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
+            }
+          }]
+          EOF
+          npx --yes eslint@9 --config /tmp/eslint.config.mjs src public/*.js || true
+      - name: Runtime cost markers and tone audit
+        run: |
+          node <<'NODE'
+          const fs = require('fs'), path = require('path')
+          const files=[]
+          for (const root of ['src','public']) {
+            for (const name of fs.readdirSync(root)) {
+              const p=path.join(root,name)
+              if (fs.statSync(p).isFile() && /\.(js|jsx)$/.test(p)) files.push(p)
+            }
+          }
+          const markers=['MutationObserver','onSnapshot(','setInterval(','setTimeout(','querySelectorAll(','addEventListener(','requestAnimationFrame(']
+          console.log('===== RUNTIME COST MARKERS =====')
+          for (const f of files) {
+            const text=fs.readFileSync(f,'utf8')
+            const counts=markers.map(m=>[m,text.split(m).length-1]).filter(([,n])=>n)
+            if (counts.length) console.log(f, counts.map(([m,n])=>`${m}:${n}`).join(' | '))
+          }
+          console.log('===== FORMAL TONE HITS =====')
+          const formal=/(하세요|해주세요|하십시오|합니다|됩니다|입니다|습니다|세요\b)/
+          for (const f of files) {
+            fs.readFileSync(f,'utf8').split(/\r?\n/).forEach((line,i)=>{
+              if (formal.test(line) && /[가-힣]/.test(line)) console.log(`${f}:${i+1}:${line.trim()}`)
+            })
+          }
+          NODE
