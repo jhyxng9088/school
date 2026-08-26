@@ -463,7 +463,6 @@ export function TodoPage({ now, todoData }) {
 
       <section className="todo-summary">
         <AnimatedText as="strong" value={summaryText} />
-        <span>가까운 마감부터 정렬돼.</span>
       </section>
 
       <section className="todo-list-section reminder-upcoming-section">
@@ -587,9 +586,9 @@ export function TodoPage({ now, todoData }) {
                     <span>{formatParsedDue(naturalResult, now)}</span>
                   </div>
                   {aiBusy ? (
-                    <small className="reminder-ai-status is-working">{attachmentFile ? '텍스트는 이해했고, 첨부 내용을 읽는 중' : 'AI가 오타와 문맥을 확인하는 중'}</small>
+                    <small className="reminder-ai-status is-working">{attachmentFile ? '분석 중' : '확인 중'}</small>
                   ) : aiState === 'ready' ? (
-                    <small className="reminder-ai-status is-ready">{attachmentFile ? '첨부 내용 분석과 요약 완료' : aiAdjusted ? 'AI가 오타·축약을 보정했어.' : 'AI 확인 완료'}</small>
+                    <small className="reminder-ai-status is-ready">{attachmentFile ? '분석 완료' : aiAdjusted ? '오타·축약을 보정했어.' : '확인 완료'}</small>
                   ) : aiState === 'error' ? (
                     <small className="reminder-ai-status">{attachmentFile ? '텍스트는 유지했어. 첨부만 다시 분석해줘.' : 'AI 연결이 안 돼서 기기 분석 결과를 사용해.'}</small>
                   ) : naturalResult.assumedDate ? (

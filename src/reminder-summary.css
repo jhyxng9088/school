@@ -92,8 +92,7 @@
   color: #d84d49;
 }
 
-.reminder-attachment-status,
-.reminder-attachment-help {
+.reminder-attachment-status {
   margin: 0 2px;
   color: var(--text-tertiary);
   font-size: 11px;

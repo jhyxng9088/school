@@ -75,24 +75,14 @@ export function AttachmentPicker({ file, busy = false, ready = false, error = ''
         </button>
       )}
 
-      {file ? (
-        <div className={`reminder-attachment-status ${error ? 'is-error' : ready ? 'is-ready' : busy ? 'is-working' : ''}`} aria-live="polite">
-          <span>
-            {error
-              ? error
-              : ready
-                ? '첨부 내용을 읽고 요약까지 정리했어.'
-                : busy
-                  ? '첨부 내용을 읽고 정리하는 중'
-                  : '첨부를 분석할 준비가 됐어.'}
-          </span>
+      {file && (error || ready || busy) ? (
+        <div className={`reminder-attachment-status ${error ? 'is-error' : ready ? 'is-ready' : 'is-working'}`} aria-live="polite">
+          <span>{error ? error : ready ? '분석 완료' : '분석 중'}</span>
           {error ? (
             <button className="reminder-attachment-retry" type="button" onClick={onRetry}>다시 분석</button>
           ) : null}
         </div>
-      ) : (
-        <p className="reminder-attachment-help">사진은 자동으로 용량을 줄여 분석하고, PDF·텍스트 파일은 2.5MB 이하를 지원해.</p>
-      )}
+      ) : null}
     </section>
   )
 }
@@ -113,9 +103,17 @@ function OriginalImageViewer({ original, onClose }) {
   const [closing, setClosing] = useState(false)
   const closeTimerRef = useRef(null)
 
-  useEffect(() => () => {
-    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
-  }, [])
+  useEffect(() => {
+    setSaving(false)
+    setClosing(false)
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    return () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+    }
+  }, [original?.url])
 
   function requestClose() {
     if (closing) return
@@ -405,7 +403,11 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
   }
 
   function closeViewer() {
+    const url = objectUrlRef.current
     setViewer(null)
+    setOriginalState('idle')
+    if (url) URL.revokeObjectURL(url)
+    if (objectUrlRef.current === url) objectUrlRef.current = ''
   }
 
   return (
@@ -463,7 +465,7 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
         </div>
       </section>
 
-      <OriginalImageViewer original={viewer} onClose={closeViewer} />
+      {viewer ? <OriginalImageViewer key={viewer.url} original={viewer} onClose={closeViewer} /> : null}
     </div>
   )
 }

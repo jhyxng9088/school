@@ -88,17 +88,17 @@ function InstallGuide({ onDone }) {
     ? {
         title: 'Safari에서 홈 화면에 추가해줘',
         steps: [
-          'Safari의 더 보기(…)에서 ‘공유’를 눌러. 공유 버튼이 바로 보이면 그걸 눌러도 돼.',
-          '목록에서 ‘홈 화면에 추가’를 선택해.',
-          '‘웹 앱으로 열기’를 켠 뒤 ‘추가’를 눌러.',
+          '더 보기(…)에서 ‘공유’를 눌러.',
+          '‘홈 화면에 추가’를 선택해.',
+          '‘웹 앱으로 열기’를 켜고 ‘추가’를 눌러.',
         ],
       }
     : browser === 'samsung'
       ? {
           title: 'Samsung Internet에서 설치해줘',
           steps: [
-            '주소창에 + 또는 설치 아이콘이 보이면 눌러.',
-            '아이콘이 없다면 브라우저 메뉴에서 ‘홈 화면에 추가’를 선택해.',
+            '주소창의 + 또는 설치 아이콘을 눌러.',
+            '없으면 메뉴에서 ‘홈 화면에 추가’를 선택해.',
             '추가가 끝나면 아래 버튼을 눌러.',
           ],
         }
@@ -117,7 +117,6 @@ function InstallGuide({ onDone }) {
         <div className="app-mark" aria-hidden="true">S</div>
         <p className="eyebrow">School</p>
         <h1>{guide.title}</h1>
-        <p className="onboarding-copy">홈 화면에 추가해서 일반 앱처럼 쓰는 걸 기준으로 만들었어.</p>
         <ol className="install-steps">
           {guide.steps.map((step, index) => (
             <li key={step}>
@@ -158,7 +157,7 @@ function StudentSetup({ initialName = '', onSave }) {
       <form className="onboarding-card name-card" onSubmit={submit}>
         <p className="eyebrow">마지막 설정</p>
         <h1>반, 번호, 이름 알려줘</h1>
-        <p className="onboarding-copy">같은 반의 시간표와 리마인더는 함께 쓰고, 완료와 삭제 상태는 같은 반·번호·이름을 입력한 기기끼리만 이어져.</p>
+        <p className="onboarding-copy">같은 반끼리 시간표·리마인더·학사일정을 공유해. 완료와 삭제는 같은 학생의 기기끼리만 이어져.</p>
         <label className="name-field">
           <span>반</span>
           <input
@@ -366,7 +365,6 @@ function TimetablePreview({ schedule, now, configured }) {
         })}
       </div>
       {!configured ? <p className="section-note">시간표 탭에서 기본 시간표를 입력해줘.</p> : null}
-      {configured && hasOverride ? <p className="section-note">변경된 수업은 작은 점으로 표시돼.</p> : null}
     </section>
   )
 }
