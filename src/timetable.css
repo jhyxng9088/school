@@ -202,6 +202,20 @@
   font-weight: 550;
 }
 
+.week-cell-attribution {
+  width: 100%;
+  margin-top: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: clamp(6.5px, 1.7vw, 8px);
+  font-weight: 560;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  opacity: 0.7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .week-cell.not-applicable {
   background: color-mix(in srgb, var(--surface-soft) 28%, transparent);
   color: transparent;

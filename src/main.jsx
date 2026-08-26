@@ -507,9 +507,18 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
   }
 
   function saveBaseSchedule() {
+    const changedCells = WEEKDAYS.flatMap((day) =>
+      getPeriodsForDay(day.id)
+        .filter((period) => String(weeklySchedule?.[day.id]?.[period.number] || '').trim() !== String(draft?.[day.id]?.[period.number] || '').trim())
+        .map((period) => ({ dayId: day.id, period: period.number })),
+    )
     onSaveWeekly(draft)
     recordClassActivity(profile, 'timetable', 'weekly', 'edited')
       .catch((error) => console.error('Timetable attribution save failed:', error))
+    changedCells.forEach(({ dayId, period }) => {
+      recordClassActivity(profile, 'timetable', 'base-' + dayId + '-' + period, 'edited')
+        .catch((error) => console.error('Timetable cell attribution save failed:', error))
+    })
     setEditing(false)
   }
 
@@ -623,6 +632,9 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                 const date = weekDates[dayIndex]
                 const daySchedule = getScheduleForDate(date, weeklySchedule, overrides)
                 const item = daySchedule.find((entry) => entry.number === period.number)
+                const cellActivity = item?.isOverride
+                  ? activity?.[activityKey('timetable', dateKey(date) + '-' + period.number)] || null
+                  : activity?.[activityKey('timetable', 'base-' + day.id + '-' + period.number)] || null
                 const isToday = dateKey(date) === todayKey
                 const visualState = isToday ? getPeriodVisualState(now, period) : null
                 const isCurrent = visualState === 'current'
@@ -641,6 +653,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                   <div className={classes} key={`${day.id}-${period.number}`}>
                     {item?.isOverride ? <span className="change-dot" aria-label="변경 시간표" /> : null}
                     <span className="subject">{item?.subject?.trim() || '—'}</span>
+                    {cellActivity ? <small className="activity-attribution week-cell-attribution">{activityLabel(cellActivity)}</small> : null}
                   </div>
                 )
               })}

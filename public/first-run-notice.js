@@ -28,7 +28,7 @@
       <section class="first-run-notice-card" role="dialog" aria-modal="true" aria-labelledby="first-run-notice-title">
         <p class="first-run-notice-eyebrow">School</p>
         <h2 id="first-run-notice-title">마지막으로 하나만</h2>
-        <p>수정사항이나 문의사항이 있으면 <a href="${INSTAGRAM_URL}" target="_blank" rel="noopener noreferrer">@j.hyxng</a>에게 연락해줘.</p>
+        <p>수정사항이나 문의사항이 있으면 <a href="${INSTAGRAM_URL}">@j.hyxng</a>에게 연락해줘.</p>
         <button type="button">확인</button>
       </section>
     `
