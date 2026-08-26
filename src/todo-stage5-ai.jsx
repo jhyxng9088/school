@@ -555,7 +555,7 @@ export function TodoPage({ now, todoData }) {
                 <textarea
                   value={naturalText}
                   onChange={(event) => setNaturalText(event.target.value.slice(0, 140))}
-                  placeholder="예: 담주 화욜까지 영어 수헹 PPT"
+                  placeholder="예: 다음 주 화요일까지 영어 수행 PPT"
                   rows={2}
                   autoComplete="off"
                   spellCheck="false"
@@ -595,13 +595,7 @@ export function TodoPage({ now, todoData }) {
                     <small>날짜를 안 써서 오늘로 잡았어. 다르면 직접 입력에서 바꿀 수 있어.</small>
                   ) : null}
                 </section>
-              ) : attachmentFile ? null : (
-                <div className="reminder-natural-hint">
-                  <span>“내일 체육복 챙기기”</span>
-                  <span>“9월 2일 모의고사”</span>
-                  <span>“담주 화욜 영어 수헹 PPT”</span>
-                </div>
-              )}
+              ) : null}
 
               <button className="reminder-manual-switch" type="button" onClick={switchToManual}>
                 직접 입력
@@ -627,7 +621,7 @@ export function TodoPage({ now, todoData }) {
                 <input
                   value={draft.title}
                   onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value.slice(0, 80) }))}
-                  placeholder="예: 영어 수행평가 PPT"
+                  placeholder="제목 입력"
                   autoComplete="off"
                 />
               </label>
