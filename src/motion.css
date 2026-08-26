@@ -184,3 +184,17 @@
     transition-duration: 0.01ms;
   }
 }
+
+
+/* iPhone/Android browser compatibility: preserve the motion language while letting the browser compositor own the timing. */
+html.school-mobile-compat .app-content {
+  animation-duration: 760ms;
+}
+
+html.school-mobile-compat .home-stack > * {
+  animation-duration: 820ms;
+}
+
+html.school-mobile-compat .nav-button {
+  transition: color 460ms cubic-bezier(0.16, 1, 0.3, 1), transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}

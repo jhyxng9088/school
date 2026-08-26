@@ -178,3 +178,31 @@ body .stage3-detail-body-motion > .stage3-status { animation-delay: 55ms; }
     animation-delay: 0ms !important;
   }
 }
+
+
+/* Mobile WebKit / Samsung Internet timing compatibility. iPad keeps the original slower staging. */
+html.school-mobile-compat .app-content > .page-header,
+html.school-mobile-compat .app-content > .empty-panel,
+html.school-mobile-compat .todo-page.is-page-entering > .todo-header,
+html.school-mobile-compat .todo-page.is-page-entering > .todo-summary,
+html.school-mobile-compat .todo-page.is-page-entering > .todo-list-section,
+html.school-mobile-compat .timetable-page > .timetable-header,
+html.school-mobile-compat .timetable-page > .week-summary,
+html.school-mobile-compat .timetable-page > .week-table-wrap,
+html.school-mobile-compat .timetable-page > .editor-actions,
+html.school-mobile-compat .timetable-page > .week-changes,
+html.school-mobile-compat .stage3-page > .stage3-page-header,
+html.school-mobile-compat .meal-page > .stage3-week-nav,
+html.school-mobile-compat .meal-page > .stage3-day-strip,
+html.school-mobile-compat .meal-page > .stage3-detail,
+html.school-mobile-compat .academic-page > .academic-focus-card,
+html.school-mobile-compat .academic-page > .academic-list-head {
+  animation-duration: 760ms;
+}
+
+html.school-mobile-compat .timetable-actions > button,
+html.school-mobile-compat .stage3-day-strip > .stage3-day-button,
+html.school-mobile-compat .academic-list > .academic-list-item,
+html.school-mobile-compat .change-list > .change-item {
+  animation-duration: 700ms;
+}

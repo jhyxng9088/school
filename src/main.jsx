@@ -31,6 +31,8 @@ import { activityKey, activityLabel, recordClassActivities, useClassActivity, us
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
+const MOBILE_BROWSER_COMPAT = /iPhone|iPod|Android|SamsungBrowser/i.test(navigator.userAgent)
+if (MOBILE_BROWSER_COMPAT) document.documentElement.classList.add('school-mobile-compat')
 
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
@@ -765,6 +767,8 @@ function useNavSpring(activeIndex) {
 
     const physics = physicsRef.current
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const compatibilityMotion = MOBILE_BROWSER_COMPAT
+    const compatibilityTransition = 'transform 420ms cubic-bezier(0.16, 1, 0.3, 1), width 420ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 420ms cubic-bezier(0.16, 1, 0.3, 1)'
 
     function paint() {
       const speed = Math.abs(physics.velocity)
@@ -833,9 +837,21 @@ function useNavSpring(activeIndex) {
     }
 
     stopAnimation()
+    const wasInitialized = physics.initialized
     measure(!physics.initialized)
 
-    if (!reduceMotion && Math.abs(physics.x - physics.targetX) > 0.01) {
+    if (compatibilityMotion) {
+      indicator.style.transition = reduceMotion || !wasInitialized ? 'none' : compatibilityTransition
+      physics.x = physics.targetX
+      physics.velocity = 0
+      physics.lastTime = 0
+      paint()
+      if (!reduceMotion && !wasInitialized) {
+        requestAnimationFrame(() => {
+          if (indicator.isConnected) indicator.style.transition = compatibilityTransition
+        })
+      }
+    } else if (!reduceMotion && Math.abs(physics.x - physics.targetX) > 0.01) {
       physics.lastTime = 0
       physics.frame = requestAnimationFrame(animate)
     }
@@ -843,16 +859,24 @@ function useNavSpring(activeIndex) {
     const handleViewportChange = () => {
       stopAnimation()
       physics.lastTime = 0
+      if (compatibilityMotion) indicator.style.transition = 'none'
       measure(true)
+      if (compatibilityMotion && !reduceMotion) {
+        requestAnimationFrame(() => {
+          if (indicator.isConnected) indicator.style.transition = compatibilityTransition
+        })
+      }
     }
 
     window.addEventListener('resize', handleViewportChange)
     window.addEventListener('orientationchange', handleViewportChange)
+    window.visualViewport?.addEventListener('resize', handleViewportChange)
 
     return () => {
       stopAnimation()
       window.removeEventListener('resize', handleViewportChange)
       window.removeEventListener('orientationchange', handleViewportChange)
+      window.visualViewport?.removeEventListener('resize', handleViewportChange)
     }
   }, [activeIndex])
 

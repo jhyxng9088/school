@@ -10,8 +10,6 @@ import {
 } from './school-sync'
 import { recordClassActivity } from './class-activity'
 
-const TODO_STORAGE_KEY = 'school.todos.v1'
-
 const SUMMARY_MAX_SECTIONS = 14
 const SUMMARY_MAX_ITEMS = 16
 const ATTACHMENT_MAX_BYTES = 2_500_000
@@ -76,43 +74,6 @@ function parseDue(todo) {
   return new Date(`${todo.dueDate}T${time}:00`)
 }
 
-function safeTodos(value) {
-  if (!Array.isArray(value)) return []
-  return value
-    .filter((todo) => todo && typeof todo === 'object' && todo.id && todo.title && todo.dueDate)
-    .map((todo) => {
-      const summary = safeSummary(todo.summary)
-      const attachment = safeAttachment(todo.attachment)
-      return {
-        id: String(todo.id),
-        type: TODO_TYPES.some((type) => type.id === todo.type) ? todo.type : 'task',
-        title: String(todo.title).slice(0, 80),
-        dueDate: String(todo.dueDate),
-        dueTime: String(todo.dueTime || ''),
-        completed: Boolean(todo.completed),
-        createdAt: Number(todo.createdAt || Date.now()),
-        ...(summary ? { summary } : {}),
-        ...(attachment ? { attachment } : {}),
-      }
-    })
-}
-
-function loadTodos() {
-  try {
-    return safeTodos(JSON.parse(localStorage.getItem(TODO_STORAGE_KEY) || '[]'))
-  } catch {
-    return []
-  }
-}
-
-function persistTodos(todos) {
-  try {
-    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos))
-  } catch {
-    // Keep the current session usable even when storage is unavailable.
-  }
-}
-
 function sortTodos(todos) {
   return [...todos].sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1
@@ -136,14 +97,6 @@ function sharedTodoShape(todo) {
   }
 }
 
-function initialPersonalState(todos) {
-  return Object.fromEntries(todos.map((todo) => [todo.id, {
-    completed: Boolean(todo.completed),
-    hidden: false,
-    updatedAt: 0,
-  }]))
-}
-
 function mergeSharedTodos(sharedTodos, personalState) {
   return sortTodos(sharedTodos
     .filter((todo) => !personalState[todo.id]?.hidden)
@@ -159,17 +112,14 @@ function createTodoId() {
 }
 
 export function useTodos(profile) {
-  const legacyTodosRef = useRef(null)
-  if (legacyTodosRef.current === null) legacyTodosRef.current = loadTodos()
-
-  const [sharedTodos, setSharedTodos] = useState(() => legacyTodosRef.current.map(sharedTodoShape))
-  const [personalState, setPersonalState] = useState(() => initialPersonalState(legacyTodosRef.current))
+  const [sharedTodos, setSharedTodos] = useState([])
+  const [personalState, setPersonalState] = useState({})
   const signature = profileSignature(profile)
   const todos = useMemo(() => mergeSharedTodos(sharedTodos, personalState), [sharedTodos, personalState])
 
   useEffect(() => {
-    persistTodos(todos)
-  }, [todos])
+    try { localStorage.removeItem('school.todos.v1') } catch { /* stale cache cleanup is best-effort */ }
+  }, [])
 
   useEffect(() => {
     if (!signature) return undefined

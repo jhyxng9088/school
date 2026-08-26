@@ -1,6 +1,7 @@
 (() => {
   const SHEET_SELECTOR = '.timetable-page .change-editor'
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const androidBrowser = /Android|SamsungBrowser/i.test(navigator.userAgent)
   let activeController = null
 
   function findActionButtons(sheet) {
@@ -53,6 +54,16 @@
     const body = document.body
     const scrollY = window.scrollY || document.documentElement.scrollTop || 0
     body.dataset.schoolSheetScrollY = String(scrollY)
+
+    if (androidBrowser) {
+      body.dataset.schoolSheetLockMode = 'overflow'
+      document.documentElement.style.overflow = 'hidden'
+      body.style.overflow = 'hidden'
+      body.style.overscrollBehavior = 'none'
+      return
+    }
+
+    body.dataset.schoolSheetLockMode = 'fixed'
     body.style.position = 'fixed'
     body.style.top = `-${scrollY}px`
     body.style.left = '0'
@@ -64,14 +75,24 @@
   function unlockBackground() {
     const body = document.body
     const scrollY = Number(body.dataset.schoolSheetScrollY || 0)
-    body.style.position = ''
-    body.style.top = ''
-    body.style.left = ''
-    body.style.right = ''
-    body.style.width = ''
-    body.style.overflow = ''
+    const lockMode = body.dataset.schoolSheetLockMode
+
+    if (lockMode === 'overflow') {
+      document.documentElement.style.overflow = ''
+      body.style.overflow = ''
+      body.style.overscrollBehavior = ''
+    } else {
+      body.style.position = ''
+      body.style.top = ''
+      body.style.left = ''
+      body.style.right = ''
+      body.style.width = ''
+      body.style.overflow = ''
+      window.scrollTo(0, scrollY)
+    }
+
     delete body.dataset.schoolSheetScrollY
-    window.scrollTo(0, scrollY)
+    delete body.dataset.schoolSheetLockMode
   }
 
   function enhanceSheet(sheet) {
@@ -120,7 +141,8 @@
     }
 
     function closedY() {
-      return Math.max(sheet.offsetHeight + 24, window.innerHeight * 0.42)
+      const viewportHeight = window.visualViewport?.height || window.innerHeight
+      return Math.max(sheet.offsetHeight + 24, viewportHeight * 0.42)
     }
 
     function visualExitY() {
