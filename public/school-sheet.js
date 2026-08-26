@@ -1,5 +1,5 @@
 (() => {
-  const SHEET_SELECTOR = '[data-school-sheet], .change-editor'
+  const SHEET_SELECTOR = '.timetable-page .change-editor'
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
   let activeController = null
 
@@ -181,8 +181,6 @@
 
         paint()
 
-        // Once the sheet is physically below the viewport, finish immediately.
-        // Do not keep the app blocked while the invisible spring tail settles.
         if (isClosing && state.y >= visualExitY()) {
           state.frame = null
           state.lastFrame = 0
