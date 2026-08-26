@@ -383,10 +383,13 @@ async function runSdkModel(modelName, { text, reference, attachments, titleOnly 
 async function runModel(modelName, args) {
   // iOS/iPadOS standalone PWAs have previously failed reCAPTCHA/App Check attestation
   // in this app. Try the already-proven Firebase AI REST route first there, then the SDK.
-  if (isAppleStandaloneWebApp()) {
+  let appleRawError = null
+  const appleStandalone = isAppleStandaloneWebApp()
+  if (appleStandalone) {
     try {
       return await runRawFirebaseModel(modelName, args)
     } catch (rawError) {
+      appleRawError = rawError
       console.warn(`Raw iOS PWA title AI failed for ${modelName}; trying SDK.`, rawError)
     }
   }
@@ -394,7 +397,11 @@ async function runModel(modelName, args) {
   try {
     return await runSdkModel(modelName, args)
   } catch (sdkError) {
-    if (isAppleStandaloneWebApp()) throw sdkError
+    if (appleStandalone) {
+      // Preserve a real quota signal from the REST attempt even if App Check then masks it.
+      if (appleRawError && isQuotaError(appleRawError)) throw appleRawError
+      throw sdkError
+    }
     try {
       return await runRawFirebaseModel(modelName, args)
     } catch {
