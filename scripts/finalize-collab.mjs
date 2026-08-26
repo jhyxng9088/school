@@ -92,13 +92,6 @@ function replaceOnce(value, from, to, label) {
   write(path, value)
 }
 
-{
-  const path = 'public/sw.js'
-  let value = read(path)
-  value = replaceOnce(value, `const CACHE_NAME = 'school-shell-v75'`, `const CACHE_NAME = 'school-shell-v76'`, 'service worker cache')
-  write(path, value)
-}
-
 // Static runtime guards that bundling alone cannot catch.
 {
   const main = read('src/main.jsx')
