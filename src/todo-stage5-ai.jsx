@@ -251,6 +251,7 @@ export function TodoPage({ now, todoData }) {
     if (!root) return
 
     const nodes = [...root.querySelectorAll('[data-reminder-id]')]
+    nodes.forEach((node) => node.getAnimations().forEach((animation) => animation.cancel()))
     const currentRects = new Map()
     nodes.forEach((node) => currentRects.set(node.dataset.reminderId, node.getBoundingClientRect()))
 
@@ -278,15 +279,21 @@ export function TodoPage({ now, todoData }) {
           const deltaX = previous.left - current.left
           const deltaY = previous.top - current.top
           if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+            const crossesSections = Math.abs(deltaY) > 120
             node.animate(
-              [
-                { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)`, opacity: 0.9 },
-                { transform: 'translate3d(0, 0, 0)', opacity: 1 },
-              ],
+              crossesSections
+                ? [
+                    { transform: 'translate3d(0, 7px, 0) scale(0.995)', opacity: 0.32 },
+                    { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
+                  ]
+                : [
+                    { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)`, opacity: 0.92 },
+                    { transform: 'translate3d(0, 0, 0)', opacity: 1 },
+                  ],
               {
-                duration: 720,
+                duration: crossesSections ? 520 : 680,
                 easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-                fill: 'both',
+                fill: 'none',
               },
             )
           }
@@ -300,7 +307,7 @@ export function TodoPage({ now, todoData }) {
               duration: 620,
               delay: Math.min(index * 28, 112),
               easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-              fill: 'both',
+              fill: 'none',
             },
           )
         }

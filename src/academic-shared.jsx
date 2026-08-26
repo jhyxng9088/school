@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './academic-shared.css'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
-const SHEET_CLOSE_MS = 300
+const SHEET_CLOSE_MS = 320
 
 function pad(value) {
   return String(value).padStart(2, '0')
@@ -169,10 +169,48 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
   const [draft, setDraft] = useState(() => emptyDraft(now))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [deletingId, setDeletingId] = useState('')
   const closeTimerRef = useRef(null)
+  const pageRef = useRef(null)
+  const academicRectsRef = useRef(new Map())
+  const academicMotionReadyRef = useRef(false)
   const todayRaw = rawDate(now)
   const upcoming = groups.filter((group) => group.endRawDate >= todayRaw)
   const exam = upcoming.find(isImportantExam) || null
+  const upcomingSignature = upcoming.map((group) => group.id).join('|')
+
+  useLayoutEffect(() => {
+    const root = pageRef.current
+    if (!root) return
+    const nodes = [...root.querySelectorAll('[data-academic-id]')]
+    nodes.forEach((node) => node.getAnimations().forEach((animation) => animation.cancel()))
+    const currentRects = new Map()
+    nodes.forEach((node) => currentRects.set(node.dataset.academicId, node.getBoundingClientRect()))
+
+    if (!academicMotionReadyRef.current) {
+      academicRectsRef.current = currentRects
+      academicMotionReadyRef.current = true
+      return
+    }
+
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      nodes.forEach((node) => {
+        const previous = academicRectsRef.current.get(node.dataset.academicId)
+        const current = currentRects.get(node.dataset.academicId)
+        if (!previous || !current) return
+        const deltaY = previous.top - current.top
+        if (Math.abs(deltaY) < 0.5) return
+        node.animate(
+          [
+            { transform: `translate3d(0, ${deltaY}px, 0)`, opacity: 0.94 },
+            { transform: 'translate3d(0, 0, 0)', opacity: 1 },
+          ],
+          { duration: 560, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'none' },
+        )
+      })
+    }
+    academicRectsRef.current = currentRects
+  }, [upcomingSignature])
 
   useEffect(() => () => {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
@@ -244,12 +282,18 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
 
   async function remove() {
     if (!draft.id || saving) return
+    const targetId = draft.id
     setSaving(true)
     setError('')
+    setDeletingId(targetId)
     try {
-      await academicData.deleteEvent(draft.id)
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        await new Promise((resolve) => window.setTimeout(resolve, 260))
+      }
+      await academicData.deleteEvent(targetId)
       closeAfterSave()
     } catch (deleteError) {
+      setDeletingId('')
       setError(academicErrorMessage(deleteError, '학사일정을 삭제하지 못했어.'))
     } finally {
       setSaving(false)
@@ -260,7 +304,7 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
   const canDelete = Boolean(editingEvent && editingEvent.creatorStudentKey === academicData.studentKey)
 
   return (
-    <section className="stage3-page academic-page shared-academic-page">
+    <section ref={pageRef} className="stage3-page academic-page shared-academic-page">
       <header className="page-header stage3-page-header shared-academic-header">
         <div>
           <p className="date-label">2학년 · 수지고등학교</p>
@@ -281,7 +325,11 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
       <div className="academic-list-head"><h2>다가오는 일정</h2><span>{upcoming.length}개</span></div>
       <div className="academic-list">
         {upcoming.map((group) => (
-          <article className={`academic-list-item ${isImportantExam(group) ? 'is-important' : ''} ${group.source === 'custom' ? 'is-custom' : ''}`} key={group.id}>
+          <article
+            className={`academic-list-item ${isImportantExam(group) ? 'is-important' : ''} ${group.source === 'custom' ? 'is-custom' : ''} ${deletingId === group.id ? 'is-deleting' : ''}`.trim()}
+            data-academic-id={group.id}
+            key={group.id}
+          >
             <div className="academic-list-date">
               <strong>{group.startDate.getDate()}</strong>
               <span>{group.startDate.getMonth() + 1}월</span>

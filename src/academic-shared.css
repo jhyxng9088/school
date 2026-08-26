@@ -367,3 +367,79 @@ body .academic-editor::before {
     background: var(--surface);
   }
 }
+
+
+@keyframes academic-item-delete-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.996);
+  }
+}
+
+.academic-list-item.is-deleting {
+  pointer-events: none;
+  animation: academic-item-delete-out 260ms cubic-bezier(0.4, 0, 1, 1) both !important;
+}
+
+/* Unified School sheet geometry: same shape, safe-area behavior and motion as Reminder. */
+.academic-sheet-backdrop {
+  animation: academic-backdrop-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.academic-sheet-backdrop.is-closing {
+  animation: academic-backdrop-out 320ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+body .academic-editor {
+  bottom: 0;
+  width: min(calc(100% - 16px), 660px);
+  max-height: min(88dvh, 760px);
+  padding: 8px 18px max(20px, calc(14px + env(safe-area-inset-bottom)));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+  box-shadow: 0 -18px 46px rgba(0, 0, 0, 0.13);
+  animation: academic-sheet-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+body .academic-editor.is-closing {
+  animation: academic-sheet-out 320ms cubic-bezier(0.4, 0, 1, 1) both !important;
+}
+
+.academic-editor-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  min-height: 0;
+  margin: 0 0 8px;
+  padding: 26px 48px 18px 2px;
+  background: var(--surface);
+}
+
+body .academic-editor::before {
+  width: 38px;
+  height: 5px;
+  margin: 0 auto;
+  transform: translateY(-1px);
+}
+
+@media (min-width: 700px) {
+  body .academic-editor {
+    bottom: 0;
+    border-radius: 28px 28px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .academic-list-item.is-deleting {
+    animation: none !important;
+  }
+}

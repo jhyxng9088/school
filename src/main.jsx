@@ -32,7 +32,9 @@ import { activityKey, activityLabel, recordClassActivities, useClassActivity, us
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
 const MOBILE_BROWSER_COMPAT = /iPhone|iPod|Android|SamsungBrowser/i.test(navigator.userAgent)
+const SAMSUNG_BROWSER = /SamsungBrowser/i.test(navigator.userAgent)
 if (MOBILE_BROWSER_COMPAT) document.documentElement.classList.add('school-mobile-compat')
+if (SAMSUNG_BROWSER) document.documentElement.classList.add('school-samsung')
 
 
 if (!window.__schoolPinchZoomBlocked) {
@@ -759,6 +761,14 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
   )
 }
 
+function stopInlineIndicatorStyles(indicator) {
+  indicator.style.width = ''
+  indicator.style.transform = ''
+  indicator.style.borderRadius = ''
+  indicator.style.transition = ''
+  indicator.style.removeProperty('will-change')
+}
+
 function useNavSpring(activeIndex) {
   const navRef = useRef(null)
   const indicatorRef = useRef(null)
@@ -783,6 +793,11 @@ function useNavSpring(activeIndex) {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const compatibilityMotion = MOBILE_BROWSER_COMPAT
     const compatibilityTransition = 'transform 420ms cubic-bezier(0.16, 1, 0.3, 1), width 420ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 420ms cubic-bezier(0.16, 1, 0.3, 1)'
+
+    if (compatibilityMotion) {
+      stopInlineIndicatorStyles(indicator)
+      return undefined
+    }
 
     function paint() {
       const speed = Math.abs(physics.velocity)
@@ -854,18 +869,7 @@ function useNavSpring(activeIndex) {
     const wasInitialized = physics.initialized
     measure(!physics.initialized)
 
-    if (compatibilityMotion) {
-      indicator.style.transition = reduceMotion || !wasInitialized ? 'none' : compatibilityTransition
-      physics.x = physics.targetX
-      physics.velocity = 0
-      physics.lastTime = 0
-      paint()
-      if (!reduceMotion && !wasInitialized) {
-        requestAnimationFrame(() => {
-          if (indicator.isConnected) indicator.style.transition = compatibilityTransition
-        })
-      }
-    } else if (!reduceMotion && Math.abs(physics.x - physics.targetX) > 0.01) {
+    if (!reduceMotion && Math.abs(physics.x - physics.targetX) > 0.01) {
       physics.lastTime = 0
       physics.frame = requestAnimationFrame(animate)
     }
@@ -873,13 +877,7 @@ function useNavSpring(activeIndex) {
     const handleViewportChange = () => {
       stopAnimation()
       physics.lastTime = 0
-      if (compatibilityMotion) indicator.style.transition = 'none'
       measure(true)
-      if (compatibilityMotion && !reduceMotion) {
-        requestAnimationFrame(() => {
-          if (indicator.isConnected) indicator.style.transition = compatibilityTransition
-        })
-      }
     }
 
     window.addEventListener('resize', handleViewportChange)
@@ -961,13 +959,13 @@ function AppShell({ profile }) {
   return (
     <div className="app-shell">
       <main
-        className="app-content"
+        className={`app-content tab-${activeTab}`}
         key={activeTab}
         style={{ '--content-enter-x': `${contentDirection * 16}px` }}
       >
         {content[activeTab]}
       </main>
-      <nav ref={navRef} className="bottom-nav" aria-label="주요 메뉴">
+      <nav ref={navRef} className="bottom-nav" style={{ '--active-index': activeIndex }} aria-label="주요 메뉴">
         <span ref={indicatorRef} className="nav-indicator" aria-hidden="true" />
         {tabs.map((tab, index) => (
           <button
