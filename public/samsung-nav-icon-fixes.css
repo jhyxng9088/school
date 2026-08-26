@@ -16,19 +16,32 @@ html.school-samsung .bottom-nav .nav-button:nth-of-type(5) > svg {
   height: 22px !important;
   flex: 0 0 22px !important;
   overflow: visible !important;
-  color: inherit !important;
+  color: var(--text-tertiary) !important;
   fill: none !important;
-  stroke: currentColor !important;
+  stroke: var(--text-tertiary) !important;
   stroke-width: 1.9 !important;
   stroke-linecap: round !important;
   stroke-linejoin: round !important;
+  stroke-opacity: 1 !important;
+  opacity: 1 !important;
 }
 
 html.school-samsung .bottom-nav .nav-button:nth-of-type(4) > svg > *,
 html.school-samsung .bottom-nav .nav-button:nth-of-type(5) > svg > * {
+  color: var(--text-tertiary) !important;
   fill: none !important;
-  stroke: currentColor !important;
+  stroke: var(--text-tertiary) !important;
   stroke-width: 1.9 !important;
   stroke-linecap: round !important;
   stroke-linejoin: round !important;
+  stroke-opacity: 1 !important;
+  opacity: 1 !important;
+}
+
+html.school-samsung .bottom-nav .nav-button:nth-of-type(4).active > svg,
+html.school-samsung .bottom-nav .nav-button:nth-of-type(5).active > svg,
+html.school-samsung .bottom-nav .nav-button:nth-of-type(4).active > svg > *,
+html.school-samsung .bottom-nav .nav-button:nth-of-type(5).active > svg > * {
+  color: var(--text) !important;
+  stroke: var(--text) !important;
 }
