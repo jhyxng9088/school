@@ -43,11 +43,8 @@ html body .todo-page .todo-item-main small {
   line-height: 1;
 }
 
-/* Completed reminders get a real, quiet destructive action instead of plain red text. */
-html body .todo-page .todo-item.is-completed {
-  grid-template-columns: 48px minmax(0, 1fr) 76px;
-}
-
+/* Completed reminders keep the quiet destructive action, but the row width is
+   owned by the current reminder layout. Do not force a stale fixed action column. */
 html body .todo-page .todo-permanent-delete {
   align-self: center;
   justify-self: center;
@@ -55,7 +52,7 @@ html body .todo-page .todo-permanent-delete {
   place-items: center;
   width: 56px;
   height: 34px;
-  margin-right: 10px;
+  margin-right: 0;
   padding: 0;
   border: 1px solid rgba(216, 77, 73, 0.16);
   border-radius: 12px;
