@@ -371,7 +371,7 @@ function TimetablePreview({ schedule, now, configured }) {
   )
 }
 
-function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, presence }) {
+function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData }) {
   const today = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
@@ -894,6 +894,7 @@ function AppShell({ profile }) {
         schoolData={schoolData}
         todoData={todoData}
         presence={presence}
+        academicData={academicData}
       />
     ),
     todo: <TodoPage now={now} todoData={todoData} />,
