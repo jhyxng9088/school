@@ -1,0 +1,46 @@
+name: Unify School sheet motion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/unify-sheet-motion.yml
+
+permissions:
+  contents: write
+
+jobs:
+  unify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply guarded sheet motion patch
+        run: python3 scripts/unify-sheet-motion.py
+
+      - name: Verify exact motion contract
+        run: |
+          grep -q "const OPEN_MS = 560" public/school-sheet.js
+          grep -q "const CLOSE_MS = 320" public/school-sheet.js
+          grep -q "tweenTo(closedY()" public/school-sheet.js
+          grep -q "transition-duration: 320ms" public/reminder-sheet.css
+          git diff --check
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit verified motion unification
+        shell: bash
+        run: |
+          rm .github/workflows/unify-sheet-motion.yml scripts/unify-sheet-motion.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/school-sheet.js public/reminder-sheet.js public/reminder-sheet.css .github/workflows/unify-sheet-motion.yml scripts/unify-sheet-motion.py
+          git commit -m "Unify bottom sheet motion timing"
+          git push
