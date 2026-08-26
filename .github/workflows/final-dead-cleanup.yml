@@ -1,0 +1,40 @@
+name: Final dead-code cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/final-dead-cleanup.mjs'
+      - '.github/workflows/final-dead-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply guarded dead-code cleanup
+        run: node scripts/final-dead-cleanup.mjs
+      - name: Install dependencies without lockfile
+        run: npm install --package-lock=false --no-audit --no-fund
+      - name: Production build
+        run: npm run build
+      - name: Remove temporary audit tooling
+        run: |
+          rm -f .github/workflows/code-audit.yml
+          rm -f .github/workflows/final-dead-cleanup.yml
+          rm -f scripts/final-dead-cleanup.mjs
+      - name: Commit validated cleanup
+        run: |
+          git config user.name 'school-pwa-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Remove final unused code' || exit 0
+          git push
