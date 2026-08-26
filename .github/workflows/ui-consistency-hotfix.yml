@@ -1,0 +1,52 @@
+name: Apply UI consistency hotfix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/ui-consistency-hotfix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply guarded source patch
+        run: python3 scripts/ui-consistency-hotfix.py
+
+      - name: Add personal cache identity import
+        run: python3 -c "from pathlib import Path; p=Path('src/todo.jsx'); s=p.read_text(); old='  profileSignature,\\n  writeReminderOriginal,'; assert old in s; p.write_text(s.replace(old, '  profileSignature,\\n  studentKeyFor,\\n  writeReminderOriginal,', 1))"
+
+      - name: Verify patch markers
+        run: |
+          grep -q "PERSONAL_TODO_STATE_CACHE_VERSION" src/todo.jsx
+          grep -q "fill: 'none'" src/todo-stage5-ai.jsx
+          grep -q "data-academic-id" src/academic-shared.jsx
+          grep -q "school-samsung" src/main.jsx
+          grep -q "Cross-browser nav compositor stability" src/styles.css
+          grep -q "Unified School sheet geometry" public/reminder-sheet.css
+          grep -q "bottom-flush on phones, tablets and tall screens" public/school-sheet.css
+          git diff --check
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit verified patch
+        shell: bash
+        run: |
+          rm .github/workflows/ui-consistency-hotfix.yml scripts/ui-consistency-hotfix.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/todo.jsx src/todo-stage5-ai.jsx src/academic-shared.jsx src/academic-shared.css src/main.jsx src/styles.css src/stage3.css public/reminder-sheet.css public/school-sheet.css .github/workflows/ui-consistency-hotfix.yml scripts/ui-consistency-hotfix.py
+          git commit -m "Fix cross-device UI motion and sheet consistency"
+          git push
