@@ -1,4 +1,4 @@
-/* Shared School PWA bottom-sheet behavior layer. */
+/* Shared School PWA bottom-sheet behavior layer for timetable changes only. */
 html.school-sheet-open,
 html.school-sheet-open body {
   overscroll-behavior: none;
@@ -8,15 +8,12 @@ html.school-sheet-open .app-content {
   transform: none !important;
 }
 
-/* The backdrop already blocks background taps. Do not disable the whole app root,
-   because a late spring cleanup must never leave the bottom nav input-locked. */
 html.school-sheet-open #root {
   user-select: none;
   -webkit-user-select: none;
 }
 
-html.school-sheet-open body .change-editor,
-html.school-sheet-open body [data-school-sheet] {
+html.school-sheet-open body .timetable-page .change-editor {
   pointer-events: auto;
   user-select: auto;
   -webkit-user-select: auto;
@@ -35,7 +32,7 @@ html.school-sheet-open body [data-school-sheet] {
   -webkit-tap-highlight-color: transparent;
 }
 
-body .change-editor {
+body .timetable-page .change-editor {
   --school-sheet-y: calc(100% + 48px);
   --school-sheet-opacity: 0;
   z-index: 80;
@@ -46,11 +43,11 @@ body .change-editor {
   overflow-x: hidden;
 }
 
-body .change-editor::before {
+body .timetable-page .change-editor::before {
   display: none;
 }
 
-body .change-editor .change-editor-head {
+body .timetable-page .change-editor .change-editor-head {
   position: relative;
   min-height: 74px;
   margin-bottom: 8px;
@@ -61,11 +58,11 @@ body .change-editor .change-editor-head {
   touch-action: none;
 }
 
-body .change-editor.is-dragging .change-editor-head {
+body .timetable-page .change-editor.is-dragging .change-editor-head {
   cursor: grabbing;
 }
 
-body .change-editor .change-editor-head::before {
+body .timetable-page .change-editor .change-editor-head::before {
   content: "";
   position: absolute;
   top: 4px;
@@ -78,22 +75,22 @@ body .change-editor .change-editor-head::before {
   opacity: 0.42;
 }
 
-body .change-editor .change-form {
+body .timetable-page .change-editor .change-form {
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
-body .change-editor .change-field,
-body .change-editor .change-field.full,
-body .change-editor .change-base,
-body .change-editor .change-warning,
-body .change-editor .change-submit-row {
+body .timetable-page .change-editor .change-field,
+body .timetable-page .change-editor .change-field.full,
+body .timetable-page .change-editor .change-base,
+body .timetable-page .change-editor .change-warning,
+body .timetable-page .change-editor .change-submit-row {
   grid-column: 1;
   min-width: 0;
 }
 
-body .change-editor .change-field input,
-body .change-editor .change-field select {
+body .timetable-page .change-editor .change-field input,
+body .timetable-page .change-editor .change-field select {
   display: block;
   width: 100%;
   min-width: 0;
@@ -102,12 +99,11 @@ body .change-editor .change-field select {
   overflow: hidden;
 }
 
-/* The visible date control is ours; the native iOS date input only handles picking. */
-body .change-editor .school-date-field {
+body .timetable-page .change-editor .school-date-field {
   position: relative;
 }
 
-body .change-editor .school-date-field::after {
+body .timetable-page .change-editor .school-date-field::after {
   content: attr(data-school-date-display);
   display: grid;
   place-items: center;
@@ -125,7 +121,7 @@ body .change-editor .school-date-field::after {
   pointer-events: none;
 }
 
-body .change-editor .school-date-field input[type="date"] {
+body .timetable-page .change-editor .school-date-field input[type="date"] {
   position: absolute;
   z-index: 2;
   left: 0;
@@ -140,18 +136,18 @@ body .change-editor .school-date-field input[type="date"] {
   cursor: pointer;
 }
 
-body .change-editor .school-date-field:focus-within::after {
+body .timetable-page .change-editor .school-date-field:focus-within::after {
   border-color: var(--focus-accent, var(--text-tertiary));
   box-shadow: inset 0 0 0 1px var(--focus-accent, var(--text-tertiary));
 }
 
-body .change-editor .change-submit-row {
+body .timetable-page .change-editor .change-submit-row {
   position: static;
   min-height: 42px;
   padding-right: 0;
 }
 
-body .change-editor .change-submit-row > button:first-child {
+body .timetable-page .change-editor .change-submit-row > button:first-child {
   position: absolute;
   top: 14px;
   right: 16px;
@@ -169,7 +165,7 @@ body .change-editor .change-submit-row > button:first-child {
   z-index: 2;
 }
 
-body .change-editor .change-submit-row > button:first-child::before {
+body .timetable-page .change-editor .change-submit-row > button:first-child::before {
   content: "×";
   display: grid;
   place-items: center;
@@ -182,19 +178,19 @@ body .change-editor .change-submit-row > button:first-child::before {
   transform: translateY(-1px);
 }
 
-body .change-editor .change-submit-row .save-change {
+body .timetable-page .change-editor .change-submit-row .save-change {
   margin-left: auto;
 }
 
 @media (max-width: 520px) {
-  body .change-editor {
+  body .timetable-page .change-editor {
     width: calc(100% - 8px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .school-sheet-backdrop,
-  body .change-editor {
+  body .timetable-page .change-editor {
     transition: none !important;
     animation: none !important;
   }
