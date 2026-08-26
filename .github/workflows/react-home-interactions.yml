@@ -1,0 +1,209 @@
+name: React-owned home interactions
+on:
+  push:
+    paths: ['.github/workflows/react-home-interactions.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Patch home interactions
+        run: |
+          node <<'NODE'
+          const fs=require('fs')
+          function once(s,a,b,n){const c=s.split(a).length-1;if(c!==1)throw new Error(`${n}: ${c}`);return s.replace(a,b)}
+
+          let main=fs.readFileSync('src/main.jsx','utf8')
+          main=once(main,
+`function SectionTitle({ children, aside }) {
+  return (
+    <div className="section-heading">
+      <h2>{children}</h2>
+      {aside ? <span>{aside}</span> : null}
+    </div>
+  )
+}
+
+function CurrentClassPreview({ schoolState, now }) {`,
+`function SectionTitle({ children, aside }) {
+  return (
+    <div className="section-heading">
+      <h2>{children}</h2>
+      {aside ? <span>{aside}</span> : null}
+    </div>
+  )
+}
+
+function homeOpenProps(onOpen, label) {
+  if (!onOpen) return {}
+  return {
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': label,
+    onClick: onOpen,
+    onKeyDown: (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      onOpen()
+    },
+  }
+}
+
+function CurrentClassPreview({ schoolState, now, onOpen }) {`, 'home helper')
+          main=once(main,
+`  return (
+    <section className="current-class-card">`,
+`  return (
+    <section
+      className={`current-class-card ${schoolState.kind === 'class' ? 'is-live-glow' : ''}`.trim()}
+      {...homeOpenProps(onOpen, '시간표 열기')}
+    >`, 'current class interaction')
+          main=once(main,
+`function TimetablePreview({ schedule, now, configured }) {`,
+`function TimetablePreview({ schedule, now, configured, onOpen }) {`, 'timetable signature')
+          main=once(main,
+`      <section className="home-section">
+        <SectionTitle>오늘 시간표</SectionTitle>`,
+`      <section className="home-section" {...homeOpenProps(onOpen, '시간표 열기')}>
+        <SectionTitle>오늘 시간표</SectionTitle>`, 'empty timetable interaction')
+          main=once(main,
+`    <section className="home-section">
+      <SectionTitle>오늘 시간표</SectionTitle>`,
+`    <section className="home-section" {...homeOpenProps(onOpen, '시간표 열기')}>
+      <SectionTitle>오늘 시간표</SectionTitle>`, 'timetable interaction')
+          main=once(main,
+`function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData }) {`,
+`function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onNavigate }) {`, 'home signature')
+          main=once(main,
+`  const schoolState = getSchoolState(now, weeklySchedule, overrides)
+
+  return (`,
+`  const schoolState = getSchoolState(now, weeklySchedule, overrides)
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const mealPriority = nowMinutes >= 12 * 60 + 50 && nowMinutes < 14 * 60
+
+  return (`, 'meal priority state')
+          main=once(main,
+`      <div className="home-stack">
+        <CurrentClassPreview schoolState={schoolState} now={now} />
+        <TodoHomePreview todos={todoData.todos} now={now} />
+        <TimetablePreview
+          schedule={schoolState.schedule}
+          now={now}
+          configured={schoolState.configured}
+        />
+        <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} />
+        <Stage3MealPreview now={now} schoolData={schoolData} />
+      </div>`,
+`      <div className={`home-stack ${mealPriority ? 'is-meal-priority' : ''}`.trim()}>
+        <CurrentClassPreview schoolState={schoolState} now={now} onOpen={() => onNavigate?.('timetable')} />
+        <TodoHomePreview todos={todoData.todos} now={now} onOpen={() => onNavigate?.('todo')} />
+        <TimetablePreview
+          schedule={schoolState.schedule}
+          now={now}
+          configured={schoolState.configured}
+          onOpen={() => onNavigate?.('timetable')}
+        />
+        <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} onOpen={() => onNavigate?.('academic')} />
+        <Stage3MealPreview now={now} schoolData={schoolData} onOpen={() => onNavigate?.('meal')} />
+      </div>`, 'home children')
+          main=once(main,
+`        academicData={academicData}
+      />`,
+`        academicData={academicData}
+        onNavigate={changeTab}
+      />`, 'home navigate prop')
+          fs.writeFileSync('src/main.jsx',main)
+
+          let todo=fs.readFileSync('src/todo.jsx','utf8')
+          todo=once(todo,
+`export function TodoHomePreview({ todos, now }) {`,
+`export function TodoHomePreview({ todos, now, onOpen }) {`, 'todo preview signature')
+          todo=once(todo,
+`    <section className="home-section todo-home-preview">`,
+`    <section
+      className="home-section todo-home-preview"
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? '리마인더 열기' : undefined}
+      onClick={onOpen}
+      onKeyDown={onOpen ? (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        onOpen()
+      } : undefined}
+    >`, 'todo preview interaction')
+          fs.writeFileSync('src/todo.jsx',todo)
+
+          let acad=fs.readFileSync('src/academic-shared.jsx','utf8')
+          acad=once(acad,
+`export function SharedAcademicPreview({ now, schoolData, academicData }) {`,
+`export function SharedAcademicPreview({ now, schoolData, academicData, onOpen }) {`, 'academic preview signature')
+          acad=once(acad,
+`    <section className="home-section stage3-home-block academic-preview">`,
+`    <section
+      className="home-section stage3-home-block academic-preview"
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? '학사일정 열기' : undefined}
+      onClick={onOpen}
+      onKeyDown={onOpen ? (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        onOpen()
+      } : undefined}
+    >`, 'academic preview interaction')
+          fs.writeFileSync('src/academic-shared.jsx',acad)
+
+          let meal=fs.readFileSync('src/home-meal-preview.jsx','utf8')
+          meal=once(meal,
+`export default function HomeMealPreview({ now, schoolData }) {`,
+`export default function HomeMealPreview({ now, schoolData, onOpen }) {`, 'meal preview signature')
+          meal=once(meal,
+`    <section className="home-section meal-preview stage3-home-block">`,
+`    <section
+      className="home-section meal-preview stage3-home-block"
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? '급식 열기' : undefined}
+      onClick={onOpen}
+      onKeyDown={onOpen ? (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        onOpen()
+      } : undefined}
+    >`, 'meal preview interaction')
+          fs.writeFileSync('src/home-meal-preview.jsx',meal)
+
+          let css=fs.readFileSync('public/school-home-live.css','utf8')
+          css += `\n\n/* Home interaction is owned by React; no DOM observer is needed. */\n.home-stack > [role="button"] {\n  cursor: pointer;\n  touch-action: manipulation;\n}\n`
+          fs.writeFileSync('public/school-home-live.css',css)
+
+          let html=fs.readFileSync('index.html','utf8')
+          html=once(html,'    <script defer src="./school-home-nav.js"></script>\n','', 'remove home nav script')
+          html=once(html,'    <script defer src="./school-home-live.js"></script>\n','', 'remove home live script')
+          fs.writeFileSync('index.html',html)
+
+          let sw=fs.readFileSync('public/sw.js','utf8')
+          sw=sw.replace("'./school-home-nav.js', ",'').replace("'./school-home-live.js', ",'').replace('school-shell-v91','school-shell-v92')
+          if(sw.includes('school-home-nav.js')||sw.includes('school-home-live.js')) throw new Error('legacy home scripts still cached')
+          fs.writeFileSync('public/sw.js',sw)
+
+          if(!main.includes("onNavigate={changeTab}")) throw new Error('React navigation not wired')
+          if(!main.includes("schoolState.kind === 'class' ? 'is-live-glow'")) throw new Error('live class state not wired')
+          NODE
+      - run: npm install
+      - run: npm run build
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm public/school-home-nav.js public/school-home-live.js
+          git add src/main.jsx src/todo.jsx src/academic-shared.jsx src/home-meal-preview.jsx public/school-home-live.css index.html public/sw.js
+          git commit -m 'Move home interactions into React for browser stability'
+          git push
