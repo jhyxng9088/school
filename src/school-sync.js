@@ -680,20 +680,30 @@ export function useSharedTimetable(profile, now) {
     }
   }, [signature])
 
-  const commitWeeklySchedule = useCallback((nextSchedule) => {
+  const commitWeeklySchedule = useCallback(async (nextSchedule) => {
     const normalized = normalizeWeeklySchedule(nextSchedule)
-    saveWeeklySchedule(normalized)
-    setWeeklySchedule(normalized)
-    writeWeeklyScheduleCloud(profile, normalized)
-      .catch((error) => console.error('Shared timetable save failed:', error))
+    try {
+      await writeWeeklyScheduleCloud(profile, normalized)
+      saveWeeklySchedule(normalized)
+      setWeeklySchedule(normalized)
+      return true
+    } catch (error) {
+      console.error('Shared timetable save failed:', error)
+      return false
+    }
   }, [signature])
 
-  const commitOverrides = useCallback((nextOverrides) => {
+  const commitOverrides = useCallback(async (nextOverrides) => {
     const normalized = pruneExpiredOverrides(nextOverrides, now)
-    saveOverrides(normalized)
-    setOverrides(normalized)
-    writeOverridesCloud(profile, normalized)
-      .catch((error) => console.error('Shared timetable override save failed:', error))
+    try {
+      await writeOverridesCloud(profile, normalized)
+      saveOverrides(normalized)
+      setOverrides(normalized)
+      return true
+    } catch (error) {
+      console.error('Shared timetable override save failed:', error)
+      return false
+    }
   }, [signature, now])
 
   return {

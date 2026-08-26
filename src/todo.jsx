@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  classKeyFor,
   getReminderOriginal,
   listenClassTodos,
-  listenStudentTodoState,
   profileSignature,
+  studentKeyFor,
   writeReminderOriginal,
   writeSharedTodo,
-  writeStudentTodoState,
 } from './school-sync'
 import { recordClassActivity } from './class-activity'
 
@@ -111,9 +111,51 @@ function createTodoId() {
   return `${now}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+const LOCAL_TODO_STATE_VERSION = 'v2'
+
+function localTodoStateKey(profile) {
+  const classKey = classKeyFor(profile)
+  const studentKey = studentKeyFor(profile)
+  return classKey && studentKey ? `school.todoState.${LOCAL_TODO_STATE_VERSION}.${classKey}.${studentKey}` : ''
+}
+
+function normalizeLocalTodoState(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const normalized = {}
+  Object.entries(value).forEach(([id, state]) => {
+    if (!id || !state || typeof state !== 'object') return
+    normalized[id] = {
+      completed: Boolean(state.completed),
+      hidden: Boolean(state.hidden),
+      updatedAt: Number(state.updatedAt || 0),
+    }
+  })
+  return normalized
+}
+
+function readLocalTodoState(profile) {
+  const key = localTodoStateKey(profile)
+  if (!key) return {}
+  try {
+    return normalizeLocalTodoState(JSON.parse(localStorage.getItem(key) || '{}'))
+  } catch {
+    return {}
+  }
+}
+
+function writeLocalTodoState(profile, state) {
+  const key = localTodoStateKey(profile)
+  if (!key) return
+  try {
+    localStorage.setItem(key, JSON.stringify(normalizeLocalTodoState(state)))
+  } catch {
+    // Completion/deletion are intentionally device-local; storage failure should not touch class data.
+  }
+}
+
 export function useTodos(profile) {
   const [sharedTodos, setSharedTodos] = useState([])
-  const [personalState, setPersonalState] = useState({})
+  const [personalState, setPersonalState] = useState(() => readLocalTodoState(profile))
   const signature = profileSignature(profile)
   const todos = useMemo(() => mergeSharedTodos(sharedTodos, personalState), [sharedTodos, personalState])
 
@@ -122,45 +164,32 @@ export function useTodos(profile) {
   }, [])
 
   useEffect(() => {
-    if (!signature) return undefined
+    setPersonalState(readLocalTodoState(profile))
+  }, [signature])
+
+  useEffect(() => {
+    if (!signature) {
+      setSharedTodos([])
+      return undefined
+    }
+
     let disposed = false
-    let stopClassTodos = () => {}
-    let stopPersonalState = () => {}
-
-    ;(async () => {
-      try {
+    const stopClassTodos = listenClassTodos(
+      profile,
+      (remoteTodos) => {
         if (disposed) return
-
-        stopClassTodos = listenClassTodos(
-          profile,
-          (remoteTodos) => {
-            if (disposed) return
-            setSharedTodos(remoteTodos.map(sharedTodoShape))
-          },
-          (error) => console.error('Class reminder sync failed:', error),
-        )
-
-        stopPersonalState = listenStudentTodoState(
-          profile,
-          (remoteState) => {
-            if (disposed) return
-            setPersonalState(remoteState)
-          },
-          (error) => console.error('Personal reminder state sync failed:', error),
-        )
-      } catch (error) {
-        console.error('Reminder cloud migration failed:', error)
-      }
-    })()
+        setSharedTodos(remoteTodos.map(sharedTodoShape))
+      },
+      (error) => console.error('Class reminder sync failed:', error),
+    )
 
     return () => {
       disposed = true
       stopClassTodos()
-      stopPersonalState()
     }
   }, [signature])
 
-  function saveTodo(input) {
+  async function saveTodo(input) {
     const title = String(input.title || '').trim()
     const dueDate = String(input.dueDate || '')
     if (!title || !dueDate) return ''
@@ -182,9 +211,7 @@ export function useTodos(profile) {
         ...(summary ? { summary } : {}),
         ...(attachment ? { attachment } : {}),
       }
-      setSharedTodos((current) => current.map((todo) => todo.id === input.id ? nextTodo : todo))
-      writeSharedTodo(profile, nextTodo)
-        .catch((error) => console.error('Shared reminder update failed:', error))
+      await writeSharedTodo(profile, nextTodo)
       recordClassActivity(profile, 'reminder', input.id, 'edited')
         .catch((error) => console.error('Reminder attribution update failed:', error))
       return input.id
@@ -202,9 +229,7 @@ export function useTodos(profile) {
       ...(summary ? { summary } : {}),
       ...(attachment ? { attachment } : {}),
     }
-    setSharedTodos((current) => [...current, todo])
-    writeSharedTodo(profile, todo)
-      .catch((error) => console.error('Shared reminder create failed:', error))
+    await writeSharedTodo(profile, todo)
     recordClassActivity(profile, 'reminder', todo.id, 'added')
       .catch((error) => console.error('Reminder attribution create failed:', error))
     return todo.id
@@ -214,32 +239,35 @@ export function useTodos(profile) {
     const target = todos.find((todo) => todo.id === id)
     if (!target) return
     const completed = !target.completed
-    setPersonalState((current) => ({
-      ...current,
-      [id]: {
-        ...current[id],
-        completed,
-        hidden: false,
-        updatedAt: Date.now(),
-      },
-    }))
-    writeStudentTodoState(profile, id, { completed, hidden: false })
-      .catch((error) => console.error('Personal reminder completion sync failed:', error))
+    setPersonalState((current) => {
+      const next = {
+        ...current,
+        [id]: {
+          ...current[id],
+          completed,
+          hidden: false,
+          updatedAt: Date.now(),
+        },
+      }
+      writeLocalTodoState(profile, next)
+      return next
+    })
   }
 
   function removeTodo(id) {
-    const completed = Boolean(personalState[id]?.completed)
-    setPersonalState((current) => ({
-      ...current,
-      [id]: {
-        ...current[id],
-        completed,
-        hidden: true,
-        updatedAt: Date.now(),
-      },
-    }))
-    writeStudentTodoState(profile, id, { completed, hidden: true })
-      .catch((error) => console.error('Personal reminder delete sync failed:', error))
+    setPersonalState((current) => {
+      const next = {
+        ...current,
+        [id]: {
+          ...current[id],
+          completed: Boolean(current[id]?.completed),
+          hidden: true,
+          updatedAt: Date.now(),
+        },
+      }
+      writeLocalTodoState(profile, next)
+      return next
+    })
   }
 
   function uploadOriginalAttachment(todoId, file) {
@@ -344,6 +372,8 @@ export function TodoPage({ now, todoData }) {
   const [draft, setDraft] = useState(() => emptyDraft(now))
   const [pageEntering, setPageEntering] = useState(true)
   const [deletingId, setDeletingId] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const pageRef = useRef(null)
   const previousRectsRef = useRef(new Map())
 
@@ -410,6 +440,7 @@ export function TodoPage({ now, todoData }) {
 
   function openCreate() {
     setDraft(emptyDraft(now))
+    setSaveError('')
     setSheetOpen(true)
   }
 
@@ -421,13 +452,24 @@ export function TodoPage({ now, todoData }) {
       dueDate: todo.dueDate,
       dueTime: todo.dueTime || '',
     })
+    setSaveError('')
     setSheetOpen(true)
   }
 
-  function submitTodo() {
-    const savedId = saveTodo(draft)
-    if (!savedId) return
-    setSheetOpen(false)
+  async function submitTodo() {
+    if (saving) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      const savedId = await saveTodo(draft)
+      if (!savedId) return
+      setSheetOpen(false)
+    } catch (error) {
+      console.error('Shared reminder save failed:', error)
+      setSaveError('서버에 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function animatePermanentDelete(id) {
@@ -586,15 +628,17 @@ export function TodoPage({ now, todoData }) {
               <button className="todo-delete-button" type="button" onClick={deleteEditing}>삭제</button>
             ) : null}
 
+            {saveError ? <p className="change-warning">{saveError}</p> : null}
+
             <div className="change-submit-row">
               <button type="button" onClick={() => setSheetOpen(false)}>취소</button>
               <button
                 type="button"
                 className="save-change"
-                disabled={!draft.title.trim() || !draft.dueDate}
+                disabled={saving || !draft.title.trim() || !draft.dueDate}
                 onClick={submitTodo}
               >
-                저장
+                {saving ? '저장 중…' : '저장'}
               </button>
             </div>
           </div>

@@ -155,7 +155,7 @@ function StudentSetup({ initialName = '', onSave }) {
       <form className="onboarding-card name-card" onSubmit={submit}>
         <p className="eyebrow">마지막 설정</p>
         <h1>반, 번호, 이름 알려줘</h1>
-        <p className="onboarding-copy">같은 반끼리 시간표·리마인더·학사일정을 공유해. 완료와 삭제는 같은 학생의 기기끼리만 이어져.</p>
+        <p className="onboarding-copy">같은 반끼리 시간표·리마인더·학사일정을 공유해. 리마인더 완료와 삭제는 이 기기에만 저장돼.</p>
         <label className="name-field">
           <span>반</span>
           <input
@@ -471,7 +471,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     }))
   }
 
-  function saveBaseSchedule() {
+  async function saveBaseSchedule() {
     const changedCells = WEEKDAYS.flatMap((day) =>
       PERIODS
         .filter((period) => period.number <= day.regularPeriodCount)
@@ -484,7 +484,8 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
       return
     }
 
-    onSaveWeekly(draft)
+    const saved = await onSaveWeekly(draft)
+    if (!saved) return
     recordClassActivities(profile, [
       { entityType: 'timetable', entityId: 'weekly', action: 'edited' },
       ...changedCells.map(({ dayId, period }) => ({
@@ -496,7 +497,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     setEditing(false)
   }
 
-  function saveChange() {
+  async function saveChange() {
     if (!selectedDay || !selectedPeriodIsAvailable) return
     const subject = changeSubject.trim()
     if (!subject) return
@@ -514,7 +515,8 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     if (Object.keys(dateOverrides).length) next[changeDate] = dateOverrides
     else delete next[changeDate]
 
-    onSaveOverrides(next)
+    const saved = await onSaveOverrides(next)
+    if (!saved) return
     recordClassActivities(profile, [{
       entityType: 'timetable',
       entityId: `${changeDate}-${changePeriod}`,
@@ -524,19 +526,19 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     setChangeOpen(false)
   }
 
-  function removeChange(targetDate, period) {
+  async function removeChange(targetDate, period) {
     const key = dateKey(targetDate)
     const next = { ...overrides }
     const dateOverrides = { ...(next[key] || {}) }
     delete dateOverrides[period]
     if (Object.keys(dateOverrides).length) next[key] = dateOverrides
     else delete next[key]
-    onSaveOverrides(next)
+    await onSaveOverrides(next)
   }
 
-  function clearAllChanges() {
+  async function clearAllChanges() {
     if (!Object.keys(overrides || {}).length) return
-    onSaveOverrides({})
+    await onSaveOverrides({})
   }
 
   return (
