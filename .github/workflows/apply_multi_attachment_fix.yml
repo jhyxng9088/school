@@ -21,6 +21,21 @@ jobs:
           node-version: 22
       - name: Apply guarded attachment patch
         run: python3 .github/scripts/apply_multi_attachment_fix.py
+      - name: Normalize generated whitespace
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in [
+              'src/firebase-ai.js',
+              'src/reminder-summary.jsx',
+              'src/reminder-summary.css',
+              'src/todo-stage5-ai.jsx',
+              'src/todo.jsx',
+          ]:
+              path = Path(name)
+              text = path.read_text()
+              path.write_text('\n'.join(line.rstrip() for line in text.splitlines()) + '\n')
+          PY
       - name: Verify diff
         run: git diff --check
       - name: Install dependencies
