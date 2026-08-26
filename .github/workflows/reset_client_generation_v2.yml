@@ -1,0 +1,40 @@
+name: Reset client data generation v2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/reset_client_generation_v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply guarded reset patch
+        run: python3 .github/scripts/reset_client_generation_v2.py
+      - name: Verify diff
+        run: git diff --check
+      - name: Install dependencies
+        run: npm install
+      - name: Production build
+        run: npm run build
+      - name: Verify reset markers
+        run: |
+          grep -F "const CLIENT_DATA_GENERATION = '2'" src/school-sync.js
+          grep -F "const CACHE_NAME = 'school-shell-v109'" public/sw.js
+          grep -F "hasLegacySchoolData" src/school-sync.js
+      - name: Commit verified reset
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/school-sync.js public/sw.js
+          git commit -m "Reset School client data generation" || exit 0
+          git push
