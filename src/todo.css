@@ -427,6 +427,24 @@
   background: var(--surface-soft);
 }
 
+.todo-sheet .todo-native-control-value {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0 12px;
+  box-sizing: border-box;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .todo-sheet .todo-control-shell:focus-within {
   border-color: color-mix(in srgb, var(--text) 24%, var(--border));
 }
@@ -447,8 +465,12 @@
   border-radius: 0;
   outline: 0;
   overflow: visible;
+  z-index: 2;
   background: transparent;
-  color: var(--text);
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: transparent;
+  opacity: 0;
   font: inherit;
   font-size: 13px;
 }

@@ -18,6 +18,20 @@ function dateKey(date) {
   return `${year}-${month}-${day}`
 }
 
+function nativeDateDisplay(value) {
+  const [year, month, day] = String(value || '').split('-').map(Number)
+  if (!year || !month || !day) return ''
+  return `${month}/${day}/${String(year).slice(-2)}`
+}
+
+function nativeTimeDisplay(value) {
+  const [hourValue, minuteValue] = String(value || '').split(':').map(Number)
+  if (!Number.isInteger(hourValue) || !Number.isInteger(minuteValue)) return ''
+  const period = hourValue < 12 ? '오전' : '오후'
+  const hour = hourValue % 12 || 12
+  return `${period} ${hour}:${String(minuteValue).padStart(2, '0')}`
+}
+
 function parseDue(todo) {
   const time = todo.dueTime || '23:59'
   return new Date(`${todo.dueDate}T${time}:00`)
@@ -820,6 +834,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
                 <label className="change-field todo-date-field">
                   <span>마감일</span>
                   <span className="todo-control-shell todo-date-shell">
+                    <span className="todo-native-control-value" aria-hidden="true">{nativeDateDisplay(draft.dueDate)}</span>
                     <input
                       type="date"
                       value={draft.dueDate}
@@ -830,6 +845,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
                 <label className="change-field todo-time-field">
                   <span>시간 · 선택</span>
                   <span className="todo-control-shell todo-time-shell">
+                    <span className="todo-native-control-value" aria-hidden="true">{nativeTimeDisplay(draft.dueTime)}</span>
                     <input
                       type="time"
                       value={draft.dueTime}

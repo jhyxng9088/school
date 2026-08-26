@@ -710,6 +710,24 @@ body .unified-school-sheet.timetable-unified-sheet .timetable-control-shell {
   font-size: 13px !important;
 }
 
+body .unified-school-sheet.timetable-unified-sheet .timetable-native-date-value {
+  position: absolute !important;
+  z-index: 1 !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  min-width: 0 !important;
+  padding: 0 12px !important;
+  box-sizing: border-box !important;
+  color: var(--text) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+}
+
 body .unified-school-sheet.timetable-unified-sheet .timetable-control-shell:focus-within {
   border-color: var(--focus-accent, var(--text-tertiary)) !important;
 }
@@ -741,6 +759,11 @@ body .unified-school-sheet.timetable-unified-sheet .timetable-control-shell > se
 }
 
 body .unified-school-sheet.timetable-unified-sheet .timetable-date-shell > input[type="date"] {
+  z-index: 2 !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: transparent !important;
+  opacity: 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   line-height: 46px !important;

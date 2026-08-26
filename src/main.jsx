@@ -61,6 +61,12 @@ function getBrowser() {
   return 'other'
 }
 
+function nativeDateDisplay(value) {
+  const [year, month, day] = String(value || '').split('-').map(Number)
+  if (!year || !month || !day) return ''
+  return `${month}/${day}/${String(year).slice(-2)}`
+}
+
 function Icon({ type, size = 22 }) {
   const common = {
     width: size,
@@ -710,6 +716,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
             <label className="change-field timetable-date-field">
               <span>날짜</span>
               <span className="timetable-control-shell timetable-date-shell">
+                <span className="timetable-native-date-value" aria-hidden="true">{nativeDateDisplay(changeDate)}</span>
                 <input
                   type="date"
                   value={changeDate}
