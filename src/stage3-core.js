@@ -13,6 +13,12 @@ const ACADEMIC_CACHE_KEY = 'school.stage3.academic.v3'
 const MEAL_CACHE_AGE = 1000 * 60 * 60 * 12
 const ACADEMIC_CACHE_AGE = 1000 * 60 * 60 * 6
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+const MOCK_EXAMS = [
+  { rawDate: '20260324', name: '3월 전국연합학력평가', content: '고2 · 서울특별시교육청 주관' },
+  { rawDate: '20260604', name: '6월 전국연합학력평가', content: '고2 · 부산광역시교육청 주관' },
+  { rawDate: '20260902', name: '9월 전국연합학력평가', content: '고2 · 인천광역시교육청 주관' },
+  { rawDate: '20261020', name: '10월 전국연합학력평가', content: '고2 · 경기도교육청 주관' },
+]
 
 function pad(value) {
   return String(value).padStart(2, '0')
@@ -193,6 +199,14 @@ async function fetchAcademicRange(fromDate, toDate, signal) {
     .filter((event) => event.date && event.name && event.relevantToSecondGrade)
     .sort((a, b) => a.rawDate.localeCompare(b.rawDate) || a.name.localeCompare(b.name))
 
+  const fromRaw = rawDate(fromDate)
+  const toRaw = rawDate(toDate)
+  for (const exam of MOCK_EXAMS) {
+    if (exam.rawDate < fromRaw || exam.rawDate > toRaw) continue
+    const duplicate = normalized.some((event) => event.rawDate === exam.rawDate && /전국연합|학력평가|모의고사/.test(event.name))
+    if (!duplicate) normalized.push({ ...exam, date: dateFromRaw(exam.rawDate), dayOffType: '해당없음', relevantToSecondGrade: true })
+  }
+  normalized.sort((a, b) => a.rawDate.localeCompare(b.rawDate) || a.name.localeCompare(b.name))
   if (!normalized.length) throw new Error('2학년 학사일정을 찾지 못했어.')
   return normalized
 }
