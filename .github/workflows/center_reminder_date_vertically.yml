@@ -1,0 +1,39 @@
+name: Center reminder date vertically
+
+on:
+  push:
+    paths:
+      - '.github/workflows/center_reminder_date_vertically.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply guarded patch
+        run: python3 .github/scripts/center_reminder_date_vertically.py
+      - name: Verify diff
+        run: git diff --check
+      - name: Install dependencies
+        run: npm install
+      - name: Production build
+        run: npm run build
+      - name: Verify exact scope
+        run: |
+          grep -q 'align-self: stretch;' src/todo-stage5.css
+          grep -q 'display: inline-flex;' src/todo-stage5.css
+      - name: Commit verified change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/todo-stage5.css
+          git commit -m "Center reminder date labels vertically" || exit 0
+          git push
