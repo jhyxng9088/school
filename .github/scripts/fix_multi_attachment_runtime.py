@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 p = Path('src/todo-stage5-ai.jsx')
 t = p.read_text()
@@ -15,7 +16,7 @@ if old not in t:
     raise SystemExit('Missing stale attachmentFile marker')
 t = t.replace(old, new, 1)
 
-if 'attachmentFile' in t:
+if re.search(r'\battachmentFile\b', t):
     raise SystemExit('Stale attachmentFile identifier remains')
 
 p.write_text(t.rstrip() + '\n')
