@@ -344,3 +344,26 @@ body .academic-editor::before {
     animation-duration: 0.01ms !important;
   }
 }
+
+
+/* iPhone: match Reminder's bottom sheet and keep controls above the home indicator. */
+@media (max-width: 699px) {
+  body .academic-editor {
+    bottom: 0;
+    width: min(calc(100% - 16px), 660px);
+    max-height: min(82dvh, 720px);
+    padding: 8px 18px max(18px, env(safe-area-inset-bottom));
+    border-bottom: 0;
+    border-radius: 28px 28px 0 0;
+    background: var(--surface);
+    box-shadow: 0 -18px 46px rgba(0, 0, 0, 0.13);
+  }
+
+  .academic-editor-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 18px 48px 14px 2px;
+    background: var(--surface);
+  }
+}

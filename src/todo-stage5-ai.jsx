@@ -397,8 +397,8 @@ export function TodoPage({ now, todoData }) {
 
   async function submitNatural() {
     if (!naturalResult?.title || !naturalResult?.dueDate || originalSaving || serverSaving) return
-    const createId = attachmentFile ? (pendingCreateIdRef.current || createTodoId()) : ''
-    if (createId) pendingCreateIdRef.current = createId
+    const createId = pendingCreateIdRef.current || createTodoId()
+    pendingCreateIdRef.current = createId
 
     if (attachmentFile) {
       setOriginalSaving(true)
@@ -416,24 +416,30 @@ export function TodoPage({ now, todoData }) {
 
     setServerSaving(true)
     setServerSaveError('')
+    const savePromise = saveTodo({
+      id: '',
+      createId,
+      type: naturalResult.type,
+      title: naturalResult.title,
+      dueDate: naturalResult.dueDate,
+      dueTime: naturalResult.dueTime || '',
+      summary: naturalResult.summary || null,
+      attachment: naturalResult.attachment || null,
+    })
+    setSheetOpen(false)
+
     try {
-      const savedId = await saveTodo({
-        id: '',
-        createId,
-        type: naturalResult.type,
-        title: naturalResult.title,
-        dueDate: naturalResult.dueDate,
-        dueTime: naturalResult.dueTime || '',
-        summary: naturalResult.summary || null,
-        attachment: naturalResult.attachment || null,
-      })
-      if (!savedId) return
+      const savedId = await savePromise
+      if (!savedId) {
+        setSheetOpen(true)
+        return
+      }
       pendingCreateIdRef.current = ''
       resetAI()
-      setSheetOpen(false)
     } catch (error) {
       console.error('Shared reminder save failed:', error)
       setServerSaveError('서버에 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
+      setSheetOpen(true)
     } finally {
       setServerSaving(false)
     }
@@ -441,14 +447,24 @@ export function TodoPage({ now, todoData }) {
 
   async function submitManual() {
     if (serverSaving) return
+    const createId = draft.id ? '' : (pendingCreateIdRef.current || createTodoId())
+    if (createId) pendingCreateIdRef.current = createId
     setServerSaving(true)
     setServerSaveError('')
+    const savePromise = saveTodo(createId ? { ...draft, createId } : draft)
+    setSheetOpen(false)
+
     try {
-      const savedId = await saveTodo(draft)
-      if (savedId) setSheetOpen(false)
+      const savedId = await savePromise
+      if (!savedId) {
+        setSheetOpen(true)
+        return
+      }
+      pendingCreateIdRef.current = ''
     } catch (error) {
       console.error('Shared reminder save failed:', error)
       setServerSaveError('서버에 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
+      setSheetOpen(true)
     } finally {
       setServerSaving(false)
     }

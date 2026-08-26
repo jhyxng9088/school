@@ -34,6 +34,18 @@ const USER_NAME_KEY = 'school.userName'
 const MOBILE_BROWSER_COMPAT = /iPhone|iPod|Android|SamsungBrowser/i.test(navigator.userAgent)
 if (MOBILE_BROWSER_COMPAT) document.documentElement.classList.add('school-mobile-compat')
 
+
+if (!window.__schoolPinchZoomBlocked) {
+  window.__schoolPinchZoomBlocked = true
+  const preventGestureZoom = (event) => event.preventDefault()
+  const preventMultiTouchZoom = (event) => {
+    if (event.touches?.length > 1) event.preventDefault()
+  }
+  document.addEventListener('gesturestart', preventGestureZoom, { passive: false })
+  document.addEventListener('gesturechange', preventGestureZoom, { passive: false })
+  document.addEventListener('touchmove', preventMultiTouchZoom, { passive: false })
+}
+
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
 }

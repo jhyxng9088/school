@@ -3,10 +3,11 @@ import {
   classKeyFor,
   getReminderOriginal,
   listenClassTodos,
+  listenStudentTodoState,
   profileSignature,
-  studentKeyFor,
   writeReminderOriginal,
   writeSharedTodo,
+  writeStudentTodoState,
 } from './school-sync'
 import { recordClassActivity } from './class-activity'
 
@@ -111,52 +112,38 @@ function createTodoId() {
   return `${now}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-const LOCAL_TODO_STATE_VERSION = 'v2'
+const SHARED_TODOS_CACHE_VERSION = 'v1'
 
-function localTodoStateKey(profile) {
+function sharedTodosCacheKey(profile) {
   const classKey = classKeyFor(profile)
-  const studentKey = studentKeyFor(profile)
-  return classKey && studentKey ? `school.todoState.${LOCAL_TODO_STATE_VERSION}.${classKey}.${studentKey}` : ''
+  return classKey ? `school.sharedTodos.${SHARED_TODOS_CACHE_VERSION}.${classKey}` : ''
 }
 
-function normalizeLocalTodoState(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
-  const normalized = {}
-  Object.entries(value).forEach(([id, state]) => {
-    if (!id || !state || typeof state !== 'object') return
-    normalized[id] = {
-      completed: Boolean(state.completed),
-      hidden: Boolean(state.hidden),
-      updatedAt: Number(state.updatedAt || 0),
-    }
-  })
-  return normalized
-}
-
-function readLocalTodoState(profile) {
-  const key = localTodoStateKey(profile)
-  if (!key) return {}
+function readSharedTodosCache(profile) {
+  const key = sharedTodosCacheKey(profile)
+  if (!key) return []
   try {
-    return normalizeLocalTodoState(JSON.parse(localStorage.getItem(key) || '{}'))
+    const stored = JSON.parse(localStorage.getItem(key) || '[]')
+    return Array.isArray(stored) ? stored.map(sharedTodoShape) : []
   } catch {
-    return {}
+    return []
   }
 }
 
-function writeLocalTodoState(profile, state) {
-  const key = localTodoStateKey(profile)
+function writeSharedTodosCache(profile, todos) {
+  const key = sharedTodosCacheKey(profile)
   if (!key) return
   try {
-    localStorage.setItem(key, JSON.stringify(normalizeLocalTodoState(state)))
+    localStorage.setItem(key, JSON.stringify((todos || []).map(sharedTodoShape)))
   } catch {
-    // Completion/deletion are intentionally device-local; storage failure should not touch class data.
+    // Cache only accelerates first paint. Firestore remains authoritative.
   }
 }
 
 export function useTodos(profile) {
-  const [sharedTodos, setSharedTodos] = useState([])
-  const [personalState, setPersonalState] = useState(() => readLocalTodoState(profile))
   const signature = profileSignature(profile)
+  const [sharedTodos, setSharedTodos] = useState(() => readSharedTodosCache(profile))
+  const [personalState, setPersonalState] = useState({})
   const todos = useMemo(() => mergeSharedTodos(sharedTodos, personalState), [sharedTodos, personalState])
 
   useEffect(() => {
@@ -164,30 +151,50 @@ export function useTodos(profile) {
   }, [])
 
   useEffect(() => {
-    setPersonalState(readLocalTodoState(profile))
-  }, [signature])
-
-  useEffect(() => {
     if (!signature) {
       setSharedTodos([])
+      setPersonalState({})
       return undefined
     }
 
     let disposed = false
+    setSharedTodos(readSharedTodosCache(profile))
+    setPersonalState({})
+
     const stopClassTodos = listenClassTodos(
       profile,
       (remoteTodos) => {
         if (disposed) return
-        setSharedTodos(remoteTodos.map(sharedTodoShape))
+        const next = remoteTodos.map(sharedTodoShape)
+        writeSharedTodosCache(profile, next)
+        setSharedTodos(next)
       },
       (error) => console.error('Class reminder sync failed:', error),
+    )
+
+    const stopPersonalState = listenStudentTodoState(
+      profile,
+      (remoteState) => {
+        if (disposed) return
+        setPersonalState(remoteState)
+      },
+      (error) => console.error('Personal reminder state sync failed:', error),
     )
 
     return () => {
       disposed = true
       stopClassTodos()
+      stopPersonalState()
     }
   }, [signature])
+
+  function updateSharedTodos(updater) {
+    setSharedTodos((current) => {
+      const next = updater(current)
+      writeSharedTodosCache(profile, next)
+      return next
+    })
+  }
 
   async function saveTodo(input) {
     const title = String(input.title || '').trim()
@@ -211,7 +218,17 @@ export function useTodos(profile) {
         ...(summary ? { summary } : {}),
         ...(attachment ? { attachment } : {}),
       }
-      await writeSharedTodo(profile, nextTodo)
+
+      updateSharedTodos((current) => current.map((todo) => todo.id === input.id ? nextTodo : todo))
+      try {
+        await writeSharedTodo(profile, nextTodo)
+      } catch (error) {
+        updateSharedTodos((current) => current.map((todo) => (
+          todo.id === input.id && todo.updatedAt === nextTodo.updatedAt ? currentTodo : todo
+        )))
+        throw error
+      }
+
       recordClassActivity(profile, 'reminder', input.id, 'edited')
         .catch((error) => console.error('Reminder attribution update failed:', error))
       return input.id
@@ -229,45 +246,57 @@ export function useTodos(profile) {
       ...(summary ? { summary } : {}),
       ...(attachment ? { attachment } : {}),
     }
-    await writeSharedTodo(profile, todo)
+
+    updateSharedTodos((current) => sortTodos([
+      ...current.filter((item) => item.id !== todo.id),
+      todo,
+    ]))
+    try {
+      await writeSharedTodo(profile, todo)
+    } catch (error) {
+      updateSharedTodos((current) => current.filter((item) => !(item.id === todo.id && item.updatedAt === todo.updatedAt)))
+      throw error
+    }
+
     recordClassActivity(profile, 'reminder', todo.id, 'added')
       .catch((error) => console.error('Reminder attribution create failed:', error))
     return todo.id
   }
 
-  function toggleTodo(id) {
-    const target = todos.find((todo) => todo.id === id)
-    if (!target) return
-    const completed = !target.completed
-    setPersonalState((current) => {
-      const next = {
-        ...current,
-        [id]: {
-          ...current[id],
-          completed,
-          hidden: false,
-          updatedAt: Date.now(),
-        },
-      }
-      writeLocalTodoState(profile, next)
-      return next
+  function updatePersonalStateOnServer(id, nextEntry, previousEntry) {
+    setPersonalState((current) => ({ ...current, [id]: nextEntry }))
+    writeStudentTodoState(profile, id, nextEntry).catch((error) => {
+      console.error('Personal reminder state save failed:', error)
+      setPersonalState((current) => {
+        if (current[id]?.updatedAt !== nextEntry.updatedAt) return current
+        const next = { ...current }
+        if (previousEntry) next[id] = previousEntry
+        else delete next[id]
+        return next
+      })
     })
   }
 
+  function toggleTodo(id) {
+    const target = todos.find((todo) => todo.id === id)
+    if (!target) return
+    const previousEntry = personalState[id] || null
+    const nextEntry = {
+      completed: !target.completed,
+      hidden: false,
+      updatedAt: Date.now(),
+    }
+    updatePersonalStateOnServer(id, nextEntry, previousEntry)
+  }
+
   function removeTodo(id) {
-    setPersonalState((current) => {
-      const next = {
-        ...current,
-        [id]: {
-          ...current[id],
-          completed: Boolean(current[id]?.completed),
-          hidden: true,
-          updatedAt: Date.now(),
-        },
-      }
-      writeLocalTodoState(profile, next)
-      return next
-    })
+    const previousEntry = personalState[id] || null
+    const nextEntry = {
+      completed: Boolean(previousEntry?.completed),
+      hidden: true,
+      updatedAt: Date.now(),
+    }
+    updatePersonalStateOnServer(id, nextEntry, previousEntry)
   }
 
   function uploadOriginalAttachment(todoId, file) {

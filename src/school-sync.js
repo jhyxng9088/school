@@ -16,6 +16,8 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import {
+  loadOverrides,
+  loadWeeklySchedule,
   normalizeOverrides,
   normalizeWeeklySchedule,
   pruneExpiredOverrides,
@@ -163,7 +165,7 @@ const db = initializeFirestore(syncApp, samsungInternet
 
 let authPromise = null
 
-async function ensureSignedIn() {
+export async function ensureSignedIn() {
   if (auth.currentUser) return auth.currentUser
   if (!authPromise) {
     authPromise = (async () => {
@@ -401,7 +403,6 @@ export function listenClassTodos(profile, onValue, onError = () => {}) {
       if (stopped) return
       unsubscribe = onSnapshot(classTodosCollection(profile), applySnapshot, onError)
       removeRevalidation = installServerRevalidation(refreshFromServer)
-      refreshFromServer()
     })
     .catch(onError)
 
@@ -453,7 +454,6 @@ export function listenStudentTodoState(profile, onValue, onError = () => {}) {
       if (stopped) return
       unsubscribe = onSnapshot(personalTodoStateCollection(profile), applySnapshot, onError)
       removeRevalidation = installServerRevalidation(refreshFromServer)
-      refreshFromServer()
     })
     .catch(onError)
 
@@ -559,7 +559,7 @@ export async function writeStudentTodoState(profile, todoId, state) {
   await setDoc(personalTodoStateRef(profile, todoId), {
     completed: Boolean(state?.completed),
     hidden: Boolean(state?.hidden),
-    updatedAt: Date.now(),
+    updatedAt: Number(state?.updatedAt || Date.now()),
   }, { merge: true })
 }
 
@@ -616,8 +616,8 @@ async function writeOverridesCloud(profile, overrides) {
 }
 
 export function useSharedTimetable(profile, now) {
-  const [weeklySchedule, setWeeklySchedule] = useState(() => normalizeWeeklySchedule(null))
-  const [overrides, setOverrides] = useState({})
+  const [weeklySchedule, setWeeklySchedule] = useState(() => loadWeeklySchedule())
+  const [overrides, setOverrides] = useState(() => pruneExpiredOverrides(loadOverrides(), now))
   const signature = profileSignature(profile)
 
   useEffect(() => {
@@ -669,8 +669,7 @@ export function useSharedTimetable(profile, now) {
           (error) => console.error('Timetable realtime sync failed:', error),
         )
         removeRevalidation = installServerRevalidation(refreshFromServer)
-        refreshFromServer()
-      })
+        })
       .catch((error) => console.error('Timetable cloud connection failed:', error))
 
     return () => {

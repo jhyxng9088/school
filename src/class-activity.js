@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getApp, getApps } from 'firebase/app'
-import { browserLocalPersistence, getAuth, setPersistence, signInAnonymously } from 'firebase/auth'
 import {
   collection,
   deleteDoc,
@@ -14,6 +13,7 @@ import {
 } from 'firebase/firestore'
 import {
   classKeyFor,
+  ensureSignedIn,
   normalizeStudentProfile,
   profileSignature,
   readStudentProfile,
@@ -22,28 +22,7 @@ import {
 
 const syncApp = getApps().some((app) => app.name === 'school-sync') ? getApp('school-sync') : null
 if (!syncApp) throw new Error('School sync app is not initialized')
-const auth = getAuth(syncApp)
 const db = getFirestore(syncApp)
-let authPromise = null
-const identityPromises = new Map()
-
-async function ensureSignedIn() {
-  if (auth.currentUser) return auth.currentUser
-  if (!authPromise) {
-    authPromise = (async () => {
-      try {
-        await setPersistence(auth, browserLocalPersistence)
-      } catch {
-        // The session can still work when persistent auth storage is unavailable.
-      }
-      return (await signInAnonymously(auth)).user
-    })().catch((error) => {
-      authPromise = null
-      throw error
-    })
-  }
-  return authPromise
-}
 
 function installServerRevalidation(refresh) {
   const handle = () => {
@@ -175,7 +154,6 @@ export function useClassActivity(profile = null) {
           (error) => console.error('Class activity sync failed:', error),
         )
         removeRevalidation = installServerRevalidation(refreshFromServer)
-        refreshFromServer()
       })
       .catch((error) => console.error('Class activity connection failed:', error))
     return () => {
@@ -265,14 +243,46 @@ function newAcademicId() {
   return `academic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+const ACADEMIC_CACHE_VERSION = 'v1'
+
+function academicCacheKey(profile) {
+  const normalized = currentProfile(profile)
+  const classKey = classKeyFor(normalized)
+  return classKey ? `school.academicEvents.${ACADEMIC_CACHE_VERSION}.${classKey}` : ''
+}
+
+function readAcademicCache(profile) {
+  const key = academicCacheKey(profile)
+  if (!key) return []
+  try {
+    const stored = JSON.parse(localStorage.getItem(key) || '[]')
+    return Array.isArray(stored)
+      ? stored.map(safeAcademicEvent).filter(Boolean).sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title))
+      : []
+  } catch {
+    return []
+  }
+}
+
+function writeAcademicCache(profile, events) {
+  const key = academicCacheKey(profile)
+  if (!key) return
+  try {
+    localStorage.setItem(key, JSON.stringify(events || []))
+  } catch {
+    // Cache only accelerates first paint. Firestore remains authoritative.
+  }
+}
+
 export function useSharedAcademic(profile) {
   const normalized = currentProfile(profile)
   const signature = profileSignature(normalized)
   const studentKey = studentKeyFor(normalized)
-  const [events, setEvents] = useState([])
+  const [events, setEvents] = useState(() => readAcademicCache(normalized))
 
   useEffect(() => {
     if (!signature) return undefined
+    setEvents(readAcademicCache(normalized))
     let stopped = false
     let unsubscribe = () => {}
     let removeRevalidation = () => {}
@@ -281,7 +291,9 @@ export function useSharedAcademic(profile) {
     const applySnapshot = (snapshot) => {
       if (stopped) return
       generation += 1
-      setEvents(academicEventsFromSnapshot(snapshot))
+      const next = academicEventsFromSnapshot(snapshot)
+      writeAcademicCache(normalized, next)
+      setEvents(next)
     }
 
     const refreshFromServer = async () => {
@@ -304,7 +316,6 @@ export function useSharedAcademic(profile) {
           (error) => console.error('Academic schedule sync failed:', error),
         )
         removeRevalidation = installServerRevalidation(refreshFromServer)
-        refreshFromServer()
       })
       .catch((error) => console.error('Academic schedule connection failed:', error))
     return () => {
