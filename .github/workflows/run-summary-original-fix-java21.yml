@@ -1,0 +1,42 @@
+name: Run summary original fix Java21
+
+on:
+  push:
+    paths:
+      - '.github/workflows/run-summary-original-fix-java21.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Apply guarded patch
+        run: node scripts/run-summary-original-fix.mjs
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build
+        run: npm run build
+      - name: Validate Firestore rules
+        run: npx --yes firebase-tools@latest emulators:exec --only firestore "echo firestore-rules-ok" --project school-adeda
+      - name: Commit verified fix
+        run: |
+          git config user.name "jhyxng9088"
+          git config user.email "j.hyxng9088@gmail.com"
+          git add src/school-sync.js src/todo.jsx src/todo-stage5-ai.jsx src/reminder-summary.jsx src/reminder-summary.css src/todo-stage5.css firestore.rules public/sw.js
+          git commit -m "Improve reminder summary gestures and preserve originals"
+          git push
