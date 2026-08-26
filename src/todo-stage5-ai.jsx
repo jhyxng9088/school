@@ -179,12 +179,15 @@ export function TodoPage({ now, todoData }) {
   const [attachmentRetryKey, setAttachmentRetryKey] = useState(0)
   const [originalSaving, setOriginalSaving] = useState(false)
   const [originalSaveError, setOriginalSaveError] = useState('')
+  const [serverSaving, setServerSaving] = useState(false)
+  const [serverSaveError, setServerSaveError] = useState('')
   const [summaryTodo, setSummaryTodo] = useState(null)
   const activity = useClassActivity()
   const pageRef = useRef(null)
   const previousRectsRef = useRef(new Map())
   const motionReadyRef = useRef(false)
   const aiRequestRef = useRef(0)
+  const pendingCreateIdRef = useRef('')
 
   const sorted = useMemo(() => sortTodos(todos), [todos])
   const active = sorted.filter((todo) => !todo.completed)
@@ -320,6 +323,9 @@ export function TodoPage({ now, todoData }) {
     setAttachmentRetryKey(0)
     setOriginalSaving(false)
     setOriginalSaveError('')
+    setServerSaving(false)
+    setServerSaveError('')
+    pendingCreateIdRef.current = ''
     setSummaryTodo(null)
     setDraft(emptyDraft(now))
     setSheetMode('natural')
@@ -330,6 +336,9 @@ export function TodoPage({ now, todoData }) {
   function openEdit(todo) {
     setNaturalText('')
     setAttachmentFile(null)
+    setServerSaving(false)
+    setServerSaveError('')
+    pendingCreateIdRef.current = ''
     setSummaryTodo(null)
     setDraft({
       id: todo.id,
@@ -349,6 +358,8 @@ export function TodoPage({ now, todoData }) {
     setAttachmentFile(file)
     setAttachmentRetryKey(0)
     setOriginalSaveError('')
+    setServerSaveError('')
+    pendingCreateIdRef.current = ''
     resetAI()
   }
 
@@ -385,8 +396,9 @@ export function TodoPage({ now, todoData }) {
   }
 
   async function submitNatural() {
-    if (!naturalResult?.title || !naturalResult?.dueDate || originalSaving) return
-    const createId = attachmentFile ? createTodoId() : ''
+    if (!naturalResult?.title || !naturalResult?.dueDate || originalSaving || serverSaving) return
+    const createId = attachmentFile ? (pendingCreateIdRef.current || createTodoId()) : ''
+    if (createId) pendingCreateIdRef.current = createId
 
     if (attachmentFile) {
       setOriginalSaving(true)
@@ -402,25 +414,44 @@ export function TodoPage({ now, todoData }) {
       }
     }
 
-    const savedId = saveTodo({
-      id: '',
-      createId,
-      type: naturalResult.type,
-      title: naturalResult.title,
-      dueDate: naturalResult.dueDate,
-      dueTime: naturalResult.dueTime || '',
-      summary: naturalResult.summary || null,
-      attachment: naturalResult.attachment || null,
-    })
-    if (savedId) {
+    setServerSaving(true)
+    setServerSaveError('')
+    try {
+      const savedId = await saveTodo({
+        id: '',
+        createId,
+        type: naturalResult.type,
+        title: naturalResult.title,
+        dueDate: naturalResult.dueDate,
+        dueTime: naturalResult.dueTime || '',
+        summary: naturalResult.summary || null,
+        attachment: naturalResult.attachment || null,
+      })
+      if (!savedId) return
+      pendingCreateIdRef.current = ''
       resetAI()
       setSheetOpen(false)
+    } catch (error) {
+      console.error('Shared reminder save failed:', error)
+      setServerSaveError('서버에 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
+    } finally {
+      setServerSaving(false)
     }
   }
 
-  function submitManual() {
-    const savedId = saveTodo(draft)
-    if (savedId) setSheetOpen(false)
+  async function submitManual() {
+    if (serverSaving) return
+    setServerSaving(true)
+    setServerSaveError('')
+    try {
+      const savedId = await saveTodo(draft)
+      if (savedId) setSheetOpen(false)
+    } catch (error) {
+      console.error('Shared reminder save failed:', error)
+      setServerSaveError('서버에 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
+    } finally {
+      setServerSaving(false)
+    }
   }
 
   function submitCurrent() {
@@ -444,7 +475,7 @@ export function TodoPage({ now, todoData }) {
   }
 
   const aiBusy = aiState === 'waiting' || aiState === 'loading'
-  const saveDisabled = originalSaving || (sheetMode === 'natural'
+  const saveDisabled = originalSaving || serverSaving || (sheetMode === 'natural'
     ? (attachmentFile ? !aiResult?.title || !aiResult?.summary : !naturalResult?.title)
     : !draft.title.trim() || !draft.dueDate)
 
@@ -651,6 +682,8 @@ export function TodoPage({ now, todoData }) {
               ) : null}
             </div>
 
+            {serverSaveError ? <p className="change-warning">{serverSaveError}</p> : null}
+
             <div className="change-submit-row">
               <button type="button" onClick={() => setSheetOpen(false)}>취소</button>
               <button
@@ -659,7 +692,7 @@ export function TodoPage({ now, todoData }) {
                 disabled={saveDisabled}
                 onClick={submitCurrent}
               >
-                {originalSaving ? '저장 중…' : sheetMode === 'natural' ? '추가' : '저장'}
+                {originalSaving || serverSaving ? '저장 중…' : sheetMode === 'natural' ? '추가' : '저장'}
               </button>
             </div>
           </div>
