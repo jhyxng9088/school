@@ -14,8 +14,15 @@ const firebaseConfig = {
 
 const DIRECT_APP_NAME = 'school-ai-recovery'
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
-const TITLE_MODELS = ['gemini-3.7-flash', 'gemini-3.1-pro-preview']
-const RECOVERY_MODELS = ['gemini-3.1-pro-preview', 'gemini-3.7-flash']
+const FALLBACK_MODELS = [
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash-lite',
+]
+const TITLE_MODELS = FALLBACK_MODELS
+const RECOVERY_MODELS = FALLBACK_MODELS
 const TITLE_TIMEOUT_MS = 18000
 const SUMMARY_TIMEOUT_MS = 40000
 const RAW_TITLE_TIMEOUT_MS = 16000
