@@ -1,0 +1,41 @@
+name: Validate reminder motion
+
+on:
+  push:
+    branches: [feature/academic-audit-contact]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: ${{ !contains(github.event.head_commit.message, '[motion-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feature/academic-audit-contact
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply guarded motion patch
+        run: python3 scripts/apply-reminder-motion.py
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit verified motion changes
+        run: |
+          git config user.name "jhyxng9088"
+          git config user.email "j.hyxng9088@gmail.com"
+          git add src/todo-stage5-ai.jsx src/reminder-summary.jsx src/todo-ai.css src/reminder-summary.css public/sw.js
+          git commit -m "[motion-applied] Smooth reminder image and AI progress"
+          git push origin HEAD:feature/academic-audit-contact
