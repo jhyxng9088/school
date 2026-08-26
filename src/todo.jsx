@@ -1,9 +1,11 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  getReminderOriginal,
   listenClassTodos,
   listenStudentTodoState,
   migrateLegacyTodos,
   profileSignature,
+  writeReminderOriginal,
   writeSharedTodo,
   writeStudentTodoState,
 } from './school-sync'
@@ -151,6 +153,11 @@ function mergeSharedTodos(sharedTodos, personalState) {
     })))
 }
 
+function createTodoId() {
+  const now = Date.now()
+  return `${now}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 export function useTodos(profile) {
   const legacyTodosRef = useRef(null)
   if (legacyTodosRef.current === null) legacyTodosRef.current = loadTodos()
@@ -234,7 +241,7 @@ export function useTodos(profile) {
 
     const now = Date.now()
     const todo = {
-      id: `${now}-${Math.random().toString(36).slice(2, 8)}`,
+      id: String(input.createId || '').trim().slice(0, 100) || createTodoId(),
       type,
       title,
       dueDate,
@@ -282,7 +289,23 @@ export function useTodos(profile) {
       .catch((error) => console.error('Personal reminder delete sync failed:', error))
   }
 
-  return { todos, saveTodo, toggleTodo, removeTodo }
+  function uploadOriginalAttachment(todoId, file) {
+    return writeReminderOriginal(profile, todoId, file)
+  }
+
+  function getOriginalAttachment(todoId) {
+    return getReminderOriginal(profile, todoId)
+  }
+
+  return {
+    todos,
+    saveTodo,
+    toggleTodo,
+    removeTodo,
+    createTodoId,
+    uploadOriginalAttachment,
+    getOriginalAttachment,
+  }
 }
 
 function typeLabel(typeId) {

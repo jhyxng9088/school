@@ -97,75 +97,319 @@ export function AttachmentPicker({ file, busy = false, ready = false, error = ''
   )
 }
 
-export function SummarySheet({ todo, onClose }) {
-  const [expanded, setExpanded] = useState(false)
-  const [dragY, setDragY] = useState(0)
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function base64ToBlob(dataBase64, mimeType) {
+  const binary = window.atob(dataBase64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return new Blob([bytes], { type: mimeType || 'application/octet-stream' })
+}
+
+function OriginalImageViewer({ original, onClose }) {
+  const [saving, setSaving] = useState(false)
+
+  async function saveOriginal() {
+    if (!original?.blob || saving) return
+    setSaving(true)
+    try {
+      const file = new File([original.blob], original.name || '원본 사진', { type: original.blob.type || 'image/jpeg' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: original.name || '원본 사진' })
+        return
+      }
+      const anchor = document.createElement('a')
+      anchor.href = original.url
+      anchor.download = original.name || '원본-사진'
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+    } catch (error) {
+      if (error?.name !== 'AbortError') console.error('Original image save failed:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!original) return null
+
+  return (
+    <div className="reminder-original-viewer" role="dialog" aria-modal="true" aria-label="원본 사진">
+      <button className="reminder-original-backdrop" type="button" aria-label="원본 사진 닫기" onClick={onClose} />
+      <div className="reminder-original-panel">
+        <header>
+          <strong>{original.name || '원본 사진'}</strong>
+          <button className="reminder-summary-close" type="button" aria-label="닫기" onClick={onClose}>×</button>
+        </header>
+        <div className="reminder-original-image-wrap">
+          <img src={original.url} alt={original.name || '원본 사진'} />
+        </div>
+        <button className="reminder-original-save" type="button" onClick={saveOriginal} disabled={saving}>
+          {saving ? '준비 중…' : '사진 저장'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export function SummarySheet({ todo, onClose, loadOriginal = null }) {
+  const sheetRef = useRef(null)
+  const backdropRef = useRef(null)
+  const scrollRef = useRef(null)
+  const animationRef = useRef(null)
+  const lastFrameRef = useRef(0)
+  const yRef = useRef(0)
+  const velocityRef = useRef(0)
   const dragRef = useRef(null)
+  const pullRef = useRef(null)
+  const objectUrlRef = useRef('')
+  const [expanded, setExpanded] = useState(false)
+  const [viewer, setViewer] = useState(null)
+  const [originalState, setOriginalState] = useState('idle')
+  const [originalError, setOriginalError] = useState('')
+
+  const sections = Array.isArray(todo?.summary?.sections) ? todo.summary.sections : []
+  const canShowOriginal = Boolean(todo?.attachment?.mimeType?.startsWith('image/') && loadOriginal)
+
+  function collapsedY() {
+    return Math.max(220, Math.min(window.innerHeight * 0.4, 430))
+  }
+
+  function closedY() {
+    return Math.max(window.innerHeight + 48, (sheetRef.current?.offsetHeight || window.innerHeight) + 36)
+  }
+
+  function paint(value) {
+    yRef.current = value
+    const sheet = sheetRef.current
+    if (sheet) sheet.style.setProperty('--summary-y', `${value}px`)
+    const backdrop = backdropRef.current
+    if (backdrop) {
+      const progress = clamp(value / Math.max(closedY(), 1), 0, 1)
+      backdrop.style.opacity = String((1 - progress) * 0.32)
+    }
+  }
+
+  function stopAnimation() {
+    if (animationRef.current !== null) cancelAnimationFrame(animationRef.current)
+    animationRef.current = null
+    lastFrameRef.current = 0
+  }
+
+  function springTo(target, { velocity = velocityRef.current, onComplete = null } = {}) {
+    stopAnimation()
+    velocityRef.current = Number.isFinite(velocity) ? velocity : 0
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      velocityRef.current = 0
+      paint(target)
+      onComplete?.()
+      return
+    }
+
+    const closing = target >= closedY() - 2
+    const stiffness = closing ? 126 : 148
+    const damping = closing ? 26 : 27
+
+    function step(time) {
+      if (!lastFrameRef.current) lastFrameRef.current = time
+      const dt = Math.min((time - lastFrameRef.current) / 1000, 0.028)
+      lastFrameRef.current = time
+      const displacement = yRef.current - target
+      const acceleration = -stiffness * displacement - damping * velocityRef.current
+      velocityRef.current += acceleration * dt
+      const next = yRef.current + velocityRef.current * dt
+      paint(target === 0 ? Math.max(0, next) : next)
+
+      const settled = Math.abs(yRef.current - target) < 0.7 && Math.abs(velocityRef.current) < 5
+      if (settled || (closing && yRef.current >= window.innerHeight)) {
+        paint(target)
+        velocityRef.current = 0
+        animationRef.current = null
+        lastFrameRef.current = 0
+        onComplete?.()
+        return
+      }
+      animationRef.current = requestAnimationFrame(step)
+    }
+
+    animationRef.current = requestAnimationFrame(step)
+  }
+
+  function settleCollapsed(velocity = velocityRef.current) {
+    setExpanded(false)
+    springTo(collapsedY(), { velocity })
+  }
+
+  function settleExpanded(velocity = velocityRef.current) {
+    setExpanded(true)
+    springTo(0, { velocity })
+  }
+
+  function requestClose(velocity = velocityRef.current) {
+    springTo(closedY(), {
+      velocity: Math.max(velocity, 340),
+      onComplete: onClose,
+    })
+  }
 
   useEffect(() => {
+    if (!todo?.summary) return undefined
     setExpanded(false)
-    setDragY(0)
+    setOriginalState('idle')
+    setOriginalError('')
+    setViewer(null)
     dragRef.current = null
+    pullRef.current = null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const start = closedY()
+    paint(start)
+    requestAnimationFrame(() => springTo(collapsedY(), { velocity: 0 }))
+
+    return () => {
+      stopAnimation()
+      document.body.style.overflow = previousOverflow
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = ''
+    }
   }, [todo?.id])
 
   if (!todo?.summary) return null
 
   function pointerDown(event) {
-    event.preventDefault()
+    if (event.button > 0 || event.target.closest('button, a, input, textarea, select')) return
+    if (expanded && event.target.closest('.reminder-summary-scroll')) return
+    stopAnimation()
     event.currentTarget.setPointerCapture?.(event.pointerId)
     dragRef.current = {
+      pointerId: event.pointerId,
       startY: event.clientY,
+      startSheetY: yRef.current,
+      lastY: event.clientY,
+      lastTime: performance.now(),
       startedExpanded: expanded,
     }
-    setDragY(0)
+    velocityRef.current = 0
+    sheetRef.current?.classList.add('is-dragging')
   }
 
   function pointerMove(event) {
     const drag = dragRef.current
-    if (!drag) return
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const now = performance.now()
     const delta = event.clientY - drag.startY
-    const maxOffset = Math.max(140, window.innerHeight * 0.42)
-    if (drag.startedExpanded) {
-      setDragY(Math.max(0, Math.min(delta, maxOffset)))
+    const next = drag.startedExpanded
+      ? clamp(drag.startSheetY + Math.max(0, delta), 0, closedY())
+      : clamp(drag.startSheetY + delta, 0, closedY())
+    const dt = Math.max((now - drag.lastTime) / 1000, 0.001)
+    velocityRef.current = (event.clientY - drag.lastY) / dt
+    drag.lastY = event.clientY
+    drag.lastTime = now
+    paint(next)
+  }
+
+  function finishDrag(startedExpanded) {
+    sheetRef.current?.classList.remove('is-dragging')
+    const y = yRef.current
+    const velocity = velocityRef.current
+    const collapsed = collapsedY()
+    if (startedExpanded) {
+      if (y > collapsed + 150 || velocity > 1100) requestClose(velocity)
+      else if (y > 70 || velocity > 480) settleCollapsed(velocity)
+      else settleExpanded(velocity)
+    } else if (y < collapsed - 70 || velocity < -520) {
+      settleExpanded(velocity)
+    } else if (y > collapsed + 105 || velocity > 720) {
+      requestClose(velocity)
     } else {
-      setDragY(Math.max(-maxOffset, Math.min(delta, 90)))
+      settleCollapsed(velocity)
     }
   }
 
   function pointerEnd(event) {
     const drag = dragRef.current
-    if (!drag) return
-    const delta = event.clientY - drag.startY
-    if (drag.startedExpanded) {
-      if (delta > 72) setExpanded(false)
-    } else if (delta < -54) {
-      setExpanded(true)
-    }
+    if (!drag || drag.pointerId !== event.pointerId) return
     dragRef.current = null
-    setDragY(0)
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+    finishDrag(drag.startedExpanded)
   }
 
-  const sections = Array.isArray(todo.summary.sections) ? todo.summary.sections : []
+  function scrollTouchStart(event) {
+    if (!expanded || event.touches.length !== 1) return
+    const touch = event.touches[0]
+    pullRef.current = {
+      startY: touch.clientY,
+      lastY: touch.clientY,
+      lastTime: performance.now(),
+      active: false,
+    }
+  }
+
+  function scrollTouchMove(event) {
+    const pull = pullRef.current
+    if (!expanded || !pull || event.touches.length !== 1) return
+    const touch = event.touches[0]
+    const delta = touch.clientY - pull.startY
+    if (!pull.active) {
+      if ((scrollRef.current?.scrollTop || 0) > 0 || delta <= 10) return
+      pull.active = true
+      stopAnimation()
+    }
+    event.preventDefault()
+    const now = performance.now()
+    const dt = Math.max((now - pull.lastTime) / 1000, 0.001)
+    velocityRef.current = (touch.clientY - pull.lastY) / dt
+    pull.lastY = touch.clientY
+    pull.lastTime = now
+    paint(clamp(delta, 0, closedY()))
+  }
+
+  function scrollTouchEnd() {
+    const pull = pullRef.current
+    pullRef.current = null
+    if (pull?.active) finishDrag(true)
+  }
+
+  async function openOriginal() {
+    if (!loadOriginal || originalState === 'loading') return
+    setOriginalState('loading')
+    setOriginalError('')
+    try {
+      const original = await loadOriginal()
+      const blob = base64ToBlob(original.dataBase64, original.mimeType)
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+      const url = URL.createObjectURL(blob)
+      objectUrlRef.current = url
+      setViewer({ ...original, blob, url })
+      setOriginalState('ready')
+    } catch (error) {
+      console.error('Original reminder image load failed:', error)
+      setOriginalError(error?.message || '원본 사진을 불러오지 못했어.')
+      setOriginalState('error')
+    }
+  }
+
+  function closeViewer() {
+    setViewer(null)
+  }
 
   return (
     <div className="reminder-summary-layer" role="presentation">
-      <button className="reminder-summary-backdrop" type="button" aria-label="요약 닫기" onClick={onClose} />
+      <button ref={backdropRef} className="reminder-summary-backdrop" type="button" aria-label="요약 닫기" onClick={() => requestClose(340)} />
       <section
-        className={`reminder-summary-sheet ${expanded ? 'is-expanded' : ''}`}
-        style={{
-          '--summary-base-y': expanded ? '0px' : '40dvh',
-          '--summary-drag-y': `${dragY}px`,
-        }}
+        ref={sheetRef}
+        className={`reminder-summary-sheet ${expanded ? 'is-expanded' : 'is-collapsed'}`}
         aria-label={`${todo.title} 요약`}
+        onPointerDown={pointerDown}
+        onPointerMove={pointerMove}
+        onPointerUp={pointerEnd}
+        onPointerCancel={pointerEnd}
       >
-        <div
-          className="reminder-summary-drag-zone"
-          onPointerDown={pointerDown}
-          onPointerMove={pointerMove}
-          onPointerUp={pointerEnd}
-          onPointerCancel={pointerEnd}
-        >
-          <span className="reminder-summary-grabber" aria-hidden="true" />
+        <div className="reminder-summary-grabber-wrap" aria-hidden="true">
+          <span className="reminder-summary-grabber" />
         </div>
 
         <header className="reminder-summary-header">
@@ -173,10 +417,17 @@ export function SummarySheet({ todo, onClose }) {
             <p>{todo.attachment?.name ? `첨부 · ${todo.attachment.name}` : '리마인더 요약'}</p>
             <h2>{todo.title}</h2>
           </div>
-          <button type="button" onClick={onClose}>닫기</button>
+          <button className="reminder-summary-close" type="button" aria-label="닫기" onClick={() => requestClose(340)}>×</button>
         </header>
 
-        <div className="reminder-summary-scroll">
+        <div
+          ref={scrollRef}
+          className="reminder-summary-scroll"
+          onTouchStart={scrollTouchStart}
+          onTouchMove={scrollTouchMove}
+          onTouchEnd={scrollTouchEnd}
+          onTouchCancel={scrollTouchEnd}
+        >
           {todo.summary.overview ? <p className="reminder-summary-overview">{todo.summary.overview}</p> : null}
           {sections.map((section, sectionIndex) => (
             <section className="reminder-summary-section" key={`${section.heading}-${sectionIndex}`}>
@@ -188,8 +439,19 @@ export function SummarySheet({ todo, onClose }) {
               </ul>
             </section>
           ))}
+
+          {canShowOriginal ? (
+            <div className="reminder-original-action">
+              <button type="button" onClick={openOriginal} disabled={originalState === 'loading'}>
+                {originalState === 'loading' ? '원본 불러오는 중…' : '원본 사진 보기'}
+              </button>
+              {originalError ? <small>{originalError}</small> : null}
+            </div>
+          ) : null}
         </div>
       </section>
+
+      <OriginalImageViewer original={viewer} onClose={closeViewer} />
     </div>
   )
 }

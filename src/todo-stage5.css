@@ -280,7 +280,20 @@ html body .app-content:has(> .todo-page) {
 }
 
 .todo-stage5 .todo-item.is-completed .todo-date-text {
+  flex: none;
   opacity: 0.52;
+}
+
+.todo-stage5 .todo-item.is-completed .todo-item-main {
+  overflow: hidden;
+  padding-right: 12px;
+}
+
+.todo-stage5 .todo-item.is-completed .todo-row-actions {
+  flex: none;
+  min-width: 132px;
+  gap: 16px;
+  padding-left: 12px;
 }
 
 .todo-stage5 .todo-edit-button,

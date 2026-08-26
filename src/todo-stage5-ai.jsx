@@ -93,7 +93,7 @@ function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
 
 function ReminderRow({ todo, now, completed = false, deleting = false, onToggle, onEdit, onDelete, onOpenSummary }) {
   const dateLabel = dueDateLabel(todo)
-  const meta = dueMetaLabel(todo, now)
+  const meta = completed ? '' : dueMetaLabel(todo, now)
   const content = (
     <>
       <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
@@ -153,7 +153,15 @@ function ReminderRow({ todo, now, completed = false, deleting = false, onToggle,
 }
 
 export function TodoPage({ now, todoData }) {
-  const { todos, saveTodo, toggleTodo, removeTodo } = todoData
+  const {
+    todos,
+    saveTodo,
+    toggleTodo,
+    removeTodo,
+    createTodoId,
+    uploadOriginalAttachment,
+    getOriginalAttachment,
+  } = todoData
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetMode, setSheetMode] = useState('natural')
   const [naturalText, setNaturalText] = useState('')
@@ -166,6 +174,8 @@ export function TodoPage({ now, todoData }) {
   const [aiError, setAiError] = useState(null)
   const [attachmentFile, setAttachmentFile] = useState(null)
   const [attachmentRetryKey, setAttachmentRetryKey] = useState(0)
+  const [originalSaving, setOriginalSaving] = useState(false)
+  const [originalSaveError, setOriginalSaveError] = useState('')
   const [summaryTodo, setSummaryTodo] = useState(null)
   const pageRef = useRef(null)
   const previousRectsRef = useRef(new Map())
@@ -304,6 +314,8 @@ export function TodoPage({ now, todoData }) {
     setNaturalText('')
     setAttachmentFile(null)
     setAttachmentRetryKey(0)
+    setOriginalSaving(false)
+    setOriginalSaveError('')
     setSummaryTodo(null)
     setDraft(emptyDraft(now))
     setSheetMode('natural')
@@ -332,6 +344,7 @@ export function TodoPage({ now, todoData }) {
   function changeAttachment(file) {
     setAttachmentFile(file)
     setAttachmentRetryKey(0)
+    setOriginalSaveError('')
     resetAI()
   }
 
@@ -367,10 +380,27 @@ export function TodoPage({ now, todoData }) {
     syncPickerDisplays()
   }
 
-  function submitNatural() {
-    if (!naturalResult?.title || !naturalResult?.dueDate) return
+  async function submitNatural() {
+    if (!naturalResult?.title || !naturalResult?.dueDate || originalSaving) return
+    const createId = attachmentFile ? createTodoId() : ''
+
+    if (attachmentFile) {
+      setOriginalSaving(true)
+      setOriginalSaveError('')
+      try {
+        await uploadOriginalAttachment(createId, attachmentFile)
+      } catch (error) {
+        console.error('Original reminder attachment save failed:', error)
+        setOriginalSaveError(error?.message || '원본 사진 저장에 실패했어. 다시 시도해줘.')
+        return
+      } finally {
+        setOriginalSaving(false)
+      }
+    }
+
     const savedId = saveTodo({
       id: '',
+      createId,
       type: naturalResult.type,
       title: naturalResult.title,
       dueDate: naturalResult.dueDate,
@@ -410,9 +440,9 @@ export function TodoPage({ now, todoData }) {
   }
 
   const aiBusy = aiState === 'waiting' || aiState === 'loading'
-  const saveDisabled = sheetMode === 'natural'
+  const saveDisabled = originalSaving || (sheetMode === 'natural'
     ? (attachmentFile ? !aiResult?.title || !aiResult?.summary : !naturalResult?.title)
-    : !draft.title.trim() || !draft.dueDate
+    : !draft.title.trim() || !draft.dueDate)
 
   const summaryText = filter === 'all'
     ? (active.length ? `${active.length}개 남음` : '모두 완료')
@@ -499,7 +529,11 @@ export function TodoPage({ now, todoData }) {
         </div>
       </section>
 
-      <SummarySheet todo={summaryTodo} onClose={() => setSummaryTodo(null)} />
+      <SummarySheet
+        todo={summaryTodo}
+        onClose={() => setSummaryTodo(null)}
+        loadOriginal={summaryTodo?.id ? () => getOriginalAttachment(summaryTodo.id) : null}
+      />
 
       {sheetOpen ? (
         <section className="todo-sheet">
@@ -532,6 +566,12 @@ export function TodoPage({ now, todoData }) {
                 onChange={changeAttachment}
                 onRetry={retryAttachment}
               />
+
+              {originalSaving ? (
+                <div className="reminder-original-save-status is-working"><span>원본 사진을 저장하는 중…</span></div>
+              ) : originalSaveError ? (
+                <div className="reminder-original-save-status is-error"><span>{originalSaveError}</span></div>
+              ) : null}
 
               {naturalResult ? (
                 <section className="reminder-parse-preview" aria-live="polite">
@@ -620,7 +660,7 @@ export function TodoPage({ now, todoData }) {
                 disabled={saveDisabled}
                 onClick={submitCurrent}
               >
-                {sheetMode === 'natural' ? '추가' : '저장'}
+                {originalSaving ? '저장 중…' : sheetMode === 'natural' ? '추가' : '저장'}
               </button>
             </div>
           </div>

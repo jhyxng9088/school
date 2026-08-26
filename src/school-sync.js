@@ -11,6 +11,7 @@ import {
   query,
   setDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore'
 import {
   loadOverrides,
@@ -38,6 +39,8 @@ const MIGRATION_VERSION = 'v1'
 const SUMMARY_MAX_SECTIONS = 14
 const SUMMARY_MAX_ITEMS = 16
 const ATTACHMENT_MAX_BYTES = 2_500_000
+const ORIGINAL_ATTACHMENT_MAX_BYTES = 8_000_000
+const ORIGINAL_ATTACHMENT_CHUNK_CHARS = 600_000
 const ATTACHMENT_MIME_TYPES = new Set([
   'application/pdf',
   'application/json',
@@ -210,6 +213,112 @@ function classPresenceCollection(profile) {
 
 function classPresenceRef(profile) {
   return doc(db, 'classes', classKeyFor(profile), 'presence', studentKeyFor(profile))
+}
+
+function safeOriginalTodoId(todoId) {
+  return String(todoId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100)
+}
+
+function originalAttachmentRef(profile, todoId) {
+  return doc(db, 'classes', classKeyFor(profile), 'originalAttachments', safeOriginalTodoId(todoId))
+}
+
+function originalAttachmentChunkRef(profile, todoId, index) {
+  return doc(
+    db,
+    'classes',
+    classKeyFor(profile),
+    'originalAttachments',
+    safeOriginalTodoId(todoId),
+    'chunks',
+    String(index).padStart(3, '0'),
+  )
+}
+
+function inferredOriginalMimeType(file) {
+  const explicit = String(file?.type || '').trim().toLowerCase()
+  if (ATTACHMENT_MIME_TYPES.has(explicit)) return explicit
+  const name = String(file?.name || '').toLowerCase()
+  const extensionMap = [
+    ['.jpeg', 'image/jpeg'], ['.jpg', 'image/jpeg'], ['.png', 'image/png'],
+    ['.webp', 'image/webp'], ['.bmp', 'image/bmp'], ['.heic', 'image/heic'],
+    ['.heif', 'image/heif'], ['.pdf', 'application/pdf'], ['.json', 'application/json'],
+    ['.txt', 'text/plain'], ['.csv', 'text/csv'], ['.rtf', 'text/rtf'],
+    ['.html', 'text/html'], ['.htm', 'text/html'], ['.xml', 'text/xml'],
+  ]
+  return extensionMap.find(([extension]) => name.endsWith(extension))?.[1] || ''
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const value = String(reader.result || '')
+      const comma = value.indexOf(',')
+      if (comma < 0) reject(new Error('원본 파일을 변환할 수 없어.'))
+      else resolve(value.slice(comma + 1))
+    }
+    reader.onerror = () => reject(new Error('원본 파일을 읽을 수 없어.'))
+    reader.readAsDataURL(file)
+  })
+}
+
+export async function writeReminderOriginal(profile, todoId, file) {
+  const safeId = safeOriginalTodoId(todoId)
+  if (!safeId || !(file instanceof Blob)) throw new Error('원본 파일을 저장할 수 없어.')
+  const size = Number(file.size || 0)
+  if (!Number.isInteger(size) || size <= 0) throw new Error('원본 파일이 비어 있어.')
+  if (size > ORIGINAL_ATTACHMENT_MAX_BYTES) {
+    throw new Error('원본 사진 저장은 8MB 이하 파일을 지원해.')
+  }
+  const mimeType = inferredOriginalMimeType(file)
+  if (!ATTACHMENT_MIME_TYPES.has(mimeType)) throw new Error('이 파일 형식은 원본 저장을 지원하지 않아.')
+
+  await ensureSignedIn()
+  const dataBase64 = await fileToBase64(file)
+  const chunks = []
+  for (let offset = 0; offset < dataBase64.length; offset += ORIGINAL_ATTACHMENT_CHUNK_CHARS) {
+    chunks.push(dataBase64.slice(offset, offset + ORIGINAL_ATTACHMENT_CHUNK_CHARS))
+  }
+  if (!chunks.length || chunks.length > 24) throw new Error('원본 파일을 저장 가능한 크기로 나눌 수 없어.')
+
+  const batch = writeBatch(db)
+  batch.set(originalAttachmentRef(profile, safeId), {
+    name: String(file.name || '원본 파일').slice(0, 120),
+    mimeType,
+    size,
+    chunkCount: chunks.length,
+    createdAt: Date.now(),
+  })
+  chunks.forEach((data, index) => {
+    batch.set(originalAttachmentChunkRef(profile, safeId, index), { data })
+  })
+  await batch.commit()
+}
+
+export async function getReminderOriginal(profile, todoId) {
+  const safeId = safeOriginalTodoId(todoId)
+  if (!safeId) throw new Error('원본 파일을 찾을 수 없어.')
+  await ensureSignedIn()
+  const metadataSnapshot = await getDoc(originalAttachmentRef(profile, safeId))
+  if (!metadataSnapshot.exists()) {
+    const error = new Error('이 리마인더는 원본 저장 기능 적용 전에 만들어져서 원본이 없어. 사진을 다시 올려줘.')
+    error.code = 'school-sync/original-not-found'
+    throw error
+  }
+  const metadata = metadataSnapshot.data() || {}
+  const chunkCount = Number(metadata.chunkCount || 0)
+  if (!Number.isInteger(chunkCount) || chunkCount < 1 || chunkCount > 24) throw new Error('원본 파일 정보가 올바르지 않아.')
+  const snapshots = await Promise.all(
+    Array.from({ length: chunkCount }, (_, index) => getDoc(originalAttachmentChunkRef(profile, safeId, index))),
+  )
+  if (snapshots.some((snapshot) => !snapshot.exists())) throw new Error('원본 파일 일부를 불러오지 못했어.')
+  return {
+    name: String(metadata.name || '원본 사진').slice(0, 120),
+    mimeType: String(metadata.mimeType || 'application/octet-stream'),
+    size: Number(metadata.size || 0),
+    dataBase64: snapshots.map((snapshot) => String(snapshot.data()?.data || '')).join(''),
+  }
 }
 
 function safeSharedTodo(todo) {
