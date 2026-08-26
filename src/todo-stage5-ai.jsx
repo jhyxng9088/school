@@ -817,21 +817,25 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
               </label>
 
               <div className="todo-due-grid">
-                <label className="change-field">
+                <label className="change-field todo-date-field">
                   <span>마감일</span>
-                  <input
-                    type="date"
-                    value={draft.dueDate}
-                    onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))}
-                  />
+                  <span className="todo-control-shell todo-date-shell">
+                    <input
+                      type="date"
+                      value={draft.dueDate}
+                      onChange={(event) => setDraft((current) => ({ ...current, dueDate: event.target.value }))}
+                    />
+                  </span>
                 </label>
                 <label className="change-field todo-time-field">
                   <span>시간 · 선택</span>
-                  <input
-                    type="time"
-                    value={draft.dueTime}
-                    onChange={(event) => setDraft((current) => ({ ...current, dueTime: event.target.value }))}
-                  />
+                  <span className="todo-control-shell todo-time-shell">
+                    <input
+                      type="time"
+                      value={draft.dueTime}
+                      onChange={(event) => setDraft((current) => ({ ...current, dueTime: event.target.value }))}
+                    />
+                  </span>
                 </label>
               </div>
 

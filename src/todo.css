@@ -397,17 +397,73 @@
 
 .todo-due-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(132px, .75fr);
   gap: 10px;
   min-width: 0;
+  align-items: end;
 }
 
 .todo-due-grid > .change-field,
-.todo-time-field,
-.todo-time-field input[type="time"],
-.todo-due-grid input[type="date"] {
+.todo-date-field,
+.todo-time-field {
+  width: 100%;
   min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
+  justify-self: stretch;
+}
+
+.todo-sheet .todo-control-shell {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 50px;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface-soft);
+}
+
+.todo-sheet .todo-control-shell:focus-within {
+  border-color: color-mix(in srgb, var(--text) 24%, var(--border));
+}
+
+.todo-sheet .todo-control-shell > input[type="date"],
+.todo-sheet .todo-control-shell > input[type="time"] {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  overflow: visible;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.todo-sheet .todo-control-shell > input[type="date"]:focus,
+.todo-sheet .todo-control-shell > input[type="time"]:focus {
+  border: 0;
+  outline: 0;
+}
+
+@media (max-width: 430px) {
+  .todo-due-grid {
+    grid-template-columns: minmax(0, 1fr) 112px;
+    gap: 9px;
+  }
 }
 
 .todo-delete-button {
