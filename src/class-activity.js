@@ -23,6 +23,7 @@ import {
 const syncApp = getApps().some((app) => app.name === 'school-sync') ? getApp('school-sync') : null
 if (!syncApp) throw new Error('School sync app is not initialized')
 const db = getFirestore(syncApp)
+const identityPromises = new Map()
 
 function installServerRevalidation(refresh) {
   const handle = () => {
