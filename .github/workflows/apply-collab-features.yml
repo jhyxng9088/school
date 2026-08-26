@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/apply-collab-features.mjs'
+      - 'scripts/run-collab-features.mjs'
       - '.github/workflows/apply-collab-features.yml'
 
 permissions:
@@ -28,7 +29,7 @@ jobs:
           java-version: '21'
 
       - name: Apply guarded patch
-        run: node scripts/apply-collab-features.mjs
+        run: node scripts/run-collab-features.mjs
 
       - name: Install dependencies
         run: npm install
