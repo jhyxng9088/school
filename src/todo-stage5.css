@@ -271,6 +271,20 @@ html body .app-content:has(> .todo-page) {
   white-space: nowrap;
 }
 
+.todo-stage5 .todo-meta-text {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 1;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
 .todo-stage5 .todo-date-text {
   align-self: stretch;
   display: inline-flex;

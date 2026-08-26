@@ -146,7 +146,6 @@ function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEd
     <>
       <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
       <AnimatedText as="strong" value={todo.title} delay={45} />
-      {meta ? <AnimatedText as="small" value={meta} delay={90} /> : null}
       {(summaryPending || attribution) ? (
         <span className="reminder-attribution-line">
           <SummaryPendingStatus pending={summaryPending} withAttribution={Boolean(attribution)} />
@@ -181,6 +180,7 @@ function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEd
         <div className="todo-item-main">{content}</div>
       )}
       <div className="todo-row-actions">
+        {meta ? <AnimatedText as="span" className="todo-meta-text" value={meta} delay={90} /> : null}
         <span className="todo-date-text">{dateLabel}</span>
         {completed ? (
           <button
