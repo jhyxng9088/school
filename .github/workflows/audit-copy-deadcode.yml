@@ -1,0 +1,32 @@
+name: Audit copy and dead code
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-copy-deadcode.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: User-visible Korean strings
+        run: |
+          echo '===== KOREAN LINES: SRC ====='
+          grep -RInE '[가-힣]' src --include='*.js' --include='*.jsx' --include='*.css' || true
+          echo '===== KOREAN LINES: PUBLIC/INDEX ====='
+          grep -RInE '[가-힣]' public index.html --include='*.js' --include='*.html' --include='*.webmanifest' || true
+      - name: Reference audit
+        run: |
+          echo '===== FILE REFERENCES ====='
+          for f in public/* src/*; do
+            [ -f "$f" ] || continue
+            b=$(basename "$f")
+            stem=${b%.*}
+            count=$(grep -RIl --exclude="$b" -E "${b//./\.}|${stem//./\.}" index.html src public 2>/dev/null | wc -l)
+            printf '%s\t%s\n' "$count" "$f"
+          done | sort -n
