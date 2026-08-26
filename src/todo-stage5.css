@@ -261,6 +261,7 @@ html body .app-content:has(> .todo-page) {
 
 .todo-stage5 .todo-row-actions {
   grid-column: 3;
+  align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -271,6 +272,10 @@ html body .app-content:has(> .todo-page) {
 }
 
 .todo-stage5 .todo-date-text {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 620;
