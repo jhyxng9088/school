@@ -1,0 +1,43 @@
+name: Apply standards-safe nav width fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/nav-width-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fix CSS width calculation
+        run: python3 -c "from pathlib import Path; p=Path('src/styles.css'); s=p.read_text(); old='width: calc((100% - (var(--nav-padding) * 2)) / 5);'; assert old in s; p.write_text(s.replace(old, 'width: calc((100% - var(--nav-padding) - var(--nav-padding)) / 5);', 1))"
+
+      - name: Verify
+        run: |
+          grep -q -- "100% - var(--nav-padding) - var(--nav-padding)" src/styles.css
+          git diff --check
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit verified fix
+        shell: bash
+        run: |
+          rm .github/workflows/nav-width-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/styles.css .github/workflows/nav-width-fix.yml
+          git commit -m "Use standards-safe mobile nav sizing"
+          git push
