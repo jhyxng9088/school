@@ -218,7 +218,7 @@ async function prepareAttachment(file) {
   }
 }
 
-export async function parseReminderWithAI(input, now = new Date(), attachmentFile = null) {
+async function parseReminderWithAISingle(input, now = new Date(), attachmentFile = null) {
   const text = String(input || '').trim().slice(0, 140)
   if (!text && !attachmentFile) return null
 
@@ -275,4 +275,65 @@ export async function parseReminderWithAI(input, now = new Date(), attachmentFil
   } finally {
     window.clearTimeout(timeoutId)
   }
+}
+
+function mergeAttachmentResults(results, files) {
+  if (!results.length) return null
+  if (results.length === 1) {
+    const only = results[0]
+    return {
+      ...only,
+      attachments: only?.attachment ? [only.attachment] : [],
+    }
+  }
+
+  const primary = [...results].sort((a, b) => {
+    const aKey = `${a?.dueDate || '9999-99-99'}T${a?.dueTime || '23:59'}`
+    const bKey = `${b?.dueDate || '9999-99-99'}T${b?.dueTime || '23:59'}`
+    return aKey.localeCompare(bKey)
+  })[0] || results[0]
+
+  const overviewParts = []
+  const seenOverview = new Set()
+  results.forEach((result, index) => {
+    const overview = String(result?.summary?.overview || '').trim()
+    if (!overview || seenOverview.has(overview)) return
+    seenOverview.add(overview)
+    const label = String(files[index]?.name || `첨부 ${index + 1}`).slice(0, 80)
+    overviewParts.push(`${label}: ${overview}`)
+  })
+
+  const sections = []
+  results.forEach((result, index) => {
+    const label = String(files[index]?.name || `첨부 ${index + 1}`).slice(0, 48)
+    const sourceSections = Array.isArray(result?.summary?.sections) ? result.summary.sections : []
+    sourceSections.forEach((section) => {
+      if (sections.length >= 13) return
+      sections.push({
+        heading: `${label} · ${String(section?.heading || '내용')}`.slice(0, 80),
+        items: Array.isArray(section?.items) ? section.items.slice(0, 16) : [],
+      })
+    })
+  })
+
+  const attachments = results.map((result) => result?.attachment).filter(Boolean)
+  return {
+    ...primary,
+    summary: {
+      overview: overviewParts.join('\n\n').slice(0, 2400),
+      sections,
+    },
+    attachment: attachments[0] || primary?.attachment || null,
+    attachments,
+  }
+}
+
+export async function parseReminderWithAI(input, now = new Date(), attachmentInput = null) {
+  const files = Array.isArray(attachmentInput)
+    ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
+    : attachmentInput instanceof Blob ? [attachmentInput] : []
+
+  if (!files.length) return parseReminderWithAISingle(input, now, null)
+  const results = await Promise.all(files.map((file) => parseReminderWithAISingle(input, now, file)))
+  return mergeAttachmentResults(results.filter(Boolean), files)
 }

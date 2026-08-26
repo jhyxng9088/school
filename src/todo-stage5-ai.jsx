@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { TODO_TYPES } from './todo.jsx'
 import { formatParsedDue, parseReminderText } from './reminder-parser.js'
 import { parseReminderWithAI } from './firebase-ai.js'
-import { AttachmentPicker, SummarySheet } from './reminder-summary.jsx'
+import { AttachmentPicker, SummarySheet, withAttachmentManifest } from './reminder-summary.jsx'
 import { activityKey, activityLabel, useClassActivity } from './class-activity'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import './todo-stage5.css'
@@ -176,7 +176,7 @@ export function TodoPage({ now, todoData }) {
   const [aiResult, setAiResult] = useState(null)
   const [aiState, setAiState] = useState('idle')
   const [aiError, setAiError] = useState(null)
-  const [attachmentFile, setAttachmentFile] = useState(null)
+  const [attachmentFiles, setAttachmentFiles] = useState([])
   const [attachmentRetryKey, setAttachmentRetryKey] = useState(0)
   const [originalSaving, setOriginalSaving] = useState(false)
   const [originalSaveError, setOriginalSaveError] = useState('')
@@ -197,8 +197,9 @@ export function TodoPage({ now, todoData }) {
   const selectedFilterLabel = FILTERS.find((item) => item.id === filter)?.label || '전체'
   const localNaturalResult = useMemo(() => parseReminderText(naturalText, now), [naturalText, now])
   const naturalResult = aiResult || localNaturalResult
-  const aiAdjusted = Boolean(!attachmentFile && aiResult && resultSignature(aiResult) !== resultSignature(localNaturalResult))
-  const aiTrigger = attachmentFile || naturalText
+  const attachmentSignature = attachmentFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`).join('|')
+  const aiAdjusted = Boolean(!attachmentFiles.length && aiResult && resultSignature(aiResult) !== resultSignature(localNaturalResult))
+  const aiTrigger = attachmentSignature ? `${naturalText}|${attachmentSignature}` : naturalText
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPageEntering(false), 1150)
@@ -207,7 +208,7 @@ export function TodoPage({ now, todoData }) {
 
   useEffect(() => {
     const text = naturalText.trim()
-    const hasAttachment = Boolean(attachmentFile)
+    const hasAttachment = attachmentFiles.length > 0
     const requestId = aiRequestRef.current + 1
     aiRequestRef.current = requestId
     setAiResult(null)
@@ -224,7 +225,7 @@ export function TodoPage({ now, todoData }) {
       setAiState('loading')
 
       try {
-        const parsed = await parseReminderWithAI(text, new Date(), attachmentFile)
+        const parsed = await parseReminderWithAI(text, new Date(), attachmentFiles)
         if (aiRequestRef.current !== requestId) return
         if (parsed) setAiResult(parsed)
         setAiError(null)
@@ -256,7 +257,7 @@ export function TodoPage({ now, todoData }) {
 
   function openCreate() {
     setNaturalText('')
-    setAttachmentFile(null)
+    setAttachmentFiles([])
     setAttachmentRetryKey(0)
     setOriginalSaving(false)
     setOriginalSaveError('')
@@ -272,7 +273,7 @@ export function TodoPage({ now, todoData }) {
 
   function openEdit(todo) {
     setNaturalText('')
-    setAttachmentFile(null)
+    setAttachmentFiles([])
     setServerSaving(false)
     setServerSaveError('')
     pendingCreateIdRef.current = ''
@@ -291,8 +292,7 @@ export function TodoPage({ now, todoData }) {
     setSheetOpen(true)
   }
 
-  function changeAttachment(file) {
-    setAttachmentFile(file)
+  function touchAttachments() {
     setAttachmentRetryKey(0)
     setOriginalSaveError('')
     setServerSaveError('')
@@ -300,8 +300,27 @@ export function TodoPage({ now, todoData }) {
     resetAI()
   }
 
+  function addAttachments(nextFiles) {
+    const incoming = Array.from(nextFiles || []).filter((file) => file instanceof File)
+    if (!incoming.length) return
+    setAttachmentFiles((current) => {
+      const next = [...current]
+      incoming.forEach((file) => {
+        const duplicate = next.some((item) => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)
+        if (!duplicate && next.length < 4) next.push(file)
+      })
+      return next
+    })
+    touchAttachments()
+  }
+
+  function removeAttachment(index) {
+    setAttachmentFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))
+    touchAttachments()
+  }
+
   function retryAttachment() {
-    if (!attachmentFile) return
+    if (!attachmentFiles.length) return
     resetAI()
     setAttachmentRetryKey((current) => current + 1)
   }
@@ -324,7 +343,7 @@ export function TodoPage({ now, todoData }) {
       title: naturalResult.title,
       dueDate: naturalResult.dueDate,
       dueTime: naturalResult.dueTime || '',
-      summary: naturalResult.summary || null,
+      summary: attachmentFiles.length ? withAttachmentManifest(naturalResult.summary, attachmentFiles) : naturalResult.summary || null,
       attachment: naturalResult.attachment || null,
     } : emptyDraft(now))
     resetAI()
@@ -337,14 +356,16 @@ export function TodoPage({ now, todoData }) {
     const createId = pendingCreateIdRef.current || createTodoId()
     pendingCreateIdRef.current = createId
 
-    if (attachmentFile) {
+    if (attachmentFiles.length) {
       setOriginalSaving(true)
       setOriginalSaveError('')
       try {
-        await uploadOriginalAttachment(createId, attachmentFile)
+        for (let index = 0; index < attachmentFiles.length; index += 1) {
+          await uploadOriginalAttachment(createId, attachmentFiles[index], `a${index}`)
+        }
       } catch (error) {
         console.error('Original reminder attachment save failed:', error)
-        setOriginalSaveError(error?.message || '원본 사진 저장에 실패했어. 다시 시도해줘.')
+        setOriginalSaveError(error?.message || '원본 파일 저장에 실패했어. 다시 시도해줘.')
         return
       } finally {
         setOriginalSaving(false)
@@ -383,12 +404,32 @@ export function TodoPage({ now, todoData }) {
   }
 
   async function submitManual() {
-    if (serverSaving) return
+    if (serverSaving || originalSaving) return
     const createId = draft.id ? '' : (pendingCreateIdRef.current || createTodoId())
     if (createId) pendingCreateIdRef.current = createId
+
+    if (createId && attachmentFiles.length) {
+      setOriginalSaving(true)
+      setOriginalSaveError('')
+      try {
+        for (let index = 0; index < attachmentFiles.length; index += 1) {
+          await uploadOriginalAttachment(createId, attachmentFiles[index], `a${index}`)
+        }
+      } catch (error) {
+        console.error('Original reminder attachment save failed:', error)
+        setOriginalSaveError(error?.message || '원본 파일 저장에 실패했어. 다시 시도해줘.')
+        return
+      } finally {
+        setOriginalSaving(false)
+      }
+    }
+
     setServerSaving(true)
     setServerSaveError('')
-    const savePromise = saveTodo(createId ? { ...draft, createId } : draft)
+    const draftToSave = attachmentFiles.length
+      ? { ...draft, summary: withAttachmentManifest(draft.summary, attachmentFiles) }
+      : draft
+    const savePromise = saveTodo(createId ? { ...draftToSave, createId } : draftToSave)
     setSheetOpen(false)
 
     try {
@@ -551,7 +592,7 @@ export function TodoPage({ now, todoData }) {
       <SummarySheet
         todo={summaryTodo}
         onClose={() => setSummaryTodo(null)}
-        loadOriginal={summaryTodo?.id ? () => getOriginalAttachment(summaryTodo.id) : null}
+        loadOriginal={summaryTodo?.id ? (key = '') => getOriginalAttachment(summaryTodo.id, key) : null}
       />
 
       <UnifiedBottomSheet
@@ -578,11 +619,12 @@ export function TodoPage({ now, todoData }) {
               </label>
 
               <AttachmentPicker
-                file={attachmentFile}
+                files={attachmentFiles}
                 busy={aiBusy}
                 ready={Boolean(aiResult?.summary)}
-                error={attachmentFile && aiState === 'error' ? attachmentErrorMessage(aiError) : ''}
-                onChange={changeAttachment}
+                error={attachmentFiles.length && aiState === 'error' ? attachmentErrorMessage(aiError) : ''}
+                onAdd={addAttachments}
+                onRemove={removeAttachment}
                 onRetry={retryAttachment}
               />
 
@@ -601,11 +643,11 @@ export function TodoPage({ now, todoData }) {
                     <span>{formatParsedDue(naturalResult, now)}</span>
                   </div>
                   {aiBusy ? (
-                    <small className="reminder-ai-status is-working">{attachmentFile ? '분석 중' : '확인 중'}</small>
+                    <small className="reminder-ai-status is-working">{attachmentFiles.length ? '분석 중' : '확인 중'}</small>
                   ) : aiState === 'ready' ? (
-                    <small className="reminder-ai-status is-ready">{attachmentFile ? '분석 완료' : aiAdjusted ? '오타·축약을 보정했어.' : '확인 완료'}</small>
+                    <small className="reminder-ai-status is-ready">{attachmentFiles.length ? '분석 완료' : aiAdjusted ? '오타·축약을 보정했어.' : '확인 완료'}</small>
                   ) : aiState === 'error' ? (
-                    <small className="reminder-ai-status">{attachmentFile ? '텍스트는 유지했어. 첨부만 다시 분석해줘.' : 'AI 연결이 안 돼서 기기 분석 결과를 사용해.'}</small>
+                    <small className="reminder-ai-status">{attachmentFiles.length ? '텍스트는 유지했어. 첨부만 다시 분석해줘.' : 'AI 연결이 안 돼서 기기 분석 결과를 사용해.'}</small>
                   ) : naturalResult.assumedDate ? (
                     <small>날짜를 안 써서 오늘로 잡았어. 다르면 직접 입력에서 바꿀 수 있어.</small>
                   ) : null}

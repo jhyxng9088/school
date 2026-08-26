@@ -33,51 +33,98 @@ function fileSizeLabel(size) {
   return `${(bytes / 1_000_000).toFixed(1)}MB`
 }
 
-export function AttachmentPicker({ file, busy = false, ready = false, error = '', onChange, onRetry = () => {} }) {
+export const REMINDER_ATTACHMENT_MANIFEST_HEADING = '\u2063school-attachments\u2063'
+
+export function withAttachmentManifest(summary, files) {
+  const source = summary && typeof summary === 'object' ? summary : {}
+  const sections = Array.isArray(source.sections)
+    ? source.sections.filter((section) => section?.heading !== REMINDER_ATTACHMENT_MANIFEST_HEADING).slice(0, 13)
+    : []
+  const items = (files || []).slice(0, 4).map((file, index) => JSON.stringify({
+    key: `a${index}`,
+    name: String(file?.name || `첨부 ${index + 1}`).slice(0, 120),
+  }))
+  if (items.length) sections.push({ heading: REMINDER_ATTACHMENT_MANIFEST_HEADING, items })
+  return {
+    overview: String(source.overview || '').slice(0, 2400),
+    sections,
+  }
+}
+
+function attachmentManifest(todo) {
+  const sections = Array.isArray(todo?.summary?.sections) ? todo.summary.sections : []
+  const manifest = sections.find((section) => section?.heading === REMINDER_ATTACHMENT_MANIFEST_HEADING)
+  if (manifest && Array.isArray(manifest.items)) {
+    const entries = manifest.items.map((item) => {
+      try {
+        const parsed = JSON.parse(String(item || ''))
+        const key = String(parsed?.key || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24)
+        const name = String(parsed?.name || '').trim().slice(0, 120)
+        return key && name ? { key, name } : null
+      } catch {
+        return null
+      }
+    }).filter(Boolean)
+    if (entries.length) return entries
+  }
+  return todo?.attachment?.name ? [{ key: '', name: String(todo.attachment.name).slice(0, 120) }] : []
+}
+
+export function AttachmentPicker({ files = [], busy = false, ready = false, error = '', onAdd, onRemove, onRetry = () => {} }) {
   const inputRef = useRef(null)
+  const selected = Array.isArray(files) ? files.slice(0, 4) : []
 
   function chooseFile() {
+    if (selected.length >= 4) return
     inputRef.current?.click()
   }
 
   function handleChange(event) {
-    const nextFile = event.target.files?.[0] || null
+    const nextFiles = Array.from(event.target.files || [])
     event.target.value = ''
-    if (nextFile) onChange(nextFile)
+    if (nextFiles.length) onAdd?.(nextFiles)
   }
 
   return (
-    <section className={`reminder-attachment-picker ${file ? 'has-file' : ''}`}>
+    <section className={`reminder-attachment-picker ${selected.length ? 'has-file' : ''}`}>
       <input
         ref={inputRef}
         className="reminder-file-input"
         type="file"
         accept={ACCEPTED_FILES}
+        multiple
         onChange={handleChange}
         tabIndex={-1}
       />
 
-      {file ? (
-        <div className="reminder-attachment-selected">
-          <div>
-            <span>첨부</span>
-            <strong>{file.name}</strong>
-            <small>{fileSizeLabel(file.size)}</small>
-          </div>
-          <div className="reminder-attachment-actions">
-            <button type="button" onClick={chooseFile}>변경</button>
-            <button type="button" onClick={() => onChange(null)}>제거</button>
-          </div>
+      {selected.length ? (
+        <div className="reminder-attachment-list">
+          {selected.map((file, index) => (
+            <div className="reminder-attachment-selected" key={`${file.name}-${file.size}-${file.lastModified}-${index}`}>
+              <div>
+                <span>첨부 {index + 1}</span>
+                <strong>{file.name}</strong>
+                <small>{fileSizeLabel(file.size)}</small>
+              </div>
+              <div className="reminder-attachment-actions">
+                <button type="button" onClick={() => onRemove?.(index)}>제거</button>
+              </div>
+            </div>
+          ))}
         </div>
-      ) : (
+      ) : null}
+
+      {selected.length < 4 ? (
         <button className="reminder-attachment-add" type="button" onClick={chooseFile}>
-          사진 또는 파일 추가
+          {selected.length ? '사진 또는 파일 더 추가' : '사진 또는 파일 추가'}
         </button>
+      ) : (
+        <small className="reminder-attachment-limit">첨부는 최대 4개까지 가능해.</small>
       )}
 
-      {file && (error || ready || busy) ? (
+      {selected.length && (error || ready || busy) ? (
         <div className={`reminder-attachment-status ${error ? 'is-error' : ready ? 'is-ready' : 'is-working'}`} aria-live="polite">
-          <span>{error ? error : ready ? '분석 완료' : '분석 중'}</span>
+          <span>{error ? error : ready ? `${selected.length}개 분석 완료` : `${selected.length}개 분석 중`}</span>
           {error ? (
             <button className="reminder-attachment-retry" type="button" onClick={onRetry}>다시 분석</button>
           ) : null}
@@ -144,20 +191,28 @@ function OriginalImageViewer({ original, onClose }) {
   }
 
   if (!original) return null
+  const isImage = String(original.mimeType || original.blob?.type || '').startsWith('image/')
 
   return (
-    <div className={`reminder-original-viewer ${closing ? 'is-closing' : ''}`.trim()} role="dialog" aria-modal="true" aria-label="원본 사진">
-      <button className="reminder-original-backdrop" type="button" aria-label="원본 사진 닫기" onClick={requestClose} />
+    <div className={`reminder-original-viewer ${closing ? 'is-closing' : ''}`.trim()} role="dialog" aria-modal="true" aria-label="원본 파일">
+      <button className="reminder-original-backdrop" type="button" aria-label="원본 파일 닫기" onClick={requestClose} />
       <div className="reminder-original-panel">
         <header>
           <strong>{original.name || '원본 사진'}</strong>
           <button className="reminder-summary-close" type="button" aria-label="닫기" onClick={requestClose}>×</button>
         </header>
-        <div className="reminder-original-image-wrap">
-          <img src={original.url} alt={original.name || '원본 사진'} />
-        </div>
+        {isImage ? (
+          <div className="reminder-original-image-wrap">
+            <img src={original.url} alt={original.name || '원본 사진'} />
+          </div>
+        ) : (
+          <div className="reminder-original-file-info">
+            <strong>{original.name || '원본 파일'}</strong>
+            <span>{fileSizeLabel(original.size)}{original.mimeType ? ` · ${original.mimeType}` : ''}</span>
+          </div>
+        )}
         <button className="reminder-original-save" type="button" onClick={saveOriginal} disabled={saving}>
-          {saving ? '준비 중…' : '사진 저장'}
+          {saving ? '준비 중…' : '원본 저장'}
         </button>
       </div>
     </div>
@@ -181,7 +236,9 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
   const [originalError, setOriginalError] = useState('')
 
   const sections = Array.isArray(todo?.summary?.sections) ? todo.summary.sections : []
-  const canShowOriginal = Boolean(todo?.attachment?.mimeType?.startsWith('image/') && loadOriginal)
+  const visibleSections = sections.filter((section) => section?.heading !== REMINDER_ATTACHMENT_MANIFEST_HEADING)
+  const originalEntries = attachmentManifest(todo)
+  const canShowOriginal = Boolean(originalEntries.length && loadOriginal)
 
   function collapsedY() {
     return Math.max(220, Math.min(window.innerHeight * 0.4, 430))
@@ -383,12 +440,12 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
     if (pull?.active) finishDrag(true)
   }
 
-  async function openOriginal() {
+  async function openOriginal(entry) {
     if (!loadOriginal || originalState === 'loading') return
     setOriginalState('loading')
     setOriginalError('')
     try {
-      const original = await loadOriginal()
+      const original = await loadOriginal(entry?.key || '')
       const blob = base64ToBlob(original.dataBase64, original.mimeType)
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
       const url = URL.createObjectURL(blob)
@@ -428,7 +485,7 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
 
         <header className="reminder-summary-header">
           <div>
-            <p>{todo.attachment?.name ? `첨부 · ${todo.attachment.name}` : '리마인더 요약'}</p>
+            <p>{originalEntries.length ? `첨부 · ${originalEntries.length}개` : '리마인더 요약'}</p>
             <h2>{todo.title}</h2>
           </div>
           <button className="reminder-summary-close" type="button" aria-label="닫기" onClick={() => requestClose(340)}>×</button>
@@ -443,7 +500,7 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
           onTouchCancel={scrollTouchEnd}
         >
           {todo.summary.overview ? <p className="reminder-summary-overview">{todo.summary.overview}</p> : null}
-          {sections.map((section, sectionIndex) => (
+          {visibleSections.map((section, sectionIndex) => (
             <section className="reminder-summary-section" key={`${section.heading}-${sectionIndex}`}>
               <h3>{section.heading}</h3>
               <ul>
@@ -455,10 +512,12 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
           ))}
 
           {canShowOriginal ? (
-            <div className="reminder-original-action">
-              <button type="button" onClick={openOriginal} disabled={originalState === 'loading'}>
-                {originalState === 'loading' ? '원본 불러오는 중…' : '원본 사진 보기'}
-              </button>
+            <div className="reminder-original-action reminder-original-list">
+              {originalEntries.map((entry, index) => (
+                <button type="button" onClick={() => openOriginal(entry)} disabled={originalState === 'loading'} key={`${entry.key}-${index}`}>
+                  {originalState === 'loading' ? '원본 불러오는 중…' : `원본 ${index + 1} · ${entry.name}`}
+                </button>
+              ))}
               {originalError ? <small>{originalError}</small> : null}
             </div>
           ) : null}

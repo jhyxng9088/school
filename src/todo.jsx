@@ -423,12 +423,17 @@ export function useTodos(profile) {
     updatePersonalStateOnServer(id, nextEntry, previousEntry)
   }
 
-  function uploadOriginalAttachment(todoId, file) {
-    return writeReminderOriginal(profile, todoId, file)
+  function originalAttachmentId(todoId, key = '') {
+    const safeKey = String(key || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24)
+    return safeKey ? `${todoId}--${safeKey}` : todoId
   }
 
-  function getOriginalAttachment(todoId) {
-    return getReminderOriginal(profile, todoId)
+  function uploadOriginalAttachment(todoId, file, key = '') {
+    return writeReminderOriginal(profile, originalAttachmentId(todoId, key), file)
+  }
+
+  function getOriginalAttachment(todoId, key = '') {
+    return getReminderOriginal(profile, originalAttachmentId(todoId, key))
   }
 
   return {
