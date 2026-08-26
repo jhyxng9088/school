@@ -1,0 +1,62 @@
+name: Validate academic audit feature v3
+
+on:
+  push:
+    branches: [feature/academic-audit-contact]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: ${{ !contains(github.event.head_commit.message, '[audit-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feature/academic-audit-contact
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Apply guarded patch
+        shell: bash
+        run: |
+          set +e
+          python3 scripts/apply-academic-audit-contact.py > /tmp/base-patch.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/base-patch.log
+          if [ "$status" -eq 0 ]; then
+            echo "Base patch unexpectedly completed; refusing duplicate continuation."
+            exit 1
+          fi
+          grep -q "todo load audit spread: expected 1 match, found 2" /tmp/base-patch.log
+          python3 scripts/continue-academic-audit-contact-v2.py
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate Firestore rules
+        run: npx --yes firebase-tools@latest emulators:exec --only firestore "echo firestore-rules-ok" --project school-adeda
+
+      - name: Commit verified changes
+        run: |
+          git config user.name "jhyxng9088"
+          git config user.email "j.hyxng9088@gmail.com"
+          git add src/main.jsx src/school-sync.js src/stage3-core.js src/todo.jsx src/todo-stage5-ai.jsx firestore.rules public/sw.js
+          git commit -m "[audit-applied] Add academic editing and attribution"
+          git push origin HEAD:feature/academic-audit-contact
