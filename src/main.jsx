@@ -333,29 +333,31 @@ function CurrentClassPreview({ schoolState, now }) {
   )
 }
 
-function TimetablePreview({ schedule, now, configured }) {
+function TimetablePreview({ schedule, now, configured, title = '오늘 시간표', futureDay = false }) {
   if (!schedule.length) {
     return (
       <section className="home-section">
-        <SectionTitle>오늘 시간표</SectionTitle>
-        <div className="today-timetable-empty">오늘은 정규 수업이 없어.</div>
+        <SectionTitle>{title}</SectionTitle>
+        <div className="today-timetable-empty">{futureDay ? '내일은 정규 수업이 없어.' : '오늘은 정규 수업이 없어.'}</div>
       </section>
     )
   }
 
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
-  const nextPeriod = schedule.find((period) => timeToMinutes(period.start) > nowMinutes) || null
+  const nextPeriod = futureDay
+    ? schedule[0] || null
+    : schedule.find((period) => timeToMinutes(period.start) > nowMinutes) || null
 
   return (
     <section className="home-section">
-      <SectionTitle>오늘 시간표</SectionTitle>
+      <SectionTitle>{title}</SectionTitle>
       <div
         className="period-strip"
-        aria-label="오늘 시간표 미리보기"
+        aria-label={`${title} 미리보기`}
         style={{ '--period-count': schedule.length }}
       >
         {schedule.map((period) => {
-          const visualState = getPeriodVisualState(now, period)
+          const visualState = futureDay ? 'future' : getPeriodVisualState(now, period)
           const isNext = visualState !== 'current' && nextPeriod?.number === period.number
           return (
             <div
@@ -380,6 +382,13 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
     weekday: 'long',
   }).format(now)
   const schoolState = getSchoolState(now, weeklySchedule, overrides)
+  const showTomorrowTimetable = schoolState.kind === 'done'
+  const timetablePreviewDate = showTomorrowTimetable
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12, 0, 0, 0)
+    : now
+  const timetablePreviewSchedule = showTomorrowTimetable
+    ? getScheduleForDate(timetablePreviewDate, weeklySchedule, overrides)
+    : schoolState.schedule
 
   return (
     <>
@@ -403,9 +412,11 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
         <CurrentClassPreview schoolState={schoolState} now={now} />
         <TodoHomePreview todos={todoData.todos} now={now} />
         <TimetablePreview
-          schedule={schoolState.schedule}
+          schedule={timetablePreviewSchedule}
           now={now}
           configured={schoolState.configured}
+          title={showTomorrowTimetable ? '내일 시간표' : '오늘 시간표'}
+          futureDay={showTomorrowTimetable}
         />
         <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} />
         <Stage3MealPreview now={now} schoolData={schoolData} />
@@ -574,7 +585,15 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
             <button className="timetable-action" onClick={startEditing}>기본 수정</button>
             <button
               className="timetable-action primary"
-              onClick={() => { if (requireOnline('시간표를 수정')) setChangeOpen(true) }}
+              onClick={() => {
+                if (!requireOnline('시간표를 수정')) return
+                const initialDate = currentState.kind === 'done'
+                  ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12, 0, 0, 0)
+                  : now
+                setChangeDate(dateKey(initialDate))
+                setChangeSubject('')
+                setChangeOpen(true)
+              }}
             >
               변경 추가
             </button>
@@ -688,29 +707,33 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
       >
         <div className="timetable-sheet-form">
           <div className="timetable-sheet-primary-grid">
-            <label className="change-field">
+            <label className="change-field timetable-date-field">
               <span>날짜</span>
-              <input
-                type="date"
-                value={changeDate}
-                min={todayKey}
-                onChange={(event) => {
-                  setChangeDate(event.target.value)
-                  setChangeSubject('')
-                }}
-              />
+              <span className="timetable-control-shell timetable-date-shell">
+                <input
+                  type="date"
+                  value={changeDate}
+                  min={todayKey}
+                  onChange={(event) => {
+                    setChangeDate(event.target.value)
+                    setChangeSubject('')
+                  }}
+                />
+              </span>
             </label>
-            <label className="change-field">
+            <label className="change-field timetable-period-field">
               <span>교시</span>
-              <select
-                value={selectedPeriodIsAvailable ? changePeriod : ''}
-                onChange={(event) => setChangePeriod(Number(event.target.value))}
-                disabled={!selectedDay || !availablePeriods.length}
-              >
-                {availablePeriods.map((period) => (
-                  <option value={period.number} key={period.number}>{period.number}교시</option>
-                ))}
-              </select>
+              <span className="timetable-control-shell timetable-period-shell">
+                <select
+                  value={selectedPeriodIsAvailable ? changePeriod : ''}
+                  onChange={(event) => setChangePeriod(Number(event.target.value))}
+                  disabled={!selectedDay || !availablePeriods.length}
+                >
+                  {availablePeriods.map((period) => (
+                    <option value={period.number} key={period.number}>{period.number}교시</option>
+                  ))}
+                </select>
+              </span>
             </label>
           </div>
           <label className="change-field">
