@@ -1,10 +1,34 @@
-/* Samsung Internet: only replace the two masks that fail as data-URI SVGs. */
-html.school-samsung .bottom-nav .nav-button:nth-of-type(4)::before {
-  -webkit-mask-image: url("./samsung-nav-meal.svg?v=1") !important;
-  mask-image: url("./samsung-nav-meal.svg?v=1") !important;
+/* Samsung Internet: meal and academic use the existing React inline SVG directly.
+   This removes all external/data-URI mask loading for those two icons only. */
+html.school-samsung .bottom-nav .nav-button:nth-of-type(4)::before,
+html.school-samsung .bottom-nav .nav-button:nth-of-type(5)::before {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
 }
 
-html.school-samsung .bottom-nav .nav-button:nth-of-type(5)::before {
-  -webkit-mask-image: url("./samsung-nav-academic.svg?v=1") !important;
-  mask-image: url("./samsung-nav-academic.svg?v=1") !important;
+html.school-samsung .bottom-nav .nav-button:nth-of-type(4) > svg,
+html.school-samsung .bottom-nav .nav-button:nth-of-type(5) > svg {
+  display: block !important;
+  width: 22px !important;
+  height: 22px !important;
+  flex: 0 0 22px !important;
+  overflow: visible !important;
+  color: inherit !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.9 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+html.school-samsung .bottom-nav .nav-button:nth-of-type(4) > svg > *,
+html.school-samsung .bottom-nav .nav-button:nth-of-type(5) > svg > * {
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.9 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
 }
