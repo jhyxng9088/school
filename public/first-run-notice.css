@@ -1,0 +1,103 @@
+.first-run-notice-layer {
+  position: fixed;
+  z-index: 220;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+
+.first-run-notice-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.46);
+  opacity: 0;
+  transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.first-run-notice-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 420px);
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(24px) saturate(130%);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+  opacity: 0;
+  transform: translate3d(0, 12px, 0) scale(0.985);
+  transition:
+    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.first-run-notice-layer.is-open .first-run-notice-backdrop {
+  opacity: 1;
+}
+
+.first-run-notice-layer.is-open .first-run-notice-card {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.first-run-notice-layer.is-closing .first-run-notice-backdrop,
+.first-run-notice-layer.is-closing .first-run-notice-card {
+  opacity: 0;
+}
+
+.first-run-notice-layer.is-closing .first-run-notice-card {
+  transform: translate3d(0, 8px, 0) scale(0.99);
+}
+
+.first-run-notice-eyebrow {
+  margin: 0 0 7px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 680;
+}
+
+.first-run-notice-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 25px;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+
+.first-run-notice-card > p:not(.first-run-notice-eyebrow) {
+  margin: 13px 0 22px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.62;
+}
+
+.first-run-notice-card a {
+  color: var(--text);
+  font-weight: 740;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.first-run-notice-card > button {
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  border-radius: 15px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .first-run-notice-backdrop,
+  .first-run-notice-card {
+    transition: none !important;
+  }
+}
