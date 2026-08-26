@@ -56,6 +56,16 @@ function safeAttachment(value) {
   return { name, mimeType, size }
 }
 
+function safeAudit(value) {
+  if (!value || typeof value !== 'object') return null
+  const name = String(value.name || '').trim().slice(0, 20)
+  const studentKey = String(value.studentKey || '').trim().slice(0, 80)
+  const action = value.action === 'modified' ? 'modified' : value.action === 'added' ? 'added' : ''
+  const updatedAt = Number(value.updatedAt || 0)
+  if (!name || studentKey.length < 16 || !action || !Number.isInteger(updatedAt) || updatedAt <= 0) return null
+  return { name, studentKey, action, updatedAt }
+}
+
 
 export const TODO_TYPES = [
   { id: 'task', label: '일반' },
@@ -83,6 +93,7 @@ function safeTodos(value) {
     .map((todo) => {
       const summary = safeSummary(todo.summary)
       const attachment = safeAttachment(todo.attachment)
+      const audit = safeAudit(todo.audit)
       return {
         id: String(todo.id),
         type: TODO_TYPES.some((type) => type.id === todo.type) ? todo.type : 'task',
@@ -93,6 +104,7 @@ function safeTodos(value) {
         createdAt: Number(todo.createdAt || Date.now()),
         ...(summary ? { summary } : {}),
         ...(attachment ? { attachment } : {}),
+        ...(audit ? { audit } : {}),
       }
     })
 }
@@ -123,6 +135,7 @@ function sortTodos(todos) {
 function sharedTodoShape(todo) {
   const summary = safeSummary(todo.summary)
   const attachment = safeAttachment(todo.attachment)
+  const audit = safeAudit(todo.audit)
   return {
     id: String(todo.id),
     type: TODO_TYPES.some((type) => type.id === todo.type) ? todo.type : 'task',
@@ -133,6 +146,7 @@ function sharedTodoShape(todo) {
     updatedAt: Number(todo.updatedAt || todo.createdAt || Date.now()),
     ...(summary ? { summary } : {}),
     ...(attachment ? { attachment } : {}),
+    ...(audit ? { audit } : {}),
   }
 }
 

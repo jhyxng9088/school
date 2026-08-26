@@ -3,6 +3,7 @@ import { getApp, getApps, initializeApp } from 'firebase/app'
 import { browserLocalPersistence, getAuth, setPersistence, signInAnonymously } from 'firebase/auth'
 import {
   collection,
+  deleteDoc,
   doc,
   getCountFromServer,
   getDoc,
@@ -14,6 +15,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import {
+  WEEKDAYS,
   loadOverrides,
   loadWeeklySchedule,
   normalizeOverrides,
@@ -91,6 +93,54 @@ function normalizeName(value) {
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, 20)
+}
+
+function safeAudit(value) {
+  if (!value || typeof value !== 'object') return null
+  const name = normalizeName(value.name)
+  const studentKey = String(value.studentKey || '').trim().slice(0, 80)
+  const action = value.action === 'modified' ? 'modified' : value.action === 'added' ? 'added' : ''
+  const updatedAt = Number(value.updatedAt || 0)
+  if (!name || studentKey.length < 16 || !action || !Number.isInteger(updatedAt) || updatedAt <= 0) return null
+  return { name, studentKey, action, updatedAt }
+}
+
+function auditFor(profile, action) {
+  const normalized = normalizeStudentProfile(profile)
+  const studentKey = studentKeyFor(profile)
+  if (!normalized || !studentKey) return null
+  return {
+    name: normalized.name,
+    studentKey,
+    action: action === 'modified' ? 'modified' : 'added',
+    updatedAt: Date.now(),
+  }
+}
+
+function normalizeWeeklyMeta(value) {
+  const result = {}
+  for (const day of WEEKDAYS) {
+    const dayMeta = {}
+    for (let period = 1; period <= day.regularPeriodCount; period += 1) {
+      const audit = safeAudit(value?.[day.id]?.[period])
+      if (audit) dayMeta[period] = audit
+    }
+    if (Object.keys(dayMeta).length) result[day.id] = dayMeta
+  }
+  return result
+}
+
+function normalizeOverrideMeta(value, overrides = {}) {
+  const result = {}
+  for (const [dateKeyValue, periodMap] of Object.entries(overrides || {})) {
+    const dateMeta = {}
+    for (const period of Object.keys(periodMap || {})) {
+      const audit = safeAudit(value?.[dateKeyValue]?.[period])
+      if (audit) dateMeta[period] = audit
+    }
+    if (Object.keys(dateMeta).length) result[dateKeyValue] = dateMeta
+  }
+  return result
 }
 
 export function normalizeStudentProfile(value) {
@@ -179,12 +229,39 @@ async function ensureSignedIn() {
   return authPromise
 }
 
+function identityRef(uid) {
+  return doc(db, 'identities', String(uid))
+}
+
+async function ensureProfileIdentity(profile) {
+  const user = await ensureSignedIn()
+  const normalized = normalizeStudentProfile(profile)
+  const studentKey = studentKeyFor(profile)
+  const classId = classKeyFor(profile)
+  if (!normalized || !studentKey || !classId) throw new Error('학생 정보를 확인할 수 없어.')
+  await setDoc(identityRef(user.uid), {
+    studentKey,
+    classId,
+    name: normalized.name,
+    updatedAt: Date.now(),
+  }, { merge: true })
+  return user
+}
+
 function classTodosCollection(profile) {
   return collection(db, 'classes', classKeyFor(profile), 'todos')
 }
 
 function classTodoRef(profile, todoId) {
   return doc(db, 'classes', classKeyFor(profile), 'todos', String(todoId))
+}
+
+function classAcademicEventsCollection(profile) {
+  return collection(db, 'classes', classKeyFor(profile), 'academicEvents')
+}
+
+function classAcademicEventRef(profile, eventId) {
+  return doc(db, 'classes', classKeyFor(profile), 'academicEvents', String(eventId))
 }
 
 function personalTodoStateCollection(profile) {
@@ -337,6 +414,7 @@ function safeSharedTodo(todo) {
   const dueTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(todo.dueTime || '')) ? String(todo.dueTime) : ''
   const summary = safeSummary(todo.summary)
   const attachment = safeAttachment(todo.attachment)
+  const audit = safeAudit(todo.audit)
   return {
     id,
     type,
@@ -347,6 +425,7 @@ function safeSharedTodo(todo) {
     updatedAt: Number(todo.updatedAt || todo.createdAt || Date.now()),
     ...(summary ? { summary } : {}),
     ...(attachment ? { attachment } : {}),
+    ...(audit ? { audit } : {}),
   }
 }
 
@@ -490,9 +569,10 @@ export function useClassPresence(profile) {
 }
 
 export async function writeSharedTodo(profile, todo) {
-  const normalized = safeSharedTodo(todo)
+  await ensureProfileIdentity(profile)
+  const action = Number(todo?.updatedAt || 0) > Number(todo?.createdAt || 0) ? 'modified' : 'added'
+  const normalized = safeSharedTodo({ ...todo, audit: auditFor(profile, action) })
   if (!normalized) throw new Error('Invalid shared reminder')
-  await ensureSignedIn()
   await setDoc(classTodoRef(profile, normalized.id), normalized, { merge: true })
 }
 
@@ -532,27 +612,130 @@ export async function migrateLegacyTodos(profile, legacyTodos) {
   localStorage.setItem(marker, 'done')
 }
 
+function safeAcademicEvent(value) {
+  if (!value || typeof value !== 'object') return null
+  const id = String(value.id || '').trim().slice(0, 100)
+  const name = String(value.name || '').trim().slice(0, 80)
+  const startDate = String(value.startDate || '')
+  const endDate = String(value.endDate || '')
+  const createdByName = normalizeName(value.createdByName)
+  const createdByStudentKey = String(value.createdByStudentKey || '').trim().slice(0, 80)
+  const createdAt = Number(value.createdAt || 0)
+  const updatedAt = Number(value.updatedAt || 0)
+  const audit = safeAudit(value.audit)
+  if (!id || !name || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return null
+  if (endDate < startDate || !createdByName || createdByStudentKey.length < 16) return null
+  if (!Number.isInteger(createdAt) || createdAt <= 0 || !Number.isInteger(updatedAt) || updatedAt <= 0 || !audit) return null
+  return { id, name, startDate, endDate, createdByName, createdByStudentKey, createdAt, updatedAt, audit }
+}
+
+export function useSharedAcademicEvents(profile) {
+  const signature = profileSignature(profile)
+  const [events, setEvents] = useState([])
+
+  useEffect(() => {
+    if (!signature) return undefined
+    let stopped = false
+    let unsubscribe = () => {}
+    ensureProfileIdentity(profile)
+      .then(() => {
+        if (stopped) return
+        unsubscribe = onSnapshot(
+          classAcademicEventsCollection(profile),
+          (snapshot) => {
+            if (stopped) return
+            setEvents(snapshot.docs.map((item) => safeAcademicEvent({ id: item.id, ...item.data() })).filter(Boolean))
+          },
+          (error) => console.error('Academic schedule realtime sync failed:', error),
+        )
+      })
+      .catch((error) => console.error('Academic schedule connection failed:', error))
+
+    return () => {
+      stopped = true
+      unsubscribe()
+    }
+  }, [signature])
+
+  const saveEvent = useCallback(async (input) => {
+    await ensureProfileIdentity(profile)
+    const now = Date.now()
+    const requestedId = String(input?.id || '').trim().slice(0, 100)
+    const id = requestedId || `${now}-${Math.random().toString(36).slice(2, 8)}`
+    const target = classAcademicEventRef(profile, id)
+    const existingSnapshot = requestedId ? await getDoc(target) : null
+    const existing = existingSnapshot?.exists() ? safeAcademicEvent({ id, ...existingSnapshot.data() }) : null
+    if (requestedId && !existing) throw new Error('수정할 학사일정을 찾지 못했어.')
+
+    const name = String(input?.name || '').trim().slice(0, 80)
+    const startDate = String(input?.startDate || '')
+    const endDate = String(input?.endDate || '')
+    if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate) {
+      throw new Error('학사일정 내용을 다시 확인해줘.')
+    }
+
+    const studentKey = studentKeyFor(profile)
+    const normalizedProfile = normalizeStudentProfile(profile)
+    const next = safeAcademicEvent({
+      id,
+      name,
+      startDate,
+      endDate,
+      createdByName: existing?.createdByName || normalizedProfile?.name,
+      createdByStudentKey: existing?.createdByStudentKey || studentKey,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      audit: auditFor(profile, existing ? 'modified' : 'added'),
+    })
+    if (!next) throw new Error('학사일정을 저장할 수 없어.')
+    await setDoc(target, next)
+    return id
+  }, [signature])
+
+  const deleteEvent = useCallback(async (eventId) => {
+    await ensureProfileIdentity(profile)
+    const target = classAcademicEventRef(profile, eventId)
+    const snapshot = await getDoc(target)
+    if (!snapshot.exists()) return
+    const event = safeAcademicEvent({ id: snapshot.id, ...snapshot.data() })
+    if (!event || event.createdByStudentKey !== studentKeyFor(profile)) {
+      throw new Error('이 일정은 추가한 사람만 삭제할 수 있어.')
+    }
+    await deleteDoc(target)
+  }, [signature])
+
+  const canDelete = useCallback((event) => Boolean(event?.createdByStudentKey && event.createdByStudentKey === studentKeyFor(profile)), [signature])
+
+  return { events, saveEvent, deleteEvent, canDelete }
+}
+
 async function writeInitialTimetable(profile, value) {
   await ensureSignedIn()
+  await ensureProfileIdentity(profile)
   await setDoc(timetableRef(profile), {
     weeklySchedule: normalizeWeeklySchedule(value.weeklySchedule),
     overrides: pruneExpiredOverrides(value.overrides || {}),
+    weeklyMeta: normalizeWeeklyMeta(value.weeklyMeta || {}),
+    overrideMeta: normalizeOverrideMeta(value.overrideMeta || {}, value.overrides || {}),
     updatedAt: Date.now(),
   })
 }
 
-async function writeWeeklyScheduleCloud(profile, weeklySchedule) {
-  await ensureSignedIn()
+async function writeWeeklyScheduleCloud(profile, weeklySchedule, weeklyMeta) {
+  await ensureProfileIdentity(profile)
   await setDoc(timetableRef(profile), {
     weeklySchedule: normalizeWeeklySchedule(weeklySchedule),
+    weeklyMeta: normalizeWeeklyMeta(weeklyMeta),
     updatedAt: Date.now(),
   }, { merge: true })
 }
 
-async function writeOverridesCloud(profile, overrides) {
-  await ensureSignedIn()
+async function writeOverridesCloud(profile, overrides, overrideMeta) {
+  await ensureProfileIdentity(profile)
+  const normalizedOverrides = pruneExpiredOverrides(overrides || {})
   await setDoc(timetableRef(profile), {
-    overrides: pruneExpiredOverrides(overrides || {}),
+    overrides: normalizedOverrides,
+    overrideMeta: normalizeOverrideMeta(overrideMeta, normalizedOverrides),
     updatedAt: Date.now(),
   }, { merge: true })
 }
@@ -565,6 +748,8 @@ export function useSharedTimetable(profile, now) {
 
   const [weeklySchedule, setWeeklySchedule] = useState(initialWeeklyRef.current)
   const [overrides, setOverrides] = useState(initialOverridesRef.current)
+  const [weeklyMeta, setWeeklyMeta] = useState({})
+  const [overrideMeta, setOverrideMeta] = useState({})
   const signature = profileSignature(profile)
 
   useEffect(() => {
@@ -582,6 +767,8 @@ export function useSharedTimetable(profile, now) {
               writeInitialTimetable(profile, {
                 weeklySchedule: initialWeeklyRef.current,
                 overrides: initialOverridesRef.current,
+                weeklyMeta: {},
+                overrideMeta: {},
               }).catch((error) => console.error('Initial timetable sync failed:', error))
               return
             }
@@ -589,10 +776,14 @@ export function useSharedTimetable(profile, now) {
             const data = snapshot.data() || {}
             const nextWeekly = normalizeWeeklySchedule(data.weeklySchedule)
             const nextOverrides = pruneExpiredOverrides(normalizeOverrides(data.overrides), new Date())
+            const nextWeeklyMeta = normalizeWeeklyMeta(data.weeklyMeta)
+            const nextOverrideMeta = normalizeOverrideMeta(data.overrideMeta, nextOverrides)
             saveWeeklySchedule(nextWeekly)
             saveOverrides(nextOverrides)
             setWeeklySchedule(nextWeekly)
             setOverrides(nextOverrides)
+            setWeeklyMeta(nextWeeklyMeta)
+            setOverrideMeta(nextOverrideMeta)
           },
           (error) => console.error('Timetable realtime sync failed:', error),
         )
@@ -607,23 +798,49 @@ export function useSharedTimetable(profile, now) {
 
   const commitWeeklySchedule = useCallback((nextSchedule) => {
     const normalized = normalizeWeeklySchedule(nextSchedule)
+    const nextMeta = normalizeWeeklyMeta(weeklyMeta)
+    for (const day of WEEKDAYS) {
+      for (let period = 1; period <= day.regularPeriodCount; period += 1) {
+        const before = String(weeklySchedule?.[day.id]?.[period] || '')
+        const after = String(normalized?.[day.id]?.[period] || '')
+        if (before === after) continue
+        if (!nextMeta[day.id]) nextMeta[day.id] = {}
+        nextMeta[day.id][period] = auditFor(profile, before.trim() ? 'modified' : 'added')
+      }
+    }
     saveWeeklySchedule(normalized)
     setWeeklySchedule(normalized)
-    writeWeeklyScheduleCloud(profile, normalized)
+    setWeeklyMeta(nextMeta)
+    writeWeeklyScheduleCloud(profile, normalized, nextMeta)
       .catch((error) => console.error('Shared timetable save failed:', error))
-  }, [signature])
+  }, [signature, weeklySchedule, weeklyMeta])
 
   const commitOverrides = useCallback((nextOverrides) => {
     const normalized = pruneExpiredOverrides(nextOverrides, now)
+    const nextMeta = {}
+    for (const [dateKeyValue, periodMap] of Object.entries(normalized)) {
+      const dateMeta = {}
+      for (const [period, subject] of Object.entries(periodMap || {})) {
+        const previous = overrides?.[dateKeyValue]?.[period]
+        const existingAudit = overrideMeta?.[dateKeyValue]?.[period]
+        dateMeta[period] = previous === subject && existingAudit
+          ? existingAudit
+          : auditFor(profile, previous !== undefined ? 'modified' : 'added')
+      }
+      if (Object.keys(dateMeta).length) nextMeta[dateKeyValue] = dateMeta
+    }
     saveOverrides(normalized)
     setOverrides(normalized)
-    writeOverridesCloud(profile, normalized)
+    setOverrideMeta(nextMeta)
+    writeOverridesCloud(profile, normalized, nextMeta)
       .catch((error) => console.error('Shared timetable override save failed:', error))
-  }, [signature, now])
+  }, [signature, now, overrides, overrideMeta])
 
   return {
     weeklySchedule,
     overrides,
+    weeklyMeta,
+    overrideMeta,
     commitWeeklySchedule,
     commitOverrides,
   }

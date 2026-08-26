@@ -5,6 +5,7 @@ import './timetable.css'
 import './motion.css'
 import './stage3.css'
 import './todo.css'
+import './audit-academic.css'
 import {
   PERIODS,
   WEEKDAYS,
@@ -24,17 +25,19 @@ import {
   timeToMinutes,
 } from './timetable'
 import {
-  AcademicPage,
   AcademicPreview,
   MealPage as Stage3MealPage,
   MealPreview as Stage3MealPreview,
   useSchoolData,
 } from './stage3'
+import AcademicPage from './academic-page'
 import { TodoHomePreview, TodoPage, useTodos } from './todo'
-import { readStudentProfile, saveStudentProfile, useClassPresence, useSharedTimetable } from './school-sync'
+import { readStudentProfile, saveStudentProfile, useClassPresence, useSharedAcademicEvents, useSharedTimetable } from './school-sync'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
+const CONTACT_NOTICE_KEY = 'school.contactNoticeDone.v1'
+const INSTAGRAM_CONTACT_URL = 'https://www.instagram.com/j.hyxng?igsi=eW9rczVqczBnMnBz&utm_source=qr'
 
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
@@ -192,6 +195,20 @@ function StudentSetup({ initialName = '', onSave }) {
         </label>
         <button className="primary-button" disabled={!canSubmit}>시작하기</button>
       </form>
+    </main>
+  )
+}
+
+function ContactNotice({ onConfirm }) {
+  return (
+    <main className="onboarding-page">
+      <section className="onboarding-card contact-notice-card">
+        <p className="eyebrow">School</p>
+        <h1>수정사항이나 문의사항이 있으면 알려줘</h1>
+        <p className="onboarding-copy">앱을 쓰다가 고칠 점이나 문의할 내용이 생기면 아래 인스타그램으로 연락해.</p>
+        <a className="contact-notice-link" href={INSTAGRAM_CONTACT_URL} target="_blank" rel="noreferrer">@j.hyxng</a>
+        <button className="primary-button" type="button" onClick={onConfirm}>확인</button>
+      </section>
     </main>
   )
 }
@@ -446,7 +463,12 @@ function formatWeekRange(weekDates) {
   return `${first.getMonth() + 1}월 ${first.getDate()}일–${last.getMonth() + 1}월 ${last.getDate()}일`
 }
 
-function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOverrides }) {
+function attributionLabel(audit) {
+  if (!audit?.name) return ''
+  return `${audit.name}이 ${audit.action === 'modified' ? '수정함' : '추가함'}`
+}
+
+function TimetablePage({ now, weeklySchedule, overrides, weeklyMeta, overrideMeta, onSaveWeekly, onSaveOverrides }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(() => cloneWeeklySchedule(weeklySchedule))
   const [changeOpen, setChangeOpen] = useState(false)
@@ -485,6 +507,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
       .map((period) => ({
         date,
         dayLabel: WEEKDAYS[dayIndex].label,
+        audit: overrideMeta?.[dateKey(date)]?.[period.number] || null,
         ...period,
       })),
   ).sort((a, b) => dateKey(a.date).localeCompare(dateKey(b.date)) || a.number - b.number)
@@ -628,10 +651,15 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                   isNext ? 'is-next' : '',
                 ].filter(Boolean).join(' ')
 
+                const cellAudit = item?.isOverride
+                  ? overrideMeta?.[dateKey(date)]?.[period.number]
+                  : weeklyMeta?.[day.id]?.[period.number]
+
                 return (
                   <div className={classes} key={`${day.id}-${period.number}`}>
                     {item?.isOverride ? <span className="change-dot" aria-label="변경 시간표" /> : null}
                     <span className="subject">{item?.subject?.trim() || '—'}</span>
+                    {attributionLabel(cellAudit) ? <small className="cell-attribution">{attributionLabel(cellAudit)}</small> : null}
                   </div>
                 )
               })}
@@ -722,6 +750,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                 <div className="change-item-main">
                   <strong>{change.date.getMonth() + 1}/{change.date.getDate()} {change.dayLabel} · {change.number}교시</strong>
                   <span>{change.baseSubject.trim() || '미설정'} → {change.subject.trim() || '수업 없음'}</span>
+                  {attributionLabel(change.audit) ? <small className="change-attribution">{attributionLabel(change.audit)}</small> : null}
                 </div>
                 <button className="remove-change" onClick={() => removeChange(change.date, change.number)}>되돌리기</button>
               </div>
@@ -856,10 +885,13 @@ function AppShell({ profile }) {
   const {
     weeklySchedule,
     overrides,
+    weeklyMeta,
+    overrideMeta,
     commitWeeklySchedule,
     commitOverrides,
   } = useSharedTimetable(profile, now)
-  const schoolData = useSchoolData(now)
+  const academicData = useSharedAcademicEvents(profile)
+  const schoolData = useSchoolData(now, academicData.events)
   const todoData = useTodos(profile)
   const presence = useClassPresence(profile)
   const name = profile.name
@@ -890,12 +922,14 @@ function AppShell({ profile }) {
         now={now}
         weeklySchedule={weeklySchedule}
         overrides={overrides}
+        weeklyMeta={weeklyMeta}
+        overrideMeta={overrideMeta}
         onSaveWeekly={commitWeeklySchedule}
         onSaveOverrides={commitOverrides}
       />
     ),
     meal: <Stage3MealPage schoolData={schoolData} />,
-    academic: <AcademicPage now={now} schoolData={schoolData} />,
+    academic: <AcademicPage now={now} schoolData={schoolData} academicData={academicData} />,
   }
 
   function changeTab(nextTab) {
@@ -936,6 +970,7 @@ function AppShell({ profile }) {
 function App() {
   const [profile, setProfile] = useState(readStudentProfile)
   const [installDone, setInstallDone] = useState(() => localStorage.getItem(INSTALL_DONE_KEY) === 'true')
+  const [contactDone, setContactDone] = useState(() => localStorage.getItem(CONTACT_NOTICE_KEY) === 'true')
   const standalone = isStandalone()
   const legacyName = localStorage.getItem(USER_NAME_KEY) || ''
 
@@ -951,8 +986,14 @@ function App() {
     setProfile(saved)
   }
 
+  function confirmContactNotice() {
+    localStorage.setItem(CONTACT_NOTICE_KEY, 'true')
+    setContactDone(true)
+  }
+
   if (!standalone && !installDone) return <InstallGuide onDone={completeInstallGuide} />
   if (!profile) return <StudentSetup initialName={legacyName} onSave={saveProfile} />
+  if (!contactDone) return <ContactNotice onConfirm={confirmContactNotice} />
   return <AppShell profile={profile} />
 }
 

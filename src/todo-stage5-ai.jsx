@@ -94,11 +94,13 @@ function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
 function ReminderRow({ todo, now, completed = false, deleting = false, onToggle, onEdit, onDelete, onOpenSummary }) {
   const dateLabel = dueDateLabel(todo)
   const meta = completed ? '' : dueMetaLabel(todo, now)
+  const audit = todo.audit?.name ? `${todo.audit.name}이 ${todo.audit.action === 'modified' ? '수정함' : '추가함'}` : ''
   const content = (
     <>
       <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
       <AnimatedText as="strong" value={todo.title} delay={45} />
       {meta ? <AnimatedText as="small" value={meta} delay={90} /> : null}
+      {audit ? <span className="todo-audit">{audit}</span> : null}
     </>
   )
 

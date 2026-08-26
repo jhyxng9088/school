@@ -217,7 +217,7 @@ function hydrateAcademic(now) {
   }
 }
 
-export function useSchoolData(now) {
+export function useSchoolData(now, customAcademicEvents = []) {
   const [mealRanges, setMealRanges] = useState(hydrateMealRanges)
   const mealRangesRef = useRef(mealRanges)
   const mealLoadingRef = useRef(new Set())
@@ -336,12 +336,35 @@ export function useSchoolData(now) {
     }
   }
 
+  const mergedAcademicEvents = useMemo(() => {
+    const official = academicEvents.map((event) => ({ ...event, custom: false }))
+    const custom = (customAcademicEvents || []).map((event) => {
+      const startRaw = String(event.startDate || '').replace(/-/g, '')
+      const endRaw = String(event.endDate || event.startDate || '').replace(/-/g, '')
+      return {
+        id: event.id,
+        rawDate: startRaw,
+        date: dateFromRaw(startRaw),
+        endRawDate: endRaw,
+        endDate: dateFromRaw(endRaw),
+        name: event.name,
+        content: '',
+        dayOffType: '',
+        relevantToSecondGrade: true,
+        custom: true,
+        createdByStudentKey: event.createdByStudentKey,
+        audit: event.audit || null,
+      }
+    }).filter((event) => event.date && event.name)
+    return [...official, ...custom].sort((a, b) => a.rawDate.localeCompare(b.rawDate) || a.name.localeCompare(b.name))
+  }, [academicEvents, customAcademicEvents])
+
   return {
     mealRanges,
     mealLoadingVersion,
     mealWeek,
     ensureMealWeek,
-    academicEvents,
+    academicEvents: mergedAcademicEvents,
     academicLoading,
     academicError,
     refreshAcademic,
@@ -553,8 +576,24 @@ function groupAcademicEvents(events) {
 
   const groups = []
   for (const event of filtered) {
+    if (event.custom) {
+      groups.push({
+        id: event.id,
+        custom: true,
+        name: event.name,
+        content: event.content,
+        dayOffType: event.dayOffType,
+        startDate: event.date,
+        endDate: event.endDate || event.date,
+        startRawDate: event.rawDate,
+        endRawDate: event.endRawDate || event.rawDate,
+        createdByStudentKey: event.createdByStudentKey || '',
+        audit: event.audit || null,
+      })
+      continue
+    }
     const last = groups[groups.length - 1]
-    const consecutive = last && last.name === event.name && daysBetween(last.endDate, event.date) === 1
+    const consecutive = last && !last.custom && last.name === event.name && daysBetween(last.endDate, event.date) === 1
     if (consecutive) {
       last.endDate = event.date
       last.endRawDate = event.rawDate

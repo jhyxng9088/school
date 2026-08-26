@@ -6,6 +6,20 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function validAudit(audit) {
+      return audit is map
+        && audit.keys().hasOnly(['name', 'studentKey', 'action', 'updatedAt'])
+        && audit.keys().hasAll(['name', 'studentKey', 'action', 'updatedAt'])
+        && audit.name is string
+        && audit.name.size() > 0
+        && audit.name.size() <= 20
+        && audit.studentKey is string
+        && audit.studentKey.size() >= 16
+        && audit.studentKey.size() <= 80
+        && audit.action in ['added', 'modified']
+        && audit.updatedAt is int;
+    }
+
     function validReminderSummary() {
       return !request.resource.data.keys().hasAny(['summary'])
         || (request.resource.data.summary is map
@@ -38,7 +52,7 @@ service cloud.firestore {
     function validReminder(todoId) {
       return request.resource.data.keys().hasOnly([
           'id', 'type', 'title', 'dueDate', 'dueTime', 'createdAt', 'updatedAt',
-          'summary', 'attachment'
+          'summary', 'attachment', 'audit'
         ])
         && request.resource.data.id == todoId
         && request.resource.data.type in ['task', 'performance', 'exam', 'material']
@@ -51,15 +65,18 @@ service cloud.firestore {
         && request.resource.data.dueTime.size() <= 5
         && request.resource.data.createdAt is int
         && request.resource.data.updatedAt is int
+        && (!request.resource.data.keys().hasAny(['audit']) || validAudit(request.resource.data.audit))
         && validReminderSummary()
         && validReminderAttachment();
     }
 
     function validTimetable() {
-      return request.resource.data.keys().hasOnly(['weeklySchedule', 'overrides', 'updatedAt'])
+      return request.resource.data.keys().hasOnly(['weeklySchedule', 'overrides', 'weeklyMeta', 'overrideMeta', 'updatedAt'])
         && request.resource.data.keys().hasAll(['updatedAt'])
         && request.resource.data.get('weeklySchedule', {}) is map
         && request.resource.data.get('overrides', {}) is map
+        && request.resource.data.get('weeklyMeta', {}) is map
+        && request.resource.data.get('overrideMeta', {}) is map
         && request.resource.data.updatedAt is int
         && request.resource.data.keys().hasAny(['weeklySchedule', 'overrides']);
     }
@@ -107,12 +124,83 @@ service cloud.firestore {
         && request.resource.data.data.size() <= 600000;
     }
 
+    function validIdentity() {
+      return request.resource.data.keys().hasOnly(['studentKey', 'classId', 'name', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['studentKey', 'classId', 'name', 'updatedAt'])
+        && request.resource.data.studentKey is string
+        && request.resource.data.studentKey.size() >= 16
+        && request.resource.data.studentKey.size() <= 80
+        && request.resource.data.classId is string
+        && request.resource.data.classId.size() > 0
+        && request.resource.data.classId.size() <= 40
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 20
+        && request.resource.data.updatedAt is int;
+    }
+
+    function sameStudentIdentity(studentKey, classId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/identities/$(request.auth.uid))
+        && get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.studentKey == studentKey
+        && get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.classId == classId;
+    }
+
+    function validAcademicEvent(eventId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'name', 'startDate', 'endDate', 'createdByName', 'createdByStudentKey',
+          'createdAt', 'updatedAt', 'audit'
+        ])
+        && request.resource.data.keys().hasAll([
+          'id', 'name', 'startDate', 'endDate', 'createdByName', 'createdByStudentKey',
+          'createdAt', 'updatedAt', 'audit'
+        ])
+        && request.resource.data.id == eventId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.startDate is string
+        && request.resource.data.startDate.size() == 10
+        && request.resource.data.endDate is string
+        && request.resource.data.endDate.size() == 10
+        && request.resource.data.createdByName is string
+        && request.resource.data.createdByName.size() > 0
+        && request.resource.data.createdByName.size() <= 20
+        && request.resource.data.createdByStudentKey is string
+        && request.resource.data.createdByStudentKey.size() >= 16
+        && request.resource.data.createdByStudentKey.size() <= 80
+        && request.resource.data.createdAt is int
+        && request.resource.data.updatedAt is int
+        && validAudit(request.resource.data.audit);
+    }
+
     function validPersonalTodoState() {
       return request.resource.data.keys().hasOnly(['completed', 'hidden', 'updatedAt'])
         && request.resource.data.keys().hasAll(['completed', 'hidden', 'updatedAt'])
         && request.resource.data.completed is bool
         && request.resource.data.hidden is bool
         && request.resource.data.updatedAt is int;
+    }
+
+    match /identities/{uid} {
+      allow read: if signedIn() && uid == request.auth.uid;
+      allow create, update: if signedIn() && uid == request.auth.uid && validIdentity();
+      allow delete: if false;
+    }
+
+    match /classes/{classId}/academicEvents/{eventId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && validAcademicEvent(eventId)
+        && sameStudentIdentity(request.resource.data.createdByStudentKey, classId)
+        && sameStudentIdentity(request.resource.data.audit.studentKey, classId);
+      allow update: if signedIn()
+        && validAcademicEvent(eventId)
+        && request.resource.data.createdByStudentKey == resource.data.createdByStudentKey
+        && request.resource.data.createdByName == resource.data.createdByName
+        && request.resource.data.createdAt == resource.data.createdAt
+        && sameStudentIdentity(request.resource.data.audit.studentKey, classId);
+      allow delete: if sameStudentIdentity(resource.data.createdByStudentKey, classId);
     }
 
     match /classes/{classId}/todos/{todoId} {
