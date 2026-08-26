@@ -1,0 +1,42 @@
+name: Expire reminders at midnight
+
+on:
+  push:
+    paths:
+      - '.github/workflows/expire_reminders_at_midnight.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply guarded expiry patch
+        run: python3 .github/scripts/expire_reminders_at_midnight.py
+      - name: Verify diff
+        run: git diff --check
+      - name: Install dependencies
+        run: npm install
+      - name: Production build
+        run: npm run build
+      - name: Verify exact scope
+        run: |
+          grep -q 'T23:59:59.000+09:00' src/todo.jsx
+          grep -q 'deleteExpiredSharedTodo' src/todo.jsx
+          grep -q 'deleteDoc' src/school-sync.js
+          grep -q 'reminderExpiredInKorea' firestore.rules
+          grep -q 'allow delete: if signedIn() && reminderExpiredInKorea();' firestore.rules
+      - name: Commit verified change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/todo.jsx src/school-sync.js firestore.rules
+          git commit -m "Expire shared reminders at end of due date" || exit 0
+          git push
