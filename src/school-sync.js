@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getApp, getApps, initializeApp } from 'firebase/app'
 import { browserLocalPersistence, getAuth, setPersistence, signInAnonymously } from 'firebase/auth'
 import {
@@ -6,7 +6,9 @@ import {
   doc,
   getCountFromServer,
   getDoc,
-  getFirestore,
+  getDocFromServer,
+  getDocsFromServer,
+  initializeFirestore,
   onSnapshot,
   query,
   setDoc,
@@ -14,8 +16,6 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import {
-  loadOverrides,
-  loadWeeklySchedule,
   normalizeOverrides,
   normalizeWeeklySchedule,
   pruneExpiredOverrides,
@@ -156,7 +156,10 @@ const syncApp = getApps().some((app) => app.name === 'school-sync')
   ? getApp('school-sync')
   : initializeApp(firebaseConfig, 'school-sync')
 const auth = getAuth(syncApp)
-const db = getFirestore(syncApp)
+const samsungInternet = /SamsungBrowser/i.test(navigator.userAgent)
+const db = initializeFirestore(syncApp, samsungInternet
+  ? { experimentalForceLongPolling: true }
+  : { experimentalAutoDetectLongPolling: true })
 
 let authPromise = null
 
@@ -177,6 +180,20 @@ async function ensureSignedIn() {
     })
   }
   return authPromise
+}
+
+function installServerRevalidation(refresh) {
+  const handle = () => {
+    if (!document.hidden) refresh()
+  }
+  document.addEventListener('visibilitychange', handle)
+  window.addEventListener('focus', handle)
+  window.addEventListener('online', handle)
+  return () => {
+    document.removeEventListener('visibilitychange', handle)
+    window.removeEventListener('focus', handle)
+    window.removeEventListener('online', handle)
+  }
 }
 
 function classTodosCollection(profile) {
@@ -350,59 +367,100 @@ function safeSharedTodo(todo) {
   }
 }
 
+function sharedTodosFromSnapshot(snapshot) {
+  return snapshot.docs
+    .map((item) => safeSharedTodo({ id: item.id, ...item.data() }))
+    .filter(Boolean)
+}
+
 export function listenClassTodos(profile, onValue, onError = () => {}) {
   let stopped = false
   let unsubscribe = () => {}
+  let removeRevalidation = () => {}
+  let generation = 0
+
+  const applySnapshot = (snapshot) => {
+    if (stopped) return
+    generation += 1
+    onValue(sharedTodosFromSnapshot(snapshot))
+  }
+
+  const refreshFromServer = async () => {
+    const startedAtGeneration = generation
+    try {
+      const snapshot = await getDocsFromServer(classTodosCollection(profile))
+      if (stopped || generation !== startedAtGeneration) return
+      applySnapshot(snapshot)
+    } catch (error) {
+      if (!stopped) onError(error)
+    }
+  }
+
   ensureSignedIn()
     .then(() => {
       if (stopped) return
-      unsubscribe = onSnapshot(
-        classTodosCollection(profile),
-        (snapshot) => {
-          const todos = snapshot.docs
-            .map((item) => safeSharedTodo({ id: item.id, ...item.data() }))
-            .filter(Boolean)
-          onValue(todos)
-        },
-        onError,
-      )
+      unsubscribe = onSnapshot(classTodosCollection(profile), applySnapshot, onError)
+      removeRevalidation = installServerRevalidation(refreshFromServer)
+      refreshFromServer()
     })
     .catch(onError)
 
   return () => {
     stopped = true
     unsubscribe()
+    removeRevalidation()
   }
+}
+
+function personalTodoStateFromSnapshot(snapshot) {
+  const state = {}
+  snapshot.docs.forEach((item) => {
+    const value = item.data() || {}
+    state[item.id] = {
+      completed: Boolean(value.completed),
+      hidden: Boolean(value.hidden),
+      updatedAt: Number(value.updatedAt || 0),
+    }
+  })
+  return state
 }
 
 export function listenStudentTodoState(profile, onValue, onError = () => {}) {
   let stopped = false
   let unsubscribe = () => {}
+  let removeRevalidation = () => {}
+  let generation = 0
+
+  const applySnapshot = (snapshot) => {
+    if (stopped) return
+    generation += 1
+    onValue(personalTodoStateFromSnapshot(snapshot))
+  }
+
+  const refreshFromServer = async () => {
+    const startedAtGeneration = generation
+    try {
+      const snapshot = await getDocsFromServer(personalTodoStateCollection(profile))
+      if (stopped || generation !== startedAtGeneration) return
+      applySnapshot(snapshot)
+    } catch (error) {
+      if (!stopped) onError(error)
+    }
+  }
+
   ensureSignedIn()
     .then(() => {
       if (stopped) return
-      unsubscribe = onSnapshot(
-        personalTodoStateCollection(profile),
-        (snapshot) => {
-          const state = {}
-          snapshot.docs.forEach((item) => {
-            const value = item.data() || {}
-            state[item.id] = {
-              completed: Boolean(value.completed),
-              hidden: Boolean(value.hidden),
-              updatedAt: Number(value.updatedAt || 0),
-            }
-          })
-          onValue(state)
-        },
-        onError,
-      )
+      unsubscribe = onSnapshot(personalTodoStateCollection(profile), applySnapshot, onError)
+      removeRevalidation = installServerRevalidation(refreshFromServer)
+      refreshFromServer()
     })
     .catch(onError)
 
   return () => {
     stopped = true
     unsubscribe()
+    removeRevalidation()
   }
 }
 
@@ -558,54 +616,67 @@ async function writeOverridesCloud(profile, overrides) {
 }
 
 export function useSharedTimetable(profile, now) {
-  const initialWeeklyRef = useRef(null)
-  const initialOverridesRef = useRef(null)
-  if (initialWeeklyRef.current === null) initialWeeklyRef.current = loadWeeklySchedule()
-  if (initialOverridesRef.current === null) initialOverridesRef.current = loadOverrides()
-
-  const [weeklySchedule, setWeeklySchedule] = useState(initialWeeklyRef.current)
-  const [overrides, setOverrides] = useState(initialOverridesRef.current)
+  const [weeklySchedule, setWeeklySchedule] = useState(() => normalizeWeeklySchedule(null))
+  const [overrides, setOverrides] = useState({})
   const signature = profileSignature(profile)
 
   useEffect(() => {
     if (!signature) return undefined
     let stopped = false
     let unsubscribe = () => {}
+    let removeRevalidation = () => {}
+    let generation = 0
+
+    const applySnapshot = (snapshot) => {
+      if (stopped) return
+      generation += 1
+      if (!snapshot.exists()) {
+        const nextWeekly = normalizeWeeklySchedule(null)
+        const nextOverrides = {}
+        saveWeeklySchedule(nextWeekly)
+        saveOverrides(nextOverrides)
+        setWeeklySchedule(nextWeekly)
+        setOverrides(nextOverrides)
+        return
+      }
+
+      const data = snapshot.data() || {}
+      const nextWeekly = normalizeWeeklySchedule(data.weeklySchedule)
+      const nextOverrides = pruneExpiredOverrides(normalizeOverrides(data.overrides), new Date())
+      saveWeeklySchedule(nextWeekly)
+      saveOverrides(nextOverrides)
+      setWeeklySchedule(nextWeekly)
+      setOverrides(nextOverrides)
+    }
+
+    const refreshFromServer = async () => {
+      const startedAtGeneration = generation
+      try {
+        const snapshot = await getDocFromServer(timetableRef(profile))
+        if (stopped || generation !== startedAtGeneration) return
+        applySnapshot(snapshot)
+      } catch (error) {
+        if (!stopped) console.error('Timetable server revalidation failed:', error)
+      }
+    }
 
     ensureSignedIn()
       .then(() => {
         if (stopped) return
         unsubscribe = onSnapshot(
           timetableRef(profile),
-          (snapshot) => {
-            if (!snapshot.exists()) {
-              // Firestore is authoritative once cloud sync is enabled.
-              // Never recreate data that an administrator intentionally removed.
-              const nextWeekly = normalizeWeeklySchedule(null)
-              const nextOverrides = {}
-              saveWeeklySchedule(nextWeekly)
-              saveOverrides(nextOverrides)
-              setWeeklySchedule(nextWeekly)
-              setOverrides(nextOverrides)
-              return
-            }
-
-            const data = snapshot.data() || {}
-            const nextWeekly = normalizeWeeklySchedule(data.weeklySchedule)
-            const nextOverrides = pruneExpiredOverrides(normalizeOverrides(data.overrides), new Date())
-            saveWeeklySchedule(nextWeekly)
-            saveOverrides(nextOverrides)
-            setWeeklySchedule(nextWeekly)
-            setOverrides(nextOverrides)
-          },
+          applySnapshot,
           (error) => console.error('Timetable realtime sync failed:', error),
         )
+        removeRevalidation = installServerRevalidation(refreshFromServer)
+        refreshFromServer()
       })
       .catch((error) => console.error('Timetable cloud connection failed:', error))
 
     return () => {
       stopped = true
       unsubscribe()
+      removeRevalidation()
     }
   }, [signature])
 

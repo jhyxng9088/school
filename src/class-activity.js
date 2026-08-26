@@ -6,6 +6,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocsFromServer,
   getFirestore,
   onSnapshot,
   setDoc,
@@ -42,6 +43,20 @@ async function ensureSignedIn() {
     })
   }
   return authPromise
+}
+
+function installServerRevalidation(refresh) {
+  const handle = () => {
+    if (!document.hidden) refresh()
+  }
+  document.addEventListener('visibilitychange', handle)
+  window.addEventListener('focus', handle)
+  window.addEventListener('online', handle)
+  return () => {
+    document.removeEventListener('visibilitychange', handle)
+    window.removeEventListener('focus', handle)
+    window.removeEventListener('online', handle)
+  }
 }
 
 function currentProfile(profile) {
@@ -118,34 +133,55 @@ export function useClassActivity(profile = null) {
     if (!signature) return undefined
     let stopped = false
     let unsubscribe = () => {}
+    let removeRevalidation = () => {}
+    let generation = 0
+
+    const applySnapshot = (snapshot) => {
+      if (stopped) return
+      generation += 1
+      const next = {}
+      snapshot.docs.forEach((item) => {
+        const value = item.data() || {}
+        if (!value.entityType || !value.entityId || !value.actorName) return
+        next[activityKey(value.entityType, value.entityId)] = {
+          entityType: String(value.entityType),
+          entityId: String(value.entityId),
+          actorName: String(value.actorName).slice(0, 20),
+          actorStudentKey: String(value.actorStudentKey || ''),
+          action: value.action === 'added' ? 'added' : 'edited',
+          updatedAt: Number(value.updatedAt || 0),
+        }
+      })
+      setActivity(next)
+    }
+
+    const refreshFromServer = async () => {
+      const startedAtGeneration = generation
+      try {
+        const snapshot = await getDocsFromServer(activityCollection(normalized))
+        if (stopped || generation !== startedAtGeneration) return
+        applySnapshot(snapshot)
+      } catch (error) {
+        if (!stopped) console.error('Class activity server revalidation failed:', error)
+      }
+    }
+
     ensureIdentity(normalized)
       .then(() => {
         if (stopped) return
         unsubscribe = onSnapshot(
           activityCollection(normalized),
-          (snapshot) => {
-            const next = {}
-            snapshot.docs.forEach((item) => {
-              const value = item.data() || {}
-              if (!value.entityType || !value.entityId || !value.actorName) return
-              next[activityKey(value.entityType, value.entityId)] = {
-                entityType: String(value.entityType),
-                entityId: String(value.entityId),
-                actorName: String(value.actorName).slice(0, 20),
-                actorStudentKey: String(value.actorStudentKey || ''),
-                action: value.action === 'added' ? 'added' : 'edited',
-                updatedAt: Number(value.updatedAt || 0),
-              }
-            })
-            setActivity(next)
-          },
+          applySnapshot,
           (error) => console.error('Class activity sync failed:', error),
         )
+        removeRevalidation = installServerRevalidation(refreshFromServer)
+        refreshFromServer()
       })
       .catch((error) => console.error('Class activity connection failed:', error))
     return () => {
       stopped = true
       unsubscribe()
+      removeRevalidation()
     }
   }, [signature])
 
@@ -218,6 +254,13 @@ function safeAcademicEvent(value) {
   }
 }
 
+function academicEventsFromSnapshot(snapshot) {
+  return snapshot.docs
+    .map((item) => safeAcademicEvent({ id: item.id, ...item.data() }))
+    .filter(Boolean)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title))
+}
+
 function newAcademicId() {
   return `academic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -232,25 +275,42 @@ export function useSharedAcademic(profile) {
     if (!signature) return undefined
     let stopped = false
     let unsubscribe = () => {}
+    let removeRevalidation = () => {}
+    let generation = 0
+
+    const applySnapshot = (snapshot) => {
+      if (stopped) return
+      generation += 1
+      setEvents(academicEventsFromSnapshot(snapshot))
+    }
+
+    const refreshFromServer = async () => {
+      const startedAtGeneration = generation
+      try {
+        const snapshot = await getDocsFromServer(academicCollection(normalized))
+        if (stopped || generation !== startedAtGeneration) return
+        applySnapshot(snapshot)
+      } catch (error) {
+        if (!stopped) console.error('Academic schedule server revalidation failed:', error)
+      }
+    }
+
     ensureIdentity(normalized)
       .then(() => {
         if (stopped) return
         unsubscribe = onSnapshot(
           academicCollection(normalized),
-          (snapshot) => {
-            const next = snapshot.docs
-              .map((item) => safeAcademicEvent({ id: item.id, ...item.data() }))
-              .filter(Boolean)
-              .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title))
-            setEvents(next)
-          },
+          applySnapshot,
           (error) => console.error('Academic schedule sync failed:', error),
         )
+        removeRevalidation = installServerRevalidation(refreshFromServer)
+        refreshFromServer()
       })
       .catch((error) => console.error('Academic schedule connection failed:', error))
     return () => {
       stopped = true
       unsubscribe()
+      removeRevalidation()
     }
   }, [signature])
 
