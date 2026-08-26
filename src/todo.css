@@ -459,6 +459,45 @@
   outline: 0;
 }
 
+.todo-sheet .todo-control-shell > input[type="date"],
+.todo-sheet .todo-control-shell > input[type="time"] {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 50px !important;
+  text-align: center !important;
+  text-align-last: center !important;
+}
+
+.todo-sheet .todo-control-shell > input[type="date"]::-webkit-date-and-time-value,
+.todo-sheet .todo-control-shell > input[type="time"]::-webkit-date-and-time-value {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: normal !important;
+  text-align: center !important;
+}
+
+.todo-sheet .todo-control-shell > input[type="date"]::-webkit-datetime-edit,
+.todo-sheet .todo-control-shell > input[type="time"]::-webkit-datetime-edit,
+.todo-sheet .todo-control-shell > input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.todo-sheet .todo-control-shell > input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: normal !important;
+  text-align: center !important;
+}
+
 @media (max-width: 430px) {
   .todo-due-grid {
     grid-template-columns: minmax(0, 1fr) 112px;

@@ -741,21 +741,38 @@ body .unified-school-sheet.timetable-unified-sheet .timetable-control-shell > se
 }
 
 body .unified-school-sheet.timetable-unified-sheet .timetable-date-shell > input[type="date"] {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 46px !important;
   text-align: center !important;
   text-align-last: center !important;
 }
 
 body .unified-school-sheet.timetable-unified-sheet .timetable-date-shell > input[type="date"]::-webkit-date-and-time-value {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   width: 100% !important;
+  height: 100% !important;
   min-width: 0 !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: normal !important;
   text-align: center !important;
 }
 
-body .unified-school-sheet.timetable-unified-sheet .timetable-date-shell > input[type="date"]::-webkit-datetime-edit {
+body .unified-school-sheet.timetable-unified-sheet .timetable-date-shell > input[type="date"]::-webkit-datetime-edit,
+body .unified-school-sheet.timetable-unified-sheet .timetable-date-shell > input[type="date"]::-webkit-datetime-edit-fields-wrapper {
   display: flex !important;
+  align-items: center !important;
   justify-content: center !important;
   width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  margin: 0 !important;
   padding: 0 !important;
+  line-height: normal !important;
   text-align: center !important;
 }
 
