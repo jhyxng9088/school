@@ -381,7 +381,7 @@ export function TodoPage({ now, todoData }) {
       title: naturalResult.title,
       dueDate: naturalResult.dueDate,
       dueTime: naturalResult.dueTime || '',
-      summary: naturalResult.summary || null,
+      summary: attachmentFiles.length ? withAttachmentManifest(naturalResult.summary, attachmentFiles) : naturalResult.summary || null,
       attachment: naturalResult.attachment || null,
     })
     setSheetOpen(false)
@@ -499,7 +499,7 @@ export function TodoPage({ now, todoData }) {
 
   const aiBusy = aiState === 'waiting' || aiState === 'loading'
   const saveDisabled = originalSaving || serverSaving || (sheetMode === 'natural'
-    ? (attachmentFile ? !aiResult?.title || !aiResult?.summary : !naturalResult?.title)
+    ? (attachmentFiles.length ? !aiResult?.title || !aiResult?.summary : !naturalResult?.title)
     : !draft.title.trim() || !draft.dueDate)
 
   const summaryText = filter === 'all'
