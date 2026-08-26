@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
 
+# rerun after exact identifier validation fix
 jobs:
   patch:
     runs-on: ubuntu-latest
