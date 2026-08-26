@@ -579,10 +579,14 @@ export function useSharedTimetable(profile, now) {
           timetableRef(profile),
           (snapshot) => {
             if (!snapshot.exists()) {
-              writeInitialTimetable(profile, {
-                weeklySchedule: initialWeeklyRef.current,
-                overrides: initialOverridesRef.current,
-              }).catch((error) => console.error('Initial timetable sync failed:', error))
+              // Firestore is authoritative once cloud sync is enabled.
+              // Never recreate data that an administrator intentionally removed.
+              const nextWeekly = normalizeWeeklySchedule(null)
+              const nextOverrides = {}
+              saveWeeklySchedule(nextWeekly)
+              saveOverrides(nextOverrides)
+              setWeeklySchedule(nextWeekly)
+              setOverrides(nextOverrides)
               return
             }
 

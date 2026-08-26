@@ -3,7 +3,6 @@ import {
   getReminderOriginal,
   listenClassTodos,
   listenStudentTodoState,
-  migrateLegacyTodos,
   profileSignature,
   writeReminderOriginal,
   writeSharedTodo,
@@ -180,7 +179,6 @@ export function useTodos(profile) {
 
     ;(async () => {
       try {
-        await migrateLegacyTodos(profile, legacyTodosRef.current)
         if (disposed) return
 
         stopClassTodos = listenClassTodos(
