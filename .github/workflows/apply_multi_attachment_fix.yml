@@ -1,0 +1,40 @@
+name: Apply multi attachment fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply_multi_attachment_fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply guarded attachment patch
+        run: python3 .github/scripts/apply_multi_attachment_fix.py
+      - name: Verify diff
+        run: git diff --check
+      - name: Install dependencies
+        run: npm install
+      - name: Production build
+        run: npm run build
+      - name: Commit verified fix
+        run: |
+          if git diff --quiet; then
+            echo "No source changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/firebase-ai.js src/reminder-summary.jsx src/reminder-summary.css src/todo-stage5-ai.jsx src/todo.jsx
+          git commit -m "Support multiple reminder attachments"
+          git push
