@@ -17,7 +17,7 @@ html.school-unified-sheet-open body {
 }
 
 .unified-sheet-backdrop.is-open {
-  opacity: calc(1 * var(--unified-backdrop-drag-opacity));
+  opacity: var(--unified-backdrop-drag-opacity);
 }
 
 .unified-sheet-backdrop.is-closing {
