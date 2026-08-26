@@ -3,6 +3,8 @@
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
   const samsungInternet = /SamsungBrowser/i.test(navigator.userAgent)
   const androidBrowser = /Android|SamsungBrowser/i.test(navigator.userAgent)
+  const OPEN_MS = 560
+  const CLOSE_MS = 320
   let activeController = null
 
   function findActionButtons(sheet) {
@@ -166,62 +168,64 @@
       queueMicrotask(() => delete button.dataset.schoolSheetPassthrough)
     }
 
-    function springTo(target, options = {}) {
+    function cubicCoordinate(t, p1, p2) {
+      const inverse = 1 - t
+      return 3 * inverse * inverse * t * p1 + 3 * inverse * t * t * p2 + t * t * t
+    }
+
+    function cubicSlope(t, p1, p2) {
+      const inverse = 1 - t
+      return 3 * inverse * inverse * p1 + 6 * inverse * t * (p2 - p1) + 3 * t * t * (1 - p2)
+    }
+
+    function cubicBezier(x1, y1, x2, y2) {
+      return (progress) => {
+        if (progress <= 0 || progress >= 1) return progress
+        let t = progress
+        for (let index = 0; index < 6; index += 1) {
+          const slope = cubicSlope(t, x1, x2)
+          if (Math.abs(slope) < 0.0001) break
+          t -= (cubicCoordinate(t, x1, x2) - progress) / slope
+          t = Math.min(Math.max(t, 0), 1)
+        }
+        return cubicCoordinate(t, y1, y2)
+      }
+    }
+
+    const OPEN_EASE = cubicBezier(0.16, 1, 0.3, 1)
+    const CLOSE_EASE = cubicBezier(0.4, 0, 1, 1)
+
+    function tweenTo(target, options = {}) {
       stopAnimation()
       const onComplete = options.onComplete
-      if (Number.isFinite(options.velocity)) state.velocity = options.velocity
+      const duration = Math.max(1, Number(options.duration || OPEN_MS))
+      const easing = options.easing || OPEN_EASE
+      const startY = state.y
+      let startTime = null
+      state.velocity = 0
 
       if (reducedMotion.matches) {
         state.y = target
-        state.velocity = 0
         paint()
         onComplete?.()
         return
       }
 
-      const isClosing = target > 0
-      const stiffness = isClosing ? 126 : 148
-      const damping = isClosing ? 26 : 27
-      const mass = 1
-
       function step(time) {
-        if (!state.lastFrame) state.lastFrame = time
-        const dt = Math.min((time - state.lastFrame) / 1000, 0.028)
-        state.lastFrame = time
-
-        const displacement = state.y - target
-        const springForce = -stiffness * displacement
-        const dampingForce = -damping * state.velocity
-        const acceleration = (springForce + dampingForce) / mass
-
-        state.velocity += acceleration * dt
-        state.y += state.velocity * dt
-
-        if (!isClosing && state.y < 0) {
-          state.y = 0
-          state.velocity = 0
-        }
-
+        if (startTime === null) startTime = time
+        const progress = Math.min(Math.max((time - startTime) / duration, 0), 1)
+        const eased = easing(progress)
+        state.y = startY + (target - startY) * eased
         paint()
 
-        if (isClosing && state.y >= visualExitY()) {
-          state.frame = null
-          state.lastFrame = 0
-          onComplete?.()
-          return
-        }
-
-        const settled = Math.abs(state.y - target) < 0.7 && Math.abs(state.velocity) < 5
-        if (settled) {
+        if (progress >= 1) {
           state.y = target
-          state.velocity = 0
           state.frame = null
           state.lastFrame = 0
           paint()
           onComplete?.()
           return
         }
-
         state.frame = requestAnimationFrame(step)
       }
 
@@ -239,15 +243,18 @@
         return
       }
 
-      springTo(closedY(), {
-        velocity: Math.max(velocity, 340),
+      tweenTo(closedY(), {
+        duration: CLOSE_MS,
+        easing: CLOSE_EASE,
         onComplete: () => finishNativeAction(button),
       })
     }
 
-    function settleOpen(velocity = state.velocity) {
+    function settleOpen() {
       state.closing = false
-      springTo(0, { velocity: Math.min(velocity, 520) })
+      const ratio = Math.min(Math.max(state.y / Math.max(closedY(), 1), 0), 1)
+      const duration = ratio > 0.72 ? OPEN_MS : Math.max(180, Math.round(OPEN_MS * ratio))
+      tweenTo(0, { duration, easing: OPEN_EASE })
     }
 
     function onPointerDown(event) {
@@ -298,14 +305,12 @@
     }
 
     function onBackdropClick() {
-      if (samsungInternet) finishNativeAction(closeButton)
-      else requestClose(closeButton, 340)
+      requestClose(closeButton, 340)
     }
 
     function onKeyDown(event) {
       if (event.key !== 'Escape') return
-      if (samsungInternet) finishNativeAction(closeButton)
-      else requestClose(closeButton, 340)
+      requestClose(closeButton, 340)
     }
 
     function cleanupVisuals() {
@@ -345,7 +350,6 @@
   }
 
   document.addEventListener('click', (event) => {
-    if (samsungInternet) return
     const target = event.target.closest('button')
     if (!target) return
     const sheet = target.closest(SHEET_SELECTOR)

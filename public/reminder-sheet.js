@@ -209,14 +209,12 @@
     }
 
     function onBackdropClick() {
-      if (SAMSUNG_INTERNET) passthrough(actions.cancel)
-      else close(actions.cancel)
+      close(actions.cancel)
     }
 
     function onKeyDown(event) {
       if (event.key !== 'Escape') return
-      if (SAMSUNG_INTERNET) passthrough(actions.cancel)
-      else close(actions.cancel)
+      close(actions.cancel)
     }
 
     if (!SAMSUNG_INTERNET) {
@@ -239,7 +237,6 @@
   }
 
   document.addEventListener('click', (event) => {
-    if (SAMSUNG_INTERNET) return
     const button = event.target.closest('button')
     if (!button) return
     const sheet = button.closest(SHEET_SELECTOR)

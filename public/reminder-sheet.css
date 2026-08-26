@@ -17,7 +17,7 @@
 
 .reminder-sheet-backdrop.is-closing {
   opacity: 0;
-  transition-duration: 260ms;
+  transition-duration: 320ms;
 }
 
 body .todo-sheet.reminder-sheet-managed {
