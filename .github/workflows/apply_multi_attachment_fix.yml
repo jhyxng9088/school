@@ -36,6 +36,17 @@ jobs:
               text = path.read_text()
               path.write_text('\n'.join(line.rstrip() for line in text.splitlines()) + '\n')
           PY
+      - name: Capture diff diagnostics
+        run: |
+          git diff --check > diffcheck.txt 2>&1 || true
+          git diff -- src/firebase-ai.js src/reminder-summary.jsx src/reminder-summary.css src/todo-stage5-ai.jsx src/todo.jsx > generated.patch
+      - name: Upload diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: multi-attachment-diagnostics
+          path: |
+            diffcheck.txt
+            generated.patch
       - name: Verify diff
         run: git diff --check
       - name: Install dependencies
