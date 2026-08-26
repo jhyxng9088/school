@@ -1,0 +1,37 @@
+name: Apply async reminder summary refinement v2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply_async_summary_refinement_v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Correct guarded patch marker
+        run: python3 .github/scripts/fix_async_refinement_patch.py
+      - name: Apply guarded async summary patch
+        run: python3 .github/scripts/apply_async_summary_refinement.py
+      - name: Verify diff
+        run: git diff --check
+      - name: Install dependencies
+        run: npm install
+      - name: Production build
+        run: npm run build
+      - name: Commit verified async summary
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/firebase-ai.js src/reminder-summary.jsx src/todo.jsx src/todo-stage5-ai.jsx src/todo-stage5.css
+          git commit -m "Add title-first reminder summaries" || exit 0
+          git push
