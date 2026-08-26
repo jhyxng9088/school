@@ -1,0 +1,34 @@
+name: Apply image reminder fix
+
+on:
+  push:
+    paths:
+      - 'scripts/apply-image-reminder-fix-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply guarded patch
+        run: node scripts/apply-image-reminder-fix.mjs
+      - name: Install dependencies
+        run: npm install
+      - name: Build
+        run: npm run build
+      - name: Commit verified fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/firebase-ai.js src/todo-stage5-ai.jsx src/reminder-summary.jsx src/reminder-summary.css src/todo-stage5.css public/sw.js
+          git diff --cached --quiet && exit 1
+          git commit -m "Fix image reminder analysis and action buttons"
+          git push
