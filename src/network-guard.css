@@ -1,0 +1,59 @@
+.school-offline-toast {
+  position: fixed;
+  z-index: 20050;
+  left: 50%;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  max-width: min(calc(100% - 28px), 430px);
+  padding: 9px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.018em;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(-50%, 8px, 0) scale(0.985);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  animation: school-offline-toast-in 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.school-offline-toast.is-leaving {
+  animation: school-offline-toast-out 280ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes school-offline-toast-in {
+  to {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0) scale(1);
+  }
+}
+
+@keyframes school-offline-toast-out {
+  from {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-50%, 5px, 0) scale(0.99);
+  }
+}
+
+@media (min-width: 700px) {
+  .school-offline-toast {
+    bottom: max(30px, calc(24px + env(safe-area-inset-bottom)));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .school-offline-toast,
+  .school-offline-toast.is-leaving {
+    animation-duration: 0.01ms;
+  }
+}
