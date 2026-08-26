@@ -1,4 +1,5 @@
 (() => {
+  if (/SamsungBrowser/i.test(navigator.userAgent)) return
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
   const CELL_SELECTOR = '.period-item, .week-cell:not(.editor-cell)'
   const CHANGE_SECTION_SELECTOR = '.week-changes'

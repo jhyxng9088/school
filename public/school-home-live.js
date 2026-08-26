@@ -1,6 +1,7 @@
 (() => {
   const PHONE_PORTRAIT = window.matchMedia('(max-width: 600px) and (orientation: portrait)')
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const SAMSUNG_INTERNET = /SamsungBrowser/i.test(navigator.userAgent)
   let trackedStack = null
   let lastPriority = null
 
@@ -16,7 +17,7 @@
   }
 
   function animateReorder(stack, before) {
-    if (REDUCED_MOTION.matches) return
+    if (REDUCED_MOTION.matches || SAMSUNG_INTERNET) return
 
     requestAnimationFrame(() => {
       const children = [...stack.children]

@@ -3,6 +3,7 @@
   const OPEN_FRAME_COUNT = 2
   const CLOSE_MS = 320
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const SAMSUNG_INTERNET = /SamsungBrowser/i.test(navigator.userAgent)
   let active = null
 
   function formatDate(value) {
@@ -208,17 +209,22 @@
     }
 
     function onBackdropClick() {
-      close(actions.cancel)
+      if (SAMSUNG_INTERNET) passthrough(actions.cancel)
+      else close(actions.cancel)
     }
 
     function onKeyDown(event) {
-      if (event.key === 'Escape') close(actions.cancel)
+      if (event.key !== 'Escape') return
+      if (SAMSUNG_INTERNET) passthrough(actions.cancel)
+      else close(actions.cancel)
     }
 
-    dragSurface.addEventListener('pointerdown', onPointerDown)
-    dragSurface.addEventListener('pointermove', onPointerMove)
-    dragSurface.addEventListener('pointerup', onPointerEnd)
-    dragSurface.addEventListener('pointercancel', onPointerCancel)
+    if (!SAMSUNG_INTERNET) {
+      dragSurface.addEventListener('pointerdown', onPointerDown)
+      dragSurface.addEventListener('pointermove', onPointerMove)
+      dragSurface.addEventListener('pointerup', onPointerEnd)
+      dragSurface.addEventListener('pointercancel', onPointerCancel)
+    }
     backdrop.addEventListener('click', onBackdropClick)
     document.addEventListener('keydown', onKeyDown)
 
@@ -233,6 +239,7 @@
   }
 
   document.addEventListener('click', (event) => {
+    if (SAMSUNG_INTERNET) return
     const button = event.target.closest('button')
     if (!button) return
     const sheet = button.closest(SHEET_SELECTOR)

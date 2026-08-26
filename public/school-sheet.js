@@ -1,6 +1,7 @@
 (() => {
   const SHEET_SELECTOR = '.timetable-page .change-editor'
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const samsungInternet = /SamsungBrowser/i.test(navigator.userAgent)
   const androidBrowser = /Android|SamsungBrowser/i.test(navigator.userAgent)
   let activeController = null
 
@@ -297,11 +298,14 @@
     }
 
     function onBackdropClick() {
-      requestClose(closeButton, 340)
+      if (samsungInternet) finishNativeAction(closeButton)
+      else requestClose(closeButton, 340)
     }
 
     function onKeyDown(event) {
-      if (event.key === 'Escape') requestClose(closeButton, 340)
+      if (event.key !== 'Escape') return
+      if (samsungInternet) finishNativeAction(closeButton)
+      else requestClose(closeButton, 340)
     }
 
     function cleanupVisuals() {
@@ -324,10 +328,12 @@
       cleanupVisuals()
     }
 
-    dragSurface.addEventListener('pointerdown', onPointerDown)
-    dragSurface.addEventListener('pointermove', onPointerMove)
-    dragSurface.addEventListener('pointerup', onPointerEnd)
-    dragSurface.addEventListener('pointercancel', onPointerEnd)
+    if (!samsungInternet) {
+      dragSurface.addEventListener('pointerdown', onPointerDown)
+      dragSurface.addEventListener('pointermove', onPointerMove)
+      dragSurface.addEventListener('pointerup', onPointerEnd)
+      dragSurface.addEventListener('pointercancel', onPointerEnd)
+    }
     backdrop.addEventListener('click', onBackdropClick)
     backdrop.addEventListener('touchmove', blockBackgroundGesture, { passive: false })
     backdrop.addEventListener('wheel', blockBackgroundGesture, { passive: false })
@@ -339,6 +345,7 @@
   }
 
   document.addEventListener('click', (event) => {
+    if (samsungInternet) return
     const target = event.target.closest('button')
     if (!target) return
     const sheet = target.closest(SHEET_SELECTOR)

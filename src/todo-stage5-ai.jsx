@@ -8,6 +8,7 @@ import './todo-stage5.css'
 import './todo-ai.css'
 
 const FILTERS = [{ id: 'all', label: '전체' }, ...TODO_TYPES]
+const SAMSUNG_INTERNET = /SamsungBrowser/i.test(navigator.userAgent)
 
 function dateKey(date) {
   const year = date.getFullYear()
@@ -263,7 +264,7 @@ export function TodoPage({ now, todoData }) {
     }
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (!reducedMotion) {
+    if (!reducedMotion && !SAMSUNG_INTERNET) {
       nodes.forEach((node, index) => {
         const id = node.dataset.reminderId
         const previous = previousRectsRef.current.get(id)
