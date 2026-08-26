@@ -459,3 +459,27 @@
     animation: none;
   }
 }
+
+
+/* The viewer shell can appear first; the image itself eases in after load to avoid a flash. */
+.reminder-original-image-wrap img {
+  opacity: 0;
+  transform: scale(0.994);
+  transition:
+    opacity 480ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reminder-original-image-wrap.is-image-ready img {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reminder-original-image-wrap img {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

@@ -14,3 +14,32 @@
 .reminder-ai-status.is-ready {
   color: var(--text-secondary);
 }
+
+
+.reminder-ai-status.is-working::after,
+.reminder-attachment-status.is-working > span::after {
+  content: '...';
+  display: inline-block;
+  width: 1.1em;
+  overflow: hidden;
+  margin-left: 1px;
+  color: currentColor;
+  white-space: nowrap;
+  clip-path: inset(0 100% 0 0);
+  animation: reminder-analysis-dots 1.35s steps(4, end) infinite;
+}
+
+@keyframes reminder-analysis-dots {
+  0% { clip-path: inset(0 100% 0 0); opacity: 0.45; }
+  24% { clip-path: inset(0 66% 0 0); opacity: 0.62; }
+  48% { clip-path: inset(0 33% 0 0); opacity: 0.8; }
+  72%, 100% { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reminder-ai-status.is-working::after,
+  .reminder-attachment-status.is-working > span::after {
+    clip-path: none;
+    animation: none;
+  }
+}

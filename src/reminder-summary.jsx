@@ -83,7 +83,7 @@ export function AttachmentPicker({ file, busy = false, ready = false, error = ''
               : ready
                 ? '첨부 내용을 읽고 요약까지 정리했어.'
                 : busy
-                  ? '첨부 내용을 읽고 정리하는 중…'
+                  ? '첨부 내용을 읽고 정리하는 중'
                   : '첨부를 분석할 준비가 됐어.'}
           </span>
           {error ? (
@@ -110,6 +110,7 @@ function base64ToBlob(dataBase64, mimeType) {
 
 function OriginalImageViewer({ original, onClose }) {
   const [saving, setSaving] = useState(false)
+  const [imageReady, setImageReady] = useState(false)
 
   async function saveOriginal() {
     if (!original?.blob || saving) return
@@ -143,8 +144,12 @@ function OriginalImageViewer({ original, onClose }) {
           <strong>{original.name || '원본 사진'}</strong>
           <button className="reminder-summary-close" type="button" aria-label="닫기" onClick={onClose}>×</button>
         </header>
-        <div className="reminder-original-image-wrap">
-          <img src={original.url} alt={original.name || '원본 사진'} />
+        <div className={`reminder-original-image-wrap ${imageReady ? 'is-image-ready' : ''}`}>
+          <img
+            src={original.url}
+            alt={original.name || '원본 사진'}
+            onLoad={() => setImageReady(true)}
+          />
         </div>
         <button className="reminder-original-save" type="button" onClick={saveOriginal} disabled={saving}>
           {saving ? '준비 중…' : '사진 저장'}

@@ -584,7 +584,7 @@ export function TodoPage({ now, todoData }) {
                     <span>{formatParsedDue(naturalResult, now)}</span>
                   </div>
                   {aiBusy ? (
-                    <small className="reminder-ai-status is-working">{attachmentFile ? '텍스트는 이해했고, 첨부 내용을 읽는 중…' : 'AI가 오타와 문맥을 확인하는 중…'}</small>
+                    <small className="reminder-ai-status is-working">{attachmentFile ? '텍스트는 이해했고, 첨부 내용을 읽는 중' : 'AI가 오타와 문맥을 확인하는 중'}</small>
                   ) : aiState === 'ready' ? (
                     <small className="reminder-ai-status is-ready">{attachmentFile ? '첨부 내용 분석과 요약 완료' : aiAdjusted ? 'AI가 오타·축약을 보정했어.' : 'AI 확인 완료'}</small>
                   ) : aiState === 'error' ? (
