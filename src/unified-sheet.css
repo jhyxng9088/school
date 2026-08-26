@@ -89,8 +89,7 @@ body .unified-school-sheet.is-closing {
     opacity 220ms cubic-bezier(0.4, 0, 1, 1) !important;
 }
 
-body .unified-school-sheet .unified-sheet-head,
-body .unified-school-sheet .change-editor-head {
+body .unified-school-sheet .unified-sheet-head {
   position: relative !important;
   top: auto !important;
   z-index: 3 !important;
@@ -113,8 +112,7 @@ body .unified-school-sheet.is-dragging .unified-sheet-head {
   cursor: grabbing;
 }
 
-body .unified-school-sheet .unified-sheet-head::before,
-body .unified-school-sheet .change-editor-head::before {
+body .unified-school-sheet .unified-sheet-head::before {
   content: "" !important;
   position: absolute !important;
   top: 8px !important;
@@ -179,6 +177,12 @@ body .unified-school-sheet .unified-sheet-close {
 body .unified-school-sheet .unified-sheet-close:disabled {
   opacity: 0.42 !important;
   cursor: default;
+}
+
+body .unified-school-sheet .change-submit-row > button {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
 }
 
 .unified-sheet-scroll {

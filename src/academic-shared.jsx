@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './academic-shared.css'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
+import { actorActionLabel } from './class-activity'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 function pad(value) {
@@ -106,7 +107,7 @@ function dateRangeLabel(group) {
 
 function attribution(event) {
   if (event.source !== 'custom' || !event.lastEditedByName) return ''
-  return `${event.lastEditedByName}이 ${event.lastAction === 'added' ? '추가함' : '수정함'}`
+  return actorActionLabel(event.lastEditedByName, event.lastAction)
 }
 
 function emptyDraft(now) {
@@ -161,7 +162,7 @@ export function SharedAcademicPreview({ now, schoolData, academicData }) {
   )
 }
 
-export function SharedAcademicPage({ now, schoolData, academicData }) {
+export function SharedAcademicPage({ now, schoolData, academicData, requireOnline = () => true }) {
   const groups = useMemo(() => allGroups(schoolData, academicData), [schoolData?.academicEvents, academicData?.events])
   const [sheetOpen, setSheetOpen] = useState(false)
   const [draft, setDraft] = useState(() => emptyDraft(now))
@@ -235,11 +236,13 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
   }
 
   function openCreate() {
+    if (!requireOnline('학사일정을 추가')) return
     openSheet(emptyDraft(now))
   }
 
   function openEdit(group) {
     if (group.source !== 'custom') return
+    if (!requireOnline('학사일정을 수정')) return
     openSheet({
       id: group.id,
       title: group.title,
@@ -252,6 +255,7 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
 
   async function save() {
     if (!draft.title.trim() || !draft.startDate || !draft.endDate || draft.endDate < draft.startDate || saving) return
+    if (!requireOnline(draft.id ? '학사일정을 수정' : '학사일정을 추가')) return
     setSaving(true)
     setError('')
     try {
@@ -266,6 +270,7 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
 
   async function remove() {
     if (!draft.id || saving) return
+    if (!requireOnline('학사일정을 삭제')) return
     const targetId = draft.id
     setSaving(true)
     setError('')
@@ -344,7 +349,7 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
         closeDisabled={saving}
         title={draft.id ? '학사일정 수정' : '학사일정 추가'}
         ariaLabel={draft.id ? '학사일정 수정' : '학사일정 추가'}
-        className="change-editor academic-editor"
+        className="academic-editor"
       >
         <div className="change-form academic-form">
               <label className="change-field full">

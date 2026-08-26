@@ -25,9 +25,10 @@ import {
   useSchoolData,
 } from './stage3'
 import { TodoHomePreview, TodoPage, useTodos } from './todo'
-import { readStudentProfile, saveStudentProfile, useClassPresence, useSharedTimetable } from './school-sync'
+import { prepareClientDataGeneration, readStudentProfile, saveStudentProfile, useClassPresence, useSharedTimetable } from './school-sync'
 import { SharedAcademicPage, SharedAcademicPreview } from './academic-shared'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
+import { OfflineToast, useNetworkGuard } from './network-guard'
 import { activityKey, activityLabel, recordClassActivities, useClassActivity, useSharedAcademic } from './class-activity'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
@@ -170,7 +171,7 @@ function StudentSetup({ initialName = '', onSave }) {
       <form className="onboarding-card name-card" onSubmit={submit}>
         <p className="eyebrow">마지막 설정</p>
         <h1>반, 번호, 이름 알려줘</h1>
-        <p className="onboarding-copy">같은 반끼리 시간표·리마인더·학사일정을 공유해. 리마인더 완료와 삭제는 이 기기에만 저장돼.</p>
+        <p className="onboarding-copy">같은 반끼리 시간표·리마인더·학사일정을 공유해. 리마인더 완료와 삭제는 같은 학생의 기기끼리만 동기화돼.</p>
         <label className="name-field">
           <span>반</span>
           <input
@@ -426,7 +427,7 @@ function formatWeekRange(weekDates) {
   return `${first.getMonth() + 1}월 ${first.getDate()}일–${last.getMonth() + 1}월 ${last.getDate()}일`
 }
 
-function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOverrides, activity, profile }) {
+function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOverrides, activity, profile, requireOnline = () => true }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(() => cloneWeeklySchedule(weeklySchedule))
   const [changeOpen, setChangeOpen] = useState(false)
@@ -471,6 +472,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
   ).sort((a, b) => dateKey(a.date).localeCompare(dateKey(b.date)) || a.number - b.number)
 
   function startEditing() {
+    if (!requireOnline('시간표를 수정')) return
     setDraft(cloneWeeklySchedule(weeklySchedule))
     setChangeOpen(false)
     setEditing(true)
@@ -487,6 +489,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
   }
 
   async function saveBaseSchedule() {
+    if (!requireOnline('시간표를 수정')) return
     const changedCells = WEEKDAYS.flatMap((day) =>
       PERIODS
         .filter((period) => period.number <= day.regularPeriodCount)
@@ -514,6 +517,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
 
   async function saveChange() {
     if (!selectedDay || !selectedPeriodIsAvailable) return
+    if (!requireOnline('시간표를 수정')) return
     const subject = changeSubject.trim()
     if (!subject) return
     const activityAction = overrides?.[changeDate]?.[changePeriod] ? 'edited' : 'added'
@@ -542,6 +546,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
   }
 
   async function removeChange(targetDate, period) {
+    if (!requireOnline('시간표를 수정')) return
     const key = dateKey(targetDate)
     const next = { ...overrides }
     const dateOverrides = { ...(next[key] || {}) }
@@ -553,6 +558,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
 
   async function clearAllChanges() {
     if (!Object.keys(overrides || {}).length) return
+    if (!requireOnline('시간표를 수정')) return
     await onSaveOverrides({})
   }
 
@@ -568,7 +574,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
             <button className="timetable-action" onClick={startEditing}>기본 수정</button>
             <button
               className="timetable-action primary"
-              onClick={() => setChangeOpen((value) => !value)}
+              onClick={() => { if (requireOnline('시간표를 수정')) setChangeOpen(true) }}
             >
               변경 추가
             </button>
@@ -678,7 +684,7 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
         title="변경 시간표 추가"
         subtitle="기본 시간표는 그대로 두고 선택한 날짜에만 적용돼."
         ariaLabel="변경 시간표 추가"
-        className="change-editor timetable-unified-sheet"
+        className="timetable-unified-sheet"
       >
         <div className="change-form">
             <label className="change-field">
@@ -898,6 +904,7 @@ function useNavSpring(activeIndex) {
 function AppShell({ profile }) {
   const [activeTab, setActiveTab] = useState('home')
   const [contentDirection, setContentDirection] = useState(1)
+  const { toast, requireOnline } = useNetworkGuard()
   const now = useNow()
   const {
     weeklySchedule,
@@ -915,6 +922,7 @@ function AppShell({ profile }) {
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
 
   useEffect(() => {
+    if (navigator.onLine === false) return
     const pruned = pruneExpiredOverrides(overrides, now)
     if (JSON.stringify(pruned) === JSON.stringify(overrides)) return
     commitOverrides(pruned)
@@ -933,7 +941,7 @@ function AppShell({ profile }) {
         academicData={academicData}
       />
     ),
-    todo: <TodoPage now={now} todoData={todoData} />,
+    todo: <TodoPage now={now} todoData={todoData} requireOnline={requireOnline} />,
     timetable: (
       <TimetablePage
         now={now}
@@ -943,10 +951,11 @@ function AppShell({ profile }) {
         onSaveOverrides={commitOverrides}
         activity={activity}
         profile={profile}
+        requireOnline={requireOnline}
       />
     ),
     meal: <Stage3MealPage schoolData={schoolData} />,
-    academic: <SharedAcademicPage now={now} schoolData={schoolData} academicData={academicData} />,
+    academic: <SharedAcademicPage now={now} schoolData={schoolData} academicData={academicData} requireOnline={requireOnline} />,
   }
 
   function changeTab(nextTab) {
@@ -980,12 +989,16 @@ function AppShell({ profile }) {
           </button>
         ))}
       </nav>
+      <OfflineToast toast={toast} />
     </div>
   )
 }
 
 function App() {
-  const [profile, setProfile] = useState(readStudentProfile)
+  const [profile, setProfile] = useState(() => {
+    prepareClientDataGeneration()
+    return readStudentProfile()
+  })
   const [installDone, setInstallDone] = useState(() => localStorage.getItem(INSTALL_DONE_KEY) === 'true')
   const standalone = isStandalone()
   const legacyName = localStorage.getItem(USER_NAME_KEY) || ''

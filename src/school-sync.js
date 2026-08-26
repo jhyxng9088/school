@@ -36,6 +36,8 @@ const firebaseConfig = {
 }
 
 export const STUDENT_PROFILE_KEY = 'school.studentProfile.v1'
+const CLIENT_DATA_GENERATION_KEY = 'school.clientDataGeneration'
+const CLIENT_DATA_GENERATION = '1'
 const MIGRATION_VERSION = 'v1'
 
 const SUMMARY_MAX_SECTIONS = 14
@@ -119,6 +121,28 @@ export function saveStudentProfile(value) {
   if (!profile) return null
   localStorage.setItem(STUDENT_PROFILE_KEY, JSON.stringify(profile))
   return profile
+}
+
+
+export function prepareClientDataGeneration() {
+  try {
+    const stored = localStorage.getItem(CLIENT_DATA_GENERATION_KEY)
+    if (!stored) {
+      localStorage.setItem(CLIENT_DATA_GENERATION_KEY, CLIENT_DATA_GENERATION)
+      return false
+    }
+    if (stored === CLIENT_DATA_GENERATION) return false
+
+    const installDone = localStorage.getItem('school.installGuideDone')
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('school.'))
+      .forEach((key) => localStorage.removeItem(key))
+    if (installDone !== null) localStorage.setItem('school.installGuideDone', installDone)
+    localStorage.setItem(CLIENT_DATA_GENERATION_KEY, CLIENT_DATA_GENERATION)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function hash32(value, seed) {
@@ -382,7 +406,7 @@ export function listenClassTodos(profile, onValue, onError = () => {}) {
   let generation = 0
 
   const applySnapshot = (snapshot) => {
-    if (stopped) return
+    if (stopped || snapshot.metadata?.fromCache) return
     generation += 1
     onValue(sharedTodosFromSnapshot(snapshot))
   }
@@ -433,7 +457,7 @@ export function listenStudentTodoState(profile, onValue, onError = () => {}) {
   let generation = 0
 
   const applySnapshot = (snapshot) => {
-    if (stopped) return
+    if (stopped || snapshot.metadata?.fromCache) return
     generation += 1
     onValue(personalTodoStateFromSnapshot(snapshot))
   }
@@ -628,7 +652,7 @@ export function useSharedTimetable(profile, now) {
     let generation = 0
 
     const applySnapshot = (snapshot) => {
-      if (stopped) return
+      if (stopped || snapshot.metadata?.fromCache) return
       generation += 1
       if (!snapshot.exists()) {
         const nextWeekly = normalizeWeeklySchedule(null)

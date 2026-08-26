@@ -254,7 +254,7 @@ export function UnifiedBottomSheet({
         style={{ '--unified-sheet-open-ms': `${OPEN_MS}ms`, '--unified-sheet-close-ms': `${CLOSE_MS}ms` }}
       >
         <div
-          className="unified-sheet-head change-editor-head"
+          className="unified-sheet-head"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={(event) => finishPointer(event, false)}

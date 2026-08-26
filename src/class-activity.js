@@ -24,6 +24,34 @@ const syncApp = getApps().some((app) => app.name === 'school-sync') ? getApp('sc
 if (!syncApp) throw new Error('School sync app is not initialized')
 const db = getFirestore(syncApp)
 const identityPromises = new Map()
+const ACTIVITY_CACHE_VERSION = 'v1'
+
+function activityCacheKey(profile) {
+  const normalized = currentProfile(profile)
+  const classKey = normalized ? classKeyFor(normalized) : ''
+  return classKey ? `school.classActivity.${ACTIVITY_CACHE_VERSION}.${classKey}` : ''
+}
+
+function readActivityCache(profile) {
+  const key = activityCacheKey(profile)
+  if (!key) return {}
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '{}')
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeActivityCache(profile, value) {
+  const key = activityCacheKey(profile)
+  if (!key) return
+  try {
+    localStorage.setItem(key, JSON.stringify(value || {}))
+  } catch {
+    // Attribution cache only preserves the last rendered state while offline.
+  }
+}
 
 function installServerRevalidation(refresh) {
   const handle = () => {
@@ -99,25 +127,40 @@ export function activityKey(type, entityId) {
   return `${type}:${entityId}`
 }
 
+function subjectParticle(name) {
+  const text = String(name || '').trim()
+  if (!text) return '가'
+  const code = text.charCodeAt(text.length - 1)
+  if (code >= 0xAC00 && code <= 0xD7A3) return (code - 0xAC00) % 28 === 0 ? '가' : '이'
+  return '가'
+}
+
+export function actorActionLabel(actorName, action = 'edited') {
+  const name = String(actorName || '').trim()
+  if (!name) return ''
+  return `${name}${subjectParticle(name)} ${action === 'added' ? '추가함' : '수정함'}`
+}
+
 export function activityLabel(value) {
   if (!value?.actorName) return ''
-  return `${value.actorName}이 ${value.action === 'added' ? '추가함' : '수정함'}`
+  return actorActionLabel(value.actorName, value.action)
 }
 
 export function useClassActivity(profile = null) {
   const normalized = currentProfile(profile)
   const signature = profileSignature(normalized)
-  const [activity, setActivity] = useState({})
+  const [activity, setActivity] = useState(() => readActivityCache(normalized))
 
   useEffect(() => {
     if (!signature) return undefined
+    setActivity(readActivityCache(normalized))
     let stopped = false
     let unsubscribe = () => {}
     let removeRevalidation = () => {}
     let generation = 0
 
     const applySnapshot = (snapshot) => {
-      if (stopped) return
+      if (stopped || snapshot.metadata?.fromCache) return
       generation += 1
       const next = {}
       snapshot.docs.forEach((item) => {
@@ -132,6 +175,7 @@ export function useClassActivity(profile = null) {
           updatedAt: Number(value.updatedAt || 0),
         }
       })
+      writeActivityCache(normalized, next)
       setActivity(next)
     }
 
@@ -309,7 +353,7 @@ export function useSharedAcademic(profile) {
     let generation = 0
 
     const applySnapshot = (snapshot) => {
-      if (stopped) return
+      if (stopped || snapshot.metadata?.fromCache) return
       generation += 1
       const next = academicEventsFromSnapshot(snapshot)
       writeAcademicCache(normalized, next)
