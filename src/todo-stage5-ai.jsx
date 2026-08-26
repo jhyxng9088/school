@@ -4,6 +4,7 @@ import { formatParsedDue, parseReminderText } from './reminder-parser.js'
 import { parseReminderWithAI } from './firebase-ai.js'
 import { AttachmentPicker, SummarySheet } from './reminder-summary.jsx'
 import { activityKey, activityLabel, useClassActivity } from './class-activity'
+import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import './todo-stage5.css'
 import './todo-ai.css'
 
@@ -93,7 +94,7 @@ function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
   )
 }
 
-function ReminderRow({ todo, now, completed = false, deleting = false, onToggle, onEdit, onDelete, onOpenSummary, attribution }) {
+function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEdit, onDelete, onOpenSummary, attribution }) {
   const dateLabel = dueDateLabel(todo)
   const meta = completed ? '' : dueMetaLabel(todo, now)
   const content = (
@@ -107,7 +108,7 @@ function ReminderRow({ todo, now, completed = false, deleting = false, onToggle,
 
   return (
     <article
-      className={`todo-item ${completed ? 'is-completed' : ''} ${deleting ? 'is-deleting' : ''}`.trim()}
+      className={`todo-item ${completed ? 'is-completed' : ''} ${motion === 'leaving' ? 'is-state-leaving' : ''} ${motion === 'entering' ? 'is-state-entering' : ''}`.trim()}
       data-reminder-id={todo.id}
     >
       <button
@@ -170,7 +171,7 @@ export function TodoPage({ now, todoData }) {
   const [naturalText, setNaturalText] = useState('')
   const [draft, setDraft] = useState(() => emptyDraft(now))
   const [pageEntering, setPageEntering] = useState(true)
-  const [deletingId, setDeletingId] = useState('')
+  const [rowMotion, setRowMotion] = useState({})
   const [filter, setFilter] = useState('all')
   const [aiResult, setAiResult] = useState(null)
   const [aiState, setAiState] = useState('idle')
@@ -184,8 +185,7 @@ export function TodoPage({ now, todoData }) {
   const [summaryTodo, setSummaryTodo] = useState(null)
   const activity = useClassActivity()
   const pageRef = useRef(null)
-  const previousRectsRef = useRef(new Map())
-  const motionReadyRef = useRef(false)
+  const rowMotionRef = useRef(new Set())
   const aiRequestRef = useRef(0)
   const pendingCreateIdRef = useRef('')
 
@@ -246,76 +246,6 @@ export function TodoPage({ now, todoData }) {
     return () => window.clearTimeout(timer)
   }, [aiTrigger, attachmentRetryKey, sheetOpen, sheetMode])
 
-  useLayoutEffect(() => {
-    const root = pageRef.current
-    if (!root) return
-
-    const nodes = [...root.querySelectorAll('[data-reminder-id]')]
-    nodes.forEach((node) => node.getAnimations().forEach((animation) => animation.cancel()))
-    const currentRects = new Map()
-    nodes.forEach((node) => currentRects.set(node.dataset.reminderId, node.getBoundingClientRect()))
-
-    if (pageEntering) {
-      previousRectsRef.current = new Map()
-      motionReadyRef.current = false
-      return
-    }
-
-    if (!motionReadyRef.current) {
-      previousRectsRef.current = currentRects
-      motionReadyRef.current = true
-      return
-    }
-
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (!reducedMotion && !SAMSUNG_INTERNET) {
-      nodes.forEach((node, index) => {
-        const id = node.dataset.reminderId
-        const previous = previousRectsRef.current.get(id)
-        const current = currentRects.get(id)
-        if (!current) return
-
-        if (previous) {
-          const deltaX = previous.left - current.left
-          const deltaY = previous.top - current.top
-          if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
-            const crossesSections = Math.abs(deltaY) > 120
-            node.animate(
-              crossesSections
-                ? [
-                    { transform: 'translate3d(0, 7px, 0) scale(0.995)', opacity: 0.32 },
-                    { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
-                  ]
-                : [
-                    { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)`, opacity: 0.92 },
-                    { transform: 'translate3d(0, 0, 0)', opacity: 1 },
-                  ],
-              {
-                duration: crossesSections ? 520 : 680,
-                easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-                fill: 'none',
-              },
-            )
-          }
-        } else {
-          node.animate(
-            [
-              { transform: 'translate3d(0, 7px, 0)', opacity: 0 },
-              { transform: 'translate3d(0, 0, 0)', opacity: 1 },
-            ],
-            {
-              duration: 620,
-              delay: Math.min(index * 28, 112),
-              easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-              fill: 'none',
-            },
-          )
-        }
-      })
-    }
-
-    previousRectsRef.current = currentRects
-  }, [todos, pageEntering, filter])
 
   function resetAI() {
     aiRequestRef.current += 1
@@ -379,7 +309,7 @@ export function TodoPage({ now, todoData }) {
   function syncPickerDisplays() {
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        const sheet = pageRef.current?.querySelector('.todo-sheet')
+        const sheet = document.querySelector('.unified-school-sheet.todo-sheet')
         sheet?.querySelectorAll('input[type="date"], input[type="time"]').forEach((input) => {
           input.dispatchEvent(new Event('input', { bubbles: true }))
         })
@@ -482,13 +412,42 @@ export function TodoPage({ now, todoData }) {
     else submitManual()
   }
 
-  function animatePermanentDelete(id) {
-    if (deletingId) return
-    setDeletingId(id)
+  function beginRowExit(id, action) {
+    if (!id || rowMotionRef.current.has(id)) return
+    rowMotionRef.current.add(id)
+    setRowMotion((current) => ({ ...current, [id]: 'leaving' }))
+
     window.setTimeout(() => {
-      removeTodo(id)
-      setDeletingId('')
-    }, 220)
+      if (action === 'toggle') toggleTodo(id)
+      else removeTodo(id)
+
+      if (action === 'toggle') {
+        setRowMotion((current) => ({ ...current, [id]: 'entering' }))
+        window.setTimeout(() => {
+          rowMotionRef.current.delete(id)
+          setRowMotion((current) => {
+            const next = { ...current }
+            delete next[id]
+            return next
+          })
+        }, 420)
+      } else {
+        rowMotionRef.current.delete(id)
+        setRowMotion((current) => {
+          const next = { ...current }
+          delete next[id]
+          return next
+        })
+      }
+    }, 280)
+  }
+
+  function animateToggleTodo(id) {
+    beginRowExit(id, 'toggle')
+  }
+
+  function animatePermanentDelete(id) {
+    beginRowExit(id, 'delete')
   }
 
   function deleteEditing() {
@@ -544,11 +503,12 @@ export function TodoPage({ now, todoData }) {
               <ReminderRow
                 todo={todo}
                 now={now}
-                onToggle={toggleTodo}
+                onToggle={animateToggleTodo}
                 onEdit={openEdit}
                 onDelete={animatePermanentDelete}
                 onOpenSummary={setSummaryTodo}
                 attribution={activity[activityKey('reminder', todo.id)] || null}
+                motion={rowMotion[todo.id] || ''}
                 key={todo.id}
               />
             ))}
@@ -574,8 +534,8 @@ export function TodoPage({ now, todoData }) {
                   todo={todo}
                   now={now}
                   completed
-                  deleting={deletingId === todo.id}
-                  onToggle={toggleTodo}
+                  motion={rowMotion[todo.id] || ''}
+                  onToggle={animateToggleTodo}
                   onEdit={openEdit}
                   onDelete={animatePermanentDelete}
                   onOpenSummary={setSummaryTodo}
@@ -594,16 +554,16 @@ export function TodoPage({ now, todoData }) {
         loadOriginal={summaryTodo?.id ? () => getOriginalAttachment(summaryTodo.id) : null}
       />
 
-      {sheetOpen ? (
-        <section className="todo-sheet">
-          <div className="change-editor-head">
-            <div>
-              <h2>{draft.id ? '리마인더 수정' : '리마인더 추가'}</h2>
-              <p>{sheetMode === 'natural' ? '해야 할 일을 그냥 한 문장으로 적어.' : '필요한 정보만 직접 수정해.'}</p>
-            </div>
-          </div>
-
-          <div className="todo-sheet-form">
+      <UnifiedBottomSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        closeDisabled={originalSaving || serverSaving}
+        title={draft.id ? '리마인더 수정' : '리마인더 추가'}
+        subtitle={sheetMode === 'natural' ? '해야 할 일을 그냥 한 문장으로 적어.' : '필요한 정보만 직접 수정해.'}
+        ariaLabel={draft.id ? '리마인더 수정' : '리마인더 추가'}
+        className="todo-sheet"
+      >
+        <div className="todo-sheet-form">
             <div className={`reminder-natural-fields ${sheetMode === 'natural' ? 'is-visible' : ''}`} aria-hidden={sheetMode !== 'natural'}>
               <label className="reminder-natural-input-wrap">
                 <span>문장으로 추가</span>
@@ -718,9 +678,8 @@ export function TodoPage({ now, todoData }) {
                 {originalSaving || serverSaving ? '저장 중…' : sheetMode === 'natural' ? '추가' : '저장'}
               </button>
             </div>
-          </div>
-        </section>
-      ) : null}
+        </div>
+      </UnifiedBottomSheet>
     </section>
   )
 }

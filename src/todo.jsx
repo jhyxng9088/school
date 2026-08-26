@@ -115,6 +115,36 @@ function createTodoId() {
 
 const SHARED_TODOS_CACHE_VERSION = 'v1'
 const PERSONAL_TODO_STATE_CACHE_VERSION = 'v1'
+const VISIBLE_TODOS_CACHE_VERSION = 'v1'
+
+function visibleTodosCacheKey(profile) {
+  const studentKey = studentKeyFor(profile)
+  return studentKey ? `school.visibleTodos.${VISIBLE_TODOS_CACHE_VERSION}.${studentKey}` : ''
+}
+
+function readVisibleTodosCache(profile) {
+  const key = visibleTodosCacheKey(profile)
+  if (!key) return null
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw === null) return null
+    const stored = JSON.parse(raw)
+    if (!Array.isArray(stored)) return null
+    return sortTodos(stored.map((todo) => ({ ...sharedTodoShape(todo), completed: Boolean(todo.completed) })))
+  } catch {
+    return null
+  }
+}
+
+function writeVisibleTodosCache(profile, todos) {
+  const key = visibleTodosCacheKey(profile)
+  if (!key) return
+  try {
+    localStorage.setItem(key, JSON.stringify((todos || []).map((todo) => ({ ...sharedTodoShape(todo), completed: Boolean(todo.completed) }))))
+  } catch {
+    // First-paint cache only. Firestore remains authoritative.
+  }
+}
 
 function sharedTodosCacheKey(profile) {
   const classKey = classKeyFor(profile)
@@ -185,7 +215,17 @@ export function useTodos(profile) {
   const signature = profileSignature(profile)
   const [sharedTodos, setSharedTodos] = useState(() => readSharedTodosCache(profile))
   const [personalState, setPersonalState] = useState(() => readPersonalTodoStateCache(profile))
-  const todos = useMemo(() => mergeSharedTodos(sharedTodos, personalState), [sharedTodos, personalState])
+  const [bootTodos, setBootTodos] = useState(() => readVisibleTodosCache(profile) ?? mergeSharedTodos(readSharedTodosCache(profile), readPersonalTodoStateCache(profile)))
+  const [remoteReady, setRemoteReady] = useState(false)
+  const firstRemoteReadyRef = useRef(false)
+  const remoteSharedRef = useRef(null)
+  const remotePersonalRef = useRef(null)
+  const mergedTodos = useMemo(() => mergeSharedTodos(sharedTodos, personalState), [sharedTodos, personalState])
+  const todos = remoteReady ? mergedTodos : bootTodos
+
+  useEffect(() => {
+    writeVisibleTodosCache(profile, todos)
+  }, [signature, todos])
 
   useEffect(() => {
     try { localStorage.removeItem('school.todos.v1') } catch { /* stale cache cleanup is best-effort */ }
@@ -199,8 +239,29 @@ export function useTodos(profile) {
     }
 
     let disposed = false
-    setSharedTodos(readSharedTodosCache(profile))
-    setPersonalState(readPersonalTodoStateCache(profile))
+    const cachedShared = readSharedTodosCache(profile)
+    const cachedPersonal = readPersonalTodoStateCache(profile)
+    setSharedTodos(cachedShared)
+    setPersonalState(cachedPersonal)
+    setBootTodos(readVisibleTodosCache(profile) ?? mergeSharedTodos(cachedShared, cachedPersonal))
+    setRemoteReady(false)
+    firstRemoteReadyRef.current = false
+    remoteSharedRef.current = null
+    remotePersonalRef.current = null
+
+    const commitFirstRemotePair = () => {
+      if (disposed || firstRemoteReadyRef.current) return
+      if (remoteSharedRef.current === null || remotePersonalRef.current === null) return
+      firstRemoteReadyRef.current = true
+      const nextShared = remoteSharedRef.current
+      const nextPersonal = remotePersonalRef.current
+      setSharedTodos(nextShared)
+      setPersonalState(nextPersonal)
+      const nextVisible = mergeSharedTodos(nextShared, nextPersonal)
+      writeVisibleTodosCache(profile, nextVisible)
+      setBootTodos(nextVisible)
+      setRemoteReady(true)
+    }
 
     const stopClassTodos = listenClassTodos(
       profile,
@@ -208,7 +269,9 @@ export function useTodos(profile) {
         if (disposed) return
         const next = remoteTodos.map(sharedTodoShape)
         writeSharedTodosCache(profile, next)
-        setSharedTodos(next)
+        remoteSharedRef.current = next
+        if (firstRemoteReadyRef.current) setSharedTodos(next)
+        else commitFirstRemotePair()
       },
       (error) => console.error('Class reminder sync failed:', error),
     )
@@ -219,7 +282,9 @@ export function useTodos(profile) {
         if (disposed) return
         const next = normalizePersonalTodoState(remoteState)
         writePersonalTodoStateCache(profile, next)
-        setPersonalState(next)
+        remotePersonalRef.current = next
+        if (firstRemoteReadyRef.current) setPersonalState(next)
+        else commitFirstRemotePair()
       },
       (error) => console.error('Personal reminder state sync failed:', error),
     )
@@ -235,6 +300,11 @@ export function useTodos(profile) {
     setSharedTodos((current) => {
       const next = updater(current)
       writeSharedTodosCache(profile, next)
+      if (!firstRemoteReadyRef.current) {
+        const nextVisible = mergeSharedTodos(next, personalState)
+        setBootTodos(nextVisible)
+        writeVisibleTodosCache(profile, nextVisible)
+      }
       return next
     })
   }
@@ -310,6 +380,9 @@ export function useTodos(profile) {
     setPersonalState((current) => {
       const next = { ...current, [id]: nextEntry }
       writePersonalTodoStateCache(profile, next)
+      const nextVisible = mergeSharedTodos(sharedTodos, next)
+      writeVisibleTodosCache(profile, nextVisible)
+      if (!firstRemoteReadyRef.current) setBootTodos(nextVisible)
       return next
     })
     writeStudentTodoState(profile, id, nextEntry).catch((error) => {
@@ -320,6 +393,9 @@ export function useTodos(profile) {
         if (previousEntry) next[id] = previousEntry
         else delete next[id]
         writePersonalTodoStateCache(profile, next)
+        const nextVisible = mergeSharedTodos(sharedTodos, next)
+        writeVisibleTodosCache(profile, nextVisible)
+        if (!firstRemoteReadyRef.current) setBootTodos(nextVisible)
         return next
       })
     })

@@ -27,6 +27,7 @@ import {
 import { TodoHomePreview, TodoPage, useTodos } from './todo'
 import { readStudentProfile, saveStudentProfile, useClassPresence, useSharedTimetable } from './school-sync'
 import { SharedAcademicPage, SharedAcademicPreview } from './academic-shared'
+import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import { activityKey, activityLabel, recordClassActivities, useClassActivity, useSharedAcademic } from './class-activity'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
@@ -671,15 +672,15 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
         </div>
       ) : null}
 
-      {changeOpen && !editing ? (
-        <section className="change-editor">
-          <div className="change-editor-head">
-            <div>
-              <h2>변경 시간표 추가</h2>
-              <p>기본 시간표는 그대로 두고 선택한 날짜에만 적용돼.</p>
-            </div>
-          </div>
-          <div className="change-form">
+      <UnifiedBottomSheet
+        open={changeOpen && !editing}
+        onClose={() => setChangeOpen(false)}
+        title="변경 시간표 추가"
+        subtitle="기본 시간표는 그대로 두고 선택한 날짜에만 적용돼."
+        ariaLabel="변경 시간표 추가"
+        className="change-editor timetable-unified-sheet"
+      >
+        <div className="change-form">
             <label className="change-field">
               <span>날짜</span>
               <input
@@ -733,9 +734,8 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                 변경 저장
               </button>
             </div>
-          </div>
-        </section>
-      ) : null}
+        </div>
+      </UnifiedBottomSheet>
 
       {!editing && weekChanges.length ? (
         <section className="week-changes">

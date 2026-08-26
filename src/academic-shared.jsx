@@ -1,9 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './academic-shared.css'
+import { UnifiedBottomSheet } from './unified-sheet.jsx'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
-const SHEET_CLOSE_MS = 320
-
 function pad(value) {
   return String(value).padStart(2, '0')
 }
@@ -165,12 +164,10 @@ export function SharedAcademicPreview({ now, schoolData, academicData }) {
 export function SharedAcademicPage({ now, schoolData, academicData }) {
   const groups = useMemo(() => allGroups(schoolData, academicData), [schoolData?.academicEvents, academicData?.events])
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [sheetClosing, setSheetClosing] = useState(false)
   const [draft, setDraft] = useState(() => emptyDraft(now))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState('')
-  const closeTimerRef = useRef(null)
   const pageRef = useRef(null)
   const academicRectsRef = useRef(new Map())
   const academicMotionReadyRef = useRef(false)
@@ -212,43 +209,19 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
     academicRectsRef.current = currentRects
   }, [upcomingSignature])
 
-  useEffect(() => () => {
-    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
-  }, [])
-
-  function cancelPendingClose() {
-    if (!closeTimerRef.current) return
-    window.clearTimeout(closeTimerRef.current)
-    closeTimerRef.current = null
-  }
-
   function openSheet(nextDraft) {
-    cancelPendingClose()
     setDraft(nextDraft)
     setError('')
-    setSheetClosing(false)
     setSheetOpen(true)
   }
 
   function closeSheet() {
-    if (!sheetOpen || sheetClosing || saving) return
-    setSheetClosing(true)
-    cancelPendingClose()
-    closeTimerRef.current = window.setTimeout(() => {
-      setSheetOpen(false)
-      setSheetClosing(false)
-      closeTimerRef.current = null
-    }, SHEET_CLOSE_MS)
+    if (!sheetOpen || saving) return
+    setSheetOpen(false)
   }
 
   function closeAfterSave() {
-    setSheetClosing(true)
-    cancelPendingClose()
-    closeTimerRef.current = window.setTimeout(() => {
-      setSheetOpen(false)
-      setSheetClosing(false)
-      closeTimerRef.current = null
-    }, SHEET_CLOSE_MS)
+    setSheetOpen(false)
   }
 
   function openCreate() {
@@ -354,24 +327,15 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
         </div>
       ) : null}
 
-      {sheetOpen ? (
-        <>
-          <div
-            className={`academic-sheet-backdrop ${sheetClosing ? 'is-closing' : ''}`}
-            aria-hidden="true"
-            onClick={closeSheet}
-          />
-          <section
-            className={`change-editor academic-editor ${sheetClosing ? 'is-closing' : ''}`}
-            role="dialog"
-            aria-modal="true"
-            aria-label={draft.id ? '학사일정 수정' : '학사일정 추가'}
-          >
-            <div className="change-editor-head academic-editor-head">
-              <h2>{draft.id ? '학사일정 수정' : '학사일정 추가'}</h2>
-              <button className="academic-sheet-close" type="button" onClick={closeSheet} disabled={saving} aria-label="닫기">×</button>
-            </div>
-            <div className="change-form academic-form">
+      <UnifiedBottomSheet
+        open={sheetOpen}
+        onClose={closeSheet}
+        closeDisabled={saving}
+        title={draft.id ? '학사일정 수정' : '학사일정 추가'}
+        ariaLabel={draft.id ? '학사일정 수정' : '학사일정 추가'}
+        className="change-editor academic-editor"
+      >
+        <div className="change-form academic-form">
               <label className="change-field full">
                 <span>일정 이름</span>
                 <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value.slice(0, 80) }))} placeholder="일정 이름" autoComplete="off" />
@@ -431,10 +395,8 @@ export function SharedAcademicPage({ now, schoolData, academicData }) {
                   {saving ? '저장 중…' : '저장'}
                 </button>
               </div>
-            </div>
-          </section>
-        </>
-      ) : null}
+        </div>
+      </UnifiedBottomSheet>
     </section>
   )
 }

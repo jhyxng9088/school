@@ -371,3 +371,31 @@ html body .app-content:has(> .todo-page) {
   font-size: 9px;
   opacity: 0.7;
 }
+
+
+/* Interrupt-safe reminder motion. */
+.todo-stage5 .todo-item {
+  max-height: 180px;
+  overflow: hidden;
+  animation: reminder-row-mount 440ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes reminder-row-mount {
+  from { opacity: 0; transform: translate3d(0, 7px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.todo-stage5 .todo-item.is-state-entering {
+  animation: reminder-row-mount 440ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+@keyframes reminder-row-collapse {
+  from { max-height: 180px; min-height: 78px; opacity: 1; transform: translate3d(0, 0, 0); }
+  to { max-height: 0; min-height: 0; opacity: 0; transform: translate3d(0, -5px, 0); }
+}
+
+.todo-stage5 .todo-item.is-state-leaving {
+  pointer-events: none;
+  overflow: hidden;
+  animation: reminder-row-collapse 280ms cubic-bezier(0.4, 0, 1, 1) both !important;
+}
