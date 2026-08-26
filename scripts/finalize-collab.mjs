@@ -29,7 +29,7 @@ function replaceOnce(value, from, to, label) {
     recordClassActivity(profile, 'timetable', 'weekly', 'edited')
       .catch((error) => console.error('Timetable attribution save failed:', error))
     changedCells.forEach(({ dayId, period }) => {
-      recordClassActivity(profile, 'timetable', \`base-\${dayId}-\${period}\`, 'edited')
+      recordClassActivity(profile, 'timetable', 'base-' + dayId + '-' + period, 'edited')
         .catch((error) => console.error('Timetable cell attribution save failed:', error))
     })
     setEditing(false)
@@ -41,8 +41,8 @@ function replaceOnce(value, from, to, label) {
                 const isToday = dateKey(date) === todayKey`,
 `                const item = daySchedule.find((entry) => entry.number === period.number)
                 const cellActivity = item?.isOverride
-                  ? activity?.[activityKey('timetable', \`${dateKey(date)}-\${period.number}\`)] || null
-                  : activity?.[activityKey('timetable', \`base-\${day.id}-\${period.number}\`)] || null
+                  ? activity?.[activityKey('timetable', dateKey(date) + '-' + period.number)] || null
+                  : activity?.[activityKey('timetable', 'base-' + day.id + '-' + period.number)] || null
                 const isToday = dateKey(date) === todayKey`,
   'timetable cell activity lookup')
 
@@ -86,10 +86,9 @@ function replaceOnce(value, from, to, label) {
 {
   const path = 'public/first-run-notice.js'
   let value = read(path)
-  value = replaceOnce(value,
-`<a href="${'${INSTAGRAM_URL}'}" target="_blank" rel="noopener noreferrer">@j.hyxng</a>`,
-`<a href="${'${INSTAGRAM_URL}'}">@j.hyxng</a>`,
-  'instagram universal link')
+  const from = '<a href="${INSTAGRAM_URL}" target="_blank" rel="noopener noreferrer">@j.hyxng</a>'
+  const to = '<a href="${INSTAGRAM_URL}">@j.hyxng</a>'
+  value = replaceOnce(value, from, to, 'instagram universal link')
   write(path, value)
 }
 
