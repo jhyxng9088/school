@@ -1,0 +1,20 @@
+name: Apply unified modal and reminder motion fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-unified-ui-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply guarded patch
+        env:
+          PATCH_B64: "CkZST00gUGF0aGxpYiBpbXBvcnQgUGF0aAoKZGVmIHJlYWQocGF0aCk6CiAgICByZXR1cm4gUGF0aChwYXRoKS5yZWFkX3RleHQoKQoKZGVmIHdyaXRlKHBhdGgsIHRleHQpOgogICAgUGF0aChwYXRoKS53cml0ZV90ZXh0KHRleHQpCgpkZWYgcmVwbGFjZV9vbmNlKHRleHQsIG9sZCwgbmV3LCBsYWJlbCk6CiAgICBpZiBvbGQgbm90IGluIHRleHQ6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdChmIk1pc3NpbmcgbWFya2VyOiB7bGFiZWx9IikKICAgIHJldHVybiB0ZXh0LnJlcGxhY2Uob2xkLCBuZXcsIDEpCgojIC0tLSBSZW1pbmRlciBwYWdlOiBzaGFyZWQgc2hlZXQgKyBpbnRlcnJ1cHQtc2FmZSByb3cgbW90aW9uIC0tLQpwYXRoID0gInNyYy90b2RvLXN0YWdlNS1haS5qc3giCnRleHQgPSByZWFkKHBhdGgpCnRleHQgPSByZXBsYWNlX29uY2UoCiAgICB0ZXh0LAogICAgImltcG9ydCB7IGFjdGl2aXR5S2V5LCBhY3Rpdml0eUxhYmVsLCB1c2VDbGFzc0FjdGl2aXR5IH0gZnJvbSAnLi9jbGFzcy1hY3Rpdml0eSdcbiIsCiAgICAiaW1wb3J0IHsgYWN0aXZpdHlLZXksIGFjdGl2aXR5TGFiZWwsIHVzZUNsYXNzQWN0aXZpdHkgfSBmcm9tICcuL2NsYXNzLWFjdGl2aXR5J1xuaW1wb3J0IHsgVW5pZmllZEJvdHRvbVNoZWV0IH0gZnJvbSAnLi91bmlmaWVkLXNoZWV0LmpzeCdcb iIsCiAgICAidG9kbyB1bmlmaWVkIGltcG9ydCIsCikK
