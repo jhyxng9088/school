@@ -37,7 +37,7 @@ const firebaseConfig = {
 
 export const STUDENT_PROFILE_KEY = 'school.studentProfile.v1'
 const CLIENT_DATA_GENERATION_KEY = 'school.clientDataGeneration'
-const CLIENT_DATA_GENERATION = '1'
+const CLIENT_DATA_GENERATION = '2'
 const MIGRATION_VERSION = 'v1'
 
 const SUMMARY_MAX_SECTIONS = 14
@@ -127,16 +127,19 @@ export function saveStudentProfile(value) {
 export function prepareClientDataGeneration() {
   try {
     const stored = localStorage.getItem(CLIENT_DATA_GENERATION_KEY)
-    if (!stored) {
+    const existingSchoolKeys = Object.keys(localStorage).filter((key) => key.startsWith('school.'))
+    const hasLegacySchoolData = existingSchoolKeys.some((key) => (
+      key !== CLIENT_DATA_GENERATION_KEY && key !== 'school.installGuideDone'
+    ))
+
+    if (stored === CLIENT_DATA_GENERATION) return false
+    if (!stored && !hasLegacySchoolData) {
       localStorage.setItem(CLIENT_DATA_GENERATION_KEY, CLIENT_DATA_GENERATION)
       return false
     }
-    if (stored === CLIENT_DATA_GENERATION) return false
 
     const installDone = localStorage.getItem('school.installGuideDone')
-    Object.keys(localStorage)
-      .filter((key) => key.startsWith('school.'))
-      .forEach((key) => localStorage.removeItem(key))
+    existingSchoolKeys.forEach((key) => localStorage.removeItem(key))
     if (installDone !== null) localStorage.setItem('school.installGuideDone', installDone)
     localStorage.setItem(CLIENT_DATA_GENERATION_KEY, CLIENT_DATA_GENERATION)
     return true
