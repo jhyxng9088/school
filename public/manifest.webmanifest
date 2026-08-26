@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "S-Hub",
   "short_name": "S-Hub",
   "description": "우리 반 학교생활을 한곳에서 확인하는 PWA",
@@ -10,7 +11,7 @@
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "./icon.svg?v=5",
+      "src": "./icon.svg?v=6",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
