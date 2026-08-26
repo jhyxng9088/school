@@ -965,7 +965,7 @@ function AppShell({ profile }) {
       >
         {content[activeTab]}
       </main>
-      <nav ref={navRef} className="bottom-nav" style={{ '--active-index': activeIndex }} aria-label="주요 메뉴">
+      <nav ref={navRef} className="bottom-nav" style={{ '--indicator-x': `${activeIndex * 100}%` }} aria-label="주요 메뉴">
         <span ref={indicatorRef} className="nav-indicator" aria-hidden="true" />
         {tabs.map((tab, index) => (
           <button
