@@ -1,0 +1,213 @@
+html.school-unified-sheet-open,
+html.school-unified-sheet-open body {
+  overscroll-behavior: none;
+}
+
+.unified-sheet-backdrop {
+  --unified-backdrop-drag-opacity: 1;
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.34);
+  opacity: 0;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.unified-sheet-backdrop.is-open {
+  opacity: calc(1 * var(--unified-backdrop-drag-opacity));
+}
+
+.unified-sheet-backdrop.is-closing {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: 320ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
+
+body .unified-school-sheet {
+  --unified-sheet-drag-y: 0px;
+  position: fixed !important;
+  z-index: 10010 !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: 0 !important;
+  width: min(calc(100% - 16px), 660px) !important;
+  max-width: 660px !important;
+  height: auto !important;
+  max-height: min(88dvh, 760px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+  padding: 0 18px max(20px, calc(14px + env(safe-area-inset-bottom))) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--border) !important;
+  border-bottom: 0 !important;
+  border-radius: 28px 28px 0 0 !important;
+  background: var(--surface) !important;
+  box-shadow: 0 -18px 46px rgba(0, 0, 0, 0.13) !important;
+  opacity: 0;
+  transform: translate3d(-50%, calc(100% + 42px), 0) !important;
+  -webkit-transform: translate3d(-50%, calc(100% + 42px), 0) !important;
+  animation: none !important;
+  transition:
+    transform var(--unified-sheet-open-ms, 560ms) cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 280ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: transform, opacity;
+  isolation: isolate;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+body .unified-school-sheet::before,
+body .unified-school-sheet.todo-sheet::before,
+body .unified-school-sheet.academic-editor::before {
+  display: none !important;
+  content: none !important;
+}
+
+body .unified-school-sheet.is-open {
+  opacity: 1;
+  transform: translate3d(-50%, var(--unified-sheet-drag-y), 0) !important;
+  -webkit-transform: translate3d(-50%, var(--unified-sheet-drag-y), 0) !important;
+}
+
+body .unified-school-sheet.is-dragging {
+  transition: none !important;
+}
+
+body .unified-school-sheet.is-closing {
+  opacity: 0.98;
+  transform: translate3d(-50%, calc(100% + 36px), 0) !important;
+  -webkit-transform: translate3d(-50%, calc(100% + 36px), 0) !important;
+  pointer-events: none;
+  transition:
+    transform var(--unified-sheet-close-ms, 320ms) cubic-bezier(0.4, 0, 1, 1),
+    opacity 220ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
+body .unified-school-sheet .unified-sheet-head,
+body .unified-school-sheet .change-editor-head {
+  position: relative !important;
+  top: auto !important;
+  z-index: 3 !important;
+  flex: none !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  min-height: 78px !important;
+  margin: 0 !important;
+  padding: 28px 46px 15px 2px !important;
+  background: var(--surface) !important;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body .unified-school-sheet.is-dragging .unified-sheet-head {
+  cursor: grabbing;
+}
+
+body .unified-school-sheet .unified-sheet-head::before,
+body .unified-school-sheet .change-editor-head::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 8px !important;
+  left: 50% !important;
+  width: 38px !important;
+  height: 5px !important;
+  margin: 0 !important;
+  transform: translateX(-50%) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--text-tertiary) !important;
+  opacity: 0.42 !important;
+  pointer-events: none !important;
+}
+
+.unified-sheet-title-copy {
+  min-width: 0;
+}
+
+body .unified-school-sheet .unified-sheet-title-copy h2 {
+  margin: 0 !important;
+  color: var(--text) !important;
+  font-size: 20px !important;
+  font-weight: 740 !important;
+  line-height: 1.18 !important;
+  letter-spacing: -0.035em !important;
+}
+
+body .unified-school-sheet .unified-sheet-title-copy p {
+  margin: 5px 0 0 !important;
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 560 !important;
+  line-height: 1.45 !important;
+  letter-spacing: -0.018em !important;
+}
+
+body .unified-school-sheet .unified-sheet-close {
+  position: absolute !important;
+  z-index: 5 !important;
+  top: 20px !important;
+  right: 0 !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  display: grid !important;
+  place-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 50% !important;
+  background: var(--surface-soft) !important;
+  color: var(--text-secondary) !important;
+  font-size: 23px !important;
+  font-weight: 350 !important;
+  line-height: 1 !important;
+  cursor: pointer;
+  opacity: 1 !important;
+}
+
+body .unified-school-sheet .unified-sheet-close:disabled {
+  opacity: 0.42 !important;
+  cursor: default;
+}
+
+.unified-sheet-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+body .unified-school-sheet .todo-sheet-form,
+body .unified-school-sheet .change-form,
+body .unified-school-sheet .academic-form {
+  min-width: 0 !important;
+}
+
+@media (min-width: 700px) {
+  body .unified-school-sheet {
+    width: min(calc(100% - 32px), 660px) !important;
+    max-height: min(86dvh, 760px) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .unified-sheet-backdrop,
+  body .unified-school-sheet {
+    transition-duration: 0.01ms !important;
+  }
+}
