@@ -15,18 +15,18 @@
       <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.36"/>
     </filter>
     <style>
-      .light { display: block; }
-      .dark { display: none; }
-      @media (prefers-color-scheme: dark) {
-        .light { display: none; }
-        .dark { display: block; }
+      .dark { display: block; }
+      .light { display: none; }
+      @media (prefers-color-scheme: light) {
+        .dark { display: none; }
+        .light { display: block; }
       }
     </style>
   </defs>
 
   <g class="light">
     <rect x="26" y="26" width="460" height="460" rx="92" fill="url(#lightBg)" stroke="#ffffff" stroke-width="3" filter="url(#lightShadow)"/>
-    <g fill="none" stroke="#151515" stroke-width="29" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(-23 -34)" fill="none" stroke="#151515" stroke-width="29" stroke-linecap="round" stroke-linejoin="round">
       <path d="M171 191H311"/>
       <path d="M171 191V349Q171 371 193 371H350V237"/>
       <path d="M193 402H350"/>
@@ -36,7 +36,7 @@
 
   <g class="dark">
     <rect x="26" y="26" width="460" height="460" rx="92" fill="url(#darkBg)" stroke="#555a5e" stroke-width="3" filter="url(#darkShadow)"/>
-    <g fill="none" stroke="#ffffff" stroke-width="29" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(-23 -34)" fill="none" stroke="#ffffff" stroke-width="29" stroke-linecap="round" stroke-linejoin="round">
       <path d="M171 191H311"/>
       <path d="M171 191V349Q171 371 193 371H350V237"/>
       <path d="M193 402H350"/>
