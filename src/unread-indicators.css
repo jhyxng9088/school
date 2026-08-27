@@ -11,6 +11,12 @@
   animation: school-unread-breathe 2.4s ease-in-out infinite;
 }
 
+.bottom-nav .nav-button,
+.todo-stage5 [data-reminder-id],
+.todo-page [data-reminder-id] {
+  position: relative;
+}
+
 .school-unread-dot.is-nav {
   top: 8px;
   left: calc(50% + 8px);
