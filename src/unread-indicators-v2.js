@@ -313,6 +313,8 @@ async function startUnreadIndicators() {
   }, (error) => console.error('Unread academic sync failed:', error)))
 
   subscriptions.push(onSnapshot(collection(db, 'students', studentKey, 'todoState'), (snapshot) => {
+    if (snapshot.metadata?.fromCache) return
+
     const next = new Map()
     snapshot.docs.forEach((item) => {
       if (!item.id.startsWith(INTERNAL_PREFIX)) return
