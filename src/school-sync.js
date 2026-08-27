@@ -649,7 +649,7 @@ async function writeOverridesCloud(profile, overrides) {
   await setDoc(timetableRef(profile), {
     overrides: pruneExpiredOverrides(overrides || {}),
     updatedAt: Date.now(),
-  }, { merge: true })
+  }, { mergeFields: ['overrides', 'updatedAt'] })
 }
 
 export function useSharedTimetable(profile, now) {
