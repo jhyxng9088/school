@@ -1,4 +1,4 @@
-name: Expire reminders at midnight
+name: Expire reminders at due time
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Apply guarded expiry patch
+      - name: Apply guarded reminder due-time patch
         run: python3 .github/scripts/expire_reminders_at_midnight.py
       - name: Verify diff
         run: git diff --check
@@ -28,15 +28,14 @@ jobs:
         run: npm run build
       - name: Verify exact scope
         run: |
-          grep -q 'T23:59:59.000+09:00' src/todo.jsx
-          grep -q 'deleteExpiredSharedTodo' src/todo.jsx
-          grep -q 'deleteDoc' src/school-sync.js
-          grep -q 'reminderExpiredInKorea' firestore.rules
-          grep -q 'allow delete: if signedIn() && reminderExpiredInKorea();' firestore.rules
+          grep -q "const dueTime = String(todo?.dueTime || '').trim()" src/todo.jsx
+          grep -q "const expiryTime = /^([01]\\d|2[0-3]):[0-5]\\d$/.test(dueTime)" src/todo.jsx
+          grep -q '? `${dueTime}:00.000`' src/todo.jsx
+          grep -q ": '23:59:59.000'" src/todo.jsx
       - name: Commit verified change
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/todo.jsx src/school-sync.js firestore.rules
-          git commit -m "Expire shared reminders at end of due date" || exit 0
+          git add src/todo.jsx
+          git commit -m "Expire reminders at their due time" || exit 0
           git push
