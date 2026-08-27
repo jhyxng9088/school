@@ -3,7 +3,7 @@ import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import {
   analyzeSchoolNotice,
   askSchoolHub,
-  askSchoolHubWithAttachments,
+  answerAndAnalyzeSchoolAttachments,
   reviewSchoolImportConflicts,
 } from './s-hub-ai.js'
 import { classifyAttachmentTextIntent } from './s-hub-ai-intent.js'
@@ -38,9 +38,9 @@ const WORKING_MESSAGES = {
   mixed: ['사진과 파일을 분석하는 중…', '학교 일정을 찾는 중…', '날짜와 내용을 확인하는 중…'],
   question: ['S-Hub 정보를 확인하는 중…', '관련 일정을 찾는 중…', '답변을 정리하는 중…'],
   conflict: ['기존 일정과 겹치는지 확인하는 중…', '추가할 위치를 확인하는 중…'],
-  imageQuestion: ['사진과 질문을 함께 확인하는 중…', '필요한 학교 정보를 찾는 중…', '답변을 정리하는 중…'],
-  fileQuestion: ['파일과 질문을 함께 확인하는 중…', '필요한 학교 정보를 찾는 중…', '답변을 정리하는 중…'],
-  mixedQuestion: ['첨부와 질문을 함께 확인하는 중…', '필요한 학교 정보를 찾는 중…', '답변을 정리하는 중…'],
+  imageQuestion: ['사진과 질문을 함께 확인하는 중…', '질문에 답할 내용을 정리하는 중…', '추가할 일정도 확인하는 중…'],
+  fileQuestion: ['파일과 질문을 함께 확인하는 중…', '질문에 답할 내용을 정리하는 중…', '추가할 일정도 확인하는 중…'],
+  mixedQuestion: ['첨부와 질문을 함께 확인하는 중…', '질문에 답할 내용을 정리하는 중…', '추가할 일정도 확인하는 중…'],
 }
 
 function noticeWorkingMode(files) {
@@ -441,10 +441,29 @@ export function SchoolAISheet({
     setError('')
     setEditingId('')
     try {
-      const result = await askSchoolHubWithAttachments({ question, files, context, now, signal: controller.signal })
+      const result = await answerAndAnalyzeSchoolAttachments({ question, files, context, now, signal: controller.signal })
       if (requestSequenceRef.current !== requestId) return
-      if (!await finishWorkingStage(requestId)) return
-      setState((current) => ({ ...current, mode: 'answer', answer: result.answer, saveResult: null }))
+      const items = result.items || []
+      if (items.length) {
+        showWorkingMode('conflict')
+        const conflicts = await reviewSchoolImportConflicts(items, conflictContext, now, { signal: controller.signal })
+        if (requestSequenceRef.current !== requestId) return
+        if (!await finishWorkingStage(requestId)) return
+        const choices = applyConflictSelection(items, conflicts)
+        setState({
+          mode: 'import',
+          answer: result.answer,
+          items,
+          selected: choices.selected,
+          conflicts,
+          resolutions: choices.resolutions,
+          saveResult: null,
+        })
+        setConflictsDirty(false)
+      } else {
+        if (!await finishWorkingStage(requestId)) return
+        setState((current) => ({ ...current, mode: 'answer', answer: result.answer, items: [], selected: {}, conflicts: {}, resolutions: {}, saveResult: null }))
+      }
     } catch (requestError) {
       if (requestSequenceRef.current !== requestId || controller.signal.aborted || requestError?.code === 'school-ai/cancelled') return
       console.error('S-Hub attachment question failed:', requestError)
@@ -601,7 +620,7 @@ export function SchoolAISheet({
           </div>
         ) : null}
 
-        {!working && state.mode === 'answer' ? (
+        {!working && state.answer ? (
           <section className="s-hub-ai-answer" aria-live="polite">
             <span>답변</span>
             <p>{state.answer}</p>
@@ -611,8 +630,8 @@ export function SchoolAISheet({
         {!working && state.mode === 'import' ? (
           <section className="s-hub-ai-import">
             <div className="s-hub-ai-result-head">
-              <strong>{state.items.length}개를 찾았어</strong>
-              <span>저장 전 내용을 확인해줘.</span>
+              <strong>{state.answer ? '추가할 수 있는 항목' : `${state.items.length}개를 찾았어`}</strong>
+              <span>{state.answer ? `${state.items.length}개를 찾았어. 저장 전 내용을 확인해줘.` : '저장 전 내용을 확인해줘.'}</span>
             </div>
 
             <div className="s-hub-ai-item-list">
