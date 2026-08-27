@@ -1,0 +1,73 @@
+name: Verify S-Hub AI orb refinement
+
+on:
+  push:
+    branches:
+      - fix/ai-orb-refine-v148
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/ai-orb-refine-v148
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply guarded refinement
+        run: python3 .github/scripts/refine_ai_orb_v148.py
+
+      - name: Remove temporary verification machinery
+        run: |
+          rm -f .github/scripts/refine_ai_orb_v148.py
+          rm -f .github/workflows/verify-ai-orb-refine-v148.yml
+          rmdir .github/scripts 2>/dev/null || true
+
+      - name: Verify final repository shape and requested UI invariants
+        run: |
+          test ! -e .github/scripts
+          test ! -e .github/workflows/verify-ai-orb-refine-v148.yml
+          test "$(find .github/workflows -maxdepth 1 -type f -name '*.yml' -printf '%f\n' | sort)" = "deploy.yml"
+          grep -q "school-shell-v148" public/sw.js
+          grep -q "gap: 9px" src/s-hub-ai.css
+          grep -q "SHubAIOrb size={30} active" src/s-hub-ai-sheet.jsx
+          grep -q "THINKING_MOTIONS" src/s-hub-ai-orb.jsx
+          grep -q "chooseThinkingMotion" src/s-hub-ai-orb.jsx
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test app
+        run: npm test
+
+      - name: Build app
+        run: npm run build
+
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit verified clean tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Refine S-Hub AI orb motion and placement [skip ci]"
+            git push origin HEAD:fix/ai-orb-refine-v148
+          fi
