@@ -28,6 +28,15 @@ jobs:
       - name: Apply edge-case refinements
         run: python3 tools/refine_s_hub_ai.py
 
+      - name: Normalize generated test EOF
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ['tests/s-hub-ai-core.test.js', 'tests/s-hub-ai-integration.test.js']:
+              path = Path(name)
+              path.write_text(path.read_text().rstrip() + '\n')
+          PY
+
       - name: Remove temporary refinement machinery before checks
         run: |
           rm .github/workflows/verify-s-hub-ai-refinement.yml
