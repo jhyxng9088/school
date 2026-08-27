@@ -1,0 +1,44 @@
+name: Stabilize reminder lifecycle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/stabilize_reminder_lifecycle.py'
+
+permissions:
+  contents: write
+
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply guarded reminder lifecycle patch
+        run: python3 .github/scripts/stabilize_reminder_lifecycle.py
+      - name: Verify diff
+        run: git diff --check
+      - name: Install app dependencies
+        run: npm install
+      - name: Run app regression tests
+        run: npm test
+      - name: Build app
+        run: npm run build
+      - name: Install reminder backend dependencies
+        working-directory: push-backend-v2
+        run: npm install
+      - name: Run reminder backend tests
+        working-directory: push-backend-v2
+        run: npm test
+      - name: Commit stabilized reminder lifecycle
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Stabilize reminder lifecycle and unread notifications"
+          git push
