@@ -1,0 +1,62 @@
+name: Verify streamed reminder originals
+
+on:
+  push:
+    branches:
+      - fix/reminder-original-streaming
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/reminder-original-streaming
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Remove temporary workflow before repository tests
+        run: rm -f .github/workflows/verify-reminder-original-streaming.yml
+
+      - name: Verify temporary workflow is gone
+        run: |
+          test "$(find .github/workflows -maxdepth 1 -type f -name '*.yml' -printf '%f\n' | sort)" = "deploy.yml"
+          grep -q "res.write(chunk)" push-backend-v2/api/reminder-original.js
+          ! grep -q "Content-Length" push-backend-v2/api/reminder-original.js
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test app
+        run: npm test
+
+      - name: Build app
+        run: npm run build
+
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit clean verified branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No cleanup changes"
+          else
+            git commit -m "Verify streamed reminder originals [skip ci]"
+            git push origin HEAD:fix/reminder-original-streaming
+          fi
