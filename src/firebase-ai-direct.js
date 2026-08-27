@@ -297,6 +297,10 @@ async function directFirebaseHeaders() {
   return headers
 }
 
+export async function getDirectFirebaseSecurityHeaders() {
+  return directFirebaseHeaders()
+}
+
 async function getDirectAI() {
   const { app } = await getDirectSecurityContext()
   if (!directAI) directAI = getAI(app, { backend: new GoogleAIBackend() })

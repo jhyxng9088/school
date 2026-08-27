@@ -1,5 +1,3 @@
-import { ensureSignedIn } from './school-sync'
-
 const S_HUB_AI_API_URL = 'https://school-reminder-backend.vercel.app/api/s-hub-ai'
 const MAX_TOTAL_ATTACHMENT_BASE64_CHARS = 3_000_000
 const MAX_CLIENT_TIMEOUT_MS = 58_000
@@ -36,8 +34,24 @@ export async function generateSchoolStructured({
     )
   }
 
-  const user = await ensureSignedIn()
-  const idToken = await user.getIdToken()
+  let idToken = ''
+  let appCheckToken = ''
+  try {
+    const { getDirectFirebaseSecurityHeaders } = await import('./firebase-ai-direct.js')
+    const securityHeaders = await getDirectFirebaseSecurityHeaders()
+    idToken = String(securityHeaders.Authorization || '').replace(/^Firebase\s+/i, '').trim()
+    appCheckToken = String(securityHeaders['X-Firebase-AppCheck'] || '').trim()
+  } catch (error) {
+    throw transportError(
+      '앱 인증 정보를 확인하지 못했어. 앱을 완전히 종료한 뒤 다시 열어줘.',
+      String(error?.code || 'school-ai/app-check-unavailable'),
+      401,
+    )
+  }
+  if (!idToken || !appCheckToken) {
+    throw transportError('앱 인증 정보를 확인하지 못했어. 앱을 다시 열어줘.', 'school-ai/security-token-missing', 401)
+  }
+
   const controller = new AbortController()
   const clientTimeout = Math.min(
     MAX_CLIENT_TIMEOUT_MS,
@@ -50,6 +64,7 @@ export async function generateSchoolStructured({
       method: 'POST',
       headers: {
         Authorization: `Bearer ${idToken}`,
+        'X-Firebase-AppCheck': appCheckToken,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
