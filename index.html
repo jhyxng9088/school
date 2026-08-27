@@ -24,8 +24,6 @@
     <link rel="stylesheet" href="./samsung-apple-nav-icons.css" />
     <link rel="stylesheet" href="./samsung-nav-icon-fixes.css?v=4" />
     <style>
-      /* The reminder page must use the exact same page transition as the other tabs.
-         This intentionally overrides the old reminder-only `animation: none !important`. */
       html body .app-content:has(> .todo-page) {
         animation: content-in 980ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
       }
@@ -58,6 +56,7 @@
     </script>
     <script type="module" src="/src/main.jsx"></script>
     <script type="module" src="/src/push-client.js"></script>
-    <script type="module" src="/src/unread-indicators-v2.js?v=2"></script>
+    <script type="module" src="/src/push-dispatch-direct.js?v=1"></script>
+    <script type="module" src="/src/unread-indicators-v2.js?v=3"></script>
   </body>
 </html>
