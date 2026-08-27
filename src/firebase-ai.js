@@ -241,7 +241,7 @@ function inferredAttachmentType(file) {
   return extensionMap.find(([extension]) => name.endsWith(extension))?.[1] || explicit
 }
 
-async function prepareAttachment(file) {
+export async function prepareAttachment(file) {
   if (!(file instanceof Blob)) throw reminderError('첨부 파일을 읽을 수 없어.', 'school-ai/invalid-file')
   const originalName = String(file.name || '첨부파일').slice(0, 120)
   const originalType = inferredAttachmentType(file)

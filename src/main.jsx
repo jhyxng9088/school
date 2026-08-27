@@ -30,6 +30,8 @@ import { SharedAcademicPage, SharedAcademicPreview } from './academic-shared'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import { OfflineToast, useNetworkGuard } from './network-guard'
 import { activityKey, activityLabel, recordClassActivities, useClassActivity, useSharedAcademic } from './class-activity'
+import { SchoolAISheet } from './s-hub-ai-sheet.jsx'
+import { buildSchoolAIContext } from './s-hub-ai-core.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -94,6 +96,9 @@ function Icon({ type, size = 22 }) {
   }
   if (type === 'academic') {
     return <svg {...common}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v3"/><path d="M16.5 3.5v3"/><path d="M3.5 9h17"/><path d="M8 13h3"/><path d="M8 16.5h8"/><path d="M15 12.5h1.5v1.5H15z"/></svg>
+  }
+  if (type === 'search') {
+    return <svg {...common}><circle cx="10.7" cy="10.7" r="6.4"/><path d="m15.5 15.5 4.2 4.2"/></svg>
   }
   if (type === 'clock') {
     return <svg {...common}><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 2"/></svg>
@@ -381,7 +386,7 @@ function TimetablePreview({ schedule, now, configured, title = '오늘 시간표
   )
 }
 
-function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData }) {
+function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI }) {
   const today = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
@@ -412,7 +417,12 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
             </span>
           </div>
         </div>
-        <span className="user-name">{name}</span>
+        <div className="home-top-actions">
+          <span className="user-name">{name}</span>
+          <button className="home-ai-trigger" type="button" aria-label="S-Hub 검색 및 공지 분석" onClick={onOpenAI}>
+            <Icon type="search" size={18} />
+          </button>
+        </div>
       </header>
 
       <div className="home-stack">
@@ -934,6 +944,7 @@ function useNavSpring(activeIndex) {
 function AppShell({ profile }) {
   const [activeTab, setActiveTab] = useState('home')
   const [contentDirection, setContentDirection] = useState(1)
+  const [aiOpen, setAiOpen] = useState(false)
   const { toast, requireOnline } = useNetworkGuard()
   const now = useNow()
   const {
@@ -955,6 +966,167 @@ function AppShell({ profile }) {
   activeIndexRef.current = activeIndex
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
 
+  const aiContext = useMemo(() => {
+    const timetableDays = Array.from({ length: 14 }, (_, offset) => {
+      const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12, 0, 0, 0)
+      return {
+        date: dateKey(targetDate),
+        periods: getScheduleForDate(targetDate, weeklySchedule, overrides).map((period) => ({
+          number: period.number,
+          subject: period.subject || '',
+          baseSubject: period.baseSubject || period.subject || '',
+          isOverride: Boolean(period.isOverride),
+          start: period.start || '',
+          end: period.end || '',
+        })),
+      }
+    })
+    return buildSchoolAIContext({
+      now,
+      todos: todoData.todos,
+      timetableDays,
+      academicEvents: schoolData?.academicEvents || [],
+      customAcademicEvents: academicData?.events || [],
+    })
+  }, [now, weeklySchedule, overrides, todoData.todos, schoolData?.academicEvents, academicData?.events])
+
+  const aiConflictContext = useMemo(() => {
+    const sharedReminderContext = buildSchoolAIContext({
+      now,
+      todos: todoData.sharedTodos || todoData.todos,
+    })
+    return {
+      ...aiContext,
+      reminders: sharedReminderContext.reminders,
+    }
+  }, [aiContext, now, todoData.sharedTodos, todoData.todos])
+
+  async function importAIItems(items) {
+    const saved = []
+    const failed = []
+    const timetableItems = []
+    const seenReminder = new Set()
+    const seenAcademic = new Set()
+    const seenTimetable = new Set()
+
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!item || item.valid === false) {
+        failed.push({ item, message: '필수 정보를 확인해줘.' })
+        continue
+      }
+
+      try {
+        if (item.kind === 'reminder') {
+          const batchKey = `${String(item.title || '').trim().toLowerCase()}|${item.dueDate}|${item.dueTime || ''}`
+          if (seenReminder.has(batchKey)) throw new Error('같은 분석 결과 안에 동일한 리마인더가 두 번 있어.')
+          seenReminder.add(batchKey)
+          const targetId = item.resolution === 'replace' ? String(item.existingId || '') : ''
+          if (item.resolution === 'replace' && !targetId) throw new Error('수정할 기존 리마인더를 찾지 못했어.')
+          const savedId = await todoData.saveTodo({
+            id: targetId,
+            type: item.type,
+            title: item.title,
+            dueDate: item.dueDate,
+            dueTime: item.dueTime || '',
+          })
+          if (!savedId) throw new Error('리마인더를 저장하지 못했어.')
+          saved.push({ item, id: savedId })
+          continue
+        }
+
+        if (item.kind === 'academic') {
+          const batchKey = `${String(item.title || '').trim().toLowerCase()}|${item.startDate}|${item.endDate}`
+          if (seenAcademic.has(batchKey)) throw new Error('같은 분석 결과 안에 동일한 학사일정이 두 번 있어.')
+          seenAcademic.add(batchKey)
+          const targetId = item.resolution === 'replace' ? String(item.existingId || '') : ''
+          if (item.resolution === 'replace' && item.existingSource !== 'custom') {
+            throw new Error('공식 학사일정은 AI가 수정하지 않아.')
+          }
+          const savedEvent = await academicData.saveEvent({
+            id: targetId,
+            title: item.title,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            detail: item.detail || '',
+            important: Boolean(item.important),
+          })
+          if (!savedEvent?.id) throw new Error('학사일정을 저장하지 못했어.')
+          saved.push({ item, id: savedEvent.id })
+          continue
+        }
+
+        if (item.kind === 'timetable_change') {
+          const slot = `${item.date}-${item.period}`
+          if (seenTimetable.has(slot)) throw new Error('같은 분석 결과 안에 동일한 교시 변경이 두 번 있어.')
+          seenTimetable.add(slot)
+          const targetDate = dateFromKey(item.date)
+          const targetDay = targetDate ? getDayForDate(targetDate) : null
+          const allowed = targetDay
+            ? getPeriodsForDay(targetDay.id).some((period) => period.number === Number(item.period))
+            : false
+          if (!targetDate || !targetDay || !allowed) throw new Error('이 날짜에는 선택한 교시를 변경할 수 없어.')
+          timetableItems.push({ ...item, targetDay })
+          continue
+        }
+
+        throw new Error('지원하지 않는 일정 종류야.')
+      } catch (error) {
+        failed.push({ item, message: error?.message || '저장 실패' })
+      }
+    }
+
+    if (timetableItems.length) {
+      const nextOverrides = { ...overrides }
+      const applied = []
+      const activities = []
+
+      timetableItems.forEach((item) => {
+        const dateOverrides = { ...(nextOverrides[item.date] || {}) }
+        const beforeSubject = String(dateOverrides[item.period] || '')
+        const nextSubject = String(item.subject || '').trim().slice(0, 20)
+        const baseSubject = String(weeklySchedule?.[item.targetDay.id]?.[item.period] || '').trim()
+
+        if (!nextSubject) {
+          failed.push({ item, message: '변경 과목이 비어 있어.' })
+          return
+        }
+
+        if (nextSubject === baseSubject) delete dateOverrides[item.period]
+        else dateOverrides[item.period] = nextSubject
+
+        if (Object.keys(dateOverrides).length) nextOverrides[item.date] = dateOverrides
+        else delete nextOverrides[item.date]
+
+        const afterSubject = String(nextOverrides?.[item.date]?.[item.period] || '')
+        if (beforeSubject === afterSubject) {
+          saved.push({ item, id: `${item.date}-${item.period}`, unchanged: true })
+          return
+        }
+
+        applied.push(item)
+        activities.push({
+          entityType: 'timetable',
+          entityId: `${item.date}-${item.period}`,
+          action: beforeSubject ? 'edited' : 'added',
+        })
+      })
+
+      if (applied.length) {
+        try {
+          const committed = await commitOverrides(nextOverrides)
+          if (!committed) throw new Error('시간표 변경을 저장하지 못했어.')
+          applied.forEach((item) => saved.push({ item, id: `${item.date}-${item.period}` }))
+          recordClassActivities(profile, activities)
+            .catch((error) => console.error('AI timetable attribution save failed:', error))
+        } catch (error) {
+          applied.forEach((item) => failed.push({ item, message: error?.message || '시간표 저장 실패' }))
+        }
+      }
+    }
+
+    return { saved, failed }
+  }
+
   useEffect(() => {
     if (navigator.onLine === false) return
     const pruned = pruneExpiredOverrides(overrides, now)
@@ -973,6 +1145,7 @@ function AppShell({ profile }) {
         todoData={todoData}
         presence={presence}
         academicData={academicData}
+        onOpenAI={() => setAiOpen(true)}
       />
     ),
     todo: <TodoPage now={now} todoData={todoData} requireOnline={requireOnline} />,
@@ -1036,6 +1209,15 @@ function AppShell({ profile }) {
           </button>
         ))}
       </nav>
+      <SchoolAISheet
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        now={now}
+        context={aiContext}
+        conflictContext={aiConflictContext}
+        onImportItems={importAIItems}
+        requireOnline={requireOnline}
+      />
       <OfflineToast toast={toast} />
     </div>
   )

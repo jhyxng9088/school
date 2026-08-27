@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { TODO_TYPES } from './todo.jsx'
 import { formatParsedDue, parseReminderText } from './reminder-parser.js'
 import { parseReminderTitleWithAI, parseReminderWithAI } from './firebase-ai.js'
+import { findReminderConflict } from './s-hub-ai.js'
 import { AttachmentPicker, SummarySheet, createPendingReminderSummary, isReminderSummaryPending, withAttachmentManifest } from './reminder-summary.jsx'
 import { activityKey, activityLabel, useClassActivity } from './class-activity'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
@@ -209,6 +210,7 @@ function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEd
 export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const {
     todos,
+    sharedTodos,
     saveTodo,
     enrichTodo,
     toggleTodo,
@@ -236,6 +238,8 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const [originalSaveError, setOriginalSaveError] = useState('')
   const [serverSaving, setServerSaving] = useState(false)
   const [serverSaveError, setServerSaveError] = useState('')
+  const [conflictChecking, setConflictChecking] = useState(false)
+  const [reminderConflict, setReminderConflict] = useState(null)
   const [summaryTodo, setSummaryTodo] = useState(null)
   const activity = useClassActivity()
   const pageRef = useRef(null)
@@ -243,6 +247,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const aiRequestRef = useRef(0)
   const summaryPromiseRef = useRef(null)
   const pendingCreateIdRef = useRef('')
+  const conflictApprovalRef = useRef('')
 
   const sorted = useMemo(() => sortTodos(todos), [todos])
   const active = sorted.filter((todo) => !todo.completed)
@@ -255,6 +260,12 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const attachmentSignature = attachmentFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`).join('|')
   const aiAdjusted = Boolean(!attachmentFiles.length && aiResult && resultSignature(aiResult) !== resultSignature(localNaturalResult))
   const aiTrigger = attachmentSignature ? `${naturalText}|${attachmentSignature}` : naturalText
+
+  useEffect(() => {
+    if (!sheetOpen) return
+    setReminderConflict(null)
+    conflictApprovalRef.current = ''
+  }, [sheetOpen, aiTrigger, sheetMode, draft.type, draft.title, draft.dueDate, draft.dueTime])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setPageEntering(false), 1150)
@@ -513,11 +524,60 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     }
   }
 
+  function reminderConflictSignature(candidate) {
+    return [
+      candidate?.id || '',
+      candidate?.type || 'task',
+      String(candidate?.title || '').trim(),
+      candidate?.dueDate || '',
+      candidate?.dueTime || '',
+    ].join('|')
+  }
+
+  async function confirmReminderConflict(candidate) {
+    const signature = reminderConflictSignature(candidate)
+    if (conflictApprovalRef.current === signature) {
+      conflictApprovalRef.current = ''
+      return true
+    }
+
+    setConflictChecking(true)
+    try {
+      const conflict = await findReminderConflict(candidate, sharedTodos || todos, new Date(), { excludeId: candidate?.id || '' })
+      if (!conflict) {
+        setReminderConflict(null)
+        return true
+      }
+      setReminderConflict({ ...conflict, candidate, signature })
+      return false
+    } catch (error) {
+      console.warn('Reminder duplicate check unavailable; continuing with existing save path.', error)
+      return true
+    } finally {
+      setConflictChecking(false)
+    }
+  }
+
+  function approveReminderConflict() {
+    if (!reminderConflict?.signature) return
+    conflictApprovalRef.current = reminderConflict.signature
+    setReminderConflict(null)
+    if (sheetMode === 'natural') void submitNatural()
+    else void submitManual()
+  }
+
   async function submitNatural() {
     const fallbackResult = aiState === 'error' && !attachmentFiles.length ? localNaturalResult : null
     const result = aiResult || fallbackResult
-    if (!result?.title || !result?.dueDate || serverSaving) return
+    if (!result?.title || !result?.dueDate || serverSaving || conflictChecking) return
     if (!requireOnline('리마인더를 추가')) return
+    if (!(await confirmReminderConflict({
+      id: '',
+      type: result.type,
+      title: result.title,
+      dueDate: result.dueDate,
+      dueTime: result.dueTime || '',
+    }))) return
     const createId = pendingCreateIdRef.current || createTodoId()
     pendingCreateIdRef.current = createId
     const files = attachmentFiles.slice()
@@ -555,8 +615,9 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   }
 
   async function submitManual() {
-    if (serverSaving) return
+    if (serverSaving || conflictChecking) return
     if (!requireOnline(draft.id ? '리마인더를 수정' : '리마인더를 추가')) return
+    if (!(await confirmReminderConflict(draft))) return
     const createId = draft.id ? '' : (pendingCreateIdRef.current || createTodoId())
     if (createId) pendingCreateIdRef.current = createId
     const files = attachmentFiles.slice()
@@ -680,7 +741,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const summaryBusy = summaryState === 'waiting' || summaryState === 'loading'
   const aiTitleReady = Boolean(aiResult?.title && aiResult?.dueDate)
   const localFallbackReady = aiState === 'error' && !attachmentFiles.length && Boolean(localNaturalResult?.title && localNaturalResult?.dueDate)
-  const saveDisabled = serverSaving || (sheetMode === 'natural'
+  const saveDisabled = serverSaving || conflictChecking || (sheetMode === 'natural'
     ? !(aiTitleReady || localFallbackReady)
     : !draft.title.trim() || !draft.dueDate)
 
@@ -780,7 +841,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
       <UnifiedBottomSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        closeDisabled={serverSaving}
+        closeDisabled={serverSaving || conflictChecking}
         title={draft.id ? '리마인더 수정' : '리마인더 추가'}
         subtitle={sheetMode === 'natural' ? '해야 할 일을 그냥 한 문장으로 적어.' : '필요한 정보만 직접 수정해.'}
         ariaLabel={draft.id ? '리마인더 수정' : '리마인더 추가'}
@@ -906,6 +967,17 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
             </div>
 
             {serverSaveError ? <p className="change-warning">{serverSaveError}</p> : null}
+            {reminderConflict ? (
+              <div className="reminder-conflict-warning">
+                <strong>{reminderConflict.relation === 'duplicate' ? '비슷한 일정이 이미 있어' : '기존 일정과 정보가 달라'}</strong>
+                <span>{reminderConflict.existing?.title || '기존 리마인더'} · {reminderConflict.existing?.dueDate || ''}{reminderConflict.existing?.dueTime ? ` ${reminderConflict.existing.dueTime}` : ''}</span>
+                {reminderConflict.reason ? <small>{reminderConflict.reason}</small> : null}
+                <div>
+                  <button type="button" onClick={() => setReminderConflict(null)}>취소</button>
+                  <button type="button" onClick={approveReminderConflict}>그래도 저장</button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="change-submit-row">
               <button type="button" onClick={() => setSheetOpen(false)}>취소</button>
@@ -915,7 +987,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
                 disabled={saveDisabled}
                 onClick={submitCurrent}
               >
-                {serverSaving ? '저장 중…' : sheetMode === 'natural' ? '추가' : '저장'}
+                {conflictChecking ? '중복 확인 중…' : serverSaving ? '저장 중…' : sheetMode === 'natural' ? '추가' : '저장'}
               </button>
             </div>
         </div>
