@@ -503,7 +503,18 @@ export async function parseReminderWithAI(input, now = new Date(), attachmentInp
   const cached = cachedAttachmentAnalysis(cacheId)
   if (cached) return cached
 
-  const result = await directReminderResult(input, now, files, { titleOnly: false, smartRecovery: false })
+  let result = null
+  if (files.length === 1) {
+    try {
+      result = await parseReminderWithAISingle(input, now, files[0])
+    } catch (error) {
+      if (!shouldUseDirectRecovery(error)) throw error
+      result = await directReminderResult(input, now, files, { titleOnly: false, smartRecovery: true })
+    }
+  } else {
+    result = await directReminderResult(input, now, files, { titleOnly: false, smartRecovery: false })
+  }
+
   const attachments = files.map((file) => normalizeAttachment({
     name: String(file.name || '첨부파일').slice(0, 120),
     mimeType: inferredAttachmentType(file),
