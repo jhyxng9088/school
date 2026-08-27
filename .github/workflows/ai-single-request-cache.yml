@@ -1,0 +1,388 @@
+name: Optimize AI requests once
+
+on:
+  push:
+    branches: [ai-single-request-cache]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ai-single-request-cache
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply exact AI-only patch
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly 1 match, found {count}')
+              return text.replace(old, new, 1)
+
+          ai_path = Path('src/firebase-ai.js')
+          ai = ai_path.read_text()
+          ai = replace_once(
+              ai,
+              "const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])\n",
+              "const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])\nconst ATTACHMENT_ANALYSIS_CACHE_KEY = 'school.ai.attachmentAnalysisCache.v1'\nconst ATTACHMENT_ANALYSIS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000\nconst ATTACHMENT_ANALYSIS_CACHE_MAX = 12\n",
+              'cache constants',
+          )
+
+          old_normalize = '''function normalizeAttachment(value) {
+            if (!value || typeof value !== 'object') return null
+            const name = String(value.name || '').trim().slice(0, 120)
+            const mimeType = String(value.mimeType || '').trim().toLowerCase()
+            const size = Number(value.size || 0)
+            if (!name || !SUPPORTED_ATTACHMENT_TYPES.has(mimeType) || !Number.isFinite(size) || size <= 0) return null
+            return { name, mimeType, size }
+          }
+
+          function normalizeResult(value, attachmentMeta = null) {'''
+          new_normalize = '''function normalizeAttachment(value) {
+            if (!value || typeof value !== 'object') return null
+            const name = String(value.name || '').trim().slice(0, 120)
+            const mimeType = String(value.mimeType || '').trim().toLowerCase()
+            const size = Number(value.size || 0)
+            if (!name || !SUPPORTED_ATTACHMENT_TYPES.has(mimeType) || !Number.isFinite(size) || size <= 0) return null
+            return { name, mimeType, size }
+          }
+
+          async function sha256Hex(value) {
+            if (!globalThis.crypto?.subtle) return ''
+            const bytes = value instanceof Blob
+              ? new Uint8Array(await value.arrayBuffer())
+              : new TextEncoder().encode(String(value || ''))
+            const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes)
+            return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+          }
+
+          function localDayKey(now) {
+            const pad = (number) => String(number).padStart(2, '0')
+            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+          }
+
+          async function attachmentAnalysisCacheId(input, now, files) {
+            if (!globalThis.crypto?.subtle || !files.length) return ''
+            try {
+              const fileHashes = await Promise.all(files.map((file) => sha256Hex(file)))
+              if (fileHashes.some((hash) => !hash)) return ''
+              return sha256Hex([
+                localDayKey(now),
+                String(input || '').trim().slice(0, 140),
+                ...fileHashes,
+              ].join('\\n'))
+            } catch {
+              return ''
+            }
+          }
+
+          function readAttachmentAnalysisCache() {
+            try {
+              const stored = JSON.parse(localStorage.getItem(ATTACHMENT_ANALYSIS_CACHE_KEY) || '[]')
+              if (!Array.isArray(stored)) return []
+              const cutoff = Date.now() - ATTACHMENT_ANALYSIS_CACHE_TTL_MS
+              return stored
+                .filter((entry) => entry && typeof entry === 'object' && Number(entry.savedAt || 0) >= cutoff)
+                .slice(0, ATTACHMENT_ANALYSIS_CACHE_MAX)
+            } catch {
+              return []
+            }
+          }
+
+          function cachedAttachmentAnalysis(cacheId) {
+            if (!cacheId) return null
+            const entry = readAttachmentAnalysisCache().find((item) => item.key === cacheId)
+            if (!entry?.result) return null
+            const base = normalizeResult(entry.result)
+            const summary = normalizeSummary(entry.result.summary)
+            if (!base || !summary) return null
+            const attachment = normalizeAttachment(entry.result.attachment)
+            const attachments = Array.isArray(entry.result.attachments)
+              ? entry.result.attachments.map(normalizeAttachment).filter(Boolean)
+              : []
+            return {
+              ...base,
+              summary,
+              ...(attachment ? { attachment } : {}),
+              ...(attachments.length ? { attachments } : {}),
+              modelName: String(entry.result.modelName || ''),
+            }
+          }
+
+          function cacheAttachmentAnalysis(cacheId, result) {
+            if (!cacheId || !result?.summary) return
+            try {
+              const entries = readAttachmentAnalysisCache().filter((entry) => entry.key !== cacheId)
+              entries.unshift({ key: cacheId, savedAt: Date.now(), result })
+              localStorage.setItem(
+                ATTACHMENT_ANALYSIS_CACHE_KEY,
+                JSON.stringify(entries.slice(0, ATTACHMENT_ANALYSIS_CACHE_MAX)),
+              )
+            } catch {
+              // Cache is only an optimization. AI analysis still works without local storage.
+            }
+          }
+
+          function normalizeResult(value, attachmentMeta = null) {'''
+          ai = replace_once(ai, old_normalize, new_normalize, 'cache helpers')
+
+          old_parse = '''export async function parseReminderWithAI(input, now = new Date(), attachmentInput = null) {
+            const files = Array.isArray(attachmentInput)
+              ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
+              : attachmentInput instanceof Blob ? [attachmentInput] : []
+
+            if (!files.length) {
+              try {
+                return await parseReminderWithAISingle(input, now, null)
+              } catch (error) {
+                if (!shouldUseDirectRecovery(error)) throw error
+                return directReminderResult(input, now, [], { titleOnly: true, smartRecovery: true })
+              }
+            }
+
+            try {
+              const results = await Promise.all(files.map((file) => parseReminderWithAISingle(input, now, file)))
+              return mergeAttachmentResults(results.filter(Boolean), files)
+            } catch (error) {
+              if (!shouldUseDirectRecovery(error)) throw error
+              // Quota / capacity recovery uses the smartest supported multimodal model first,
+              // then the latest stable Flash model if Pro is unavailable for this project.
+              return directReminderResult(input, now, files, { titleOnly: false, smartRecovery: true })
+            }
+          }'''
+          new_parse = '''export async function parseReminderWithAI(input, now = new Date(), attachmentInput = null) {
+            const files = Array.isArray(attachmentInput)
+              ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
+              : attachmentInput instanceof Blob ? [attachmentInput] : []
+
+            if (!files.length) {
+              try {
+                return await parseReminderWithAISingle(input, now, null)
+              } catch (error) {
+                if (!shouldUseDirectRecovery(error)) throw error
+                return directReminderResult(input, now, [], { titleOnly: true, smartRecovery: true })
+              }
+            }
+
+            const cacheId = await attachmentAnalysisCacheId(input, now, files)
+            const cached = cachedAttachmentAnalysis(cacheId)
+            if (cached) return cached
+
+            const result = await directReminderResult(input, now, files, { titleOnly: false, smartRecovery: false })
+            const attachments = files.map((file) => normalizeAttachment({
+              name: String(file.name || '첨부파일').slice(0, 120),
+              mimeType: inferredAttachmentType(file),
+              size: Number(file.size || 0),
+            })).filter(Boolean)
+            const enriched = {
+              ...result,
+              attachment: attachments[0] || null,
+              attachments,
+            }
+            cacheAttachmentAnalysis(cacheId, enriched)
+            return enriched
+          }'''
+          ai = replace_once(ai, old_parse, new_parse, 'single request attachment parser')
+          ai_path.write_text(ai)
+
+          todo_path = Path('src/todo-stage5-ai.jsx')
+          todo = todo_path.read_text()
+          old_effect = '''      parseReminderTitleWithAI(text, requestNow, files)
+                .then((parsed) => {
+                  if (aiRequestRef.current !== requestId) return
+                  if (parsed) setAiResult(parsed)
+                  setAiError(null)
+                  setAiState(parsed ? 'ready' : 'error')
+                })
+                .catch((error) => {
+                  if (aiRequestRef.current !== requestId) return
+                  console.error('Reminder title AI failed:', error)
+                  setAiError({
+                    name: error?.name || null,
+                    code: error?.code || null,
+                    message: error?.message || null,
+                    status: error?.status || null,
+                    customData: error?.customData ? JSON.stringify(error.customData) : null,
+                  })
+                  setAiState('error')
+                })
+
+              if (hasAttachment) {
+                setSummaryState('loading')
+                const promise = parseReminderWithAI(text, requestNow, files)
+                summaryPromiseRef.current = { requestId, promise }
+                promise
+                  .then((parsed) => {
+                    if (aiRequestRef.current !== requestId) return
+                    if (parsed?.summary) setSummaryResult(parsed)
+                    setSummaryError(null)
+                    setSummaryState(parsed?.summary ? 'ready' : 'error')
+                  })
+                  .catch((error) => {
+                    if (aiRequestRef.current !== requestId) return
+                    console.error('Reminder summary AI failed:', error)
+                    setSummaryError({
+                      name: error?.name || null,
+                      code: error?.code || null,
+                      message: error?.message || null,
+                      status: error?.status || null,
+                    })
+                    setSummaryState('error')
+                  })
+              }'''
+          new_effect = '''      if (hasAttachment) {
+                setSummaryState('loading')
+                const promise = parseReminderWithAI(text, requestNow, files)
+                summaryPromiseRef.current = { requestId, promise }
+                promise
+                  .then((parsed) => {
+                    if (aiRequestRef.current !== requestId) return
+                    if (parsed) setAiResult(parsed)
+                    if (parsed?.summary) setSummaryResult(parsed)
+                    setAiError(null)
+                    setSummaryError(null)
+                    setAiState(parsed?.title && parsed?.dueDate ? 'ready' : 'error')
+                    setSummaryState(parsed?.summary ? 'ready' : 'error')
+                  })
+                  .catch((error) => {
+                    if (aiRequestRef.current !== requestId) return
+                    console.error('Reminder attachment AI failed:', error)
+                    const details = {
+                      name: error?.name || null,
+                      code: error?.code || null,
+                      message: error?.message || null,
+                      status: error?.status || null,
+                      customData: error?.customData ? JSON.stringify(error.customData) : null,
+                    }
+                    setAiError(details)
+                    setSummaryError(details)
+                    setAiState('error')
+                    setSummaryState('error')
+                  })
+                return
+              }
+
+              parseReminderTitleWithAI(text, requestNow, null)
+                .then((parsed) => {
+                  if (aiRequestRef.current !== requestId) return
+                  if (parsed) setAiResult(parsed)
+                  setAiError(null)
+                  setAiState(parsed ? 'ready' : 'error')
+                })
+                .catch((error) => {
+                  if (aiRequestRef.current !== requestId) return
+                  console.error('Reminder title AI failed:', error)
+                  setAiError({
+                    name: error?.name || null,
+                    code: error?.code || null,
+                    message: error?.message || null,
+                    status: error?.status || null,
+                    customData: error?.customData ? JSON.stringify(error.customData) : null,
+                  })
+                  setAiState('error')
+                })'''
+          todo = replace_once(todo, old_effect, new_effect, 'single request UI effect')
+
+          old_switch = '''  function switchToManual() {
+            setDraft(naturalResult ? {
+              id: '',
+              type: naturalResult.type,
+              title: naturalResult.title,
+              dueDate: naturalResult.dueDate,
+              dueTime: naturalResult.dueTime || '',
+              summary: attachmentFiles.length ? createPendingReminderSummary(attachmentFiles) : naturalResult.summary || null,
+              attachment: naturalResult.attachment || null,
+            } : emptyDraft(now))
+            resetAI()
+            setSheetMode('manual')
+            syncPickerDisplays()
+          }'''
+          new_switch = '''  function switchToManual() {
+            const readyAttachmentSummary = attachmentFiles.length && summaryResult?.summary
+              ? withAttachmentManifest(summaryResult.summary, attachmentFiles)
+              : null
+            setDraft(naturalResult ? {
+              id: '',
+              type: naturalResult.type,
+              title: naturalResult.title,
+              dueDate: naturalResult.dueDate,
+              dueTime: naturalResult.dueTime || '',
+              summary: attachmentFiles.length
+                ? (readyAttachmentSummary || createPendingReminderSummary(attachmentFiles))
+                : naturalResult.summary || null,
+              attachment: summaryResult?.attachment || naturalResult.attachment || null,
+            } : emptyDraft(now))
+            resetAI()
+            setSheetMode('manual')
+            syncPickerDisplays()
+          }'''
+          todo = replace_once(todo, old_switch, new_switch, 'manual mode summary reuse')
+
+          old_manual = '''    const files = attachmentFiles.slice()
+            const draftToSave = createId && files.length
+              ? { ...draft, summary: createPendingReminderSummary(files), attachment: null }
+              : draft
+
+            setServerSaving(true)'''
+          new_manual = '''    const files = attachmentFiles.slice()
+            const hasReadyAttachmentSummary = Boolean(files.length && draft.summary && !isReminderSummaryPending(draft.summary))
+            const draftToSave = createId && files.length
+              ? {
+                  ...draft,
+                  summary: hasReadyAttachmentSummary ? draft.summary : createPendingReminderSummary(files),
+                  attachment: hasReadyAttachmentSummary ? draft.attachment || null : null,
+                }
+              : draft
+
+            setServerSaving(true)'''
+          todo = replace_once(todo, old_manual, new_manual, 'manual save preserve summary')
+
+          old_finish = '''      pendingCreateIdRef.current = ''
+              if (createId && files.length) void finishReminderEnrichment(savedId, draft.title.trim(), files, null)
+            } catch (error) {'''
+          new_finish = '''      pendingCreateIdRef.current = ''
+              if (createId && files.length) {
+                const existingSummaryPromise = hasReadyAttachmentSummary
+                  ? Promise.resolve({
+                      type: draft.type,
+                      title: draft.title,
+                      dueDate: draft.dueDate,
+                      dueTime: draft.dueTime || '',
+                      summary: draft.summary,
+                      attachment: draft.attachment || null,
+                    })
+                  : null
+                void finishReminderEnrichment(savedId, draft.title.trim(), files, existingSummaryPromise)
+              }
+            } catch (error) {'''
+          todo = replace_once(todo, old_finish, new_finish, 'manual enrichment reuse')
+          todo_path.write_text(todo)
+          PY
+      - name: Verify only intended source files changed
+        run: |
+          git diff --check
+          changed="$(git diff --name-only | sort)"
+          printf '%s\n' "$changed"
+          test "$changed" = $'src/firebase-ai.js\nsrc/todo-stage5-ai.jsx'
+      - name: Build
+        run: |
+          npm install
+          npm run build
+      - name: Commit tested patch and remove temporary workflow
+        run: |
+          rm .github/workflows/ai-single-request-cache.yml
+          git config user.name "jhyxng9088"
+          git config user.email "j.hyxng9088@gmail.com"
+          git add src/firebase-ai.js src/todo-stage5-ai.jsx .github/workflows/ai-single-request-cache.yml
+          git commit -m "Reduce reminder AI requests and cache attachment analysis"
+          git push origin HEAD:ai-single-request-cache
