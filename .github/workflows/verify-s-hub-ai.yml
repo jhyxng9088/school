@@ -1,0 +1,70 @@
+name: Verify S-Hub AI feature
+
+on:
+  push:
+    branches: [feature/s-hub-ai-v1]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: verify-s-hub-ai
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply guarded integration patch
+        run: python3 tools/implement_s_hub_ai.py
+
+      - name: Remove temporary integration machinery before regression checks
+        run: |
+          rm .github/workflows/verify-s-hub-ai.yml
+          rm tools/implement_s_hub_ai.py
+          rmdir tools
+
+      - name: Verify patch shape
+        run: |
+          git diff --check
+          test ! -e .github/workflows/verify-s-hub-ai.yml
+          test ! -e tools/implement_s_hub_ai.py
+          grep -q "SchoolAISheet" src/main.jsx
+          grep -q "generateDirectStructured" src/firebase-ai-direct.js
+          grep -q "findReminderConflict" src/todo-stage5-ai.jsx
+          grep -q "school-shell-v141" public/sw.js
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test app
+        run: npm test
+
+      - name: Build app
+        run: npm run build
+
+      - name: Install reminder backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test reminder backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit only the verified source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement S-Hub AI feature set [skip ci]"
+          git push
