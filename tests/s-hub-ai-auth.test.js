@@ -22,5 +22,5 @@ test('server uses Firebase Admin to mint App Check for Firebase AI', () => {
 })
 
 test('service worker cache advances for unified S-Hub AI UX', () => {
-  assert.match(read('public/sw.js'), /school-shell-v147/)
+  assert.match(read('public/sw.js'), /school-shell-v148/)
 })
