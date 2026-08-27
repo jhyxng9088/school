@@ -1,0 +1,70 @@
+name: Verify S-Hub AI refinement
+
+on:
+  push:
+    branches: [feature/s-hub-ai-v1]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: verify-s-hub-ai-refinement
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply edge-case refinements
+        run: python3 tools/refine_s_hub_ai.py
+
+      - name: Remove temporary refinement machinery before checks
+        run: |
+          rm .github/workflows/verify-s-hub-ai-refinement.yml
+          rm tools/refine_s_hub_ai.py
+          rmdir tools
+
+      - name: Verify repository shape
+        run: |
+          git diff --check
+          test ! -e .github/workflows/verify-s-hub-ai-refinement.yml
+          test ! -d tools
+          test "$(find .github/workflows -maxdepth 1 -type f | wc -l)" -eq 1
+          grep -q "Array.from({ length: 14 }" src/main.jsx
+          grep -q "conflictContext={aiConflictContext}" src/main.jsx
+          grep -q "sharedTodos || todos" src/todo-stage5-ai.jsx
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test app
+        run: npm test
+
+      - name: Build app
+        run: npm run build
+
+      - name: Install reminder backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test reminder backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit verified refinement
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Refine S-Hub AI conflict context [skip ci]"
+          git push
