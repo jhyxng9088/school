@@ -11,8 +11,6 @@ const NAV_STATE_IDS = {
   meal: `${INTERNAL_PREFIX}nav_meal`,
 }
 const REMINDER_ROW_BASELINE_ID = `${INTERNAL_PREFIX}reminder_rows_v2`
-const PENDING_SUMMARY_HEADING = '\u2063school-summary-pending\u2063'
-const ATTACHMENT_MANIFEST_HEADING = '\u2063school-attachments\u2063'
 const MEAL_CACHE_KEY = 'school.stage3.meals.v1'
 const LABEL_TO_TAB = {
   '리마인더': 'todo',
@@ -25,19 +23,6 @@ const LABEL_TO_TAB = {
 function safeReminderStateId(todoId) {
   const safe = String(todoId || '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100)
   return `${INTERNAL_PREFIX}summary_v2_${safe}`
-}
-
-function readableSummary(summary) {
-  if (!summary || typeof summary !== 'object') return false
-  const sections = Array.isArray(summary.sections) ? summary.sections : []
-  if (sections.some((section) => section?.heading === PENDING_SUMMARY_HEADING)) return false
-  if (String(summary.overview || '').trim()) return true
-  return sections.some((section) => (
-    section?.heading !== ATTACHMENT_MANIFEST_HEADING
-    && section?.heading !== PENDING_SUMMARY_HEADING
-    && Array.isArray(section?.items)
-    && section.items.some((item) => String(item || '').trim())
-  ))
 }
 
 function todayRawDate() {
@@ -146,20 +131,26 @@ async function startUnreadIndicators() {
     return Number(state.seen.get(id)?.updatedAt || 0)
   }
 
-  function reminderEditVersion(todo) {
-    if (!todo?.id) return 0
+  function reminderActivity(todo) {
+    if (!todo?.id) return null
     const activity = state.activity.get(`reminder:${todo.id}`)
-    if (!activity || activity.action !== 'edited') return 0
-    if (activity.actorStudentKey && activity.actorStudentKey === studentKey) return 0
-    return Number(activity.updatedAt || 0)
+    if (!activity) return null
+    if (!['added', 'edited'].includes(activity.action)) return null
+    if (activity.actorStudentKey && activity.actorStudentKey === studentKey) return null
+    const updatedAt = Number(activity.updatedAt || 0)
+    if (updatedAt <= 0) return null
+    return { ...activity, updatedAt }
+  }
+
+  function reminderActivityVersion(todo) {
+    return Number(reminderActivity(todo)?.updatedAt || 0)
   }
 
   function reminderRowUnread(todo) {
-    if (!state.activityReady || !state.seenReady) return false
-    if (!todo || !readableSummary(todo.summary)) return false
+    if (!state.activityReady || !state.seenReady || !todo) return false
     const baseline = seenVersion(REMINDER_ROW_BASELINE_ID)
     if (baseline <= 0) return false
-    const version = reminderEditVersion(todo)
+    const version = reminderActivityVersion(todo)
     if (version <= 0) return false
     return version > Math.max(baseline, seenVersion(safeReminderStateId(todo.id)))
   }
@@ -212,8 +203,6 @@ async function startUnreadIndicators() {
   function ensureReminderBaseline() {
     if (!state.activityReady || !state.seenReady) return
     if (seenVersion(REMINDER_ROW_BASELINE_ID) > 0) return
-    // Treat everything that existed before this fixed implementation as already seen.
-    // Any later edit gets a strictly newer activity timestamp and is tracked per ID.
     writeSeen(REMINDER_ROW_BASELINE_ID, Math.max(1, otherActivityVersion('reminder')))
   }
 
@@ -230,7 +219,7 @@ async function startUnreadIndicators() {
   }
 
   function renderReminderRows() {
-    document.querySelectorAll('.todo-stage5 [data-reminder-id]').forEach((row) => {
+    document.querySelectorAll('.todo-stage5 [data-reminder-id], .todo-page [data-reminder-id]').forEach((row) => {
       const todo = state.todos.get(String(row.dataset.reminderId || ''))
       if (reminderRowUnread(todo)) addDot(row, 'reminder')
       else removeDot(row)
@@ -255,26 +244,9 @@ async function startUnreadIndicators() {
     if (tab) markTabSeen(tab)
   }
 
-  function waitForSummaryOpen(todo) {
+  function markReminderSeen(todo) {
     if (!todo || !reminderRowUnread(todo)) return
-    let done = false
-    let observer = null
-    let timeout = 0
-
-    const finish = () => {
-      if (done) return
-      const sheet = document.querySelector('.reminder-summary-layer .reminder-summary-sheet')
-      if (!sheet) return
-      done = true
-      observer?.disconnect()
-      if (timeout) window.clearTimeout(timeout)
-      writeSeen(safeReminderStateId(todo.id), reminderEditVersion(todo))
-    }
-
-    observer = new MutationObserver(finish)
-    observer.observe(document.body, { childList: true, subtree: true })
-    timeout = window.setTimeout(() => observer?.disconnect(), 1600)
-    window.requestAnimationFrame(finish)
+    writeSeen(safeReminderStateId(todo.id), reminderActivityVersion(todo))
   }
 
   function handleClick(event) {
@@ -285,11 +257,11 @@ async function startUnreadIndicators() {
       return
     }
 
-    const summaryButton = event.target.closest?.('.todo-stage5 .todo-item-main.has-summary')
-    if (!summaryButton) return
-    const row = summaryButton.closest('[data-reminder-id]')
+    const reminderMain = event.target.closest?.('.todo-stage5 .todo-item-main, .todo-page .todo-item-main')
+    if (!reminderMain) return
+    const row = reminderMain.closest('[data-reminder-id]')
     const todo = state.todos.get(String(row?.dataset.reminderId || ''))
-    if (todo) waitForSummaryOpen(todo)
+    if (todo) markReminderSeen(todo)
   }
 
   subscriptions.push(onSnapshot(collection(db, 'classes', classId, 'activity'), (snapshot) => {
@@ -316,7 +288,6 @@ async function startUnreadIndicators() {
       const value = item.data() || {}
       next.set(item.id, {
         id: item.id,
-        summary: value.summary || null,
         createdAt: Number(value.createdAt || 0),
         updatedAt: Number(value.updatedAt || value.createdAt || 0),
       })
