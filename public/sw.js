@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-shell-v129'
+const CACHE_NAME = 'school-shell-v130'
 const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './samsung-apple-nav-icons.css', './samsung-nav-icon-fixes.css', './samsung-nav-meal.svg', './samsung-nav-academic.svg', './school-timetable-motion.js', './school-home-nav.js', './first-run-notice.js', './notification-routing.js']
 
 self.addEventListener('install', (event) => {
@@ -21,16 +21,16 @@ self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting()
 })
 
-function notificationRoute(tag, body, fallbackUrl = './') {
+function notificationTarget(tag, body, fallbackUrl = './') {
   const normalizedTag = String(tag || '').toLowerCase()
   const normalizedBody = String(body || '')
 
-  if (normalizedTag.includes('reminder') || normalizedBody.includes('리마인더')) return './?tab=todo'
-  if (normalizedTag.includes('timetable') || normalizedBody.includes('시간표')) return './?tab=timetable'
-  if (normalizedTag.includes('academic') || normalizedBody.includes('학사일정')) return './?tab=academic'
-  if (normalizedTag.includes('meal') || normalizedBody.includes('급식') || normalizedBody.includes('점심시간')) return './?tab=meal'
-  if (normalizedTag.includes('next-class') || normalizedTag.includes('period-') || normalizedBody.includes('다음 시간은')) return './?tab=home'
-  return fallbackUrl
+  if (normalizedTag.includes('reminder') || normalizedBody.includes('리마인더')) return { url: './?tab=todo', tab: 'todo' }
+  if (normalizedTag.includes('timetable') || normalizedBody.includes('시간표')) return { url: './?tab=timetable', tab: 'timetable' }
+  if (normalizedTag.includes('academic') || normalizedBody.includes('학사일정')) return { url: './?tab=academic', tab: 'academic' }
+  if (normalizedTag.includes('meal') || normalizedBody.includes('급식') || normalizedBody.includes('점심시간')) return { url: './?tab=meal', tab: 'meal' }
+  if (normalizedTag.includes('next-class') || normalizedTag.includes('period-') || normalizedBody.includes('다음 시간은')) return { url: './?tab=home', tab: 'home' }
+  return { url: fallbackUrl, tab: '' }
 }
 
 self.addEventListener('push', (event) => {
@@ -44,7 +44,7 @@ self.addEventListener('push', (event) => {
   const title = String(payload.title || 'S-Hub').slice(0, 80)
   const body = String(payload.body || '새로운 알림이 있어.').slice(0, 220)
   const tag = String(payload.tag || `school-push-${Date.now()}`).slice(0, 120)
-  const url = notificationRoute(tag, body, String(payload.url || './'))
+  const target = notificationTarget(tag, body, String(payload.url || './'))
 
   event.waitUntil(self.registration.showNotification(title, {
     body,
@@ -52,22 +52,28 @@ self.addEventListener('push', (event) => {
     icon: './icon-180.png',
     badge: './icon-180.png',
     renotify: false,
-    data: { url },
+    data: { url: target.url, tab: target.tab },
   }))
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const targetUrl = new URL(event.notification.data?.url || './', self.registration.scope).href
+  const targetTab = String(event.notification.data?.tab || '')
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
       const appClient = clients.find((client) => client.url.startsWith(self.registration.scope))
       if (appClient) {
-        if (typeof appClient.navigate === 'function' && appClient.url !== targetUrl) {
-          await appClient.navigate(targetUrl).catch(() => {})
+        const focusedClient = await appClient.focus()
+        if (targetTab) {
+          focusedClient.postMessage({ type: 'SCHOOL_NOTIFICATION_ROUTE', tab: targetTab })
+          return focusedClient
         }
-        return appClient.focus()
+        if (typeof focusedClient.navigate === 'function' && focusedClient.url !== targetUrl) {
+          await focusedClient.navigate(targetUrl).catch(() => {})
+        }
+        return focusedClient
       }
       return self.clients.openWindow(targetUrl)
     }),
