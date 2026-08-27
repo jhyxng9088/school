@@ -9,7 +9,7 @@ test('S-Hub AI replaces the compose UI with a compact live working stage', () =>
   const css = read('src/s-hub-ai.css')
 
   assert.match(sheet, /!working && \(state\.mode === 'compose' \|\| state\.mode === 'answer'\)/)
-  assert.match(sheet, /!working && state\.mode === 'answer'/)
+  assert.match(sheet, /!working && \(state\.mode === 'answer' \|\| state\.mode === 'hybrid'\)/)
   assert.match(sheet, /<SHubAIOrb size=\{56\} active/)
   assert.match(sheet, /aria-live=\"polite\"/)
   assert.match(css, /\.s-hub-ai-thinking-stage\s*\{[\s\S]*?min-height:\s*142px;/)
@@ -46,7 +46,7 @@ test('working stage contracts before completed AI results reveal smoothly', () =
   assert.match(sheet, /window\.setTimeout\(resolve, 420\)/)
   assert.match(sheet, /s-hub-ai-thinking-stage \$\{workingFinishing \? 'is-finishing' : ''\}/)
   assert.match(css, /\.s-hub-ai-thinking-stage\.is-finishing \.s-hub-ai-orb[\s\S]*?scale\(0\.32\)/)
-  assert.match(sheet, /!working && state\.mode === 'import'/)
+  assert.match(sheet, /!working && \(state\.mode === 'import' \|\| state\.mode === 'hybrid'\)/)
   assert.match(sheet, /!working && state\.mode === 'result'/)
   assert.match(css, /@keyframes s-hub-ai-result-reveal/)
   assert.match(css, /\.s-hub-ai-answer,[\s\S]*?\.s-hub-ai-import,[\s\S]*?animation: s-hub-ai-result-reveal 560ms/)
