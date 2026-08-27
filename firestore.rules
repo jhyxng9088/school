@@ -199,6 +199,43 @@ service cloud.firestore {
         && request.resource.data.updatedAt is int;
     }
 
+    function validPushSubscription() {
+      return request.resource.data.keys().hasOnly([
+          'studentKey', 'deviceId', 'endpoint', 'p256dh', 'auth', 'userAgent', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'studentKey', 'deviceId', 'endpoint', 'p256dh', 'auth', 'userAgent', 'updatedAt'
+        ])
+        && request.resource.data.studentKey is string
+        && request.resource.data.studentKey.size() >= 16
+        && request.resource.data.studentKey.size() <= 80
+        && request.resource.data.deviceId is string
+        && request.resource.data.deviceId.size() >= 12
+        && request.resource.data.deviceId.size() <= 48
+        && request.resource.data.endpoint is string
+        && request.resource.data.endpoint.size() >= 20
+        && request.resource.data.endpoint.size() <= 2000
+        && request.resource.data.p256dh is string
+        && request.resource.data.p256dh.size() >= 20
+        && request.resource.data.p256dh.size() <= 300
+        && request.resource.data.auth is string
+        && request.resource.data.auth.size() >= 8
+        && request.resource.data.auth.size() <= 200
+        && request.resource.data.userAgent is string
+        && request.resource.data.userAgent.size() <= 350
+        && request.resource.data.updatedAt is int;
+    }
+
+    function validPushDispatchClaim() {
+      return request.resource.data.keys().hasOnly(['kind', 'actorStudentKey', 'createdAt'])
+        && request.resource.data.keys().hasAll(['kind', 'actorStudentKey', 'createdAt'])
+        && request.resource.data.kind in ['activity', 'scheduled']
+        && request.resource.data.actorStudentKey is string
+        && request.resource.data.actorStudentKey.size() >= 3
+        && request.resource.data.actorStudentKey.size() <= 80
+        && request.resource.data.createdAt is int;
+    }
+
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow create: if signedIn() && request.auth.uid == uid && validUserIdentity();
@@ -263,6 +300,32 @@ service cloud.firestore {
         && presenceId == request.resource.data.studentKey
         && validPresence();
       allow delete: if false;
+    }
+
+    match /classes/{classId}/pushSubscriptions/{subscriptionId} {
+      allow read: if signedIn();
+      allow create, update: if belongsToClass(classId)
+        && validPushSubscription()
+        && request.resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+      allow delete: if belongsToClass(classId)
+        && resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+    }
+
+    match /classes/{classId}/pushDispatchClaims/{claimId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && validPushDispatchClaim()
+        && (
+          (request.resource.data.kind == 'activity'
+            && belongsToClass(classId)
+            && request.resource.data.actorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey)
+          || (request.resource.data.kind == 'scheduled'
+            && request.resource.data.actorStudentKey == 'scheduler')
+        );
+      allow update: if false;
+      allow delete: if belongsToClass(classId)
+        && resource.data.kind == 'activity'
+        && resource.data.actorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
     }
 
     match /classes/{classId}/originalAttachments/{todoId} {
