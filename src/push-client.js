@@ -41,6 +41,10 @@ function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
 function waitForAppShell() {
   if (document.querySelector('.app-shell')) return Promise.resolve()
   return new Promise((resolve) => {
@@ -54,14 +58,14 @@ function waitForAppShell() {
 }
 
 function deviceId() {
-  let stored = localStorage.getItem(DEVICE_ID_KEY)
-  if (stored && /^[a-zA-Z0-9_-]{12,48}$/.test(stored)) return stored
-  stored = globalThis.crypto?.randomUUID
+  let value = localStorage.getItem(DEVICE_ID_KEY)
+  if (value && /^[a-zA-Z0-9_-]{12,48}$/.test(value)) return value
+  value = globalThis.crypto?.randomUUID
     ? globalThis.crypto.randomUUID().replace(/-/g, '')
     : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 18)}`
-  stored = stored.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40)
-  localStorage.setItem(DEVICE_ID_KEY, stored)
-  return stored
+  value = value.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40)
+  localStorage.setItem(DEVICE_ID_KEY, value)
+  return value
 }
 
 function urlBase64ToUint8Array(value) {
@@ -79,33 +83,28 @@ function arrayBufferToBase64Url(buffer) {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
-async function ensureIdentity(profile) {
+async function resolveIdentity(profile) {
   const user = await ensureSignedIn()
   const classId = classKeyFor(profile)
   const studentKey = studentKeyFor(profile)
   if (!classId || !studentKey) throw new Error('Push identity is incomplete')
 
-  const ref = doc(db, 'users', user.uid)
-  const snapshot = await getDoc(ref)
-  if (!snapshot.exists()) {
-    const now = Date.now()
-    await setDoc(ref, {
-      classId,
-      studentKey,
-      name: profile.name,
-      createdAt: now,
-      updatedAt: now,
-    })
-  } else {
-    const existing = snapshot.data() || {}
-    if (
-      existing.classId !== classId
-      || existing.studentKey !== studentKey
-      || existing.name !== profile.name
-    ) {
-      throw new Error('Push identity does not match the signed-in student')
-    }
-    await setDoc(ref, { updatedAt: Date.now() }, { merge: true })
+  const identityRef = doc(db, 'users', user.uid)
+  let snapshot = null
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    snapshot = await getDoc(identityRef)
+    if (snapshot.exists()) break
+    await sleep(250)
+  }
+  if (!snapshot?.exists()) throw new Error('School identity was not initialized')
+
+  const existing = snapshot.data() || {}
+  if (
+    existing.classId !== classId
+    || existing.studentKey !== studentKey
+    || existing.name !== profile.name
+  ) {
+    throw new Error('Push identity does not match the signed-in student')
   }
 
   return { user, classId, studentKey }
@@ -132,7 +131,7 @@ async function ensurePushSubscription(profile) {
   if (!pushSupported() || Notification.permission !== 'granted') return null
   if (IOS && !isStandalone()) return null
 
-  const identity = await ensureIdentity(profile)
+  const identity = await resolveIdentity(profile)
   const registration = await serviceWorkerRegistration()
   const publicKey = await fetchPublicKey()
   let subscription = await registration.pushManager.getSubscription()
@@ -158,12 +157,12 @@ async function ensurePushSubscription(profile) {
   const auth = String(serialized.keys?.auth || '')
   if (!endpoint || !p256dh || !auth) throw new Error('Push subscription is incomplete')
 
-  const subscriptionId = `${identity.studentKey}-${deviceId()}`
+  const currentDeviceId = deviceId()
   await setDoc(
-    doc(db, 'classes', identity.classId, 'pushSubscriptions', subscriptionId),
+    doc(db, 'classes', identity.classId, 'pushSubscriptions', `${identity.studentKey}-${currentDeviceId}`),
     {
       studentKey: identity.studentKey,
-      deviceId: deviceId(),
+      deviceId: currentDeviceId,
       endpoint,
       p256dh,
       auth,
@@ -191,10 +190,10 @@ function installPromptStyles() {
       align-items: center;
       gap: 12px;
       padding: 13px 13px 13px 15px;
-      border: 1px solid rgba(127, 127, 127, .18);
+      border: 1px solid rgba(0, 0, 0, .08);
       border-radius: 20px;
-      background: color-mix(in srgb, Canvas 88%, transparent);
-      color: CanvasText;
+      background: rgba(250, 250, 252, .94);
+      color: #111114;
       box-shadow: 0 12px 38px rgba(0, 0, 0, .12);
       -webkit-backdrop-filter: blur(24px) saturate(1.2);
       backdrop-filter: blur(24px) saturate(1.2);
@@ -211,8 +210,8 @@ function installPromptStyles() {
       border: 0;
       border-radius: 14px;
       padding: 9px 12px;
-      background: CanvasText;
-      color: Canvas;
+      background: #111114;
+      color: #fff;
       font: inherit;
       font-size: 13px;
       font-weight: 650;
@@ -224,16 +223,19 @@ function installPromptStyles() {
       border: 0;
       padding: 0;
       border-radius: 50%;
-      background: color-mix(in srgb, CanvasText 8%, transparent);
-      color: CanvasText;
+      background: rgba(0, 0, 0, .06);
+      color: inherit;
       font: inherit;
       font-size: 17px;
       line-height: 30px;
       opacity: .62;
     }
-    @media (prefers-reduced-motion: reduce) {
-      .school-push-prompt { transition-duration: .01ms; }
+    @media (prefers-color-scheme: dark) {
+      .school-push-prompt { border-color: rgba(255,255,255,.12); background: rgba(27,27,30,.94); color: #f5f5f7; }
+      .school-push-enable { background: #f5f5f7; color: #111114; }
+      .school-push-close { background: rgba(255,255,255,.08); }
     }
+    @media (prefers-reduced-motion: reduce) { .school-push-prompt { transition-duration: .01ms; } }
   `
   document.head.appendChild(style)
 }
@@ -252,7 +254,10 @@ async function maybeShowPermissionPrompt(profile) {
     window.setTimeout(() => maybeShowPermissionPrompt(profile), 900)
     return
   }
-  if (document.querySelector('.first-run-notice-layer, .school-push-prompt')) return
+  if (document.querySelector('.first-run-notice-layer, .school-push-prompt')) {
+    window.setTimeout(() => maybeShowPermissionPrompt(profile), 900)
+    return
+  }
 
   sessionStorage.setItem(PROMPT_SESSION_KEY, 'shown')
   installPromptStyles()
@@ -302,10 +307,10 @@ async function hashEvent(value) {
 }
 
 async function claimAndDispatch(profile, event) {
-  const identity = await ensureIdentity(profile)
+  const identity = await resolveIdentity(profile)
   if (event.actorStudentKey !== identity.studentKey) return
 
-  const eventFingerprint = [
+  const fingerprint = [
     identity.classId,
     event.entityType,
     event.entityId,
@@ -313,8 +318,14 @@ async function claimAndDispatch(profile, event) {
     event.action,
     event.updatedAt,
   ].join('|')
-  const claimId = `activity-${await hashEvent(eventFingerprint)}`
-  const claimRef = doc(db, 'classes', identity.classId, 'pushDispatchClaims', claimId)
+  const claimRef = doc(
+    db,
+    'classes',
+    identity.classId,
+    'pushDispatchClaims',
+    `activity-${await hashEvent(fingerprint)}`,
+  )
+
   const claimed = await runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(claimRef)
     if (snapshot.exists()) return false
@@ -355,6 +366,7 @@ function watchOwnActivity(profile) {
   const myStudentKey = studentKeyFor(profile)
   if (!classId || !myStudentKey) return () => {}
 
+  const startedAt = Date.now()
   let ready = false
   return onSnapshot(
     collection(db, 'classes', classId, 'activity'),
@@ -366,10 +378,12 @@ function watchOwnActivity(profile) {
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'removed') return
         const value = change.doc.data() || {}
+        const entityType = String(value.entityType || '')
         const updatedAt = Number(value.updatedAt || 0)
-        if (!updatedAt || value.actorStudentKey !== myStudentKey) return
+        if (!['reminder', 'timetable'].includes(entityType)) return
+        if (!updatedAt || updatedAt < startedAt - 5000 || value.actorStudentKey !== myStudentKey) return
         claimAndDispatch(profile, {
-          entityType: String(value.entityType || ''),
+          entityType,
           entityId: String(value.entityId || ''),
           sourceId: change.doc.id,
           actorStudentKey: String(value.actorStudentKey || ''),
@@ -387,6 +401,7 @@ function watchOwnAcademic(profile) {
   const myStudentKey = studentKeyFor(profile)
   if (!classId || !myStudentKey) return () => {}
 
+  const startedAt = Date.now()
   let ready = false
   return onSnapshot(
     collection(db, 'classes', classId, 'academicEvents'),
@@ -399,7 +414,7 @@ function watchOwnAcademic(profile) {
         if (change.type === 'removed') return
         const value = change.doc.data() || {}
         const updatedAt = Number(value.updatedAt || 0)
-        if (!updatedAt || value.lastEditedByStudentKey !== myStudentKey) return
+        if (!updatedAt || updatedAt < startedAt - 5000 || value.lastEditedByStudentKey !== myStudentKey) return
         claimAndDispatch(profile, {
           entityType: 'academic',
           entityId: change.doc.id,
@@ -421,7 +436,7 @@ async function startPushBridge() {
   if (!profile) return
 
   try {
-    await ensureIdentity(profile)
+    await resolveIdentity(profile)
   } catch (error) {
     console.error('Push identity setup failed:', error)
     return
