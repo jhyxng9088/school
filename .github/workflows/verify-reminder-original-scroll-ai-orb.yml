@@ -23,6 +23,19 @@ jobs:
         with:
           node-version: 22
 
+      - name: Repair guarded pull-ref removal
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/apply_reminder_original_scroll_ai_orb.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''replace_once('src/reminder-summary.jsx', "    pullRef.current = null\\n", "")'''
+          new = '''text = read('src/reminder-summary.jsx')\nif text.count("    pullRef.current = null\\n") != 2:\n    raise RuntimeError('src/reminder-summary.jsx: expected exactly two pullRef reset sites')\nwrite('src/reminder-summary.jsx', text.replace("    pullRef.current = null\\n", ""))'''
+          if text.count(old) != 1:
+              raise SystemExit('temporary patch script guard did not match exactly once')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply guarded fixes
         run: python3 .github/scripts/apply_reminder_original_scroll_ai_orb.py
 
