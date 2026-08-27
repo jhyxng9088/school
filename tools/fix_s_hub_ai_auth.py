@@ -23,13 +23,13 @@ path = 'src/firebase-ai-direct.js'
 replace_once(
     path,
     "import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'\nimport { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'\n",
-    "import { getAppCheck, getToken as getAppCheckToken, initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'\nimport { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'\nimport { ensureSignedIn } from './school-sync'\n",
+    "import { getToken as getAppCheckToken, initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'\nimport { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'\nimport { ensureSignedIn } from './school-sync'\n",
 )
 replace_once(path, "const DIRECT_APP_NAME = 'school-ai-recovery'", "const DIRECT_APP_NAME = 'school-sync'")
 replace_once(
     path,
     "let directAI = null\nlet appCheckInitialized = false\n",
-    "let directAI = null\nlet directAppCheck = null\nlet appCheckInitialized = false\n",
+    "let directAI = null\nlet directAppCheck = null\n",
 )
 replace_once(
     path,
@@ -63,16 +63,10 @@ replace_once(
 
 function getDirectAppCheck(app) {
   if (directAppCheck) return directAppCheck
-  try {
-    directAppCheck = initializeAppCheck(app, {
-      provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
-      isTokenAutoRefreshEnabled: true,
-    })
-  } catch (error) {
-    if (!/already|initialized/i.test(String(error?.message || ''))) throw error
-    directAppCheck = getAppCheck(app)
-  }
-  appCheckInitialized = true
+  directAppCheck = initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
+    isTokenAutoRefreshEnabled: true,
+  })
   return directAppCheck
 }
 
