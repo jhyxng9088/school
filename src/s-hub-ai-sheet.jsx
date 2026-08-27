@@ -15,6 +15,20 @@ const REMINDER_TYPES = [
   { id: 'material', label: '준비물' },
 ]
 
+const QUESTION_HINTS = [
+  '이번 주에 뭐 제출해야 돼?',
+  '다음 시험 언제야?',
+  '내일 시간표 뭐야?',
+  '이번 주 시간표 바뀐 거 있어?',
+]
+
+const NOTICE_HINTS = [
+  '공지에 대해 덧붙일 설명이 있으면 적어줘.',
+  '예: 이건 수행평가 공지야.',
+  '예: 마감일과 준비물만 찾아줘.',
+  '예: 시간표 변경도 같이 확인해줘.',
+]
+
 function kindLabel(item) {
   if (item.kind === 'reminder') return REMINDER_TYPES.find((type) => type.id === item.type)?.label || '리마인더'
   if (item.kind === 'timetable_change') return '시간표 변경'
@@ -84,6 +98,8 @@ export function SchoolAISheet({
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState('')
   const [conflictsDirty, setConflictsDirty] = useState(false)
+  const [hintIndex, setHintIndex] = useState(0)
+  const [hintFading, setHintFading] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -95,10 +111,42 @@ export function SchoolAISheet({
     setError('')
     setEditingId('')
     setConflictsDirty(false)
+    setHintIndex(0)
+    setHintFading(false)
   }, [open])
+
+  useEffect(() => {
+    setHintIndex(0)
+    setHintFading(false)
+  }, [files.length])
+
+  useEffect(() => {
+    if (!open || input) {
+      setHintFading(false)
+      return undefined
+    }
+
+    let swapTimer = 0
+    const interval = window.setInterval(() => {
+      setHintFading(true)
+      window.clearTimeout(swapTimer)
+      swapTimer = window.setTimeout(() => {
+        const hintCount = files.length ? NOTICE_HINTS.length : QUESTION_HINTS.length
+        setHintIndex((current) => (current + 1) % hintCount)
+        setHintFading(false)
+      }, 220)
+    }, 1800)
+
+    return () => {
+      window.clearInterval(interval)
+      window.clearTimeout(swapTimer)
+    }
+  }, [open, input, files.length])
 
   const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items, state.selected])
   const validSelectedItems = useMemo(() => selectedItems.filter((item) => item.valid !== false), [selectedItems])
+  const hintPool = files.length ? NOTICE_HINTS : QUESTION_HINTS
+  const rotatingHint = hintPool[hintIndex % hintPool.length]
 
   function close() {
     if (working) return
@@ -440,9 +488,10 @@ export function SchoolAISheet({
         {state.mode === 'compose' || state.mode === 'answer' ? (
           <div className="s-hub-ai-compose">
             <textarea
+              className={hintFading ? 'is-hint-fading' : ''}
               value={input}
               onChange={(event) => setInput(event.target.value.slice(0, 500))}
-              placeholder={files.length ? '공지에 대해 덧붙일 설명이 있으면 적어줘.' : '이번 주에 뭐 제출해야 돼?'}
+              placeholder={rotatingHint}
               rows={3}
               disabled={working}
             />
