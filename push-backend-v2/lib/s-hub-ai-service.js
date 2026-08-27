@@ -1,6 +1,13 @@
+
 const FIREBASE_AI_API_KEY = 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0'
 
-const DEFAULT_MODELS = [
+const TEXT_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+]
+const ATTACHMENT_MODELS = [
   'gemini-3.7-flash',
   'gemini-3.6-flash',
   'gemini-3.5-flash-lite',
@@ -54,7 +61,7 @@ function responseText(payload) {
 
 export async function requestFirebaseModel({
   projectId,
-  firebaseIdToken,
+  accessToken,
   appCheckToken,
   modelName,
   prompt,
@@ -70,11 +77,11 @@ export async function requestFirebaseModel({
     const response = await fetch(aiEndpoint(projectId, modelName), {
       method: 'POST',
       headers: {
-        Authorization: `Firebase ${firebaseIdToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'X-Firebase-AppCheck': appCheckToken,
         'Content-Type': 'application/json',
         'x-goog-api-key': FIREBASE_AI_API_KEY,
-        'x-goog-api-client': 's-hub-server/1.0',
+        'x-goog-api-client': 's-hub-server/1.1',
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }, ...attachments] }],
@@ -128,7 +135,7 @@ export async function requestFirebaseModel({
 
 export async function generateStructuredWithFirebaseAI({
   projectId,
-  firebaseIdToken,
+  accessToken,
   appCheckToken,
   prompt,
   attachments = [],
@@ -136,13 +143,13 @@ export async function generateStructuredWithFirebaseAI({
   maxOutputTokens = 1600,
   timeoutMs = 26000,
   temperature = 0.05,
-  models = DEFAULT_MODELS,
+  models = null,
 }) {
   const safeProjectId = String(projectId || '').trim()
-  const safeFirebaseIdToken = String(firebaseIdToken || '').trim()
+  const safeAccessToken = String(accessToken || '').trim()
   const safeAppCheckToken = String(appCheckToken || '').trim()
   const safePrompt = String(prompt || '').trim().slice(0, 40_000)
-  if (!safeProjectId || !safeFirebaseIdToken || !safeAppCheckToken || !safePrompt) {
+  if (!safeProjectId || !safeAccessToken || !safeAppCheckToken || !safePrompt) {
     throw Object.assign(new Error('Missing Firebase AI server credentials or prompt'), { status: 400, code: 'invalid_request' })
   }
 
@@ -154,16 +161,19 @@ export async function generateStructuredWithFirebaseAI({
   const deadline = Date.now() + overallTimeout
   const attempts = []
   let lastError = null
+  const preferredModels = Array.isArray(models) && models.length
+    ? models
+    : (parts.length ? ATTACHMENT_MODELS : TEXT_MODELS)
 
-  for (const modelName of (Array.isArray(models) ? models : DEFAULT_MODELS).slice(0, 4)) {
+  for (const modelName of preferredModels.slice(0, 4)) {
     const remaining = deadline - Date.now()
     if (remaining < 2500) break
-    const attemptTimeout = Math.max(2000, Math.min(remaining, parts.length ? 28_000 : 18_000))
+    const attemptTimeout = Math.max(2000, Math.min(remaining, parts.length ? 20_000 : 10_000))
     const startedAt = Date.now()
     try {
       const value = await requestFirebaseModel({
         projectId: safeProjectId,
-        firebaseIdToken: safeFirebaseIdToken,
+        accessToken: safeAccessToken,
         appCheckToken: safeAppCheckToken,
         modelName,
         prompt: safePrompt,

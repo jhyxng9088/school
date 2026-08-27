@@ -8,6 +8,7 @@ import {
   getCountFromServer,
   getDoc,
   getDocFromServer,
+  getDocs,
   getDocsFromServer,
   initializeFirestore,
   onSnapshot,
@@ -46,6 +47,8 @@ const SUMMARY_MAX_ITEMS = 16
 const ATTACHMENT_MAX_BYTES = 2_500_000
 const ORIGINAL_ATTACHMENT_MAX_BYTES = 8_000_000
 const ORIGINAL_ATTACHMENT_CHUNK_CHARS = 600_000
+const ORIGINAL_ATTACHMENT_MEMORY_CACHE_MAX = 10
+const originalAttachmentMemoryCache = new Map()
 const ATTACHMENT_MIME_TYPES = new Set([
   'application/pdf',
   'application/json',
@@ -347,30 +350,49 @@ export async function writeReminderOriginal(profile, todoId, file) {
     chunkCount: chunks.length,
     createdAt: Date.now(),
   })
+  originalAttachmentMemoryCache.delete(`${classKeyFor(profile)}:${safeId}`)
 }
 
 export async function getReminderOriginal(profile, todoId) {
   const safeId = safeOriginalTodoId(todoId)
   if (!safeId) throw new Error('원본 파일을 찾을 수 없어.')
-  await ensureSignedIn()
-  const metadataSnapshot = await getDoc(originalAttachmentRef(profile, safeId))
-  if (!metadataSnapshot.exists()) {
-    const error = new Error('이 리마인더는 원본 저장 기능 적용 전에 만들어져서 원본이 없어. 사진을 다시 올려줘.')
-    error.code = 'school-sync/original-not-found'
-    throw error
+  const cacheKey = `${classKeyFor(profile)}:${safeId}`
+  const cached = originalAttachmentMemoryCache.get(cacheKey)
+  if (cached) return cached
+
+  const request = (async () => {
+    await ensureSignedIn()
+    const metadataSnapshot = await getDoc(originalAttachmentRef(profile, safeId))
+    if (!metadataSnapshot.exists()) {
+      const error = new Error('이 리마인더는 원본 저장 기능 적용 전에 만들어져서 원본이 없어. 사진을 다시 올려줘.')
+      error.code = 'school-sync/original-not-found'
+      throw error
+    }
+    const metadata = metadataSnapshot.data() || {}
+    const chunkCount = Number(metadata.chunkCount || 0)
+    if (!Number.isInteger(chunkCount) || chunkCount < 1 || chunkCount > 24) throw new Error('원본 파일 정보가 올바르지 않아.')
+    const chunkSnapshot = await getDocs(collection(originalAttachmentRef(profile, safeId), 'chunks'))
+    const chunkDocs = [...chunkSnapshot.docs].sort((a, b) => a.id.localeCompare(b.id))
+    if (chunkDocs.length !== chunkCount) throw new Error('원본 파일 일부를 불러오지 못했어.')
+    return {
+      name: String(metadata.name || '원본 사진').slice(0, 120),
+      mimeType: String(metadata.mimeType || 'application/octet-stream'),
+      size: Number(metadata.size || 0),
+      dataBase64: chunkDocs.map((snapshot) => String(snapshot.data()?.data || '')).join(''),
+    }
+  })()
+
+  originalAttachmentMemoryCache.set(cacheKey, request)
+  while (originalAttachmentMemoryCache.size > ORIGINAL_ATTACHMENT_MEMORY_CACHE_MAX) {
+    const oldestKey = originalAttachmentMemoryCache.keys().next().value
+    if (!oldestKey) break
+    originalAttachmentMemoryCache.delete(oldestKey)
   }
-  const metadata = metadataSnapshot.data() || {}
-  const chunkCount = Number(metadata.chunkCount || 0)
-  if (!Number.isInteger(chunkCount) || chunkCount < 1 || chunkCount > 24) throw new Error('원본 파일 정보가 올바르지 않아.')
-  const snapshots = await Promise.all(
-    Array.from({ length: chunkCount }, (_, index) => getDoc(originalAttachmentChunkRef(profile, safeId, index))),
-  )
-  if (snapshots.some((snapshot) => !snapshot.exists())) throw new Error('원본 파일 일부를 불러오지 못했어.')
-  return {
-    name: String(metadata.name || '원본 사진').slice(0, 120),
-    mimeType: String(metadata.mimeType || 'application/octet-stream'),
-    size: Number(metadata.size || 0),
-    dataBase64: snapshots.map((snapshot) => String(snapshot.data()?.data || '')).join(''),
+  try {
+    return await request
+  } catch (error) {
+    if (originalAttachmentMemoryCache.get(cacheKey) === request) originalAttachmentMemoryCache.delete(cacheKey)
+    throw error
   }
 }
 

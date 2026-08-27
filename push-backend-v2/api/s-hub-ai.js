@@ -1,10 +1,13 @@
-import { adminAuth, adminDb, adminProjectId } from '../lib/firebase-admin.js'
+
+import { adminAccessToken, adminAppCheckToken, adminAuth, adminDb, adminProjectId } from '../lib/firebase-admin.js'
 import { generateStructuredWithFirebaseAI } from '../lib/s-hub-ai-service.js'
+
+const FIREBASE_APP_ID = '1:321702677113:web:390c5d63e3d93ec17f22a8'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type, x-firebase-appcheck')
+  res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type')
   res.setHeader('Cache-Control', 'no-store')
 }
 
@@ -29,8 +32,6 @@ export default async function handler(req, res) {
 
   const token = bearerToken(req)
   if (!token) return res.status(401).json({ ok: false, error: 'missing_auth', message: '로그인 정보를 확인하지 못했어.' })
-  const appCheckToken = String(req.headers['x-firebase-appcheck'] || '').trim()
-  if (!appCheckToken) return res.status(401).json({ ok: false, error: 'missing_app_check', message: '앱 인증 정보를 확인하지 못했어.' })
 
   try {
     const decoded = await adminAuth().verifyIdToken(token)
@@ -43,9 +44,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'invalid_prompt', message: 'AI 요청 내용이 올바르지 않아.' })
     }
 
+    const [accessToken, appCheckToken] = await Promise.all([
+      adminAccessToken(),
+      adminAppCheckToken(FIREBASE_APP_ID),
+    ])
     const result = await generateStructuredWithFirebaseAI({
       projectId: adminProjectId(),
-      firebaseIdToken: token,
+      accessToken,
       appCheckToken,
       prompt,
       attachments: body.attachments,

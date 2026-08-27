@@ -1,6 +1,7 @@
-const REMINDER_API_URL = 'https://school-ai-backend-ruby.vercel.app/api/reminder'
-const TEXT_REQUEST_TIMEOUT_MS = 18000
-const ATTACHMENT_REQUEST_TIMEOUT_MS = 45000
+import { generateSchoolStructured } from './s-hub-ai-transport.js'
+
+const TEXT_REQUEST_TIMEOUT_MS = 15000
+const ATTACHMENT_REQUEST_TIMEOUT_MS = 30000
 const MAX_ATTACHMENT_BYTES = 2_500_000
 const MAX_IMAGE_BYTES = 900_000
 const MAX_ORIGINAL_IMAGE_BYTES = 20_000_000
@@ -23,6 +24,49 @@ const SUPPORTED_ATTACHMENT_TYPES = new Set([
   'image/heic',
   'image/heif',
 ])
+
+const REMINDER_TITLE_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: ['task', 'performance', 'exam', 'material'] },
+    title: { type: 'string' },
+    dueDate: { type: 'string' },
+    dueTime: { type: 'string' },
+    assumedDate: { type: 'boolean' },
+  },
+  required: ['type', 'title', 'dueDate', 'dueTime', 'assumedDate'],
+}
+
+const REMINDER_SUMMARY_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: ['task', 'performance', 'exam', 'material'] },
+    title: { type: 'string' },
+    dueDate: { type: 'string' },
+    dueTime: { type: 'string' },
+    assumedDate: { type: 'boolean' },
+    summary: {
+      type: 'object',
+      properties: {
+        overview: { type: 'string' },
+        sections: {
+          type: 'array',
+          maxItems: 14,
+          items: {
+            type: 'object',
+            properties: {
+              heading: { type: 'string' },
+              items: { type: 'array', maxItems: 16, items: { type: 'string' } },
+            },
+            required: ['heading', 'items'],
+          },
+        },
+      },
+      required: ['overview', 'sections'],
+    },
+  },
+  required: ['type', 'title', 'dueDate', 'dueTime', 'assumedDate', 'summary'],
+}
 
 function reminderError(message, code, status = 400) {
   const error = new Error(message)
@@ -174,17 +218,6 @@ function localReference(now) {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
 }
 
-function buildBackendError(response, payload, rawText) {
-  const error = new Error(payload?.message || rawText || `Reminder AI failed with HTTP ${response.status}`)
-  error.name = 'ReminderAIError'
-  error.code = payload?.code || `school-ai/http-${response.status}`
-  error.status = response.status
-  error.customData = {
-    attempts: Array.isArray(payload?.attempts) ? payload.attempts : [],
-  }
-  return error
-}
-
 function loadImage(blob) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob)
@@ -297,117 +330,85 @@ export async function prepareAttachment(file) {
   }
 }
 
-async function parseReminderWithAISingle(input, now = new Date(), attachmentFile = null) {
+function reminderTitlePrompt(text, reference, hasAttachments) {
+  return `너는 한국 고등학생용 학교 리마인더 정리 AI다.
+현재 시각: ${reference}
+사용자 입력: ${text || '(텍스트 없음)'}
+${hasAttachments ? '첨부된 사진/파일 전체를 빠르게 읽고 제목에 필요한 핵심만 파악해라. 본문 전체 요약은 지금 하지 마라.' : '사용자 문장을 읽고 리마인더를 정리해라.'}
+
+반드시 다음 기준으로 분류한다.
+- 수행평가, 발표, PPT, 보고서, 과제 제출, 평가용 활동 -> performance
+- 준비물, 가져오기, 챙기기, 지참, 제출물 실물 준비 -> material
+- 시험, 고사, 모의고사, 학력평가 -> exam
+- 그 외 일반 할 일 -> task
+
+제목은 날짜/시간 군더더기를 빼고 학교생활에서 바로 알아볼 수 있게 짧고 정확하게 만든다.
+첨부에 과목명이나 수행 내용이 있으면 제목에 반영한다.
+상대 날짜는 현재 시각을 기준으로 실제 YYYY-MM-DD로 계산한다.
+날짜가 전혀 없으면 오늘 날짜를 사용하고 assumedDate=true로 한다.
+시간이 없으면 dueTime은 빈 문자열이다.`
+}
+
+function reminderSummaryPrompt(text, reference) {
+  return `너는 한국 고등학생용 학교 리마인더 정리 AI다.
+현재 시각: ${reference}
+사용자 입력: ${text || '(텍스트 없음)'}
+첨부된 사진/파일을 읽어 하나의 리마인더로 정리한다.
+
+1. type은 task/performance/exam/material 중 하나로 정확히 분류한다.
+2. title은 과목과 해야 할 일을 짧고 명확하게 만든다.
+3. dueDate/dueTime은 첨부와 사용자 입력에서 마감 정보를 찾아 정리한다. 날짜가 없으면 오늘 날짜와 assumedDate=true를 사용한다.
+4. summary.overview에는 학생이 무엇을 해야 하는지 핵심을 짧게 요약한다.
+5. summary.sections에는 중요한 요구사항, 준비물, 제출 형식, 평가 기준, 일정 등 실제 행동에 필요한 내용을 빠뜨리지 말고 구조화한다.
+6. 파일에 없는 사실은 만들지 않는다.`
+}
+
+async function serverReminderResult(input, now, files, { titleOnly = false } = {}) {
   const text = String(input || '').trim().slice(0, 140)
-  if (!text && !attachmentFile) return null
+  const selectedFiles = Array.isArray(files) ? files.filter((file) => file instanceof Blob).slice(0, 4) : []
+  if (!text && !selectedFiles.length) return null
 
-  const attachment = attachmentFile ? await prepareAttachment(attachmentFile) : null
-  const timeoutMs = attachment ? ATTACHMENT_REQUEST_TIMEOUT_MS : TEXT_REQUEST_TIMEOUT_MS
-  const controller = new AbortController()
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const response = await fetch(REMINDER_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        text,
-        reference: localReference(now),
-        attachment,
-      }),
-      signal: controller.signal,
-    })
-
-    const rawText = await response.text()
-    let payload = null
-    try {
-      payload = rawText ? JSON.parse(rawText) : null
-    } catch {
-      payload = null
-    }
-
-    if (!response.ok || !payload?.ok) {
-      throw buildBackendError(response, payload, rawText)
-    }
-
-    const normalized = normalizeResult(payload.result, payload.attachment)
-    if (!normalized) {
-      const error = new Error('AI response did not match the reminder schema')
-      error.name = 'ReminderAIError'
-      error.code = 'school-ai/invalid-response'
-      error.status = 502
-      throw error
-    }
-
-    return normalized
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      const timeout = new Error(`Reminder AI timed out after ${timeoutMs}ms`)
-      timeout.name = 'ReminderAIError'
-      timeout.code = 'school-ai/timeout'
-      timeout.status = 504
-      throw timeout
-    }
-    throw error
-  } finally {
-    window.clearTimeout(timeoutId)
-  }
-}
-
-function shouldUseDirectRecovery(error) {
-  const status = Number(error?.status || 0)
-  const code = String(error?.code || '').toUpperCase()
-  return status === 429 || status >= 500 ||
-    code.includes('RESOURCE_EXHAUSTED') ||
-    code.includes('UNAVAILABLE') ||
-    code.includes('TIMEOUT') ||
-    code.includes('ALL-MODELS-FAILED')
-}
-
-async function directReminderResult(input, now, files, { titleOnly = false, smartRecovery = false } = {}) {
-  const prepared = await Promise.all((files || []).map(prepareAttachment))
-  const { generateDirectReminder } = await import('./firebase-ai-direct.js')
-  const direct = await generateDirectReminder({
-    text: String(input || '').trim().slice(0, 140),
-    reference: localReference(now),
+  const prepared = await Promise.all(selectedFiles.map(prepareAttachment))
+  const wantsSummary = selectedFiles.length > 0 && !titleOnly
+  const response = await generateSchoolStructured({
+    prompt: wantsSummary
+      ? reminderSummaryPrompt(text, localReference(now))
+      : reminderTitlePrompt(text, localReference(now), selectedFiles.length > 0),
     attachments: prepared,
-    titleOnly,
-    smartRecovery,
+    responseSchema: wantsSummary ? REMINDER_SUMMARY_RESPONSE_SCHEMA : REMINDER_TITLE_RESPONSE_SCHEMA,
+    maxOutputTokens: wantsSummary ? 2200 : 220,
+    timeoutMs: wantsSummary ? ATTACHMENT_REQUEST_TIMEOUT_MS : TEXT_REQUEST_TIMEOUT_MS,
+    temperature: 0.1,
   })
-  const base = normalizeResult(direct?.value)
+
+  const base = normalizeResult(response?.value)
   if (!base) {
-    const error = new Error('Direct AI response did not match the reminder schema')
+    const error = new Error('AI response did not match the reminder schema')
     error.name = 'ReminderAIError'
-    error.code = 'school-ai/direct-invalid-response'
+    error.code = 'school-ai/invalid-response'
+    error.status = 502
     throw error
   }
-  if (titleOnly || !files?.length) return { ...base, modelName: direct.modelName }
-  const summary = normalizeSummary(direct?.value?.summary)
+  if (!wantsSummary) return { ...base, modelName: String(response?.modelName || '') }
+
+  const summary = normalizeSummary(response?.value?.summary)
   if (!summary) {
-    const error = new Error('Direct AI summary response was empty')
+    const error = new Error('AI summary response was empty')
     error.name = 'ReminderAIError'
-    error.code = 'school-ai/direct-summary-empty'
+    error.code = 'school-ai/summary-empty'
+    error.status = 502
     throw error
   }
   return {
     ...base,
     summary,
-    modelName: direct.modelName,
-    attachments: [],
+    modelName: String(response?.modelName || ''),
   }
 }
 
 function mergeAttachmentResults(results, files) {
   if (!results.length) return null
-  if (results.length === 1) {
-    const only = results[0]
-    return {
-      ...only,
-      attachments: only?.attachment ? [only.attachment] : [],
-    }
-  }
+  if (results.length === 1) return results[0]
 
   const primary = [...results].sort((a, b) => {
     const aKey = `${a?.dueDate || '9999-99-99'}T${a?.dueTime || '23:59'}`
@@ -438,15 +439,12 @@ function mergeAttachmentResults(results, files) {
     })
   })
 
-  const attachments = results.map((result) => result?.attachment).filter(Boolean)
   return {
     ...primary,
     summary: {
       overview: overviewParts.join('\n\n').slice(0, 2400),
       sections,
     },
-    attachment: attachments[0] || primary?.attachment || null,
-    attachments,
   }
 }
 
@@ -455,34 +453,7 @@ export async function parseReminderTitleWithAI(input, now = new Date(), attachme
   const files = Array.isArray(attachmentInput)
     ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
     : attachmentInput instanceof Blob ? [attachmentInput] : []
-
-  // With attachments, title extraction is a genuinely separate lightweight multimodal request.
-  // It never waits for the full summary path unless the direct title route itself is unavailable.
-  if (files.length) {
-    try {
-      return await directReminderResult(text, now, files, { titleOnly: true, smartRecovery: false })
-    } catch (titleError) {
-      console.warn('Direct attachment title extraction failed; falling back to full backend analysis.', titleError)
-      const full = await parseReminderWithAI(text, now, files)
-      if (!full) return null
-      return {
-        type: full.type,
-        title: full.title,
-        dueDate: full.dueDate,
-        dueTime: full.dueTime || '',
-        assumedDate: Boolean(full.assumedDate),
-        source: 'ai',
-        modelName: full.modelName || '',
-      }
-    }
-  }
-
-  try {
-    return await parseReminderWithAISingle(text, now, null)
-  } catch (error) {
-    if (!shouldUseDirectRecovery(error)) throw error
-    return directReminderResult(text, now, [], { titleOnly: true, smartRecovery: true })
-  }
+  return serverReminderResult(text, now, files, { titleOnly: true })
 }
 
 export async function parseReminderWithAI(input, now = new Date(), attachmentInput = null) {
@@ -490,30 +461,19 @@ export async function parseReminderWithAI(input, now = new Date(), attachmentInp
     ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
     : attachmentInput instanceof Blob ? [attachmentInput] : []
 
-  if (!files.length) {
-    try {
-      return await parseReminderWithAISingle(input, now, null)
-    } catch (error) {
-      if (!shouldUseDirectRecovery(error)) throw error
-      return directReminderResult(input, now, [], { titleOnly: true, smartRecovery: true })
-    }
-  }
+  if (!files.length) return serverReminderResult(input, now, [], { titleOnly: true })
 
   const cacheId = await attachmentAnalysisCacheId(input, now, files)
   const cached = cachedAttachmentAnalysis(cacheId)
   if (cached) return cached
 
-  let result = null
-  if (files.length === 1) {
-    try {
-      result = await parseReminderWithAISingle(input, now, files[0])
-    } catch (error) {
-      if (!shouldUseDirectRecovery(error)) throw error
-      result = await directReminderResult(input, now, files, { titleOnly: false, smartRecovery: true })
-    }
-  } else {
-    result = await directReminderResult(input, now, files, { titleOnly: false, smartRecovery: false })
-  }
+  // Analyze each attachment through the same verified server route. Keeping each request
+  // bounded avoids Vercel request-body spikes when several photos are selected at once.
+  const results = await Promise.all(
+    files.map((file) => serverReminderResult(input, now, [file], { titleOnly: false })),
+  )
+  const result = mergeAttachmentResults(results, files)
+  if (!result) return null
 
   const attachments = files.map((file) => normalizeAttachment({
     name: String(file.name || '첨부파일').slice(0, 120),
