@@ -18,10 +18,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Apply exact AI-only patch
+      - name: Apply guarded AI-only patch
         run: |
           python <<'PY'
           from pathlib import Path
+          import re
 
           def replace_once(text, old, new, label):
               count = text.count(old)
@@ -34,30 +35,14 @@ jobs:
           ai = replace_once(
               ai,
               "const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])\n",
-              "const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])\nconst ATTACHMENT_ANALYSIS_CACHE_KEY = 'school.ai.attachmentAnalysisCache.v1'\nconst ATTACHMENT_ANALYSIS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000\nconst ATTACHMENT_ANALYSIS_CACHE_MAX = 12\n",
+              "const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])\n"
+              "const ATTACHMENT_ANALYSIS_CACHE_KEY = 'school.ai.attachmentAnalysisCache.v1'\n"
+              "const ATTACHMENT_ANALYSIS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000\n"
+              "const ATTACHMENT_ANALYSIS_CACHE_MAX = 12\n",
               'cache constants',
           )
 
-          old_normalize = '''function normalizeAttachment(value) {
-            if (!value || typeof value !== 'object') return null
-            const name = String(value.name || '').trim().slice(0, 120)
-            const mimeType = String(value.mimeType || '').trim().toLowerCase()
-            const size = Number(value.size || 0)
-            if (!name || !SUPPORTED_ATTACHMENT_TYPES.has(mimeType) || !Number.isFinite(size) || size <= 0) return null
-            return { name, mimeType, size }
-          }
-
-          function normalizeResult(value, attachmentMeta = null) {'''
-          new_normalize = '''function normalizeAttachment(value) {
-            if (!value || typeof value !== 'object') return null
-            const name = String(value.name || '').trim().slice(0, 120)
-            const mimeType = String(value.mimeType || '').trim().toLowerCase()
-            const size = Number(value.size || 0)
-            if (!name || !SUPPORTED_ATTACHMENT_TYPES.has(mimeType) || !Number.isFinite(size) || size <= 0) return null
-            return { name, mimeType, size }
-          }
-
-          async function sha256Hex(value) {
+          helpers = r'''async function sha256Hex(value) {
             if (!globalThis.crypto?.subtle) return ''
             const bytes = value instanceof Blob
               ? new Uint8Array(await value.arrayBuffer())
@@ -80,7 +65,7 @@ jobs:
                 localDayKey(now),
                 String(input || '').trim().slice(0, 140),
                 ...fileHashes,
-              ].join('\\n'))
+              ].join('\n'))
             } catch {
               return ''
             }
@@ -133,34 +118,15 @@ jobs:
             }
           }
 
-          function normalizeResult(value, attachmentMeta = null) {'''
-          ai = replace_once(ai, old_normalize, new_normalize, 'cache helpers')
+          '''
+          ai = replace_once(
+              ai,
+              'function normalizeResult(value, attachmentMeta = null) {',
+              helpers + 'function normalizeResult(value, attachmentMeta = null) {',
+              'cache helpers',
+          )
 
-          old_parse = '''export async function parseReminderWithAI(input, now = new Date(), attachmentInput = null) {
-            const files = Array.isArray(attachmentInput)
-              ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
-              : attachmentInput instanceof Blob ? [attachmentInput] : []
-
-            if (!files.length) {
-              try {
-                return await parseReminderWithAISingle(input, now, null)
-              } catch (error) {
-                if (!shouldUseDirectRecovery(error)) throw error
-                return directReminderResult(input, now, [], { titleOnly: true, smartRecovery: true })
-              }
-            }
-
-            try {
-              const results = await Promise.all(files.map((file) => parseReminderWithAISingle(input, now, file)))
-              return mergeAttachmentResults(results.filter(Boolean), files)
-            } catch (error) {
-              if (!shouldUseDirectRecovery(error)) throw error
-              // Quota / capacity recovery uses the smartest supported multimodal model first,
-              // then the latest stable Flash model if Pro is unavailable for this project.
-              return directReminderResult(input, now, files, { titleOnly: false, smartRecovery: true })
-            }
-          }'''
-          new_parse = '''export async function parseReminderWithAI(input, now = new Date(), attachmentInput = null) {
+          new_parse = r'''export async function parseReminderWithAI(input, now = new Date(), attachmentInput = null) {
             const files = Array.isArray(attachmentInput)
               ? attachmentInput.filter((file) => file instanceof Blob).slice(0, 4)
               : attachmentInput instanceof Blob ? [attachmentInput] : []
@@ -191,56 +157,23 @@ jobs:
             }
             cacheAttachmentAnalysis(cacheId, enriched)
             return enriched
-          }'''
-          ai = replace_once(ai, old_parse, new_parse, 'single request attachment parser')
+          }
+          '''
+          pattern = r'export async function parseReminderWithAI\(input, now = new Date\(\), attachmentInput = null\) \{.*\Z'
+          ai, count = re.subn(pattern, new_parse, ai, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'single request parser: expected 1 match, found {count}')
           ai_path.write_text(ai)
 
           todo_path = Path('src/todo-stage5-ai.jsx')
           todo = todo_path.read_text()
-          old_effect = '''      parseReminderTitleWithAI(text, requestNow, files)
-                .then((parsed) => {
-                  if (aiRequestRef.current !== requestId) return
-                  if (parsed) setAiResult(parsed)
-                  setAiError(null)
-                  setAiState(parsed ? 'ready' : 'error')
-                })
-                .catch((error) => {
-                  if (aiRequestRef.current !== requestId) return
-                  console.error('Reminder title AI failed:', error)
-                  setAiError({
-                    name: error?.name || null,
-                    code: error?.code || null,
-                    message: error?.message || null,
-                    status: error?.status || null,
-                    customData: error?.customData ? JSON.stringify(error.customData) : null,
-                  })
-                  setAiState('error')
-                })
-
-              if (hasAttachment) {
-                setSummaryState('loading')
-                const promise = parseReminderWithAI(text, requestNow, files)
-                summaryPromiseRef.current = { requestId, promise }
-                promise
-                  .then((parsed) => {
-                    if (aiRequestRef.current !== requestId) return
-                    if (parsed?.summary) setSummaryResult(parsed)
-                    setSummaryError(null)
-                    setSummaryState(parsed?.summary ? 'ready' : 'error')
-                  })
-                  .catch((error) => {
-                    if (aiRequestRef.current !== requestId) return
-                    console.error('Reminder summary AI failed:', error)
-                    setSummaryError({
-                      name: error?.name || null,
-                      code: error?.code || null,
-                      message: error?.message || null,
-                      status: error?.status || null,
-                    })
-                    setSummaryState('error')
-                  })
-              }'''
-          new_effect = '''      if (hasAttachment) {
+          effect_start = '      parseReminderTitleWithAI(text, requestNow, files)'
+          effect_end = '    }, hasAttachment ? 220 : 550)'
+          if todo.count(effect_start) != 1 or todo.count(effect_end) != 1:
+              raise SystemExit('AI effect anchors are not unique')
+          start = todo.index(effect_start)
+          end = todo.index(effect_end, start)
+          new_effect = r'''      if (hasAttachment) {
                 setSummaryState('loading')
                 const promise = parseReminderWithAI(text, requestNow, files)
                 summaryPromiseRef.current = { requestId, promise }
@@ -290,24 +223,17 @@ jobs:
                     customData: error?.customData ? JSON.stringify(error.customData) : null,
                   })
                   setAiState('error')
-                })'''
-          todo = replace_once(todo, old_effect, new_effect, 'single request UI effect')
+                })
+          '''
+          todo = todo[:start] + new_effect + todo[end:]
 
-          old_switch = '''  function switchToManual() {
-            setDraft(naturalResult ? {
-              id: '',
-              type: naturalResult.type,
-              title: naturalResult.title,
-              dueDate: naturalResult.dueDate,
-              dueTime: naturalResult.dueTime || '',
-              summary: attachmentFiles.length ? createPendingReminderSummary(attachmentFiles) : naturalResult.summary || null,
-              attachment: naturalResult.attachment || null,
-            } : emptyDraft(now))
-            resetAI()
-            setSheetMode('manual')
-            syncPickerDisplays()
-          }'''
-          new_switch = '''  function switchToManual() {
+          switch_start = '  function switchToManual() {'
+          switch_end = '\n\n  async function finishReminderEnrichment'
+          if todo.count(switch_start) != 1 or todo.count(switch_end) != 1:
+              raise SystemExit('manual switch anchors are not unique')
+          start = todo.index(switch_start)
+          end = todo.index(switch_end, start)
+          new_switch = r'''  function switchToManual() {
             const readyAttachmentSummary = attachmentFiles.length && summaryResult?.summary
               ? withAttachmentManifest(summaryResult.summary, attachmentFiles)
               : null
@@ -326,45 +252,47 @@ jobs:
             setSheetMode('manual')
             syncPickerDisplays()
           }'''
-          todo = replace_once(todo, old_switch, new_switch, 'manual mode summary reuse')
+          todo = todo[:start] + new_switch + todo[end:]
 
-          old_manual = '''    const files = attachmentFiles.slice()
-            const draftToSave = createId && files.length
-              ? { ...draft, summary: createPendingReminderSummary(files), attachment: null }
-              : draft
+          old_manual = (
+              "    const files = attachmentFiles.slice()\n"
+              "    const draftToSave = createId && files.length\n"
+              "      ? { ...draft, summary: createPendingReminderSummary(files), attachment: null }\n"
+              "      : draft\n"
+          )
+          new_manual = (
+              "    const files = attachmentFiles.slice()\n"
+              "    const hasReadyAttachmentSummary = Boolean(files.length && draft.summary && !isReminderSummaryPending(draft.summary))\n"
+              "    const draftToSave = createId && files.length\n"
+              "      ? {\n"
+              "          ...draft,\n"
+              "          summary: hasReadyAttachmentSummary ? draft.summary : createPendingReminderSummary(files),\n"
+              "          attachment: hasReadyAttachmentSummary ? draft.attachment || null : null,\n"
+              "        }\n"
+              "      : draft\n"
+          )
+          todo = replace_once(todo, old_manual, new_manual, 'manual summary preservation')
 
-            setServerSaving(true)'''
-          new_manual = '''    const files = attachmentFiles.slice()
-            const hasReadyAttachmentSummary = Boolean(files.length && draft.summary && !isReminderSummaryPending(draft.summary))
-            const draftToSave = createId && files.length
-              ? {
-                  ...draft,
-                  summary: hasReadyAttachmentSummary ? draft.summary : createPendingReminderSummary(files),
-                  attachment: hasReadyAttachmentSummary ? draft.attachment || null : null,
-                }
-              : draft
-
-            setServerSaving(true)'''
-          todo = replace_once(todo, old_manual, new_manual, 'manual save preserve summary')
-
-          old_finish = '''      pendingCreateIdRef.current = ''
-              if (createId && files.length) void finishReminderEnrichment(savedId, draft.title.trim(), files, null)
-            } catch (error) {'''
-          new_finish = '''      pendingCreateIdRef.current = ''
-              if (createId && files.length) {
-                const existingSummaryPromise = hasReadyAttachmentSummary
-                  ? Promise.resolve({
-                      type: draft.type,
-                      title: draft.title,
-                      dueDate: draft.dueDate,
-                      dueTime: draft.dueTime || '',
-                      summary: draft.summary,
-                      attachment: draft.attachment || null,
-                    })
-                  : null
-                void finishReminderEnrichment(savedId, draft.title.trim(), files, existingSummaryPromise)
-              }
-            } catch (error) {'''
+          old_finish = (
+              "      pendingCreateIdRef.current = ''\n"
+              "      if (createId && files.length) void finishReminderEnrichment(savedId, draft.title.trim(), files, null)\n"
+          )
+          new_finish = (
+              "      pendingCreateIdRef.current = ''\n"
+              "      if (createId && files.length) {\n"
+              "        const existingSummaryPromise = hasReadyAttachmentSummary\n"
+              "          ? Promise.resolve({\n"
+              "              type: draft.type,\n"
+              "              title: draft.title,\n"
+              "              dueDate: draft.dueDate,\n"
+              "              dueTime: draft.dueTime || '',\n"
+              "              summary: draft.summary,\n"
+              "              attachment: draft.attachment || null,\n"
+              "            })\n"
+              "          : null\n"
+              "        void finishReminderEnrichment(savedId, draft.title.trim(), files, existingSummaryPromise)\n"
+              "      }\n"
+          )
           todo = replace_once(todo, old_finish, new_finish, 'manual enrichment reuse')
           todo_path.write_text(todo)
           PY
