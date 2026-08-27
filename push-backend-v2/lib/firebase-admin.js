@@ -1,4 +1,6 @@
+
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
 function parseServiceAccount() {
@@ -17,7 +19,7 @@ function parseServiceAccount() {
   return parsed
 }
 
-export function adminDb() {
+function adminApp() {
   if (!getApps().length) {
     const serviceAccount = parseServiceAccount()
     initializeApp({
@@ -25,5 +27,13 @@ export function adminDb() {
       projectId: serviceAccount.project_id,
     })
   }
-  return getFirestore()
+  return getApps()[0]
+}
+
+export function adminDb() {
+  return getFirestore(adminApp())
+}
+
+export function adminAuth() {
+  return getAuth(adminApp())
 }

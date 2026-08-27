@@ -12,6 +12,7 @@ import {
   writeStudentTodoState,
 } from './school-sync'
 import { recordClassActivity } from './class-activity'
+import { isReminderExpired, reminderExpiryMs } from './reminder-lifecycle.js'
 
 const SUMMARY_MAX_SECTIONS = 14
 const SUMMARY_MAX_ITEMS = 16
@@ -78,24 +79,8 @@ function parseDue(todo) {
 }
 
 
-function todoExpiryMs(todo) {
-  const dueDate = String(todo?.dueDate || '')
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return Number.POSITIVE_INFINITY
-
-  const dueTime = String(todo?.dueTime || '').trim()
-  const expiryTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(dueTime)
-    ? `${dueTime}:00.000`
-    : '23:59:59.000'
-  const expiry = Date.parse(`${dueDate}T${expiryTime}+09:00`)
-  return Number.isFinite(expiry) ? expiry : Number.POSITIVE_INFINITY
-}
-
-function isTodoExpired(todo, nowMs = Date.now()) {
-  return todoExpiryMs(todo) <= nowMs
-}
-
 function visibleUnexpiredTodos(todos, nowMs = Date.now()) {
-  return (todos || []).filter((todo) => !isTodoExpired(todo, nowMs))
+  return (todos || []).filter((todo) => !isReminderExpired(todo, nowMs))
 }
 
 function sortTodos(todos) {
@@ -257,7 +242,7 @@ export function useTodos(profile) {
   useEffect(() => {
     const syncExpiryClock = () => setExpiryClock(Date.now())
     const upcoming = sourceTodos
-      .map(todoExpiryMs)
+      .map(reminderExpiryMs)
       .filter((time) => Number.isFinite(time) && time > Date.now())
       .sort((a, b) => a - b)[0]
     const delay = upcoming
@@ -280,11 +265,18 @@ export function useTodos(profile) {
 
   useEffect(() => {
     if (!signature || navigator.onLine === false) return
-    const expired = sourceTodos.filter((todo) => isTodoExpired(todo, expiryClock))
+    const expired = sourceTodos.filter((todo) => isReminderExpired(todo, expiryClock))
     expired.forEach((todo) => {
       if (expiryDeleteAttemptsRef.current.has(todo.id)) return
       expiryDeleteAttemptsRef.current.add(todo.id)
-      deleteExpiredSharedTodo(profile, todo.id)
+      const tombstone = {
+        ...todo,
+        dueDate: '1970-01-01',
+        dueTime: '',
+        updatedAt: Date.now(),
+      }
+      writeSharedTodo(profile, tombstone)
+        .then(() => deleteExpiredSharedTodo(profile, todo.id))
         .catch((error) => {
           console.error('Expired shared reminder delete failed:', error)
           window.setTimeout(() => expiryDeleteAttemptsRef.current.delete(todo.id), 60_000)

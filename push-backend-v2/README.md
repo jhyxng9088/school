@@ -33,6 +33,10 @@ Optional:
 
 Never commit any private key or service-account JSON to GitHub.
 
+## Reminder edit activity endpoint
+
+`POST /api/activity-dispatch` handles class reminder add/edit pushes. It verifies the actor against Firebase activity data, sends to the other students in the class, keeps `completed=true` students subscribed to edit activity, and suppresses every device for students whose personal reminder state has `hidden=true`.
+
 ## Endpoint
 
 `GET /api/reminder-scheduled`

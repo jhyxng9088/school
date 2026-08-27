@@ -1,7 +1,11 @@
+
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/reminder-scheduled.js": {
+      "maxDuration": 30
+    },
+    "api/activity-dispatch.js": {
       "maxDuration": 30
     }
   }

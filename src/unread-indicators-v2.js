@@ -1,6 +1,7 @@
 import { getApp } from 'firebase/app'
 import { collection, doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore'
 import { classKeyFor, ensureSignedIn, readStudentProfile, studentKeyFor } from './school-sync'
+import { reminderActivityEligibleForStudent, reminderExpiryMs } from './reminder-lifecycle.js'
 import './unread-indicators.css'
 
 const INTERNAL_PREFIX = '__school_seen_'
@@ -90,6 +91,7 @@ async function startUnreadIndicators() {
     todos: new Map(),
     academic: new Map(),
     seen: new Map(),
+    todoState: new Map(),
     activityReady: false,
     seenReady: false,
     mealAvailable: hasTodayMealInCache(),
@@ -97,6 +99,7 @@ async function startUnreadIndicators() {
   }
 
   let renderFrame = 0
+  let reminderExpiryTimer = 0
   const subscriptions = []
   const pendingWrites = new Map()
 
@@ -106,6 +109,24 @@ async function startUnreadIndicators() {
       renderFrame = 0
       render()
     })
+  }
+
+  function scheduleNextReminderExpiry() {
+    if (reminderExpiryTimer) {
+      window.clearTimeout(reminderExpiryTimer)
+      reminderExpiryTimer = 0
+    }
+    const nowMs = Date.now()
+    const nextExpiry = [...state.todos.values()]
+      .map(reminderExpiryMs)
+      .filter((value) => Number.isFinite(value) && value > nowMs)
+      .sort((a, b) => a - b)[0]
+    if (!nextExpiry) return
+    const delay = Math.max(20, Math.min(nextExpiry - nowMs + 20, 2_147_000_000))
+    reminderExpiryTimer = window.setTimeout(() => {
+      reminderExpiryTimer = 0
+      scheduleRender()
+    }, delay)
   }
 
   function otherActivityVersion(entityType) {
@@ -133,6 +154,8 @@ async function startUnreadIndicators() {
 
   function reminderActivity(todo) {
     if (!todo?.id) return null
+    const personalState = state.todoState.get(String(todo.id)) || null
+    if (!reminderActivityEligibleForStudent(todo, personalState)) return null
     const activity = state.activity.get(`reminder:${todo.id}`)
     if (!activity) return null
     if (!['added', 'edited'].includes(activity.action)) return null
@@ -144,6 +167,14 @@ async function startUnreadIndicators() {
 
   function reminderActivityVersion(todo) {
     return Number(reminderActivity(todo)?.updatedAt || 0)
+  }
+
+  function latestReminderActivityVersion() {
+    let latest = 0
+    state.todos.forEach((todo) => {
+      latest = Math.max(latest, reminderActivityVersion(todo))
+    })
+    return latest
   }
 
   function reminderRowUnread(todo) {
@@ -165,7 +196,7 @@ async function startUnreadIndicators() {
   function navUnread(tab) {
     if (tab === 'todo') {
       const baseline = seenVersion(REMINDER_ROW_BASELINE_ID)
-      return otherActivityVersion('reminder') > Math.max(seenVersion(NAV_STATE_IDS.todo), baseline)
+      return latestReminderActivityVersion() > Math.max(seenVersion(NAV_STATE_IDS.todo), baseline)
         || hasUnreadReminderRow()
     }
     if (tab === 'timetable') {
@@ -205,11 +236,11 @@ async function startUnreadIndicators() {
   function ensureReminderBaseline() {
     if (!state.activityReady || !state.seenReady) return
     if (seenVersion(REMINDER_ROW_BASELINE_ID) > 0) return
-    writeSeen(REMINDER_ROW_BASELINE_ID, Math.max(1, otherActivityVersion('reminder')))
+    writeSeen(REMINDER_ROW_BASELINE_ID, Math.max(1, latestReminderActivityVersion()))
   }
 
   function markTabSeen(tab) {
-    if (tab === 'todo') writeSeen(NAV_STATE_IDS.todo, otherActivityVersion('reminder'))
+    if (tab === 'todo') writeSeen(NAV_STATE_IDS.todo, latestReminderActivityVersion())
     else if (tab === 'timetable') writeSeen(NAV_STATE_IDS.timetable, otherActivityVersion('timetable'))
     else if (tab === 'academic') writeSeen(NAV_STATE_IDS.academic, academicVersion())
     else if (tab === 'meal' && state.mealAvailable) writeSeen(NAV_STATE_IDS.meal, todayVersion())
@@ -242,6 +273,7 @@ async function startUnreadIndicators() {
     ensureReminderBaseline()
     renderReminderRows()
     renderNav()
+    scheduleNextReminderExpiry()
     const tab = activeTab()
     if (tab) markTabSeen(tab)
   }
@@ -290,6 +322,8 @@ async function startUnreadIndicators() {
       const value = item.data() || {}
       next.set(item.id, {
         id: item.id,
+        dueDate: String(value.dueDate || ''),
+        dueTime: String(value.dueTime || ''),
         createdAt: Number(value.createdAt || 0),
         updatedAt: Number(value.updatedAt || value.createdAt || 0),
       })
@@ -315,17 +349,27 @@ async function startUnreadIndicators() {
   subscriptions.push(onSnapshot(collection(db, 'students', studentKey, 'todoState'), (snapshot) => {
     if (snapshot.metadata?.fromCache) return
 
-    const next = new Map()
+    const nextSeen = new Map()
+    const nextTodoState = new Map()
     snapshot.docs.forEach((item) => {
-      if (!item.id.startsWith(INTERNAL_PREFIX)) return
-      next.set(item.id, { updatedAt: Number(item.data()?.updatedAt || 0) })
+      const value = item.data() || {}
+      if (item.id.startsWith(INTERNAL_PREFIX)) {
+        nextSeen.set(item.id, { updatedAt: Number(value.updatedAt || 0) })
+        return
+      }
+      nextTodoState.set(item.id, {
+        completed: Boolean(value.completed),
+        hidden: Boolean(value.hidden),
+        updatedAt: Number(value.updatedAt || 0),
+      })
     })
     pendingWrites.forEach((version, id) => {
-      if (Number(version || 0) > Number(next.get(id)?.updatedAt || 0)) {
-        next.set(id, { updatedAt: Number(version || 0) })
+      if (Number(version || 0) > Number(nextSeen.get(id)?.updatedAt || 0)) {
+        nextSeen.set(id, { updatedAt: Number(version || 0) })
       }
     })
-    state.seen = next
+    state.seen = nextSeen
+    state.todoState = nextTodoState
     state.seenReady = true
     scheduleRender()
   }, (error) => console.error('Unread seen-state sync failed:', error)))
@@ -360,6 +404,7 @@ async function startUnreadIndicators() {
     window.removeEventListener('focus', refresh)
     domObserver.disconnect()
     window.clearInterval(mealTimer)
+    if (reminderExpiryTimer) window.clearTimeout(reminderExpiryTimer)
     if (renderFrame) window.cancelAnimationFrame(renderFrame)
   }, { once: true })
 

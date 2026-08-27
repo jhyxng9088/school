@@ -17,6 +17,7 @@ import {
 } from './school-sync'
 
 const PUSH_API_BASE = 'https://school-push-backend.vercel.app/api'
+const REMINDER_ACTIVITY_API_BASE = 'https://school-reminder-backend.vercel.app/api'
 const DEVICE_ID_KEY = 'school.pushDeviceId.v1'
 const PROMPT_SESSION_KEY = 'school.pushPromptSeen.v1'
 const CONTACT_NOTICE_KEY = 'school.contactNotice.v1'
@@ -340,7 +341,10 @@ async function claimAndDispatch(profile, event) {
 
   try {
     const idToken = await identity.user.getIdToken()
-    const response = await fetch(`${PUSH_API_BASE}/push-dispatch`, {
+    const dispatchUrl = event.entityType === 'reminder'
+      ? `${REMINDER_ACTIVITY_API_BASE}/activity-dispatch`
+      : `${PUSH_API_BASE}/push-dispatch`
+    const response = await fetch(dispatchUrl, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${idToken}`,
