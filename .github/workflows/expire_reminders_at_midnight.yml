@@ -1,4 +1,5 @@
 name: Expire reminders at due time
+# Re-run once after the source patch so GitHub Pages builds the patched main branch.
 
 on:
   push:
