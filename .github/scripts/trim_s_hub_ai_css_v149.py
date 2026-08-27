@@ -1,6 +1,8 @@
 from pathlib import Path
 
-path = Path('src/s-hub-ai.css')
-text = path.read_text()
-path.write_text(text.rstrip() + '\n')
-print('S-Hub AI CSS line ending normalized')
+for name in ['src/s-hub-ai.css', 'tests/s-hub-ai-working-stage.test.js']:
+    path = Path(name)
+    text = path.read_text()
+    path.write_text(text.rstrip() + '\n')
+
+print('S-Hub AI generated file endings normalized')
