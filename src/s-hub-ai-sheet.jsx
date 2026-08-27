@@ -135,7 +135,7 @@ export function SchoolAISheet({
         setHintIndex((current) => (current + 1) % hintCount)
         setHintFading(false)
       }, 220)
-    }, 1800)
+    }, 2500)
 
     return () => {
       window.clearInterval(interval)

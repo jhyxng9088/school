@@ -25,5 +25,5 @@ test('structured S-Hub AI has SDK and authenticated raw paths', () => {
 
 test('service worker cache advances for AI auth repair', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /school-shell-v143/)
+  assert.match(sw, /school-shell-v144/)
 })

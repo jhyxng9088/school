@@ -1,3 +1,5 @@
+const FIREBASE_AI_API_KEY = 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0'
+
 const DEFAULT_MODELS = [
   'gemini-3.7-flash',
   'gemini-3.6-flash',
@@ -52,7 +54,8 @@ function responseText(payload) {
 
 export async function requestFirebaseModel({
   projectId,
-  accessToken,
+  firebaseIdToken,
+  appCheckToken,
   modelName,
   prompt,
   attachments,
@@ -67,8 +70,10 @@ export async function requestFirebaseModel({
     const response = await fetch(aiEndpoint(projectId, modelName), {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Firebase ${firebaseIdToken}`,
+        'X-Firebase-AppCheck': appCheckToken,
         'Content-Type': 'application/json',
+        'x-goog-api-key': FIREBASE_AI_API_KEY,
         'x-goog-api-client': 's-hub-server/1.0',
       },
       body: JSON.stringify({
@@ -123,7 +128,8 @@ export async function requestFirebaseModel({
 
 export async function generateStructuredWithFirebaseAI({
   projectId,
-  accessToken,
+  firebaseIdToken,
+  appCheckToken,
   prompt,
   attachments = [],
   responseSchema,
@@ -133,9 +139,10 @@ export async function generateStructuredWithFirebaseAI({
   models = DEFAULT_MODELS,
 }) {
   const safeProjectId = String(projectId || '').trim()
-  const safeToken = String(accessToken || '').trim()
+  const safeFirebaseIdToken = String(firebaseIdToken || '').trim()
+  const safeAppCheckToken = String(appCheckToken || '').trim()
   const safePrompt = String(prompt || '').trim().slice(0, 40_000)
-  if (!safeProjectId || !safeToken || !safePrompt) {
+  if (!safeProjectId || !safeFirebaseIdToken || !safeAppCheckToken || !safePrompt) {
     throw Object.assign(new Error('Missing Firebase AI server credentials or prompt'), { status: 400, code: 'invalid_request' })
   }
 
@@ -156,7 +163,8 @@ export async function generateStructuredWithFirebaseAI({
     try {
       const value = await requestFirebaseModel({
         projectId: safeProjectId,
-        accessToken: safeToken,
+        firebaseIdToken: safeFirebaseIdToken,
+        appCheckToken: safeAppCheckToken,
         modelName,
         prompt: safePrompt,
         attachments: parts,

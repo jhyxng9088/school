@@ -16,7 +16,7 @@ function response(status, payload) {
   }
 }
 
-test('server Firebase AI request uses OAuth bearer auth and parses structured JSON', async () => {
+test('server Firebase AI request forwards Firebase Auth, App Check and API key', async () => {
   const originalFetch = globalThis.fetch
   let request = null
   globalThis.fetch = async (url, init) => {
@@ -28,7 +28,8 @@ test('server Firebase AI request uses OAuth bearer auth and parses structured JS
   try {
     const value = await requestFirebaseModel({
       projectId: 'school-test',
-      accessToken: 'oauth-token',
+      firebaseIdToken: 'firebase-user-token',
+      appCheckToken: 'app-check-token',
       modelName: 'gemini-test',
       prompt: 'hello',
       attachments: [],
@@ -38,7 +39,9 @@ test('server Firebase AI request uses OAuth bearer auth and parses structured JS
       timeoutMs: 2000,
     })
     assert.deepEqual(value, { answer: 'ok' })
-    assert.equal(request.init.headers.Authorization, 'Bearer oauth-token')
+    assert.equal(request.init.headers.Authorization, 'Firebase firebase-user-token')
+    assert.equal(request.init.headers['X-Firebase-AppCheck'], 'app-check-token')
+    assert.ok(request.init.headers['x-goog-api-key'])
     assert.match(request.url, /firebasevertexai\.googleapis\.com/)
   } finally {
     globalThis.fetch = originalFetch
@@ -58,7 +61,8 @@ test('server structured AI falls back to the next model on a retryable failure',
   try {
     const result = await generateStructuredWithFirebaseAI({
       projectId: 'school-test',
-      accessToken: 'oauth-token',
+      firebaseIdToken: 'firebase-user-token',
+      appCheckToken: 'app-check-token',
       prompt: 'hello',
       responseSchema: schema,
       timeoutMs: 8000,
@@ -83,7 +87,8 @@ test('server structured AI does not fan out an authorization failure across mode
     await assert.rejects(
       generateStructuredWithFirebaseAI({
         projectId: 'school-test',
-        accessToken: 'oauth-token',
+        firebaseIdToken: 'firebase-user-token',
+        appCheckToken: 'app-check-token',
         prompt: 'hello',
         responseSchema: schema,
         timeoutMs: 8000,
