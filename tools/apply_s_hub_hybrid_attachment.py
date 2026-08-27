@@ -117,9 +117,9 @@ replace_once(
   fileQuestion: ['파일과 질문을 함께 확인하는 중…', '필요한 학교 정보를 찾는 중…', '답변을 정리하는 중…'],
   mixedQuestion: ['첨부와 질문을 함께 확인하는 중…', '필요한 학교 정보를 찾는 중…', '답변을 정리하는 중…'],
 """,
-    """  imageQuestion: ['사진과 질문을 함께 확인하는 중…', '오늘 할 일을 정리하는 중…', '추가할 일정도 확인하는 중…'],
-  fileQuestion: ['파일과 질문을 함께 확인하는 중…', '필요한 내용을 정리하는 중…', '추가할 일정도 확인하는 중…'],
-  mixedQuestion: ['첨부와 질문을 함께 확인하는 중…', '필요한 내용을 정리하는 중…', '추가할 일정도 확인하는 중…'],
+    """  imageQuestion: ['사진과 질문을 함께 확인하는 중…', '질문에 답할 내용을 정리하는 중…', '추가할 일정도 확인하는 중…'],
+  fileQuestion: ['파일과 질문을 함께 확인하는 중…', '질문에 답할 내용을 정리하는 중…', '추가할 일정도 확인하는 중…'],
+  mixedQuestion: ['첨부와 질문을 함께 확인하는 중…', '질문에 답할 내용을 정리하는 중…', '추가할 일정도 확인하는 중…'],
 """,
 )
 replace_once(
@@ -187,6 +187,23 @@ replace_once(
 replace_once('public/sw.js', 'school-shell-v151', 'school-shell-v152')
 replace_once('tests/s-hub-ai-auth.test.js', 'school-shell-v151', 'school-shell-v152')
 replace_once('tests/s-hub-ai-server-route.test.js', 'school-shell-v151', 'school-shell-v152')
+
+replace_once(
+    'tests/s-hub-ai-attachment-intent.test.js',
+    "assert.match(ai, /export async function askSchoolHubWithAttachments/)",
+    "assert.match(ai, /export async function answerAndAnalyzeSchoolAttachments/)",
+)
+replace_once(
+    'tests/s-hub-ai-attachment-intent.test.js',
+    "assert.match(sheet, /askSchoolHubWithAttachments\\(\\{ question, files, context, now, signal: controller\\.signal \\}\\)/)",
+    "assert.match(sheet, /answerAndAnalyzeSchoolAttachments\\(\\{ question, files, context, now, signal: controller\\.signal \\}\\)/)",
+)
+replace_once(
+    'tests/s-hub-ai-working-stage.test.js',
+    "assert.match(sheet, /!working && state\\.mode === 'answer'/)",
+    "assert.match(sheet, /!working && state\\.answer/)",
+)
+
 Path('tests/s-hub-ai-hybrid-attachment.test.js').write_text(r"""
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -211,6 +228,7 @@ test('attachment question UI keeps answer and import candidates together', () =>
   assert.match(sheet, /!working && state\.answer/)
   assert.match(sheet, /추가할 수 있는 항목/)
   assert.match(sheet, /reviewSchoolImportConflicts\(items, conflictContext/)
+  assert.match(sheet, /질문에 답할 내용을 정리하는 중…/)
 })
 
 test('service worker advances for hybrid attachment answers', () => {
