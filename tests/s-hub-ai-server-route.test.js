@@ -32,5 +32,5 @@ test('S-Hub input hints rotate with a soft 2.5 second cadence', () => {
 })
 
 test('service worker advances after unified S-Hub AI repair', () => {
-  assert.match(read('public/sw.js'), /school-shell-v150/)
+  assert.match(read('public/sw.js'), /school-shell-v151/)
 })

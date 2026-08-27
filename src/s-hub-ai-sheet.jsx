@@ -3,8 +3,10 @@ import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import {
   analyzeSchoolNotice,
   askSchoolHub,
+  askSchoolHubWithAttachments,
   reviewSchoolImportConflicts,
 } from './s-hub-ai.js'
+import { classifyAttachmentTextIntent } from './s-hub-ai-intent.js'
 import { normalizeImportItem } from './s-hub-ai-core.js'
 import { SHubAIOrb } from './s-hub-ai-orb.jsx'
 import './s-hub-ai.css'
@@ -36,6 +38,9 @@ const WORKING_MESSAGES = {
   mixed: ['사진과 파일을 분석하는 중…', '학교 일정을 찾는 중…', '날짜와 내용을 확인하는 중…'],
   question: ['S-Hub 정보를 확인하는 중…', '관련 일정을 찾는 중…', '답변을 정리하는 중…'],
   conflict: ['기존 일정과 겹치는지 확인하는 중…', '추가할 위치를 확인하는 중…'],
+  imageQuestion: ['사진과 질문을 함께 확인하는 중…', '필요한 학교 정보를 찾는 중…', '답변을 정리하는 중…'],
+  fileQuestion: ['파일과 질문을 함께 확인하는 중…', '필요한 학교 정보를 찾는 중…', '답변을 정리하는 중…'],
+  mixedQuestion: ['첨부와 질문을 함께 확인하는 중…', '필요한 학교 정보를 찾는 중…', '답변을 정리하는 중…'],
 }
 
 function noticeWorkingMode(files) {
@@ -43,6 +48,13 @@ function noticeWorkingMode(files) {
   const hasOther = files.some((file) => !String(file?.type || '').startsWith('image/'))
   if (hasImage && hasOther) return 'mixed'
   return hasImage ? 'image' : 'file'
+}
+
+function attachmentQuestionWorkingMode(files) {
+  const hasImage = files.some((file) => String(file?.type || '').startsWith('image/'))
+  const hasOther = files.some((file) => !String(file?.type || '').startsWith('image/'))
+  if (hasImage && hasOther) return 'mixedQuestion'
+  return hasImage ? 'imageQuestion' : 'fileQuestion'
 }
 
 function kindLabel(item) {
@@ -271,6 +283,8 @@ export function SchoolAISheet({
   const rotatingHint = hintPool[hintIndex % hintPool.length]
   const workingPool = WORKING_MESSAGES[workingMode] || WORKING_MESSAGES.question
   const workingMessage = workingPool[workingMessageIndex % workingPool.length]
+  const attachmentIntent = files.length ? classifyAttachmentTextIntent(input) : 'answer'
+  const primaryActionLabel = files.length && attachmentIntent !== 'answer' ? '공지 분석' : '질문하기'
 
   function cancelAIRequest() {
     requestSequenceRef.current += 1
@@ -418,6 +432,32 @@ export function SchoolAISheet({
     }
   }
 
+  async function askAttachmentQuestion() {
+    const question = input.trim()
+    if (question.length < 2 || !files.length || !requireOnline('첨부 내용에 질문')) return
+    const { controller, requestId } = beginAIRequest()
+    showWorkingMode(attachmentQuestionWorkingMode(files))
+    setWorking(true)
+    setError('')
+    setEditingId('')
+    try {
+      const result = await askSchoolHubWithAttachments({ question, files, context, now, signal: controller.signal })
+      if (requestSequenceRef.current !== requestId) return
+      if (!await finishWorkingStage(requestId)) return
+      setState((current) => ({ ...current, mode: 'answer', answer: result.answer, saveResult: null }))
+    } catch (requestError) {
+      if (requestSequenceRef.current !== requestId || controller.signal.aborted || requestError?.code === 'school-ai/cancelled') return
+      console.error('S-Hub attachment question failed:', requestError)
+      setError(requestError?.message || '첨부 내용을 바탕으로 답하지 못했어. 다시 시도해줘.')
+    } finally {
+      if (requestSequenceRef.current === requestId) {
+        setWorking(false)
+        setWorkingFinishing(false)
+        if (requestControllerRef.current === controller) requestControllerRef.current = null
+      }
+    }
+  }
+
   async function askQuestion() {
     const question = input.trim()
     if (question.length < 2 || !requireOnline('S-Hub에 질문')) return
@@ -445,8 +485,12 @@ export function SchoolAISheet({
   }
 
   function runPrimary() {
-    if (files.length) void analyzeNotice()
-    else void askQuestion()
+    if (!files.length) {
+      void askQuestion()
+      return
+    }
+    if (classifyAttachmentTextIntent(input) === 'answer') void askAttachmentQuestion()
+    else void analyzeNotice()
   }
 
   function toggleSelected(id) {
@@ -705,7 +749,7 @@ export function SchoolAISheet({
               />
               <button type="button" className="s-hub-ai-attach" onClick={() => fileInputRef.current?.click()} disabled={working || files.length >= 4}>사진·파일</button>
               <button type="button" className="s-hub-ai-primary" onClick={runPrimary} disabled={working || (!input.trim() && !files.length)}>
-                {working ? '확인 중…' : files.length ? '공지 분석' : '질문하기'}
+                {working ? '확인 중…' : primaryActionLabel}
               </button>
             </div>
           </div>
