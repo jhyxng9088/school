@@ -15,6 +15,7 @@ const ATTACHMENT_MANIFEST_HEADING = '\u2063school-attachments\u2063'
 const MEAL_CACHE_KEY = 'school.stage3.meals.v1'
 const LABEL_TO_TAB = {
   '투두': 'todo',
+  '리마인더': 'todo',
   '시간표': 'timetable',
   '급식': 'meal',
   '학사일정': 'academic',
@@ -142,11 +143,19 @@ async function startUnreadIndicators() {
     return Number(state.seen.get(id)?.updatedAt || 0)
   }
 
+  function reminderActivityVersion(todo) {
+    if (!todo?.id) return 0
+    const activity = state.activity.get(`reminder:${todo.id}`)
+    if (!activity) return 0
+    if (activity.actorStudentKey && activity.actorStudentKey === studentKey) return 0
+    return Number(activity.updatedAt || 0)
+  }
+
   function summaryUnread(todo) {
     if (!todo || !readableSummary(todo.summary)) return false
-    const activity = state.activity.get(`reminder:${todo.id}`)
-    if (activity?.actorStudentKey === studentKey) return false
-    return Number(todo.updatedAt || todo.createdAt || 0) > seenVersion(safeReminderStateId(todo.id))
+    const version = reminderActivityVersion(todo)
+    if (version <= 0) return false
+    return version > seenVersion(safeReminderStateId(todo.id))
   }
 
   function hasUnreadSummary() {
@@ -243,7 +252,7 @@ async function startUnreadIndicators() {
       done = true
       observer?.disconnect()
       if (timeout) window.clearTimeout(timeout)
-      writeSeen(safeReminderStateId(todo.id), Number(todo.updatedAt || todo.createdAt || 0))
+      writeSeen(safeReminderStateId(todo.id), reminderActivityVersion(todo))
     }
 
     observer = new MutationObserver(finish)
