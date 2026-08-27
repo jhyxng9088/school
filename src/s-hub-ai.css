@@ -47,14 +47,34 @@
 }
 
 .s-hub-ai-thinking-stage {
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 2px;
-  margin: -8px 0 -2px;
+  min-height: 128px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 11px;
+  padding: 13px 0 9px;
+  margin: -3px 0 0;
   color: var(--text-secondary);
   animation: s-hub-ai-thinking-in 360ms var(--motion-ease) both;
+}
+
+.s-hub-ai-thinking-copy {
+  min-height: 19px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.018em;
+  text-align: center;
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition: opacity 180ms var(--motion-soft), transform 180ms var(--motion-soft);
+}
+
+.s-hub-ai-thinking-copy.is-fading {
+  opacity: 0;
+  transform: translate3d(0, 2px, 0);
 }
 
 @keyframes s-hub-ai-thinking-in {
@@ -579,5 +599,51 @@
 @media (max-width: 380px) {
   .s-hub-ai-editor-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+.s-hub-ai-thinking-stage .s-hub-ai-orb {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 240ms var(--motion-soft), transform 240ms var(--motion-soft);
+}
+
+.s-hub-ai-thinking-stage.is-finishing .s-hub-ai-orb {
+  opacity: 0.34;
+  transform: scale(0.72);
+}
+
+.s-hub-ai-thinking-stage.is-finishing .s-hub-ai-thinking-copy {
+  opacity: 0;
+  transform: translate3d(0, 2px, 0);
+}
+
+.s-hub-ai-answer,
+.s-hub-ai-import,
+.s-hub-ai-save-result {
+  animation: s-hub-ai-result-reveal 380ms var(--motion-ease) both;
+}
+
+@keyframes s-hub-ai-result-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 7px, 0) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-hub-ai-thinking-stage .s-hub-ai-orb,
+  .s-hub-ai-thinking-copy {
+    transition: none;
+  }
+
+  .s-hub-ai-answer,
+  .s-hub-ai-import,
+  .s-hub-ai-save-result {
+    animation: none;
   }
 }

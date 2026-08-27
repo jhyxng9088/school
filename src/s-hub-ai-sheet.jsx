@@ -30,6 +30,21 @@ const NOTICE_HINTS = [
   '예: 시간표 변경도 같이 확인해줘.',
 ]
 
+const WORKING_MESSAGES = {
+  image: ['사진을 분석하는 중…', '학교 일정을 찾는 중…', '날짜와 내용을 확인하는 중…'],
+  file: ['파일을 분석하는 중…', '학교 일정을 찾는 중…', '날짜와 내용을 확인하는 중…'],
+  mixed: ['사진과 파일을 분석하는 중…', '학교 일정을 찾는 중…', '날짜와 내용을 확인하는 중…'],
+  question: ['S-Hub 정보를 확인하는 중…', '관련 일정을 찾는 중…', '답변을 정리하는 중…'],
+  conflict: ['기존 일정과 겹치는지 확인하는 중…', '추가할 위치를 확인하는 중…'],
+}
+
+function noticeWorkingMode(files) {
+  const hasImage = files.some((file) => String(file?.type || '').startsWith('image/'))
+  const hasOther = files.some((file) => !String(file?.type || '').startsWith('image/'))
+  if (hasImage && hasOther) return 'mixed'
+  return hasImage ? 'image' : 'file'
+}
+
 function kindLabel(item) {
   if (item.kind === 'reminder') {
     const type = REMINDER_TYPES.find((candidate) => candidate.id === item.type)?.label || '일반'
@@ -161,6 +176,10 @@ export function SchoolAISheet({
   const [conflictsDirty, setConflictsDirty] = useState(false)
   const [hintIndex, setHintIndex] = useState(0)
   const [hintFading, setHintFading] = useState(false)
+  const [workingMode, setWorkingMode] = useState('question')
+  const [workingMessageIndex, setWorkingMessageIndex] = useState(0)
+  const [workingMessageFading, setWorkingMessageFading] = useState(false)
+  const [workingFinishing, setWorkingFinishing] = useState(false)
   const fileInputRef = useRef(null)
   const requestControllerRef = useRef(null)
   const requestSequenceRef = useRef(0)
@@ -183,6 +202,10 @@ export function SchoolAISheet({
     setConflictsDirty(false)
     setHintIndex(0)
     setHintFading(false)
+    setWorkingMode('question')
+    setWorkingMessageIndex(0)
+    setWorkingMessageFading(false)
+    setWorkingFinishing(false)
   }, [open])
 
   useEffect(() => {
@@ -213,16 +236,64 @@ export function SchoolAISheet({
     }
   }, [open, input, files.length])
 
+  useEffect(() => {
+    if (!working) {
+      setWorkingMessageFading(false)
+      return undefined
+    }
+
+    const pool = WORKING_MESSAGES[workingMode] || WORKING_MESSAGES.question
+    let swapTimer = 0
+    let fadeTimer = 0
+
+    const scheduleSwap = () => {
+      const delay = 1550 + Math.round(Math.random() * 850)
+      swapTimer = window.setTimeout(() => {
+        setWorkingMessageFading(true)
+        fadeTimer = window.setTimeout(() => {
+          setWorkingMessageIndex((current) => (current + 1) % pool.length)
+          setWorkingMessageFading(false)
+          scheduleSwap()
+        }, 180)
+      }, delay)
+    }
+
+    scheduleSwap()
+    return () => {
+      window.clearTimeout(swapTimer)
+      window.clearTimeout(fadeTimer)
+    }
+  }, [working, workingMode])
+
   const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items, state.selected])
   const validSelectedItems = useMemo(() => selectedItems.filter((item) => item.valid !== false), [selectedItems])
   const hintPool = files.length ? NOTICE_HINTS : QUESTION_HINTS
   const rotatingHint = hintPool[hintIndex % hintPool.length]
+  const workingPool = WORKING_MESSAGES[workingMode] || WORKING_MESSAGES.question
+  const workingMessage = workingPool[workingMessageIndex % workingPool.length]
 
   function cancelAIRequest() {
     requestSequenceRef.current += 1
     requestControllerRef.current?.abort()
     requestControllerRef.current = null
     setWorking(false)
+    setWorkingMessageFading(false)
+    setWorkingFinishing(false)
+  }
+
+  function showWorkingMode(mode) {
+    setWorkingMode(mode)
+    setWorkingMessageIndex(0)
+    setWorkingMessageFading(false)
+    setWorkingFinishing(false)
+  }
+
+  async function finishWorkingStage(requestId) {
+    if (requestSequenceRef.current !== requestId) return false
+    setWorkingFinishing(true)
+    setWorkingMessageFading(true)
+    await new Promise((resolve) => window.setTimeout(resolve, 240))
+    return requestSequenceRef.current === requestId
   }
 
   function beginAIRequest() {
@@ -305,6 +376,7 @@ export function SchoolAISheet({
     if (!requireOnline('공지 이미지를 분석')) return
     if (!input.trim() && !files.length) return
     const { controller, requestId } = beginAIRequest()
+    showWorkingMode(noticeWorkingMode(files))
     setWorking(true)
     setError('')
     setEditingId('')
@@ -312,13 +384,16 @@ export function SchoolAISheet({
       const result = await analyzeSchoolNotice({ text: input, files, context, now, signal: controller.signal })
       if (requestSequenceRef.current !== requestId) return
       if (!result.items.length) {
+        if (!await finishWorkingStage(requestId)) return
         setState((current) => ({ ...current, mode: 'import', items: [], selected: {}, conflicts: {}, resolutions: {} }))
         setError('등록할 수 있는 학교 일정을 찾지 못했어. 날짜나 공지 내용이 보이는지 확인해줘.')
         return
       }
       const items = result.items
+      showWorkingMode('conflict')
       const conflicts = await reviewSchoolImportConflicts(items, conflictContext, now, { signal: controller.signal })
       if (requestSequenceRef.current !== requestId) return
+      if (!await finishWorkingStage(requestId)) return
       const choices = applyConflictSelection(items, conflicts)
       setState({
         mode: 'import',
@@ -337,6 +412,7 @@ export function SchoolAISheet({
     } finally {
       if (requestSequenceRef.current === requestId) {
         setWorking(false)
+        setWorkingFinishing(false)
         if (requestControllerRef.current === controller) requestControllerRef.current = null
       }
     }
@@ -346,12 +422,14 @@ export function SchoolAISheet({
     const question = input.trim()
     if (question.length < 2 || !requireOnline('S-Hub에 질문')) return
     const { controller, requestId } = beginAIRequest()
+    showWorkingMode('question')
     setWorking(true)
     setError('')
     setEditingId('')
     try {
       const result = await askSchoolHub({ question, context, now, signal: controller.signal })
       if (requestSequenceRef.current !== requestId) return
+      if (!await finishWorkingStage(requestId)) return
       setState((current) => ({ ...current, mode: 'answer', answer: result.answer, saveResult: null }))
     } catch (requestError) {
       if (requestSequenceRef.current !== requestId || controller.signal.aborted || requestError?.code === 'school-ai/cancelled') return
@@ -360,6 +438,7 @@ export function SchoolAISheet({
     } finally {
       if (requestSequenceRef.current === requestId) {
         setWorking(false)
+        setWorkingFinishing(false)
         if (requestControllerRef.current === controller) requestControllerRef.current = null
       }
     }
@@ -472,12 +551,13 @@ export function SchoolAISheet({
     >
       <div className="s-hub-ai-content">
         {working ? (
-          <div className="s-hub-ai-thinking-stage" role="status" aria-label="S-Hub AI가 생각 중">
-            <SHubAIOrb size={30} active />
+          <div className={`s-hub-ai-thinking-stage ${workingFinishing ? 'is-finishing' : ''}`.trim()} role="status" aria-live="polite" aria-atomic="true">
+            <SHubAIOrb size={48} active />
+            <p className={`s-hub-ai-thinking-copy ${workingMessageFading ? 'is-fading' : ''}`.trim()}>{workingMessage}</p>
           </div>
         ) : null}
 
-        {state.mode === 'answer' ? (
+        {!working && state.mode === 'answer' ? (
           <section className="s-hub-ai-answer" aria-live="polite">
             <span>답변</span>
             <p>{state.answer}</p>
@@ -594,7 +674,7 @@ export function SchoolAISheet({
           </section>
         ) : null}
 
-        {state.mode === 'compose' || state.mode === 'answer' ? (
+        {!working && (state.mode === 'compose' || state.mode === 'answer') ? (
           <div className="s-hub-ai-compose">
             <textarea
               className={hintFading ? 'is-hint-fading' : ''}

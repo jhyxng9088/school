@@ -30,7 +30,7 @@ test('home and running S-Hub AI share one animated point-sphere identity', () =>
   const orb = read('src/s-hub-ai-orb.jsx')
   assert.match(main, /<SHubAIOrb size=\{23\}/)
   assert.doesNotMatch(main, /home-ai-trigger[\s\S]{0,180}<Icon type="search"/)
-  assert.match(sheet, /s-hub-ai-thinking-stage[\s\S]*?<SHubAIOrb size=\{30\} active/)
+  assert.match(sheet, /s-hub-ai-thinking-stage[\s\S]*?<SHubAIOrb size=\{48\} active/)
   assert.match(orb, /POINT_COUNT = 96/)
   assert.match(orb, /THINKING_MOTIONS = \[/)
   assert.match(orb, /chooseThinkingMotion/)
