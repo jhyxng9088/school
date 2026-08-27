@@ -27,6 +27,7 @@ jobs:
           python3 .github/scripts/refine_s_hub_ai_working_v149.py
           python3 .github/scripts/refine_s_hub_ai_result_transition_v149.py
           python3 .github/scripts/align_s_hub_ai_working_test_v149.py
+          python3 .github/scripts/trim_s_hub_ai_css_v149.py
 
       - name: Remove temporary verification machinery
         run: |
@@ -34,6 +35,7 @@ jobs:
           rm .github/scripts/refine_s_hub_ai_working_v149.py
           rm .github/scripts/refine_s_hub_ai_result_transition_v149.py
           rm .github/scripts/align_s_hub_ai_working_test_v149.py
+          rm .github/scripts/trim_s_hub_ai_css_v149.py
           rmdir .github/scripts 2>/dev/null || true
 
       - name: Verify final repository shape and working UI invariants
