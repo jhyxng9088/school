@@ -1,4 +1,4 @@
-# GitHub Pages deployment
+# GitHub Pages deployment and regression gate
 name: Deploy School PWA
 
 on:
@@ -27,11 +27,22 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install app dependencies
+        run: npm ci
 
-      - name: Build
+      - name: Test app
+        run: npm test
+
+      - name: Build app
         run: npm run build
+
+      - name: Install reminder backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test reminder backend
+        working-directory: push-backend-v2
+        run: npm test
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
