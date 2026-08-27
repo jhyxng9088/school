@@ -1,5 +1,6 @@
 
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
+import { getAppCheck } from 'firebase-admin/app-check'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
@@ -44,6 +45,15 @@ export async function adminAccessToken() {
   const result = await credential.getAccessToken()
   const token = String(result?.access_token || '').trim()
   if (!token) throw new Error('Firebase Admin access token is empty')
+  return token
+}
+
+export async function adminAppCheckToken(appId) {
+  const safeAppId = String(appId || '').trim()
+  if (!safeAppId) throw new Error('Firebase App ID is missing')
+  const result = await getAppCheck(adminApp()).createToken(safeAppId, { ttlMillis: 60 * 60 * 1000 })
+  const token = String(result?.token || '').trim()
+  if (!token) throw new Error('Firebase Admin App Check token is empty')
   return token
 }
 
