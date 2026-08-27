@@ -217,7 +217,7 @@ function StudentSetup({ initialName = '', onSave }) {
 
 const tabs = [
   { id: 'home', label: '홈' },
-  { id: 'todo', label: '투두' },
+  { id: 'todo', label: '리마인더' },
   { id: 'timetable', label: '시간표' },
   { id: 'meal', label: '급식' },
   { id: 'academic', label: '학사일정' },
@@ -830,8 +830,6 @@ function useNavSpring(activeIndex) {
     const physics = physicsRef.current
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const compatibilityMotion = MOBILE_BROWSER_COMPAT
-    const compatibilityTransition = 'transform 420ms cubic-bezier(0.16, 1, 0.3, 1), width 420ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 420ms cubic-bezier(0.16, 1, 0.3, 1)'
-
     if (compatibilityMotion) {
       stopInlineIndicatorStyles(indicator)
       return undefined
@@ -904,7 +902,6 @@ function useNavSpring(activeIndex) {
     }
 
     stopAnimation()
-    const wasInitialized = physics.initialized
     measure(!physics.initialized)
 
     if (!reduceMotion && Math.abs(physics.x - physics.targetX) > 0.01) {
@@ -951,6 +948,10 @@ function AppShell({ profile }) {
   const activity = useClassActivity(profile)
   const name = profile.name
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
+  const activeTabRef = useRef(activeTab)
+  const activeIndexRef = useRef(activeIndex)
+  activeTabRef.current = activeTab
+  activeIndexRef.current = activeIndex
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
 
   useEffect(() => {
@@ -991,9 +992,13 @@ function AppShell({ profile }) {
   }
 
   function changeTab(nextTab) {
-    if (nextTab === activeTab) return
+    if (nextTab === activeTabRef.current) return
     const nextIndex = tabs.findIndex((tab) => tab.id === nextTab)
-    setContentDirection(nextIndex > activeIndex ? 1 : -1)
+    if (nextIndex < 0) return
+    const previousIndex = activeIndexRef.current
+    activeTabRef.current = nextTab
+    activeIndexRef.current = nextIndex
+    setContentDirection(nextIndex > previousIndex ? 1 : -1)
     setActiveTab(nextTab)
   }
 
@@ -1006,13 +1011,22 @@ function AppShell({ profile }) {
       >
         {content[activeTab]}
       </main>
-      <nav ref={navRef} className="bottom-nav" style={{ '--indicator-x': `${activeIndex * 100}%` }} aria-label="주요 메뉴">
+      <nav
+        ref={navRef}
+        className="bottom-nav"
+        style={{ '--indicator-x': `${activeIndex * 100}%`, '--nav-count': tabs.length }}
+        aria-label="주요 메뉴"
+      >
         <span ref={indicatorRef} className="nav-indicator" aria-hidden="true" />
         {tabs.map((tab, index) => (
           <button
             ref={(node) => { buttonRefs.current[index] = node }}
             key={tab.id}
+            type="button"
             className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}
+            onPointerDown={(event) => {
+              if (event.pointerType !== 'mouse') changeTab(tab.id)
+            }}
             onClick={() => changeTab(tab.id)}
             aria-current={activeTab === tab.id ? 'page' : undefined}
           >

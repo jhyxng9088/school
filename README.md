@@ -1,107 +1,75 @@
-# School PWA
+# S-Hub
 
-우리 반에서 사용할 학교생활 PWA.
+우리 반에서 사용하는 React + Vite 기반 학교생활 PWA. iPhone을 우선으로 하고 Samsung Internet/Android와 iPad까지 같은 코드베이스에서 대응한다.
 
-## 현재 확정된 방향
+## 현재 핵심 기능
 
-- 개발/저장소: GitHub `jhyxng9088/school`
-- 기술: React + Vite 기반 PWA
-- UI 기준: iPhone 우선, Samsung Internet/Android 호환, iPad는 처음부터 반응형 기반
-- 하단 내비게이션: 하나의 긴 pill 안에 4개 버튼
-  - 홈
-  - 투두
-  - 시간표
-  - 급식
-- 사용자 범위: 현재는 한 반만 사용하며 반 선택/반 코드는 만들지 않음
-- 사용자 식별: 이름
+- 5탭 하단 내비게이션: 홈 · 리마인더 · 시간표 · 급식 · 학사일정
+- 반 공유 데이터: 시간표, 리마인더 원본, 학사일정, 변경 활동
+- 개인 데이터: 리마인더 완료/숨김 상태와 읽음 상태
+- 리마인더 자연어/첨부 AI 분석
+- NEIS 급식·학사 데이터
+- Web Push 및 예약 리마인더 알림
+- GitHub Pages PWA + Firebase/Firestore + Vercel 알림 백엔드
 
-## 최초 실행 흐름
+## 리마인더 상태 규칙
 
-1. 웹사이트 최초 접속
-2. 브라우저별 홈 화면 추가 방법 안내
-   - Safari
-   - Samsung Internet
-3. 사용자가 홈 화면 추가 완료를 확인
-4. 이름 입력
-5. 앱 홈 진입
-6. 이후 같은 설치 환경에서는 최초 설정을 반복하지 않음
+- `completed=true, hidden=false`: 이 학생은 완료했지만 리마인더 구독은 유지한다. 친구가 수정하면 수정 내용, unread 점, 수정 푸시를 다시 받을 수 있다.
+- `hidden=true`: 이 학생에게서는 완전히 숨긴 상태다. 친구가 수정해도 목록, unread 점, 수정 푸시가 다시 나타나면 안 된다.
+- 시간이 있는 리마인더는 해당 KST 시각에, 시간이 없는 리마인더는 해당 날짜 23:59:59 KST에 만료한다.
 
-현재 이름/온보딩 완료 상태는 기기 로컬 저장소에 저장한다. Firebase 사용자 데이터 연동은 후속 Stage에서 진행한다.
+## 코드 지도
 
-## 개발 Stage
+### 앱
 
-### Stage 0 — 기반 구축
+- `src/main.jsx`: 앱 셸, 온보딩, 5탭 내비게이션, 홈/시간표 진입점
+- `src/todo.js`: 리마인더 공개 API 조합. 활성 리마인더의 반 전체 삭제와 완료 항목의 개인 삭제를 구분한다.
+- `src/todo.jsx`: 공유 리마인더 + 학생 개인 상태 동기화와 만료 처리
+- `src/todo-stage5-ai.jsx`: 리마인더 화면, 입력/편집, AI 추가 UI
+- `src/reminder-lifecycle.js`: 리마인더 만료/개인 표시 여부의 단일 규칙
+- `src/school-sync.js`: Firebase 인증 및 공유/개인 데이터 접근
+- `src/class-activity.js`: 반 활동/수정자 기록
+- `src/unread-indicators-v2.js`: 탭/리마인더 unread 점
+- `src/push-client.js`: Push 구독과 활동 알림 dispatch
+- `src/unified-sheet.jsx`: 공통 bottom sheet 동작
 
-- React + Vite 프로젝트
-- GitHub Pages 경로 대응
-- PWA manifest
-- Service Worker 기본 캐싱
-- iOS/Android safe-area 대응
-- 반응형 앱 셸
-- 최초 설치 안내
-- 최초 이름 설정
-- 하단 4탭 pill UI
+### 스타일
 
-### Stage 1 — 홈
+- `src/styles.css`: 앱 셸과 하단 내비게이션
+- `src/motion.css`: 공통 모션
+- `src/todo.css`, `src/todo-stage5.css`: 리마인더
+- `src/timetable.css`: 시간표
+- `src/stage3.css`: 급식/학교 데이터 UI
+- `src/academic-shared.css`: 학사일정
+- `src/unified-sheet.css`: 공통 bottom sheet
+- `public/*.css`: 앱 위에 얹는 소수의 기기/모션 보정만 둔다. 사용하지 않는 옛 패치 스타일은 보관하지 않는다.
 
-시간표, 급식, 투두를 적절한 밀도로 요약하는 오늘의 홈 화면.
+### 백엔드
 
-### Stage 2 — 시간표 엔진
+- `push-backend-v2/`: 예약 리마인더와 리마인더 활동 Push 백엔드
+- `firestore.rules`: Firestore 규칙 원본
+- `public/sw.js`: PWA 캐시와 Push 표시/알림 탭 라우팅
 
-- 기본 월~금 시간표 1회 입력
-- 날짜별 변경 시간표를 기본 시간표 위에 예외로 적용
-- 현재 교시/다음 교시 판단
-- 실제 교시 시간은 Stage 2 시작 시 확정
+## 수정 원칙
 
-### Stage 3 — 급식
+1. 현재 `main`의 동작을 기준으로 필요한 범위만 수정한다.
+2. 공유 상태와 개인 상태를 섞지 않는다.
+3. 하단 탭 수는 React의 `tabs.length`와 CSS `--nav-count`를 통해 한 경로로 유지한다.
+4. bottom sheet가 닫히는 동안 뒤 화면으로 터치가 관통하면 안 된다.
+5. 모바일 native date/time input은 실제 hit target을 유지한다.
+6. 일회성 패치 스크립트/워크플로는 작업이 끝난 뒤 저장소에 남기지 않는다.
+7. 배포 전에 프론트 테스트, 프로덕션 빌드, 알림 백엔드 테스트를 모두 통과해야 한다.
 
-NEIS 급식 데이터 자동 연동 및 필요한 수준의 캐싱.
+## 검증
 
-### Stage 4 — 투두 / 수행평가
+```bash
+npm ci
+npm test
+npm run build
 
-할 일, 수행평가, 시험, 준비물 등 학교생활 일정 관리.
+cd push-backend-v2
+npm ci
+npm test
+```
 
-### Stage 5 — 자연어 추가
-
-자유 입력 문장을 구조화하고 사용자가 결과를 확인한 뒤 저장.
-
-### Stage 6 — 홈 통합
-
-시간표 + 급식 + 투두를 시간대에 맞춰 한 홈에서 통합.
-
-### Stage 7 — Firebase
-
-사용자/시간표/투두/설정 등의 서버 저장 및 동기화.
-
-### Stage 8 — PWA 완성도
-
-오프라인, 캐싱, iOS/Android 설치 경험과 앱 완성도 강화.
-
-### Stage 9 — Push 알림
-
-다음 교시 등 필요한 학교생활 알림을 후반부에 추가.
-
-### Stage 10 — 후속 검토
-
-음성 입력, 스크린샷 분석, Classroom, 학사일정, D-Day, 공유, 검색 등.
-
-## 디자인 / 모션 원칙
-
-- 전체 UI는 정보가 먼저 보이는 조용한 depth를 유지한다.
-- 애니메이션은 빠른 튕김보다 느리고 우아한 가속·감속을 우선한다.
-- 하단 내비게이션처럼 위치가 이동하는 요소는 물리 기반 움직임을 사용한다.
-- 모달은 가능하면 bottom sheet 형태를 사용하고 사용자가 직접 잡아서 움직일 수 있어야 한다.
-- bottom sheet 상단 drag 영역을 아래로 끌면 손가락을 따라 움직인다.
-- 충분히 끌거나 빠르게 아래로 놓으면 해당 속도를 이어받아 닫힌다.
-- 조금만 움직였다 놓으면 과도한 반동 없이 원래 위치로 복귀한다.
-- 닫기 버튼, 배경 탭, 저장 후 닫기 모두 갑자기 사라지지 않고 같은 하강 모션으로 종료한다.
-- 모달 열림/복귀에는 눈에 띄는 overshoot나 반복 bounce를 사용하지 않는다.
-- 새 bottom sheet는 공통 `data-school-sheet` 동작 규칙을 재사용한다.
-
-## 개발 원칙
-
-- 현재 Stage에 필요한 것만 구현한다.
-- 미래 기능을 추측해서 미리 만들지 않는다.
-- 확정되지 않은 UI/기능을 임의로 추가하지 않는다.
-- 기존 동작을 수정할 때 요청 범위 밖의 기능을 건드리지 않는다.
-- 각 Stage는 실제 기기에서 확인한 뒤 다음 Stage로 넘어간다.
+`main`에 push되면 `.github/workflows/deploy.yml`이 같은 검증을 다시 수행한 뒤 GitHub Pages에 배포한다.

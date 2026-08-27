@@ -480,3 +480,8 @@ html body .app-content:has(> .todo-page) {
   overflow: hidden;
   animation: reminder-row-collapse 280ms cubic-bezier(0.4, 0, 1, 1) both !important;
 }
+
+.todo-stage5 .todo-item.is-state-leaving .todo-check {
+  pointer-events: auto;
+  touch-action: manipulation;
+}

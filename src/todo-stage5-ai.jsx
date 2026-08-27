@@ -239,7 +239,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const [summaryTodo, setSummaryTodo] = useState(null)
   const activity = useClassActivity()
   const pageRef = useRef(null)
-  const rowMotionRef = useRef(new Set())
+  const rowMotionRef = useRef(new Map())
   const aiRequestRef = useRef(0)
   const summaryPromiseRef = useRef(null)
   const pendingCreateIdRef = useRef('')
@@ -538,21 +538,17 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
         : null,
       attachment: summaryResult?.attachment || null,
     })
-    setSheetOpen(false)
 
     try {
       const savedId = await savePromise
-      if (!savedId) {
-        setSheetOpen(true)
-        return
-      }
+      if (!savedId) return
       pendingCreateIdRef.current = ''
+      setSheetOpen(false)
       if (files.length) void finishReminderEnrichment(savedId, text, files, summaryPromise)
       resetAI()
     } catch (error) {
       console.error('Shared reminder save failed:', error)
       setServerSaveError('서버에 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
-      setSheetOpen(true)
     } finally {
       setServerSaving(false)
     }
@@ -576,15 +572,12 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     setServerSaving(true)
     setServerSaveError('')
     const savePromise = saveTodo(createId ? { ...draftToSave, createId } : draftToSave)
-    setSheetOpen(false)
 
     try {
       const savedId = await savePromise
-      if (!savedId) {
-        setSheetOpen(true)
-        return
-      }
+      if (!savedId) return
       pendingCreateIdRef.current = ''
+      setSheetOpen(false)
       if (createId && files.length) {
         const existingSummaryPromise = hasReadyAttachmentSummary
           ? Promise.resolve({
@@ -601,7 +594,6 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     } catch (error) {
       console.error('Shared reminder save failed:', error)
       setServerSaveError('서버에 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
-      setSheetOpen(true)
     } finally {
       setServerSaving(false)
     }
@@ -613,13 +605,36 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   }
 
   function beginRowExit(id, action) {
-    if (!id || rowMotionRef.current.has(id)) return
-    rowMotionRef.current.add(id)
+    if (!id) return
+    const existing = rowMotionRef.current.get(id)
+    if (existing) {
+      if (action === 'toggle' && existing.action === 'toggle') {
+        if (existing.executed) toggleTodo(id)
+        else existing.queuedToggle = !existing.queuedToggle
+      } else if (action === 'delete' && existing.executed) {
+        removeTodo(id)
+        rowMotionRef.current.delete(id)
+        setRowMotion((current) => {
+          const next = { ...current }
+          delete next[id]
+          return next
+        })
+      }
+      return
+    }
+
+    const motionState = { action, executed: false, queuedToggle: false }
+    rowMotionRef.current.set(id, motionState)
     setRowMotion((current) => ({ ...current, [id]: 'leaving' }))
 
     window.setTimeout(() => {
-      if (action === 'toggle') toggleTodo(id)
-      else removeTodo(id)
+      motionState.executed = true
+      if (action === 'toggle') {
+        toggleTodo(id)
+        if (motionState.queuedToggle) toggleTodo(id)
+      } else {
+        removeTodo(id)
+      }
 
       if (action === 'toggle') {
         setRowMotion((current) => ({ ...current, [id]: 'entering' }))

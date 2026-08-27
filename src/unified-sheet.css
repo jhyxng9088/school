@@ -22,7 +22,7 @@ html.school-unified-sheet-open body {
 
 .unified-sheet-backdrop.is-closing {
   opacity: 0;
-  pointer-events: none;
+  pointer-events: auto;
   transition-duration: 320ms;
   transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
 }

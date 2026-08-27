@@ -223,6 +223,7 @@ export function useTodos(profile) {
   const [sharedTodos, setSharedTodos] = useState(() => readSharedTodosCache(profile))
   const sharedTodosRef = useRef(sharedTodos)
   const [personalState, setPersonalState] = useState(() => readPersonalTodoStateCache(profile))
+  const personalStateRef = useRef(personalState)
   const [bootTodos, setBootTodos] = useState(() => readVisibleTodosCache(profile) ?? mergeSharedTodos(readSharedTodosCache(profile), readPersonalTodoStateCache(profile)))
   const [remoteReady, setRemoteReady] = useState(false)
   const [expiryClock, setExpiryClock] = useState(() => Date.now())
@@ -291,6 +292,7 @@ export function useTodos(profile) {
   useEffect(() => {
     if (!signature) {
       sharedTodosRef.current = []
+      personalStateRef.current = {}
       setSharedTodos([])
       setPersonalState({})
       return undefined
@@ -300,6 +302,7 @@ export function useTodos(profile) {
     const cachedShared = readSharedTodosCache(profile)
     const cachedPersonal = readPersonalTodoStateCache(profile)
     sharedTodosRef.current = cachedShared
+    personalStateRef.current = cachedPersonal
     setSharedTodos(cachedShared)
     setPersonalState(cachedPersonal)
     setBootTodos(readVisibleTodosCache(profile) ?? mergeSharedTodos(cachedShared, cachedPersonal))
@@ -315,6 +318,7 @@ export function useTodos(profile) {
       const nextShared = remoteSharedRef.current
       const nextPersonal = remotePersonalRef.current
       sharedTodosRef.current = nextShared
+      personalStateRef.current = nextPersonal
       setSharedTodos(nextShared)
       setPersonalState(nextPersonal)
       const nextVisible = visibleUnexpiredTodos(mergeSharedTodos(nextShared, nextPersonal))
@@ -345,6 +349,7 @@ export function useTodos(profile) {
         const next = normalizePersonalTodoState(remoteState)
         writePersonalTodoStateCache(profile, next)
         remotePersonalRef.current = next
+        personalStateRef.current = next
         if (firstRemoteReadyRef.current) setPersonalState(next)
         else commitFirstRemotePair()
       },
@@ -465,10 +470,11 @@ export function useTodos(profile) {
   }
 
   function updatePersonalStateOnServer(id, nextEntry, previousEntry) {
+    personalStateRef.current = { ...personalStateRef.current, [id]: nextEntry }
     setPersonalState((current) => {
       const next = { ...current, [id]: nextEntry }
       writePersonalTodoStateCache(profile, next)
-      const nextVisible = visibleUnexpiredTodos(mergeSharedTodos(sharedTodos, next))
+      const nextVisible = visibleUnexpiredTodos(mergeSharedTodos(sharedTodosRef.current, next))
       writeVisibleTodosCache(profile, nextVisible)
       if (!firstRemoteReadyRef.current) setBootTodos(nextVisible)
       return next
@@ -480,8 +486,9 @@ export function useTodos(profile) {
         const next = { ...current }
         if (previousEntry) next[id] = previousEntry
         else delete next[id]
+        personalStateRef.current = next
         writePersonalTodoStateCache(profile, next)
-        const nextVisible = mergeSharedTodos(sharedTodos, next)
+        const nextVisible = mergeSharedTodos(sharedTodosRef.current, next)
         writeVisibleTodosCache(profile, nextVisible)
         if (!firstRemoteReadyRef.current) setBootTodos(nextVisible)
         return next
@@ -489,24 +496,28 @@ export function useTodos(profile) {
     })
   }
 
+  function nextPersonalUpdatedAt(previousEntry) {
+    return Math.max(Date.now(), Number(previousEntry?.updatedAt || 0) + 1)
+  }
+
   function toggleTodo(id) {
-    const target = todos.find((todo) => todo.id === id)
+    const target = sharedTodosRef.current.find((todo) => todo.id === id)
     if (!target) return
-    const previousEntry = personalState[id] || null
+    const previousEntry = personalStateRef.current[id] || null
     const nextEntry = {
-      completed: !target.completed,
+      completed: !Boolean(previousEntry?.completed),
       hidden: false,
-      updatedAt: Date.now(),
+      updatedAt: nextPersonalUpdatedAt(previousEntry),
     }
     updatePersonalStateOnServer(id, nextEntry, previousEntry)
   }
 
   function removeTodo(id) {
-    const previousEntry = personalState[id] || null
+    const previousEntry = personalStateRef.current[id] || null
     const nextEntry = {
       completed: Boolean(previousEntry?.completed),
       hidden: true,
-      updatedAt: Date.now(),
+      updatedAt: nextPersonalUpdatedAt(previousEntry),
     }
     updatePersonalStateOnServer(id, nextEntry, previousEntry)
   }

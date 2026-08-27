@@ -6,6 +6,7 @@
     { navIndex: 4, label: '학사일정 열기' },
     { navIndex: 3, label: '급식 열기' },
   ]
+  let frame = 0
 
   function activateNav(index) {
     const buttons = document.querySelectorAll('.bottom-nav .nav-button')
@@ -36,17 +37,19 @@
     })
   }
 
-  function syncReminderLabel() {
-    const label = document.querySelector('.bottom-nav .nav-button:nth-of-type(2) span')
-    if (label && label.textContent !== '리마인더') label.textContent = '리마인더'
+  function scheduleEnhance() {
+    if (frame) return
+    frame = window.requestAnimationFrame(() => {
+      frame = 0
+      enhanceHome()
+    })
   }
 
-  function sync() {
-    syncReminderLabel()
-    enhanceHome()
-  }
-
-  const observer = new MutationObserver(sync)
+  const observer = new MutationObserver(scheduleEnhance)
   observer.observe(document.documentElement, { childList: true, subtree: true })
-  sync()
+  window.addEventListener('pagehide', () => {
+    observer.disconnect()
+    if (frame) window.cancelAnimationFrame(frame)
+  }, { once: true })
+  scheduleEnhance()
 })()

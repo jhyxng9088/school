@@ -522,6 +522,7 @@ button {
 
 .bottom-nav {
   --nav-padding: 5px;
+  --nav-count: 5;
   position: fixed;
   z-index: 20;
   left: 50%;
@@ -529,7 +530,7 @@ button {
   width: min(calc(100% - 30px), 420px);
   height: 64px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--nav-count, 5), minmax(0, 1fr));
   padding: var(--nav-padding);
   transform: translateX(-50%);
   overflow: hidden;
@@ -571,6 +572,7 @@ button {
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
+  touch-action: manipulation;
   transition: color 440ms var(--motion-soft), transform 280ms var(--motion-ease);
 }
 
@@ -653,7 +655,7 @@ button {
 
 html.school-mobile-compat .nav-indicator {
   left: var(--nav-padding);
-  width: calc((100% - var(--nav-padding) - var(--nav-padding)) / 5);
+  width: calc((100% - var(--nav-padding) - var(--nav-padding)) / var(--nav-count, 5));
   transform: translate3d(var(--indicator-x, 0%), 0, 0) !important;
   border-radius: 19px !important;
   transition: transform 440ms cubic-bezier(0.16, 1, 0.3, 1) !important;

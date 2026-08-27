@@ -470,7 +470,10 @@
   color: transparent;
   -webkit-text-fill-color: transparent;
   caret-color: transparent;
-  opacity: 0;
+  opacity: 1;
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
   font: inherit;
   font-size: 13px;
 }
@@ -479,6 +482,18 @@
 .todo-sheet .todo-control-shell > input[type="time"]:focus {
   border: 0;
   outline: 0;
+}
+
+.todo-sheet .todo-control-shell > input[type="date"]::-webkit-calendar-picker-indicator,
+.todo-sheet .todo-control-shell > input[type="time"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .todo-sheet .todo-control-shell > input[type="date"],
