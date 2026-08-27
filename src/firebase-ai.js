@@ -5,6 +5,9 @@ const MAX_ATTACHMENT_BYTES = 2_500_000
 const MAX_IMAGE_BYTES = 900_000
 const MAX_ORIGINAL_IMAGE_BYTES = 20_000_000
 const TYPE_SET = new Set(['task', 'performance', 'exam', 'material'])
+const ATTACHMENT_ANALYSIS_CACHE_KEY = 'school.ai.attachmentAnalysisCache.v1'
+const ATTACHMENT_ANALYSIS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+const ATTACHMENT_ANALYSIS_CACHE_MAX = 12
 const SUPPORTED_ATTACHMENT_TYPES = new Set([
   'application/pdf',
   'application/json',
@@ -58,6 +61,82 @@ function normalizeAttachment(value) {
   const size = Number(value.size || 0)
   if (!name || !SUPPORTED_ATTACHMENT_TYPES.has(mimeType) || !Number.isFinite(size) || size <= 0) return null
   return { name, mimeType, size }
+}
+
+async function sha256Hex(value) {
+  if (!globalThis.crypto?.subtle) return ''
+  const bytes = value instanceof Blob
+    ? new Uint8Array(await value.arrayBuffer())
+    : new TextEncoder().encode(String(value || ''))
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function localDayKey(now) {
+  const pad = (number) => String(number).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+async function attachmentAnalysisCacheId(input, now, files) {
+  if (!globalThis.crypto?.subtle || !files.length) return ''
+  try {
+    const fileHashes = await Promise.all(files.map((file) => sha256Hex(file)))
+    if (fileHashes.some((hash) => !hash)) return ''
+    return sha256Hex([
+      localDayKey(now),
+      String(input || '').trim().slice(0, 140),
+      ...fileHashes,
+    ].join('\n'))
+  } catch {
+    return ''
+  }
+}
+
+function readAttachmentAnalysisCache() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(ATTACHMENT_ANALYSIS_CACHE_KEY) || '[]')
+    if (!Array.isArray(stored)) return []
+    const cutoff = Date.now() - ATTACHMENT_ANALYSIS_CACHE_TTL_MS
+    return stored
+      .filter((entry) => entry && typeof entry === 'object' && Number(entry.savedAt || 0) >= cutoff)
+      .slice(0, ATTACHMENT_ANALYSIS_CACHE_MAX)
+  } catch {
+    return []
+  }
+}
+
+function cachedAttachmentAnalysis(cacheId) {
+  if (!cacheId) return null
+  const entry = readAttachmentAnalysisCache().find((item) => item.key === cacheId)
+  if (!entry?.result) return null
+  const base = normalizeResult(entry.result)
+  const summary = normalizeSummary(entry.result.summary)
+  if (!base || !summary) return null
+  const attachment = normalizeAttachment(entry.result.attachment)
+  const attachments = Array.isArray(entry.result.attachments)
+    ? entry.result.attachments.map(normalizeAttachment).filter(Boolean)
+    : []
+  return {
+    ...base,
+    summary,
+    ...(attachment ? { attachment } : {}),
+    ...(attachments.length ? { attachments } : {}),
+    modelName: String(entry.result.modelName || ''),
+  }
+}
+
+function cacheAttachmentAnalysis(cacheId, result) {
+  if (!cacheId || !result?.summary) return
+  try {
+    const entries = readAttachmentAnalysisCache().filter((entry) => entry.key !== cacheId)
+    entries.unshift({ key: cacheId, savedAt: Date.now(), result })
+    localStorage.setItem(
+      ATTACHMENT_ANALYSIS_CACHE_KEY,
+      JSON.stringify(entries.slice(0, ATTACHMENT_ANALYSIS_CACHE_MAX)),
+    )
+  } catch {
+    // Cache is only an optimization. AI analysis still works without local storage.
+  }
 }
 
 function normalizeResult(value, attachmentMeta = null) {
@@ -420,13 +499,21 @@ export async function parseReminderWithAI(input, now = new Date(), attachmentInp
     }
   }
 
-  try {
-    const results = await Promise.all(files.map((file) => parseReminderWithAISingle(input, now, file)))
-    return mergeAttachmentResults(results.filter(Boolean), files)
-  } catch (error) {
-    if (!shouldUseDirectRecovery(error)) throw error
-    // Quota / capacity recovery uses the smartest supported multimodal model first,
-    // then the latest stable Flash model if Pro is unavailable for this project.
-    return directReminderResult(input, now, files, { titleOnly: false, smartRecovery: true })
+  const cacheId = await attachmentAnalysisCacheId(input, now, files)
+  const cached = cachedAttachmentAnalysis(cacheId)
+  if (cached) return cached
+
+  const result = await directReminderResult(input, now, files, { titleOnly: false, smartRecovery: false })
+  const attachments = files.map((file) => normalizeAttachment({
+    name: String(file.name || '첨부파일').slice(0, 120),
+    mimeType: inferredAttachmentType(file),
+    size: Number(file.size || 0),
+  })).filter(Boolean)
+  const enriched = {
+    ...result,
+    attachment: attachments[0] || null,
+    attachments,
   }
+  cacheAttachmentAnalysis(cacheId, enriched)
+  return enriched
 }

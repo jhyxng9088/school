@@ -286,49 +286,57 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
       const requestNow = new Date()
       setAiState('loading')
 
-      parseReminderTitleWithAI(text, requestNow, files)
+      if (hasAttachment) {
+      setSummaryState('loading')
+      const promise = parseReminderWithAI(text, requestNow, files)
+      summaryPromiseRef.current = { requestId, promise }
+      promise
         .then((parsed) => {
           if (aiRequestRef.current !== requestId) return
           if (parsed) setAiResult(parsed)
+          if (parsed?.summary) setSummaryResult(parsed)
           setAiError(null)
-          setAiState(parsed ? 'ready' : 'error')
+          setSummaryError(null)
+          setAiState(parsed?.title && parsed?.dueDate ? 'ready' : 'error')
+          setSummaryState(parsed?.summary ? 'ready' : 'error')
         })
         .catch((error) => {
           if (aiRequestRef.current !== requestId) return
-          console.error('Reminder title AI failed:', error)
-          setAiError({
+          console.error('Reminder attachment AI failed:', error)
+          const details = {
             name: error?.name || null,
             code: error?.code || null,
             message: error?.message || null,
             status: error?.status || null,
             customData: error?.customData ? JSON.stringify(error.customData) : null,
-          })
+          }
+          setAiError(details)
+          setSummaryError(details)
           setAiState('error')
+          setSummaryState('error')
         })
+      return
+    }
 
-      if (hasAttachment) {
-        setSummaryState('loading')
-        const promise = parseReminderWithAI(text, requestNow, files)
-        summaryPromiseRef.current = { requestId, promise }
-        promise
-          .then((parsed) => {
-            if (aiRequestRef.current !== requestId) return
-            if (parsed?.summary) setSummaryResult(parsed)
-            setSummaryError(null)
-            setSummaryState(parsed?.summary ? 'ready' : 'error')
-          })
-          .catch((error) => {
-            if (aiRequestRef.current !== requestId) return
-            console.error('Reminder summary AI failed:', error)
-            setSummaryError({
-              name: error?.name || null,
-              code: error?.code || null,
-              message: error?.message || null,
-              status: error?.status || null,
-            })
-            setSummaryState('error')
-          })
-      }
+    parseReminderTitleWithAI(text, requestNow, null)
+      .then((parsed) => {
+        if (aiRequestRef.current !== requestId) return
+        if (parsed) setAiResult(parsed)
+        setAiError(null)
+        setAiState(parsed ? 'ready' : 'error')
+      })
+      .catch((error) => {
+        if (aiRequestRef.current !== requestId) return
+        console.error('Reminder title AI failed:', error)
+        setAiError({
+          name: error?.name || null,
+          code: error?.code || null,
+          message: error?.message || null,
+          status: error?.status || null,
+          customData: error?.customData ? JSON.stringify(error.customData) : null,
+        })
+        setAiState('error')
+      })
     }, hasAttachment ? 220 : 550)
 
     return () => window.clearTimeout(timer)
@@ -430,19 +438,24 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   }
 
   function switchToManual() {
-    setDraft(naturalResult ? {
-      id: '',
-      type: naturalResult.type,
-      title: naturalResult.title,
-      dueDate: naturalResult.dueDate,
-      dueTime: naturalResult.dueTime || '',
-      summary: attachmentFiles.length ? createPendingReminderSummary(attachmentFiles) : naturalResult.summary || null,
-      attachment: naturalResult.attachment || null,
-    } : emptyDraft(now))
-    resetAI()
-    setSheetMode('manual')
-    syncPickerDisplays()
-  }
+  const readyAttachmentSummary = attachmentFiles.length && summaryResult?.summary
+    ? withAttachmentManifest(summaryResult.summary, attachmentFiles)
+    : null
+  setDraft(naturalResult ? {
+    id: '',
+    type: naturalResult.type,
+    title: naturalResult.title,
+    dueDate: naturalResult.dueDate,
+    dueTime: naturalResult.dueTime || '',
+    summary: attachmentFiles.length
+      ? (readyAttachmentSummary || createPendingReminderSummary(attachmentFiles))
+      : naturalResult.summary || null,
+    attachment: summaryResult?.attachment || naturalResult.attachment || null,
+  } : emptyDraft(now))
+  resetAI()
+  setSheetMode('manual')
+  syncPickerDisplays()
+}
 
   async function finishReminderEnrichment(todoId, text, files, existingSummaryPromise = null) {
     if (!todoId || !files.length) return
@@ -551,8 +564,13 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     const createId = draft.id ? '' : (pendingCreateIdRef.current || createTodoId())
     if (createId) pendingCreateIdRef.current = createId
     const files = attachmentFiles.slice()
+    const hasReadyAttachmentSummary = Boolean(files.length && draft.summary && !isReminderSummaryPending(draft.summary))
     const draftToSave = createId && files.length
-      ? { ...draft, summary: createPendingReminderSummary(files), attachment: null }
+      ? {
+          ...draft,
+          summary: hasReadyAttachmentSummary ? draft.summary : createPendingReminderSummary(files),
+          attachment: hasReadyAttachmentSummary ? draft.attachment || null : null,
+        }
       : draft
 
     setServerSaving(true)
@@ -567,7 +585,19 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
         return
       }
       pendingCreateIdRef.current = ''
-      if (createId && files.length) void finishReminderEnrichment(savedId, draft.title.trim(), files, null)
+      if (createId && files.length) {
+        const existingSummaryPromise = hasReadyAttachmentSummary
+          ? Promise.resolve({
+              type: draft.type,
+              title: draft.title,
+              dueDate: draft.dueDate,
+              dueTime: draft.dueTime || '',
+              summary: draft.summary,
+              attachment: draft.attachment || null,
+            })
+          : null
+        void finishReminderEnrichment(savedId, draft.title.trim(), files, existingSummaryPromise)
+      }
     } catch (error) {
       console.error('Shared reminder save failed:', error)
       setServerSaveError('서버에 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
