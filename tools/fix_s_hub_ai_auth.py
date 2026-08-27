@@ -10,6 +10,15 @@ def replace_once(path, old, new):
     target.write_text(text.replace(old, new, 1))
 
 
+def replace_exact(path, old, new, expected):
+    target = Path(path)
+    text = target.read_text()
+    count = text.count(old)
+    if count != expected:
+        raise SystemExit(f'{path}: expected exactly {expected} matches, found {count}')
+    target.write_text(text.replace(old, new))
+
+
 path = 'src/firebase-ai-direct.js'
 replace_once(
     path,
@@ -94,7 +103,7 @@ async function getDirectAI() {
 }
 """,
 )
-replace_once(
+replace_exact(
     path,
     """      headers: {
         'Content-Type': 'application/json',
@@ -103,17 +112,7 @@ replace_once(
 """,
     """      headers: await directFirebaseHeaders(),
 """,
-)
-# There are two raw POST sites. Patch the second one separately after the first replacement.
-replace_once(
-    path,
-    """      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': firebaseConfig.apiKey,
-      },
-""",
-    """      headers: await directFirebaseHeaders(),
-""",
+    2,
 )
 replace_once(path, "  const ai = getDirectAI()\n", "  const ai = await getDirectAI()\n")
 
@@ -198,4 +197,33 @@ replace_once('public/sw.js', "const CACHE_NAME = 'school-shell-v141'", "const CA
 
 # Add regression coverage for authenticated Firebase AI requests and SDK fallback.
 test_path = Path('tests/s-hub-ai-auth.test.js')
-test_path.write_text("""import test from 'node:test'\nimport assert from 'node:assert/strict'\nimport fs from 'node:fs'\n\nconst read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')\n\ntest('direct Firebase AI reuses signed-in school app and attaches security credentials', () => {\n  const source = read('src/firebase-ai-direct.js')\n  assert.match(source, /DIRECT_APP_NAME = 'school-sync'/)\n  assert.match(source, /await ensureSignedIn\(\)/)\n  assert.match(source, /await user\.getIdToken\(\)/)\n  assert.match(source, /Authorization = `Firebase \$\{idToken\}`/)\n  assert.match(source, /X-Firebase-AppCheck/)\n  assert.match(source, /headers: await directFirebaseHeaders\(\)/)\n})\n\ntest('structured S-Hub AI has SDK and authenticated raw paths', () => {\n  const source = read('src/firebase-ai-direct.js')\n  assert.match(source, /async function runSdkStructuredModel/)\n  assert.match(source, /responseSchema,/)\n  assert.match(source, /async function runStructuredModel/)\n  assert.match(source, /await runStructuredModel\(modelName/)\n  assert.doesNotMatch(source, /const value = await runRawStructuredModel\(modelName/)\n})\n\ntest('service worker cache advances for AI auth repair', () => {\n  const sw = read('public/sw.js')\n  assert.match(sw, /school-shell-v142/)\n})\n""")
+test_path.write_text(r"""import test from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+
+test('direct Firebase AI reuses signed-in school app and attaches security credentials', () => {
+  const source = read('src/firebase-ai-direct.js')
+  assert.match(source, /DIRECT_APP_NAME = 'school-sync'/)
+  assert.match(source, /await ensureSignedIn\(\)/)
+  assert.match(source, /await user\.getIdToken\(\)/)
+  assert.match(source, /Authorization = `Firebase \$\{idToken\}`/)
+  assert.match(source, /X-Firebase-AppCheck/)
+  assert.match(source, /headers: await directFirebaseHeaders\(\)/)
+})
+
+test('structured S-Hub AI has SDK and authenticated raw paths', () => {
+  const source = read('src/firebase-ai-direct.js')
+  assert.match(source, /async function runSdkStructuredModel/)
+  assert.match(source, /responseSchema,/)
+  assert.match(source, /async function runStructuredModel/)
+  assert.match(source, /await runStructuredModel\(modelName/)
+  assert.doesNotMatch(source, /const value = await runRawStructuredModel\(modelName/)
+})
+
+test('service worker cache advances for AI auth repair', () => {
+  const sw = read('public/sw.js')
+  assert.match(sw, /school-shell-v142/)
+})
+""")
