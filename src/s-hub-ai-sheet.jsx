@@ -73,6 +73,7 @@ export function SchoolAISheet({
   onClose,
   now,
   context,
+  conflictContext = context,
   onImportItems,
   requireOnline = () => true,
 }) {
@@ -148,7 +149,7 @@ export function SchoolAISheet({
   }
 
   async function reviewConflicts(items, { preserveChoices = false } = {}) {
-    const conflicts = await reviewSchoolImportConflicts(items, context, now)
+    const conflicts = await reviewSchoolImportConflicts(items, conflictContext, now)
     const choices = applyConflictSelection(
       items,
       conflicts,
@@ -179,7 +180,7 @@ export function SchoolAISheet({
         return
       }
       const items = result.items
-      const conflicts = await reviewSchoolImportConflicts(items, context, now)
+      const conflicts = await reviewSchoolImportConflicts(items, conflictContext, now)
       const choices = applyConflictSelection(items, conflicts)
       setState({
         mode: 'import',

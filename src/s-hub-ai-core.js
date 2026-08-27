@@ -212,6 +212,25 @@ function normalizeOfficialAcademic(event, today, index) {
   }
 }
 
+function groupOfficialAcademicEvents(events) {
+  const sorted = [...(events || [])].sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title))
+  const groups = []
+  sorted.forEach((event) => {
+    const last = groups[groups.length - 1]
+    const consecutive = last &&
+      last.title === event.title &&
+      last.detail === event.detail &&
+      dateDistance(last.endDate, event.startDate) === 1
+    if (consecutive) {
+      last.endDate = event.endDate
+      last.important = Boolean(last.important || event.important)
+      return
+    }
+    groups.push({ ...event })
+  })
+  return groups
+}
+
 function normalizeCustomAcademic(event, today) {
   const startDate = String(event?.startDate || '')
   const endDate = String(event?.endDate || startDate)
@@ -246,11 +265,11 @@ export function buildSchoolAIContext({
     .map(normalizeTimetableDay)
     .filter(Boolean)
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 10)
+    .slice(0, 14)
 
-  const official = (academicEvents || [])
+  const official = groupOfficialAcademicEvents((academicEvents || [])
     .map((event, index) => normalizeOfficialAcademic(event, today, index))
-    .filter(Boolean)
+    .filter(Boolean))
   const custom = (customAcademicEvents || [])
     .map((event) => normalizeCustomAcademic(event, today))
     .filter(Boolean)

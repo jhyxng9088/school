@@ -967,7 +967,7 @@ function AppShell({ profile }) {
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
 
   const aiContext = useMemo(() => {
-    const timetableDays = Array.from({ length: 8 }, (_, offset) => {
+    const timetableDays = Array.from({ length: 14 }, (_, offset) => {
       const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12, 0, 0, 0)
       return {
         date: dateKey(targetDate),
@@ -989,6 +989,17 @@ function AppShell({ profile }) {
       customAcademicEvents: academicData?.events || [],
     })
   }, [now, weeklySchedule, overrides, todoData.todos, schoolData?.academicEvents, academicData?.events])
+
+  const aiConflictContext = useMemo(() => {
+    const sharedReminderContext = buildSchoolAIContext({
+      now,
+      todos: todoData.sharedTodos || todoData.todos,
+    })
+    return {
+      ...aiContext,
+      reminders: sharedReminderContext.reminders,
+    }
+  }, [aiContext, now, todoData.sharedTodos, todoData.todos])
 
   async function importAIItems(items) {
     const saved = []
@@ -1203,6 +1214,7 @@ function AppShell({ profile }) {
         onClose={() => setAiOpen(false)}
         now={now}
         context={aiContext}
+        conflictContext={aiConflictContext}
         onImportItems={importAIItems}
         requireOnline={requireOnline}
       />

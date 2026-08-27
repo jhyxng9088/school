@@ -40,3 +40,14 @@ test('structured AI helper and attachment preparation are explicitly exported', 
   assert.match(direct, /export async function generateDirectStructured/)
   assert.match(firebaseAI, /export async function prepareAttachment/)
 })
+
+test('duplicate checks use class-shared reminders instead of personal completion state', () => {
+  const main = read('src/main.jsx')
+  const todo = read('src/todo.jsx')
+  const todoAI = read('src/todo-stage5-ai.jsx')
+
+  assert.match(todo, /sharedTodos,/)
+  assert.match(main, /todoData\.sharedTodos/)
+  assert.match(main, /conflictContext=\{aiConflictContext\}/)
+  assert.match(todoAI, /sharedTodos \|\| todos/)
+})

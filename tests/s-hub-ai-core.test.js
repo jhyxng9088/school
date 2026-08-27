@@ -152,3 +152,29 @@ test('notice normalization caps a single analysis at ten items', () => {
 
   assert.equal(items.length, 10)
 })
+
+test('official consecutive academic dates are grouped into one multi-day event', () => {
+  const context = buildSchoolAIContext({
+    now: NOW,
+    academicEvents: [
+      { rawDate: '20260928', name: '2학기 중간고사', content: '지필평가' },
+      { rawDate: '20260929', name: '2학기 중간고사', content: '지필평가' },
+      { rawDate: '20260930', name: '2학기 중간고사', content: '지필평가' },
+      { rawDate: '20261001', name: '2학기 중간고사', content: '지필평가' },
+    ],
+  })
+
+  assert.equal(context.academic.length, 1)
+  assert.equal(context.academic[0].startDate, '2026-09-28')
+  assert.equal(context.academic[0].endDate, '2026-10-01')
+})
+
+test('Q&A timetable context keeps up to fourteen days', () => {
+  const timetableDays = Array.from({ length: 16 }, (_, index) => {
+    const date = new Date(2026, 7, 27 + index, 12, 0, 0, 0)
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    return { date: key, periods: [{ number: 1, subject: `과목${index + 1}` }] }
+  })
+  const context = buildSchoolAIContext({ now: NOW, timetableDays })
+  assert.equal(context.timetable.length, 14)
+})

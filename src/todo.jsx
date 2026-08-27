@@ -537,6 +537,7 @@ export function useTodos(profile) {
 
   return {
     todos,
+    sharedTodos,
     saveTodo,
     enrichTodo,
     toggleTodo,

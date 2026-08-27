@@ -210,6 +210,7 @@ function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEd
 export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const {
     todos,
+    sharedTodos,
     saveTodo,
     enrichTodo,
     toggleTodo,
@@ -542,7 +543,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
 
     setConflictChecking(true)
     try {
-      const conflict = await findReminderConflict(candidate, todos, new Date(), { excludeId: candidate?.id || '' })
+      const conflict = await findReminderConflict(candidate, sharedTodos || todos, new Date(), { excludeId: candidate?.id || '' })
       if (!conflict) {
         setReminderConflict(null)
         return true
