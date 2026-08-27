@@ -302,6 +302,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Allow the scheduled backend's collectionGroup('pushSubscriptions') read.
+    // Write permissions remain restricted by the class-scoped rule below.
+    match /{path=**}/pushSubscriptions/{subscriptionId} {
+      allow read: if signedIn();
+    }
+
     match /classes/{classId}/pushSubscriptions/{subscriptionId} {
       allow read: if signedIn();
       allow create, update: if belongsToClass(classId)
