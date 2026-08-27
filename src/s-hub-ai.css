@@ -63,7 +63,16 @@
   letter-spacing: -0.02em;
 }
 
-.s-hub-ai-compose textarea::placeholder,
+.s-hub-ai-compose textarea::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1;
+  transition: opacity 220ms var(--motion-soft);
+}
+
+.s-hub-ai-compose textarea.is-hint-fading::placeholder {
+  opacity: 0;
+}
+
 .s-hub-ai-editor input::placeholder {
   color: var(--text-tertiary);
 }

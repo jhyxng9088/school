@@ -1,5 +1,5 @@
 import { prepareAttachment } from './firebase-ai.js'
-import { generateDirectStructured } from './firebase-ai-direct.js'
+import { generateSchoolStructured } from './s-hub-ai-transport.js'
 import {
   buildSemanticConflictPairs,
   existingContextEntry,
@@ -133,7 +133,7 @@ reminder.type 규칙:
 reason에는 왜 그렇게 해석했는지 아주 짧게 적어라.
 사용자가 확인하기 전에는 어떤 데이터도 저장되지 않는다.`
 
-    const generated = await generateDirectStructured({
+    const generated = await generateSchoolStructured({
       prompt,
       attachments,
       responseSchema: NOTICE_SCHEMA,
@@ -170,7 +170,7 @@ SCHOOL_DATA:
 ${compactJSON(context)}`
 
   try {
-    const generated = await generateDirectStructured({
+    const generated = await generateSchoolStructured({
       prompt,
       attachments: [],
       responseSchema: QUESTION_SCHEMA,
@@ -227,7 +227,7 @@ confidence가 충분하지 않으면 none을 사용해라.
 PAIRS:
 ${compactJSON(pairs, 30000)}`
 
-  const generated = await generateDirectStructured({
+  const generated = await generateSchoolStructured({
     prompt,
     attachments: [],
     responseSchema: CONFLICT_SCHEMA,

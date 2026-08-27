@@ -37,3 +37,18 @@ export function adminDb() {
 export function adminAuth() {
   return getAuth(adminApp())
 }
+
+export async function adminAccessToken() {
+  const credential = adminApp().options.credential
+  if (!credential?.getAccessToken) throw new Error('Firebase Admin credential cannot issue an access token')
+  const result = await credential.getAccessToken()
+  const token = String(result?.access_token || '').trim()
+  if (!token) throw new Error('Firebase Admin access token is empty')
+  return token
+}
+
+export function adminProjectId() {
+  const projectId = String(adminApp().options.projectId || '').trim()
+  if (!projectId) throw new Error('Firebase Admin project ID is missing')
+  return projectId
+}
