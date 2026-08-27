@@ -87,8 +87,8 @@ function safeAttachment(value) {
   return { name, mimeType, size }
 }
 
-const PRESENCE_ACTIVE_MS = 150 * 1000
-const PRESENCE_REFRESH_MS = 60 * 1000
+const PRESENCE_ACTIVE_MS = 45 * 1000
+const PRESENCE_REFRESH_MS = 15 * 1000
 
 function normalizeName(value) {
   return String(value || '')
