@@ -8,7 +8,7 @@ on:
       - '.github/workflows/refactor-interactions.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   refactor:
@@ -68,13 +68,22 @@ jobs:
         working-directory: push-backend-v2
         run: npm test
 
-      - name: Show final scope
-        run: git status --short
-
-      - name: Commit only after every check passes
+      - name: Export exact verified repository state
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Harden mobile interactions and clean repository"
-          git push
+          git status --short > /tmp/refactor-status.txt
+          tar \
+            --exclude=.git \
+            --exclude=node_modules \
+            --exclude=dist \
+            --exclude=push-backend-v2/node_modules \
+            -czf /tmp/refactored-repo.tar.gz .
+
+      - name: Upload verified refactor
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-interaction-cleanup
+          path: |
+            /tmp/refactored-repo.tar.gz
+            /tmp/refactor-status.txt
+          if-no-files-found: error
+          retention-days: 1
