@@ -205,10 +205,11 @@ async function startUnreadIndicators() {
   }
 
   function renderNav() {
+    const reminderDotVisible = Boolean(document.querySelector('.todo-stage5 .school-unread-dot.is-reminder'))
     document.querySelectorAll('.bottom-nav .nav-button').forEach((button) => {
       const tab = tabForButton(button)
       if (!tab) return
-      if (navUnread(tab)) addDot(button, 'nav')
+      if (navUnread(tab) || (tab === 'todo' && reminderDotVisible)) addDot(button, 'nav')
       else removeDot(button)
     })
   }
@@ -223,8 +224,8 @@ async function startUnreadIndicators() {
 
   function render() {
     state.mealAvailable = hasTodayMealInCache()
-    renderNav()
     renderReminderRows()
+    renderNav()
     const tab = activeTab()
     if (tab) markTabSeen(tab)
   }
