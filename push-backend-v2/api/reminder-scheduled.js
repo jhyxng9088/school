@@ -1,7 +1,7 @@
 import { adminDb } from '../lib/firebase-admin.js'
 import { planClassNotifications } from '../lib/planner.js'
 import { acquireClaim, markClaimSent, releaseClaim } from '../lib/claims.js'
-import { sendPlan } from '../lib/push.js'
+import { sendPlan, vapidConfigurationState } from '../lib/push.js'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -92,9 +92,12 @@ export default async function handler(req, res) {
     }
 
     if (dryRun) {
+      const pushState = vapidConfigurationState()
       return res.status(200).json({
         ok: true,
         dryRun: true,
+        pushConfigured: pushState.configured,
+        vapidKeyPairMatches: pushState.keyPairMatches,
         subscriptions: subscriptions.length,
         classes: byClass.size,
         planned: planned.length,
