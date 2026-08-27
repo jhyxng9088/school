@@ -1,10 +1,10 @@
 (() => {
   const labels = {
-    home: '홈',
-    todo: '투두',
-    timetable: '시간표',
-    meal: '급식',
-    academic: '학사일정',
+    home: ['홈'],
+    todo: ['리마인더', '투두'],
+    timetable: ['시간표'],
+    meal: ['급식'],
+    academic: ['학사일정'],
   }
 
   let activeRequest = 0
@@ -16,10 +16,10 @@
   }
 
   function targetButton(tab) {
-    const label = labels[tab]
-    if (!label) return null
+    const aliases = labels[tab]
+    if (!aliases?.length) return null
     return Array.from(document.querySelectorAll('.bottom-nav .nav-button'))
-      .find((button) => button.querySelector('span')?.textContent?.trim() === label) || null
+      .find((button) => aliases.includes(button.querySelector('span')?.textContent?.trim() || '')) || null
   }
 
   function routeToTab(tab, { cleanUrl = false } = {}) {
@@ -43,7 +43,7 @@
     if (finish()) return
 
     observer = new MutationObserver(finish)
-    observer.observe(document.documentElement, { childList: true, subtree: true })
+    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true })
     timer = window.setTimeout(() => {
       observer?.disconnect()
       if (cleanUrl && requestId === activeRequest) cleanRoute()
