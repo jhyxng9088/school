@@ -1,0 +1,26 @@
+name: S-Hub scheduled push
+
+on:
+  schedule:
+    # 09:00–16:55 KST, weekdays. The endpoint itself decides whether a class/lunch alert is due.
+    - cron: '*/5 0-7 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s-hub-scheduled-push
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger scheduled push dispatcher
+        run: |
+          curl --silent --show-error --retry 2 --retry-delay 2 --max-time 25 \
+            --request POST \
+            --header 'Accept: application/json' \
+            'https://school-push-backend.vercel.app/api/push-scheduled'
