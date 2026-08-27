@@ -1,29 +1,26 @@
+
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('direct Firebase AI reuses signed-in school app and attaches security credentials', () => {
-  const source = read('src/firebase-ai-direct.js')
-  assert.match(source, /DIRECT_APP_NAME = 'school-sync'/)
-  assert.match(source, /await ensureSignedIn\(\)/)
-  assert.match(source, /await user\.getIdToken\(\)/)
-  assert.match(source, /Authorization = `Firebase \$\{idToken\}`/)
-  assert.match(source, /X-Firebase-AppCheck/)
-  assert.match(source, /headers: await directFirebaseHeaders\(\)/)
+test('S-Hub no longer depends on iOS reCAPTCHA App Check attestation', () => {
+  const transport = read('src/s-hub-ai-transport.js')
+  assert.match(transport, /ensureSignedIn/)
+  assert.match(transport, /getIdToken/)
+  assert.doesNotMatch(transport, /firebase-ai-direct/)
+  assert.doesNotMatch(transport, /AppCheck|App Check|X-Firebase-AppCheck/)
 })
 
-test('structured S-Hub AI has SDK and authenticated raw paths', () => {
-  const source = read('src/firebase-ai-direct.js')
-  assert.match(source, /async function runSdkStructuredModel/)
-  assert.match(source, /responseSchema,/)
-  assert.match(source, /async function runStructuredModel/)
-  assert.match(source, /await runStructuredModel\(modelName/)
-  assert.doesNotMatch(source, /const value = await runRawStructuredModel\(modelName/)
+test('server uses Firebase Admin to mint App Check for Firebase AI', () => {
+  const admin = read('push-backend-v2/lib/firebase-admin.js')
+  const endpoint = read('push-backend-v2/api/s-hub-ai.js')
+  assert.match(admin, /firebase-admin\/app-check/)
+  assert.match(admin, /createToken\(safeAppId/)
+  assert.match(endpoint, /adminAppCheckToken/)
 })
 
-test('service worker cache advances for AI auth repair', () => {
-  const sw = read('public/sw.js')
-  assert.match(sw, /school-shell-v144/)
+test('service worker cache advances for iOS AI repair', () => {
+  assert.match(read('public/sw.js'), /school-shell-v145/)
 })

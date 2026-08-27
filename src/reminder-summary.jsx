@@ -243,6 +243,8 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
   const dragRef = useRef(null)
   const pullRef = useRef(null)
   const objectUrlRef = useRef('')
+  const preparedOriginalsRef = useRef(new Map())
+  const preloadTimerRef = useRef(null)
   const [expanded, setExpanded] = useState(false)
   const [viewer, setViewer] = useState(null)
   const [originalState, setOriginalState] = useState('idle')
@@ -340,6 +342,11 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
     setOriginalState('idle')
     setOriginalError('')
     setViewer(null)
+    preparedOriginalsRef.current.clear()
+    if (preloadTimerRef.current) {
+      window.clearTimeout(preloadTimerRef.current)
+      preloadTimerRef.current = null
+    }
     dragRef.current = null
     pullRef.current = null
     const previousOverflow = document.body.style.overflow
@@ -351,9 +358,26 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
 
     return () => {
       stopAnimation()
+      if (preloadTimerRef.current) window.clearTimeout(preloadTimerRef.current)
+      preloadTimerRef.current = null
+      preparedOriginalsRef.current.clear()
       document.body.style.overflow = previousOverflow
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
       objectUrlRef.current = ''
+    }
+  }, [todo?.id])
+
+  useEffect(() => {
+    if (!todo?.id || !canShowOriginal || !originalEntries[0]) return undefined
+    preloadTimerRef.current = window.setTimeout(() => {
+      preloadTimerRef.current = null
+      void prepareOriginal(originalEntries[0]).catch(() => {
+        // Silent preload only. A visible error is shown if the user actually opens it.
+      })
+    }, 120)
+    return () => {
+      if (preloadTimerRef.current) window.clearTimeout(preloadTimerRef.current)
+      preloadTimerRef.current = null
     }
   }, [todo?.id])
 
@@ -453,17 +477,34 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
     if (pull?.active) finishDrag(true)
   }
 
+  function prepareOriginal(entry) {
+    if (!loadOriginal) return Promise.reject(new Error('원본 파일을 불러올 수 없어.'))
+    const key = String(entry?.key || '')
+    const cached = preparedOriginalsRef.current.get(key)
+    if (cached) return cached
+    const request = loadOriginal(key)
+      .then((original) => ({
+        ...original,
+        blob: base64ToBlob(original.dataBase64, original.mimeType),
+      }))
+      .catch((error) => {
+        if (preparedOriginalsRef.current.get(key) === request) preparedOriginalsRef.current.delete(key)
+        throw error
+      })
+    preparedOriginalsRef.current.set(key, request)
+    return request
+  }
+
   async function openOriginal(entry) {
     if (!loadOriginal || originalState === 'loading') return
     setOriginalState('loading')
     setOriginalError('')
     try {
-      const original = await loadOriginal(entry?.key || '')
-      const blob = base64ToBlob(original.dataBase64, original.mimeType)
+      const original = await prepareOriginal(entry)
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
-      const url = URL.createObjectURL(blob)
+      const url = URL.createObjectURL(original.blob)
       objectUrlRef.current = url
-      setViewer({ ...original, blob, url })
+      setViewer({ ...original, url })
       setOriginalState('ready')
     } catch (error) {
       console.error('Original reminder image load failed:', error)
