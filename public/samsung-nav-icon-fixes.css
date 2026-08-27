@@ -1,7 +1,6 @@
-/* Samsung Internet: meal and academic use the existing React inline SVG directly.
-   This removes all external/data-URI mask loading for those two icons only. */
-html.school-samsung .bottom-nav .nav-button:nth-of-type(4)::before,
-html.school-samsung .bottom-nav .nav-button:nth-of-type(5)::before {
+/* Samsung Internet: use the existing React inline SVG for all five nav icons.
+   One rendering path keeps selected/unselected color identical across every tab. */
+html.school-samsung .bottom-nav .nav-button::before {
   content: none !important;
   display: none !important;
   background: none !important;
@@ -9,8 +8,7 @@ html.school-samsung .bottom-nav .nav-button:nth-of-type(5)::before {
   mask-image: none !important;
 }
 
-html.school-samsung .bottom-nav .nav-button:nth-of-type(4) > svg,
-html.school-samsung .bottom-nav .nav-button:nth-of-type(5) > svg {
+html.school-samsung .bottom-nav .nav-button > svg {
   display: block !important;
   width: 22px !important;
   height: 22px !important;
@@ -26,8 +24,7 @@ html.school-samsung .bottom-nav .nav-button:nth-of-type(5) > svg {
   opacity: 1 !important;
 }
 
-html.school-samsung .bottom-nav .nav-button:nth-of-type(4) > svg > *,
-html.school-samsung .bottom-nav .nav-button:nth-of-type(5) > svg > * {
+html.school-samsung .bottom-nav .nav-button > svg > * {
   color: var(--text-tertiary) !important;
   fill: none !important;
   stroke: var(--text-tertiary) !important;
@@ -38,10 +35,8 @@ html.school-samsung .bottom-nav .nav-button:nth-of-type(5) > svg > * {
   opacity: 1 !important;
 }
 
-html.school-samsung .bottom-nav .nav-button:nth-of-type(4).active > svg,
-html.school-samsung .bottom-nav .nav-button:nth-of-type(5).active > svg,
-html.school-samsung .bottom-nav .nav-button:nth-of-type(4).active > svg > *,
-html.school-samsung .bottom-nav .nav-button:nth-of-type(5).active > svg > * {
+html.school-samsung .bottom-nav .nav-button.active > svg,
+html.school-samsung .bottom-nav .nav-button.active > svg > * {
   color: var(--text) !important;
   stroke: var(--text) !important;
 }

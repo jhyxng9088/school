@@ -11,7 +11,7 @@
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "./icon.svg?v=9",
+      "src": "./icon-android.svg?v=1",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
