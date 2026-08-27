@@ -37,6 +37,11 @@ jobs:
           git diff --check
           git diff -- src/main.jsx src/styles.css
 
+      - name: Remove temporary helper before regression checks
+        run: |
+          rm .github/scripts/fix_presence_flash.py
+          rmdir .github/scripts
+
       - name: Install app dependencies
         run: npm ci
 
