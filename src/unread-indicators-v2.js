@@ -175,7 +175,9 @@ async function startUnreadIndicators() {
       return academicVersion() > seenVersion(NAV_STATE_IDS.academic)
     }
     if (tab === 'meal') {
-      return state.mealAvailable && todayVersion() > seenVersion(NAV_STATE_IDS.meal)
+      return state.seenReady
+        && state.mealAvailable
+        && todayVersion() > seenVersion(NAV_STATE_IDS.meal)
     }
     return false
   }
