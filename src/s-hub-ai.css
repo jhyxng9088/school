@@ -11,15 +11,15 @@
 }
 
 .home-ai-trigger {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 50%;
   background: color-mix(in srgb, var(--surface) 76%, transparent);
-  color: var(--text-secondary);
+  color: var(--text);
   cursor: pointer;
   touch-action: manipulation;
   transition: background-color 320ms var(--motion-soft), color 320ms var(--motion-soft), transform 180ms var(--motion-ease);
@@ -47,15 +47,16 @@
 }
 
 .s-hub-ai-thinking-stage {
-  min-height: 128px;
+  min-height: 142px;
   display: grid;
   place-items: center;
   align-content: center;
   gap: 11px;
   padding: 13px 0 9px;
   margin: -3px 0 0;
-  color: var(--text-secondary);
-  animation: s-hub-ai-thinking-in 360ms var(--motion-ease) both;
+  color: var(--text);
+  animation: s-hub-ai-thinking-in 520ms var(--motion-ease) both;
+  transition: min-height 460ms var(--motion-ease), padding 460ms var(--motion-ease), gap 460ms var(--motion-ease);
 }
 
 .s-hub-ai-thinking-copy {
@@ -69,7 +70,7 @@
   text-align: center;
   opacity: 1;
   transform: translate3d(0, 0, 0);
-  transition: opacity 180ms var(--motion-soft), transform 180ms var(--motion-soft);
+  transition: opacity 240ms var(--motion-soft), transform 240ms var(--motion-soft);
 }
 
 .s-hub-ai-thinking-copy.is-fading {
@@ -78,7 +79,7 @@
 }
 
 @keyframes s-hub-ai-thinking-in {
-  from { opacity: 0; transform: translate3d(0, 5px, 0) scale(0.97); }
+  from { opacity: 0; transform: translate3d(0, 4px, 0) scale(0.985); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
@@ -605,12 +606,19 @@
 .s-hub-ai-thinking-stage .s-hub-ai-orb {
   opacity: 1;
   transform: scale(1);
-  transition: opacity 240ms var(--motion-soft), transform 240ms var(--motion-soft);
+  transition: opacity 420ms var(--motion-soft), transform 460ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.s-hub-ai-thinking-stage.is-finishing {
+  min-height: 48px;
+  padding-top: 0;
+  padding-bottom: 0;
+  gap: 0;
 }
 
 .s-hub-ai-thinking-stage.is-finishing .s-hub-ai-orb {
-  opacity: 0.34;
-  transform: scale(0.72);
+  opacity: 0.06;
+  transform: scale(0.32);
 }
 
 .s-hub-ai-thinking-stage.is-finishing .s-hub-ai-thinking-copy {
@@ -621,13 +629,13 @@
 .s-hub-ai-answer,
 .s-hub-ai-import,
 .s-hub-ai-save-result {
-  animation: s-hub-ai-result-reveal 380ms var(--motion-ease) both;
+  animation: s-hub-ai-result-reveal 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes s-hub-ai-result-reveal {
   from {
     opacity: 0;
-    transform: translate3d(0, 7px, 0) scale(0.992);
+    transform: translate3d(0, 5px, 0) scale(0.996);
   }
   to {
     opacity: 1;

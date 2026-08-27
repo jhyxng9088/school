@@ -20,13 +20,13 @@ const IDLE_PROFILE = {
 }
 
 const THINKING_MOTIONS = [
-  { name: 'focus', duration: [1450, 2200], radiusScale: 0.63, speed: 0.30, tilt: 0.24, wave: 0.008, twist: 0.025, pulse: 0.012, roll: -0.04 },
-  { name: 'breathe', duration: [1700, 2700], radiusScale: 0.98, speed: 0.18, tilt: 0.30, wave: 0.025, twist: 0.04, pulse: 0.035, roll: 0.03 },
-  { name: 'whirl', duration: [1200, 1850], radiusScale: 0.90, speed: 1.18, tilt: 0.40, wave: 0.018, twist: 0.23, pulse: 0.012, roll: 0.16 },
-  { name: 'ripple', duration: [1550, 2350], radiusScale: 0.96, speed: 0.31, tilt: 0.33, wave: 0.11, twist: 0.08, pulse: 0.018, roll: -0.08 },
-  { name: 'drift', duration: [1900, 2900], radiusScale: 1.02, speed: 0.12, tilt: 0.50, wave: 0.032, twist: 0.10, pulse: 0.020, roll: 0.22 },
-  { name: 'bloom', duration: [1350, 2100], radiusScale: 1.08, speed: 0.39, tilt: 0.19, wave: 0.065, twist: 0.12, pulse: 0.028, roll: -0.15 },
-  { name: 'scan', duration: [1450, 2250], radiusScale: 0.94, speed: 0.52, tilt: 0.56, wave: 0.022, twist: 0.28, pulse: 0.010, roll: 0.06 },
+  { name: 'focus', duration: [1900, 2800], radiusScale: 0.63, speed: 0.26, tilt: 0.24, wave: 0.008, twist: 0.025, pulse: 0.012, roll: -0.04 },
+  { name: 'breathe', duration: [2300, 3400], radiusScale: 0.98, speed: 0.17, tilt: 0.30, wave: 0.025, twist: 0.04, pulse: 0.035, roll: 0.03 },
+  { name: 'whirl', duration: [1700, 2400], radiusScale: 0.90, speed: 0.95, tilt: 0.40, wave: 0.018, twist: 0.23, pulse: 0.012, roll: 0.16 },
+  { name: 'ripple', duration: [2100, 3000], radiusScale: 0.96, speed: 0.29, tilt: 0.33, wave: 0.11, twist: 0.08, pulse: 0.018, roll: -0.08 },
+  { name: 'drift', duration: [2500, 3600], radiusScale: 1.02, speed: 0.12, tilt: 0.50, wave: 0.032, twist: 0.10, pulse: 0.020, roll: 0.22 },
+  { name: 'bloom', duration: [1900, 2700], radiusScale: 1.08, speed: 0.34, tilt: 0.19, wave: 0.065, twist: 0.12, pulse: 0.028, roll: -0.15 },
+  { name: 'scan', duration: [2000, 2900], radiusScale: 0.94, speed: 0.47, tilt: 0.56, wave: 0.022, twist: 0.28, pulse: 0.010, roll: 0.06 },
 ]
 
 function clamp(value, min, max) {
@@ -37,9 +37,9 @@ function mix(from, to, amount) {
   return from + (to - from) * amount
 }
 
-function smoothstep(value) {
+function smootherstep(value) {
   const x = clamp(value, 0, 1)
-  return x * x * (3 - 2 * x)
+  return x * x * x * (x * (x * 6 - 15) + 10)
 }
 
 function randomBetween(min, max) {
@@ -96,7 +96,7 @@ export function SHubAIOrb({ size = 24, active = false, className = '' }) {
     }
 
     function interpolatedMotion(time) {
-      const amount = smoothstep((time - motionStart) / Math.max(motionDuration, 1))
+      const amount = smootherstep((time - motionStart) / Math.max(motionDuration, 1))
       return {
         radiusScale: mix(motionFrom.radiusScale, motionTarget.radiusScale, amount),
         speed: mix(motionFrom.speed, motionTarget.speed, amount),
@@ -126,7 +126,7 @@ export function SHubAIOrb({ size = 24, active = false, className = '' }) {
     if (active) startNextMotion(lastTick, motionFrom)
 
     function draw(time, force = false) {
-      if (!force && time - lastDraw < 31) return
+      if (!force && time - lastDraw < 16) return
       const delta = Math.min(Math.max((time - lastTick) / 1000, 0), 0.06)
       lastTick = time
       lastDraw = time
@@ -167,10 +167,10 @@ export function SHubAIOrb({ size = 24, active = false, className = '' }) {
 
       context.clearRect(0, 0, cssSize, cssSize)
       context.fillStyle = cachedColor
-      const baseDot = Math.max(0.55, Math.min(1.08, cssSize * 0.018))
+      const baseDot = Math.max(0.62, Math.min(1.16, cssSize * 0.019))
       projected.forEach((point) => {
         const depth = (point.z + 1) / 2
-        context.globalAlpha = 0.24 + depth * 0.7
+        context.globalAlpha = 0.36 + depth * 0.64
         context.beginPath()
         context.arc(point.x, point.y, baseDot * (0.72 + depth * 0.62) * point.perspective, 0, Math.PI * 2)
         context.fill()
