@@ -23,12 +23,15 @@ jobs:
           node-version: 22
 
       - name: Apply guarded orb refinement
-        run: python3 .github/scripts/refine_orb_smooth_v150.py
+        run: |
+          python3 .github/scripts/fix_orb_v150_guard.py
+          python3 .github/scripts/refine_orb_smooth_v150.py
 
       - name: Remove temporary verification machinery
         run: |
           rm .github/workflows/verify-s-hub-ai-orb-v150.yml
           rm .github/scripts/refine_orb_smooth_v150.py
+          rm .github/scripts/fix_orb_v150_guard.py
           rmdir .github/scripts 2>/dev/null || true
 
       - name: Verify final repository shape and visual invariants
