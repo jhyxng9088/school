@@ -21,6 +21,8 @@ export async function generateSchoolStructured({
   maxOutputTokens = 1600,
   timeoutMs = 26000,
   temperature = 0.05,
+  purpose = 'school',
+  signal = null,
 } = {}) {
   const safePrompt = String(prompt || '').trim()
   if (!safePrompt || !responseSchema || typeof responseSchema !== 'object') {
@@ -51,11 +53,20 @@ export async function generateSchoolStructured({
   if (!idToken) throw transportError('로그인 정보를 확인하지 못했어. 앱을 다시 열어줘.', 'school-ai/auth-missing', 401)
 
   const controller = new AbortController()
+  const callerSignal = signal && typeof signal.addEventListener === 'function' ? signal : null
+  let timedOut = false
+  const abortFromCaller = () => controller.abort()
+  if (callerSignal?.aborted) controller.abort()
+  else callerSignal?.addEventListener('abort', abortFromCaller, { once: true })
+
   const clientTimeout = Math.min(
     MAX_CLIENT_TIMEOUT_MS,
     Math.max(12_000, Number(timeoutMs || 26000) + 10_000),
   )
-  const timeoutId = window.setTimeout(() => controller.abort(), clientTimeout)
+  const timeoutId = window.setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, clientTimeout)
 
   try {
     const response = await fetch(S_HUB_AI_API_URL, {
@@ -65,6 +76,7 @@ export async function generateSchoolStructured({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        purpose: purpose === 'reminder' ? 'reminder' : 'school',
         prompt: safePrompt.slice(0, 40_000),
         attachments: safeAttachments,
         responseSchema,
@@ -89,11 +101,15 @@ export async function generateSchoolStructured({
     return payload.result
   } catch (error) {
     if (error?.name === 'AbortError') {
+      if (!timedOut && callerSignal?.aborted) {
+        throw transportError('S-Hub AI 요청을 취소했어.', 'school-ai/cancelled', 499)
+      }
       throw transportError('AI 응답 시간이 초과됐어. 다시 시도해줘.', 'school-ai/server-timeout', 504)
     }
     if (error?.name === 'SchoolAITransportError') throw error
     throw transportError('AI 서버에 연결하지 못했어. 네트워크를 확인하고 다시 시도해줘.', 'school-ai/network-error')
   } finally {
     window.clearTimeout(timeoutId)
+    callerSignal?.removeEventListener?.('abort', abortFromCaller)
   }
 }

@@ -96,7 +96,7 @@ function schoolAIError(error, fallback) {
   return wrapped
 }
 
-export async function analyzeSchoolNotice({ text = '', files = [], context = {}, now = new Date() } = {}) {
+export async function analyzeSchoolNotice({ text = '', files = [], context = {}, now = new Date(), signal = null } = {}) {
   const sourceText = String(text || '').trim().slice(0, 800)
   const sourceFiles = Array.from(files || []).filter((file) => file instanceof Blob).slice(0, 4)
   if (!sourceText && !sourceFiles.length) return { items: [], modelName: '' }
@@ -140,6 +140,8 @@ reason에는 왜 그렇게 해석했는지 아주 짧게 적어라.
       maxOutputTokens: 3200,
       timeoutMs: attachments.length ? 45000 : 26000,
       temperature: 0.05,
+      purpose: 'school',
+      signal,
     })
     return {
       items: normalizeImportItems(generated?.value, now),
@@ -152,7 +154,7 @@ reason에는 왜 그렇게 해석했는지 아주 짧게 적어라.
   }
 }
 
-export async function askSchoolHub({ question = '', context = {}, now = new Date() } = {}) {
+export async function askSchoolHub({ question = '', context = {}, now = new Date(), signal = null } = {}) {
   const text = String(question || '').trim().slice(0, 500)
   if (text.length < 2) return { answer: '', modelName: '' }
 
@@ -177,6 +179,8 @@ ${compactJSON(context)}`
       maxOutputTokens: 1100,
       timeoutMs: 26000,
       temperature: 0.05,
+      purpose: 'school',
+      signal,
     })
     const answer = String(generated?.value?.answer || '').trim().slice(0, 5000)
     if (!answer) throw new Error('S-Hub AI가 빈 답변을 반환했어.')
@@ -207,7 +211,7 @@ function normalizeSemanticConflict(raw, candidateMap, context) {
   }
 }
 
-async function semanticConflictReview(items, context, now) {
+async function semanticConflictReview(items, context, now, signal = null) {
   const pairs = buildSemanticConflictPairs(items, context)
   if (!pairs.length) return []
 
@@ -234,11 +238,13 @@ ${compactJSON(pairs, 30000)}`
     maxOutputTokens: 1500,
     timeoutMs: 24000,
     temperature: 0,
+    purpose: 'school',
+    signal,
   })
   return Array.isArray(generated?.value?.conflicts) ? generated.value.conflicts : []
 }
 
-export async function reviewSchoolImportConflicts(items, context, now = new Date()) {
+export async function reviewSchoolImportConflicts(items, context, now = new Date(), { signal = null } = {}) {
   const validItems = (items || []).filter((item) => item?.valid !== false)
   const result = {}
   validItems.forEach((item) => {
@@ -249,13 +255,14 @@ export async function reviewSchoolImportConflicts(items, context, now = new Date
   const candidates = validItems.filter((item) => !result[item.id])
   if (!candidates.length) return result
   try {
-    const semantic = await semanticConflictReview(candidates, context, now)
+    const semantic = await semanticConflictReview(candidates, context, now, signal)
     const candidateMap = new Map(candidates.map((item) => [item.id, item]))
     semantic.forEach((raw) => {
       const normalized = normalizeSemanticConflict(raw, candidateMap, context)
       if (normalized && !result[normalized.candidateId]) result[normalized.candidateId] = normalized
     })
   } catch (error) {
+    if (signal?.aborted || error?.code === 'school-ai/cancelled') throw error
     // Semantic review is advisory. Deterministic conflict checks remain authoritative
     // and a transient AI outage must never break normal saving.
     console.warn('S-Hub semantic conflict review unavailable:', error)

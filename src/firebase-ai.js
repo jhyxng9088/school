@@ -379,6 +379,7 @@ async function serverReminderResult(input, now, files, { titleOnly = false } = {
     maxOutputTokens: wantsSummary ? 2200 : 220,
     timeoutMs: wantsSummary ? ATTACHMENT_REQUEST_TIMEOUT_MS : TEXT_REQUEST_TIMEOUT_MS,
     temperature: 0.1,
+    purpose: 'reminder',
   })
 
   const base = normalizeResult(response?.value)

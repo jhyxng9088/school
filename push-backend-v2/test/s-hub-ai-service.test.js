@@ -49,7 +49,7 @@ test('server Firebase AI request uses Admin OAuth, App Check and API key', async
   }
 })
 
-test('text requests prefer Flash Lite while attachments prefer multimodal Flash', async () => {
+test('school and reminder requests use their intended model profiles', async () => {
   const originalFetch = globalThis.fetch
   const urls = []
   globalThis.fetch = async (url) => {
@@ -66,8 +66,13 @@ test('text requests prefer Flash Lite while attachments prefer multimodal Flash'
       projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'image', responseSchema: schema,
       attachments: [{ mimeType: 'image/jpeg', dataBase64: 'AA==' }],
     })
+    await generateStructuredWithFirebaseAI({
+      projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'reminder image', responseSchema: schema,
+      attachments: [{ mimeType: 'image/jpeg', dataBase64: 'AA==' }], purpose: 'reminder',
+    })
     assert.match(urls[0], /gemini-3\.5-flash-lite/)
     assert.match(urls[1], /gemini-3\.7-flash/)
+    assert.match(urls[2], /gemini-3\.5-flash-lite/)
   } finally {
     globalThis.fetch = originalFetch
   }

@@ -261,9 +261,15 @@
 }
 
 .s-hub-ai-item-main > span {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 650;
+  width: max-content;
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .s-hub-ai-item-main strong {
@@ -290,11 +296,20 @@
 }
 
 .s-hub-ai-edit {
-  min-height: 34px;
-  padding: 0 9px;
+  min-width: 58px;
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
   border-radius: 11px;
-  background: transparent;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
   font-size: 12px;
+}
+
+.s-hub-ai-edit.is-done {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
 }
 
 .s-hub-ai-editor {
@@ -330,6 +345,96 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
+  min-width: 0;
+}
+
+.s-hub-ai-editor-grid > label,
+.s-hub-ai-editor > label {
+  min-width: 0;
+}
+
+.s-hub-ai-native-control {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.s-hub-ai-native-value {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0 10px;
+  box-sizing: border-box;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.s-hub-ai-native-control:focus-within {
+  border-color: var(--text-tertiary);
+}
+
+.s-hub-ai-native-control > input[type="date"],
+.s-hub-ai-native-control > input[type="time"] {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: transparent;
+  opacity: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.s-hub-ai-native-control > input[type="date"]::-webkit-calendar-picker-indicator,
+.s-hub-ai-native-control > input[type="time"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.s-hub-ai-native-control > input[type="date"]::-webkit-date-and-time-value,
+.s-hub-ai-native-control > input[type="time"]::-webkit-date-and-time-value,
+.s-hub-ai-native-control > input[type="date"]::-webkit-datetime-edit,
+.s-hub-ai-native-control > input[type="time"]::-webkit-datetime-edit,
+.s-hub-ai-native-control > input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.s-hub-ai-native-control > input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: center !important;
 }
 
 .s-hub-ai-conflict {

@@ -30,40 +30,99 @@ const NOTICE_HINTS = [
 ]
 
 function kindLabel(item) {
-  if (item.kind === 'reminder') return REMINDER_TYPES.find((type) => type.id === item.type)?.label || '리마인더'
+  if (item.kind === 'reminder') {
+    const type = REMINDER_TYPES.find((candidate) => candidate.id === item.type)?.label || '일반'
+    return `리마인더 · ${type}`
+  }
   if (item.kind === 'timetable_change') return '시간표 변경'
   return '학사일정'
 }
 
 function shortDate(value) {
   const [year, month, day] = String(value || '').split('-').map(Number)
-  if (!year || !month || !day) return '날짜 확인 필요'
+  if (!year || !month || !day) return ''
   return `${month}/${day}`
 }
 
+function nativeDateDisplay(value) {
+  const [year, month, day] = String(value || '').split('-').map(Number)
+  if (!year || !month || !day) return '선택'
+  return `${month}/${day}/${String(year).slice(-2)}`
+}
+
+function nativeTimeDisplay(value) {
+  const [hourValue, minuteValue] = String(value || '').split(':').map(Number)
+  if (!Number.isInteger(hourValue) || !Number.isInteger(minuteValue)) return '선택'
+  const period = hourValue < 12 ? '오전' : '오후'
+  const hour = hourValue % 12 || 12
+  return `${period} ${hour}:${String(minuteValue).padStart(2, '0')}`
+}
+
 function itemMeta(item) {
+  const parts = []
   if (item.kind === 'reminder') {
-    return `${shortDate(item.dueDate)}${item.dueTime ? ` · ${item.dueTime}` : ''}`
+    const date = shortDate(item.dueDate)
+    if (date) parts.push(date)
+    if (item.dueTime) parts.push(item.dueTime)
+    return parts.join(' · ')
   }
   if (item.kind === 'timetable_change') {
-    return `${shortDate(item.date)} · ${item.period || '?'}교시 · ${item.subject || '과목 확인 필요'}`
+    const date = shortDate(item.date)
+    if (date) parts.push(date)
+    if (item.period) parts.push(`${item.period}교시`)
+    if (item.subject) parts.push(item.subject)
+    return parts.join(' · ')
   }
-  const range = item.startDate === item.endDate
-    ? shortDate(item.startDate)
-    : `${shortDate(item.startDate)}–${shortDate(item.endDate)}`
-  return range
+  const start = shortDate(item.startDate)
+  const end = shortDate(item.endDate)
+  if (start && end) return start === end ? start : `${start}–${end}`
+  return start || end || ''
+}
+
+function itemReviewLabel(item) {
+  if (item.kind === 'reminder' && !shortDate(item.dueDate)) return '날짜 확인 필요'
+  if (item.kind === 'timetable_change' && (!shortDate(item.date) || !item.period || !String(item.subject || '').trim())) {
+    return '시간표 정보 확인 필요'
+  }
+  if (item.kind === 'academic' && (!shortDate(item.startDate) || !shortDate(item.endDate))) return '날짜 확인 필요'
+  if (item.confidence === 'low' || item.valid === false) return '정보 확인 필요'
+  return ''
 }
 
 function existingMeta(conflict) {
   const existing = conflict?.existing
   if (!existing) return ''
   if (conflict.existingKind === 'reminder') {
-    return `${existing.title} · ${shortDate(existing.dueDate)}${existing.dueTime ? ` ${existing.dueTime}` : ''}`
+    return `${existing.title} · ${shortDate(existing.dueDate) || '날짜 미확인'}${existing.dueTime ? ` ${existing.dueTime}` : ''}`
   }
   if (conflict.existingKind === 'timetable_change') {
-    return `${shortDate(existing.date)} · ${existing.period}교시 · ${existing.subject || '미설정'}`
+    return `${shortDate(existing.date) || '날짜 미확인'} · ${existing.period}교시 · ${existing.subject || '미설정'}`
   }
-  return `${existing.title} · ${shortDate(existing.startDate)}`
+  return `${existing.title} · ${shortDate(existing.startDate) || '날짜 미확인'}`
+}
+
+function NativeDateField({ label, value, onChange }) {
+  return (
+    <label>
+      <span>{label}</span>
+      <span className="s-hub-ai-native-control">
+        <span className="s-hub-ai-native-value" aria-hidden="true">{nativeDateDisplay(value)}</span>
+        <input type="date" value={value || ''} onChange={onChange} />
+      </span>
+    </label>
+  )
+}
+
+function NativeTimeField({ label, value, onChange }) {
+  return (
+    <label>
+      <span>{label}</span>
+      <span className="s-hub-ai-native-control">
+        <span className="s-hub-ai-native-value" aria-hidden="true">{nativeTimeDisplay(value)}</span>
+        <input type="time" value={value || ''} onChange={onChange} />
+      </span>
+    </label>
+  )
 }
 
 function conflictTitle(conflict) {
@@ -95,19 +154,29 @@ export function SchoolAISheet({
   const [files, setFiles] = useState([])
   const [state, setState] = useState(blankState)
   const [working, setWorking] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState('')
   const [conflictsDirty, setConflictsDirty] = useState(false)
   const [hintIndex, setHintIndex] = useState(0)
   const [hintFading, setHintFading] = useState(false)
   const fileInputRef = useRef(null)
+  const requestControllerRef = useRef(null)
+  const requestSequenceRef = useRef(0)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      requestSequenceRef.current += 1
+      requestControllerRef.current?.abort()
+      requestControllerRef.current = null
+      setWorking(false)
+      return
+    }
     setInput('')
     setFiles([])
     setState(blankState())
     setWorking(false)
+    setSaving(false)
     setError('')
     setEditingId('')
     setConflictsDirty(false)
@@ -148,8 +217,25 @@ export function SchoolAISheet({
   const hintPool = files.length ? NOTICE_HINTS : QUESTION_HINTS
   const rotatingHint = hintPool[hintIndex % hintPool.length]
 
+  function cancelAIRequest() {
+    requestSequenceRef.current += 1
+    requestControllerRef.current?.abort()
+    requestControllerRef.current = null
+    setWorking(false)
+  }
+
+  function beginAIRequest() {
+    requestSequenceRef.current += 1
+    requestControllerRef.current?.abort()
+    const controller = new AbortController()
+    const requestId = requestSequenceRef.current
+    requestControllerRef.current = controller
+    return { controller, requestId }
+  }
+
   function close() {
-    if (working) return
+    if (saving) return
+    cancelAIRequest()
     onClose()
   }
 
@@ -217,18 +303,21 @@ export function SchoolAISheet({
   async function analyzeNotice() {
     if (!requireOnline('공지 이미지를 분석')) return
     if (!input.trim() && !files.length) return
+    const { controller, requestId } = beginAIRequest()
     setWorking(true)
     setError('')
     setEditingId('')
     try {
-      const result = await analyzeSchoolNotice({ text: input, files, context, now })
+      const result = await analyzeSchoolNotice({ text: input, files, context, now, signal: controller.signal })
+      if (requestSequenceRef.current !== requestId) return
       if (!result.items.length) {
         setState((current) => ({ ...current, mode: 'import', items: [], selected: {}, conflicts: {}, resolutions: {} }))
         setError('등록할 수 있는 학교 일정을 찾지 못했어. 날짜나 공지 내용이 보이는지 확인해줘.')
         return
       }
       const items = result.items
-      const conflicts = await reviewSchoolImportConflicts(items, conflictContext, now)
+      const conflicts = await reviewSchoolImportConflicts(items, conflictContext, now, { signal: controller.signal })
+      if (requestSequenceRef.current !== requestId) return
       const choices = applyConflictSelection(items, conflicts)
       setState({
         mode: 'import',
@@ -241,27 +330,37 @@ export function SchoolAISheet({
       })
       setConflictsDirty(false)
     } catch (requestError) {
+      if (requestSequenceRef.current !== requestId || controller.signal.aborted || requestError?.code === 'school-ai/cancelled') return
       console.error('S-Hub notice analysis failed:', requestError)
       setError(requestError?.message || '공지 분석에 실패했어. 다시 시도해줘.')
     } finally {
-      setWorking(false)
+      if (requestSequenceRef.current === requestId) {
+        setWorking(false)
+        if (requestControllerRef.current === controller) requestControllerRef.current = null
+      }
     }
   }
 
   async function askQuestion() {
     const question = input.trim()
     if (question.length < 2 || !requireOnline('S-Hub에 질문')) return
+    const { controller, requestId } = beginAIRequest()
     setWorking(true)
     setError('')
     setEditingId('')
     try {
-      const result = await askSchoolHub({ question, context, now })
+      const result = await askSchoolHub({ question, context, now, signal: controller.signal })
+      if (requestSequenceRef.current !== requestId) return
       setState((current) => ({ ...current, mode: 'answer', answer: result.answer, saveResult: null }))
     } catch (requestError) {
+      if (requestSequenceRef.current !== requestId || controller.signal.aborted || requestError?.code === 'school-ai/cancelled') return
       console.error('S-Hub question failed:', requestError)
       setError(requestError?.message || '질문에 답하지 못했어. 다시 시도해줘.')
     } finally {
-      setWorking(false)
+      if (requestSequenceRef.current === requestId) {
+        setWorking(false)
+        if (requestControllerRef.current === controller) requestControllerRef.current = null
+      }
     }
   }
 
@@ -313,9 +412,9 @@ export function SchoolAISheet({
 
   async function saveImports() {
     if (!requireOnline('AI로 찾은 일정을 추가')) return
-    if (working) return
+    if (working || saving) return
     setError('')
-    setWorking(true)
+    setSaving(true)
     try {
       if (conflictsDirty) {
         const conflicts = await reviewConflicts(state.items, { preserveChoices: false })
@@ -346,11 +445,12 @@ export function SchoolAISheet({
       console.error('S-Hub import save failed:', saveError)
       setError(saveError?.message || '일정을 저장하지 못했어.')
     } finally {
-      setWorking(false)
+      setSaving(false)
     }
   }
 
   function startOver() {
+    cancelAIRequest()
     setInput('')
     setFiles([])
     setState(blankState())
@@ -363,8 +463,8 @@ export function SchoolAISheet({
     <UnifiedBottomSheet
       open={open}
       onClose={close}
-      closeDisabled={working}
-      title="S-Hub"
+      closeDisabled={saving}
+      title="S-Hub AI"
       subtitle="학교 정보를 물어보거나 공지 캡처를 넣어줘."
       ariaLabel="S-Hub AI"
       className="s-hub-ai-sheet"
@@ -389,6 +489,8 @@ export function SchoolAISheet({
                 const conflict = state.conflicts[item.id]
                 const editing = editingId === item.id
                 const selected = Boolean(state.selected[item.id])
+                const reviewLabel = itemReviewLabel(item)
+                const meta = itemMeta(item)
                 const canReplace = conflict?.relation === 'conflict' && (
                   item.kind === 'reminder' ||
                   item.kind === 'timetable_change' ||
@@ -409,12 +511,12 @@ export function SchoolAISheet({
                       </button>
                       <div className="s-hub-ai-item-main">
                         <span>{kindLabel(item)}</span>
-                        <strong>{item.title || '내용 확인 필요'}</strong>
-                        <small>{itemMeta(item)}</small>
-                        {item.confidence === 'low' || item.valid === false ? <em>정보 확인 필요</em> : null}
+                        <strong>{item.title || '제목 미확인'}</strong>
+                        {meta ? <small>{meta}</small> : null}
+                        {reviewLabel ? <em>{reviewLabel}</em> : null}
                       </div>
                       <button
-                        className="s-hub-ai-edit"
+                        className={`s-hub-ai-edit ${editing ? 'is-done' : ''}`.trim()}
                         type="button"
                         onClick={() => setEditingId(editing ? '' : item.id)}
                       >
@@ -429,13 +531,13 @@ export function SchoolAISheet({
                             <label><span>종류</span><select value={item.type || 'task'} onChange={(event) => updateItem(item.id, { type: event.target.value })}>{REMINDER_TYPES.map((type) => <option value={type.id} key={type.id}>{type.label}</option>)}</select></label>
                             <label><span>제목</span><input value={item.title || ''} onChange={(event) => updateItem(item.id, { title: event.target.value })} /></label>
                             <div className="s-hub-ai-editor-grid">
-                              <label><span>날짜</span><input type="date" value={item.dueDate || ''} onChange={(event) => updateItem(item.id, { dueDate: event.target.value })} /></label>
-                              <label><span>시간</span><input type="time" value={item.dueTime || ''} onChange={(event) => updateItem(item.id, { dueTime: event.target.value })} /></label>
+                              <NativeDateField label="날짜" value={item.dueDate} onChange={(event) => updateItem(item.id, { dueDate: event.target.value })} />
+                              <NativeTimeField label="시간" value={item.dueTime} onChange={(event) => updateItem(item.id, { dueTime: event.target.value })} />
                             </div>
                           </>
                         ) : item.kind === 'timetable_change' ? (
                           <>
-                            <label><span>날짜</span><input type="date" value={item.date || ''} onChange={(event) => updateItem(item.id, { date: event.target.value })} /></label>
+                            <NativeDateField label="날짜" value={item.date} onChange={(event) => updateItem(item.id, { date: event.target.value })} />
                             <div className="s-hub-ai-editor-grid">
                               <label><span>교시</span><select value={item.period || ''} onChange={(event) => updateItem(item.id, { period: Number(event.target.value) })}><option value="">선택</option>{[1,2,3,4,5,6,7].map((period) => <option value={period} key={period}>{period}교시</option>)}</select></label>
                               <label><span>변경 과목</span><input value={item.subject || ''} onChange={(event) => updateItem(item.id, { subject: event.target.value })} /></label>
@@ -445,8 +547,8 @@ export function SchoolAISheet({
                           <>
                             <label><span>일정</span><input value={item.title || ''} onChange={(event) => updateItem(item.id, { title: event.target.value })} /></label>
                             <div className="s-hub-ai-editor-grid">
-                              <label><span>시작</span><input type="date" value={item.startDate || ''} onChange={(event) => updateItem(item.id, { startDate: event.target.value })} /></label>
-                              <label><span>종료</span><input type="date" value={item.endDate || ''} onChange={(event) => updateItem(item.id, { endDate: event.target.value })} /></label>
+                              <NativeDateField label="시작" value={item.startDate} onChange={(event) => updateItem(item.id, { startDate: event.target.value })} />
+                              <NativeDateField label="종료" value={item.endDate} onChange={(event) => updateItem(item.id, { endDate: event.target.value })} />
                             </div>
                           </>
                         )}
@@ -526,9 +628,9 @@ export function SchoolAISheet({
 
         {state.mode === 'import' ? (
           <div className="s-hub-ai-footer">
-            <button type="button" onClick={startOver} disabled={working}>다시 하기</button>
-            <button type="button" className="s-hub-ai-primary" onClick={saveImports} disabled={working || !validSelectedItems.length}>
-              {working ? '확인 중…' : `${validSelectedItems.length}개 추가`}
+            <button type="button" onClick={startOver} disabled={saving}>다시 하기</button>
+            <button type="button" className="s-hub-ai-primary" onClick={saveImports} disabled={saving || !validSelectedItems.length}>
+              {saving ? '저장 중…' : `${validSelectedItems.length}개 추가`}
             </button>
           </div>
         ) : state.mode === 'result' ? (

@@ -39,6 +39,7 @@ export default async function handler(req, res) {
     if (!identity.exists) return res.status(403).json({ ok: false, error: 'identity_missing', message: '학생 정보를 확인하지 못했어.' })
 
     const body = req.body && typeof req.body === 'object' ? req.body : {}
+    const purpose = body.purpose === 'reminder' ? 'reminder' : 'school'
     const prompt = String(body.prompt || '').trim()
     if (!prompt || prompt.length > 40_000) {
       return res.status(400).json({ ok: false, error: 'invalid_prompt', message: 'AI 요청 내용이 올바르지 않아.' })
@@ -58,6 +59,7 @@ export default async function handler(req, res) {
       maxOutputTokens: body.maxOutputTokens,
       timeoutMs: body.timeoutMs,
       temperature: body.temperature,
+      purpose,
     })
     return res.status(200).json({ ok: true, result })
   } catch (error) {
