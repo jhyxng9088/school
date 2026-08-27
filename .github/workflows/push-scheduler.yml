@@ -2,14 +2,14 @@ name: S-Hub scheduled push
 
 on:
   schedule:
-    # KST school-time windows. Each window is triggered three times so a delayed
-    # or dropped GitHub scheduled run still has another chance inside the
-    # backend's 10-minute notification window.
-    - cron: '1,4,7 9-12 * * 1-5'
+    # KST school-time windows. GitHub Actions supports a minimum interval of 5 minutes,
+    # so each notification window is checked twice, five minutes apart.
+    # The backend performs due-time checks and deduplicates sends.
+    - cron: '1,6 9-12 * * 1-5'
       timezone: 'Asia/Seoul'
-    - cron: '1,4,7 13 * * 1-5'
+    - cron: '1,6 13 * * 1-5'
       timezone: 'Asia/Seoul'
-    - cron: '51,54,57 13-15 * * 1-5'
+    - cron: '51,56 13-15 * * 1-5'
       timezone: 'Asia/Seoul'
   workflow_dispatch:
   push:
