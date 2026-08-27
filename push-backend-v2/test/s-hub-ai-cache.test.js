@@ -20,19 +20,19 @@ function body(overrides = {}) {
 
 test('cache normalization removes minute-level clock drift but keeps the date', () => {
   assert.equal(
-    normalizedPromptForCache('현재 기준 시각: 2026-08-28 08:12\n학생 질문: 오늘 할 것 알려줘'),
-    '현재 기준 날짜: 2026-08-28\n학생 질문: 오늘 할 것 알려줘',
+    normalizedPromptForCache('현재 기준 시각: 2026-08-28 08:12\n학생 질문: 오늘 할 것 알려줘\nSCHOOL_DATA:{"reference":"2026-08-28 08:12","a":1}'),
+    '현재 기준 날짜: 2026-08-28\n학생 질문: 오늘 할 것 알려줘\nSCHOOL_DATA:{"reference":"2026-08-28","a":1}',
   )
 })
 
 test('school question cache key is shared only for the exact effective request', () => {
-  const promptA = '현재 기준 시각: 2026-08-28 08:12\n학생 질문: 오늘 할 것 알려줘\nSCHOOL_DATA:{"a":1}'
-  const promptB = '현재 기준 시각: 2026-08-28 08:19\n학생 질문: 오늘 할 것 알려줘\nSCHOOL_DATA:{"a":1}'
+  const promptA = '현재 기준 시각: 2026-08-28 08:12\n학생 질문: 오늘 할 것 알려줘\nSCHOOL_DATA:{"reference":"2026-08-28 08:12","a":1}'
+  const promptB = '현재 기준 시각: 2026-08-28 08:19\n학생 질문: 오늘 할 것 알려줘\nSCHOOL_DATA:{"reference":"2026-08-28 08:19","a":1}'
   const keyA = schoolQuestionCacheKey(body(), promptA, 'school')
   const keyB = schoolQuestionCacheKey(body(), promptB, 'school')
   assert.equal(keyA, keyB)
   assert.notEqual(keyA, schoolQuestionCacheKey(body({ attachments: [{ mimeType: 'image/png', dataBase64: 'BBB' }] }), promptB, 'school'))
-  assert.notEqual(keyA, schoolQuestionCacheKey(body(), promptB.replace('{"a":1}', '{"a":2}'), 'school'))
+  assert.notEqual(keyA, schoolQuestionCacheKey(body(), promptB.replace('"a":1', '"a":2'), 'school'))
   assert.equal(schoolQuestionCacheKey(body({ cacheScope: '' }), promptA, 'school'), '')
   assert.equal(schoolQuestionCacheKey(body(), promptA, 'reminder'), '')
 })
