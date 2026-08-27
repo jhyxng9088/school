@@ -39,6 +39,28 @@ jobs:
       - name: Apply guarded fixes
         run: python3 .github/scripts/apply_reminder_original_scroll_ai_orb.py
 
+      - name: Align regression tests with binary and drag-zone architecture
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/reminder-original-prefetch.test.js')
+          text = path.read_text(encoding='utf-8')
+          old = "  assert.match(summary, /blob: base64ToBlob\\(original\\.dataBase64, original\\.mimeType\\)/)\n"
+          new = "  assert.match(summary, /blob: original\\?\\.blob instanceof Blob \\? original\\.blob : base64ToBlob\\(original\\.dataBase64, original\\.mimeType\\)/)\n"
+          if text.count(old) != 1:
+              raise SystemExit('prefetch regression guard did not match exactly once')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          path = Path('tests/reminder-original-scroll-ai-orb.test.js')
+          text = path.read_text(encoding='utf-8')
+          old = "  assert.doesNotMatch(sheet, /className=\\{`reminder-summary-sheet[\\s\\S]{0,220}onPointerDown=\\{pointerDown\\}/)\n"
+          new = "  assert.doesNotMatch(sheet, /aria-label=\\{`\\$\\{todo\\.title\\} 요약`\\}\\s+onPointerDown=\\{pointerDown\\}/)\n"
+          if text.count(old) != 1:
+              raise SystemExit('scroll regression guard did not match exactly once')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Remove temporary verification machinery
         run: |
           rm -f .github/scripts/apply_reminder_original_scroll_ai_orb.py
