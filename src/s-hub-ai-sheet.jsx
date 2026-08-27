@@ -473,7 +473,7 @@ export function SchoolAISheet({
       <div className="s-hub-ai-content">
         {working ? (
           <div className="s-hub-ai-thinking-stage" role="status" aria-label="S-Hub AI가 생각 중">
-            <SHubAIOrb size={64} active />
+            <SHubAIOrb size={30} active />
           </div>
         ) : null}
 

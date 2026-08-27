@@ -2,7 +2,7 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 9px;
   margin-bottom: 1px;
 }
 
@@ -47,11 +47,13 @@
 }
 
 .s-hub-ai-thinking-stage {
-  display: grid;
-  place-items: center;
-  min-height: 74px;
-  margin: -2px 0 2px;
-  color: var(--text);
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 2px;
+  margin: -8px 0 -2px;
+  color: var(--text-secondary);
   animation: s-hub-ai-thinking-in 360ms var(--motion-ease) both;
 }
 
