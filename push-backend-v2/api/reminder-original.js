@@ -1,5 +1,8 @@
+import { once } from 'node:events'
 import { adminAuth, adminDb } from '../lib/firebase-admin.js'
 import { loadReminderOriginal, safeReminderOriginalId } from '../lib/reminder-original-service.js'
+
+const RESPONSE_CHUNK_BYTES = 256 * 1024
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -12,6 +15,15 @@ function setCors(res) {
 function bearerToken(req) {
   const header = String(req.headers.authorization || '')
   return /^Bearer\s+/i.test(header) ? header.replace(/^Bearer\s+/i, '').trim() : ''
+}
+
+async function streamBinary(res, buffer) {
+  for (let offset = 0; offset < buffer.length; offset += RESPONSE_CHUNK_BYTES) {
+    if (res.destroyed) return
+    const chunk = buffer.subarray(offset, Math.min(offset + RESPONSE_CHUNK_BYTES, buffer.length))
+    if (!res.write(chunk)) await once(res, 'drain')
+  }
+  if (!res.destroyed) res.end()
 }
 
 export default async function handler(req, res) {
@@ -31,11 +43,18 @@ export default async function handler(req, res) {
     const originalId = safeReminderOriginalId(req.query?.id)
     const original = await loadReminderOriginal(db, classId, originalId)
 
+    res.statusCode = 200
     res.setHeader('Content-Type', original.mimeType)
-    res.setHeader('Content-Length', String(original.size))
     res.setHeader('X-File-Name', encodeURIComponent(original.name))
     res.setHeader('X-File-Size', String(original.size))
-    return res.status(200).send(original.buffer)
+    try {
+      await streamBinary(res, original.buffer)
+    } catch (streamError) {
+      console.error('reminder-original stream failed', { message: streamError?.message })
+      if (res.headersSent) res.destroy(streamError)
+      else throw streamError
+    }
+    return
   } catch (error) {
     const code = String(error?.code || '')
     if (code.startsWith('auth/')) return res.status(401).json({ ok: false, error: 'invalid_auth', message: '로그인 정보가 만료됐어. 앱을 다시 열어줘.' })
