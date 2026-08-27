@@ -9,7 +9,7 @@ test('S-Hub AI replaces the compose UI with a compact live working stage', () =>
   const css = read('src/s-hub-ai.css')
 
   assert.match(sheet, /!working && \(state\.mode === 'compose' \|\| state\.mode === 'answer'\)/)
-  assert.match(sheet, /!working && state\.mode === 'answer'/)
+  assert.match(sheet, /!working && state\.answer/)
   assert.match(sheet, /<SHubAIOrb size=\{56\} active/)
   assert.match(sheet, /aria-live=\"polite\"/)
   assert.match(css, /\.s-hub-ai-thinking-stage\s*\{[\s\S]*?min-height:\s*142px;/)
