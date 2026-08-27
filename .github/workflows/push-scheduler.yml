@@ -2,9 +2,9 @@ name: S-Hub scheduled push
 
 on:
   schedule:
-    # Weekdays, 09:02–16:57 KST. Offset from :00/:05 to reduce GitHub cron congestion.
-    # The backend itself decides whether a class/lunch alert is actually due.
-    - cron: '2-57/5 0-7 * * 1-5'
+    # Run every 5 minutes on weekdays. The backend uses KST and decides
+    # whether a next-class or lunch notification is actually due.
+    - cron: '*/5 * * * 1-5'
   workflow_dispatch:
   push:
     branches: [main]
@@ -26,6 +26,6 @@ jobs:
       - name: Trigger scheduled push dispatcher
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --retry 3 --retry-all-errors --retry-delay 2 --max-time 25 \
+          curl --fail --silent --show-error --retry 3 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 25 \
             --header 'Accept: application/json' \
             'https://school-push-backend.vercel.app/api/push-scheduled'
