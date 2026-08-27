@@ -23,6 +23,21 @@
     <link rel="stylesheet" href="./first-run-notice.css" />
     <link rel="stylesheet" href="./samsung-apple-nav-icons.css" />
     <link rel="stylesheet" href="./samsung-nav-icon-fixes.css?v=4" />
+    <style>
+      /* The reminder page must use the exact same page transition as the other tabs.
+         This intentionally overrides the old reminder-only `animation: none !important`. */
+      html body .app-content:has(> .todo-page) {
+        animation: content-in 980ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+      }
+      html.school-mobile-compat body .app-content:has(> .todo-page) {
+        animation-duration: 760ms !important;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html body .app-content:has(> .todo-page) {
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
     <title>S-Hub</title>
   </head>
   <body>
@@ -34,6 +49,6 @@
     <script defer src="./notification-routing.js"></script>
     <script type="module" src="/src/main.jsx"></script>
     <script type="module" src="/src/push-client.js"></script>
-    <script type="module" src="/src/unread-indicators.js"></script>
+    <script type="module" src="/src/unread-indicators-v2.js?v=2"></script>
   </body>
 </html>
