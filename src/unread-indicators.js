@@ -104,6 +104,7 @@ async function startUnreadIndicators() {
     todos: new Map(),
     academic: new Map(),
     seen: new Map(),
+    seenReady: false,
     mealAvailable: hasTodayMealInCache(),
     stopped: false,
   }
@@ -176,7 +177,7 @@ async function startUnreadIndicators() {
       return academicVersion() > seenVersion(NAV_STATE_IDS.academic)
     }
     if (tab === 'meal') {
-      return state.mealAvailable && todayVersion() > seenVersion(NAV_STATE_IDS.meal)
+      return state.seenReady && state.mealAvailable && todayVersion() > seenVersion(NAV_STATE_IDS.meal)
     }
     return false
   }
@@ -328,6 +329,7 @@ async function startUnreadIndicators() {
       next.set(item.id, { updatedAt: Number(item.data()?.updatedAt || 0) })
     })
     state.seen = next
+    state.seenReady = true
     scheduleRender()
   }, (error) => console.error('Unread seen-state sync failed:', error)))
 
