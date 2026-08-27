@@ -1,0 +1,69 @@
+name: Verify S-Hub AI shared cache v153
+
+on:
+  push:
+    branches:
+      - fix/s-hub-ai-shared-cache-v153
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply guarded shared cache patch
+        run: python3 tools/apply_shared_ai_cache_v153.py
+
+      - name: Remove temporary verification machinery
+        run: |
+          rm .github/workflows/verify-s-hub-ai-shared-cache-v153.yml
+          rm tools/apply_shared_ai_cache_v153.py
+          rmdir tools
+
+      - name: Verify final repository shape
+        run: |
+          git diff --check
+          test ! -d tools
+          test ! -e .github/workflows/verify-s-hub-ai-shared-cache-v153.yml
+          test "$(find .github/workflows -maxdepth 1 -type f | wc -l)" -eq 1
+          grep -q "answerAndAnalyzeSchoolAttachments" src/s-hub-ai.js
+          grep -q "cacheScope: schoolQuestionCacheScope(text)" src/s-hub-ai.js
+          grep -q "sHubAiResponseCache" push-backend-v2/api/s-hub-ai.js
+          grep -q "school-shell-v153" public/sw.js
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test app
+        run: npm test
+
+      - name: Build app
+        run: npm run build
+
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit verified clean tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Add safe shared cache for S-Hub attachment answers [skip ci]"
+          git push origin HEAD:fix/s-hub-ai-shared-cache-v153
