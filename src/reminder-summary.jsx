@@ -241,7 +241,6 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
   const yRef = useRef(0)
   const velocityRef = useRef(0)
   const dragRef = useRef(null)
-  const pullRef = useRef(null)
   const objectUrlRef = useRef('')
   const preparedOriginalsRef = useRef(new Map())
   const preloadTimerRef = useRef(null)
@@ -349,7 +348,6 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
       preloadTimerRef.current = null
     }
     dragRef.current = null
-    pullRef.current = null
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
@@ -375,7 +373,7 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
       void prepareOriginal(originalEntries[0]).catch(() => {
         // Silent preload only. A visible error is shown if the user actually opens it.
       })
-    }, 120)
+    }, 0)
     return () => {
       if (preloadTimerRef.current) window.clearTimeout(preloadTimerRef.current)
       preloadTimerRef.current = null
@@ -386,7 +384,6 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
 
   function pointerDown(event) {
     if (event.button > 0 || event.target.closest('button, a, input, textarea, select')) return
-    if (expanded && event.target.closest('.reminder-summary-scroll')) return
     stopAnimation()
     event.currentTarget.setPointerCapture?.(event.pointerId)
     dragRef.current = {
@@ -442,42 +439,6 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
     finishDrag(drag.startedExpanded)
   }
 
-  function scrollTouchStart(event) {
-    if (!expanded || event.touches.length !== 1) return
-    const touch = event.touches[0]
-    pullRef.current = {
-      startY: touch.clientY,
-      lastY: touch.clientY,
-      lastTime: performance.now(),
-      active: false,
-    }
-  }
-
-  function scrollTouchMove(event) {
-    const pull = pullRef.current
-    if (!expanded || !pull || event.touches.length !== 1) return
-    const touch = event.touches[0]
-    const delta = touch.clientY - pull.startY
-    if (!pull.active) {
-      if ((scrollRef.current?.scrollTop || 0) > 0 || delta <= 10) return
-      pull.active = true
-      stopAnimation()
-    }
-    event.preventDefault()
-    const now = performance.now()
-    const dt = Math.max((now - pull.lastTime) / 1000, 0.001)
-    velocityRef.current = (touch.clientY - pull.lastY) / dt
-    pull.lastY = touch.clientY
-    pull.lastTime = now
-    paint(clamp(delta, 0, closedY()))
-  }
-
-  function scrollTouchEnd() {
-    const pull = pullRef.current
-    pullRef.current = null
-    if (pull?.active) finishDrag(true)
-  }
-
   function prepareOriginal(entry) {
     if (!loadOriginal) return Promise.reject(new Error('원본 파일을 불러올 수 없어.'))
     const key = String(entry?.key || '')
@@ -486,7 +447,7 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
     const request = loadOriginal(key)
       .then((original) => ({
         ...original,
-        blob: base64ToBlob(original.dataBase64, original.mimeType),
+        blob: original?.blob instanceof Blob ? original.blob : base64ToBlob(original.dataBase64, original.mimeType),
       }))
       .catch((error) => {
         if (preparedOriginalsRef.current.get(key) === request) preparedOriginalsRef.current.delete(key)
@@ -529,30 +490,30 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
         ref={sheetRef}
         className={`reminder-summary-sheet ${expanded ? 'is-expanded' : 'is-collapsed'}`}
         aria-label={`${todo.title} 요약`}
-        onPointerDown={pointerDown}
-        onPointerMove={pointerMove}
-        onPointerUp={pointerEnd}
-        onPointerCancel={pointerEnd}
       >
-        <div className="reminder-summary-grabber-wrap" aria-hidden="true">
-          <span className="reminder-summary-grabber" />
-        </div>
-
-        <header className="reminder-summary-header">
-          <div>
-            <p>{originalEntries.length ? `첨부 · ${originalEntries.length}개` : '리마인더 요약'}</p>
-            <h2>{todo.title}</h2>
+        <div
+          className="reminder-summary-drag-zone"
+          onPointerDown={pointerDown}
+          onPointerMove={pointerMove}
+          onPointerUp={pointerEnd}
+          onPointerCancel={pointerEnd}
+        >
+          <div className="reminder-summary-grabber-wrap" aria-hidden="true">
+            <span className="reminder-summary-grabber" />
           </div>
-          <button className="reminder-summary-close" type="button" aria-label="닫기" onClick={() => requestClose(340)}>×</button>
-        </header>
+
+          <header className="reminder-summary-header">
+            <div>
+              <p>{originalEntries.length ? `첨부 · ${originalEntries.length}개` : '리마인더 요약'}</p>
+              <h2>{todo.title}</h2>
+            </div>
+            <button className="reminder-summary-close" type="button" aria-label="닫기" onClick={() => requestClose(340)}>×</button>
+          </header>
+        </div>
 
         <div
           ref={scrollRef}
           className="reminder-summary-scroll"
-          onTouchStart={scrollTouchStart}
-          onTouchMove={scrollTouchMove}
-          onTouchEnd={scrollTouchEnd}
-          onTouchCancel={scrollTouchEnd}
         >
           {todo.summary.overview ? <p className="reminder-summary-overview">{todo.summary.overview}</p> : null}
           {visibleSections.map((section, sectionIndex) => (

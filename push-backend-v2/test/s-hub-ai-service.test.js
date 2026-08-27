@@ -119,3 +119,26 @@ test('server structured AI does not fan out an authorization failure across mode
     globalThis.fetch = originalFetch
   }
 })
+
+
+test('quota exhaustion falls back to another model', async () => {
+  const originalFetch = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = async () => {
+    calls += 1
+    if (calls === 1) return response(429, { error: { status: 'RESOURCE_EXHAUSTED', message: 'quota exhausted' } })
+    return response(200, { candidates: [{ content: { parts: [{ text: JSON.stringify({ answer: 'fallback-ok' }) }] } }] })
+  }
+  try {
+    const result = await generateStructuredWithFirebaseAI({
+      projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'hello', responseSchema: schema,
+      timeoutMs: 8000, models: ['quota-model', 'fallback-model'],
+    })
+    assert.equal(result.value.answer, 'fallback-ok')
+    assert.equal(result.modelName, 'fallback-model')
+    assert.match(result.attempts[0], /RESOURCE_EXHAUSTED/)
+    assert.equal(calls, 2)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

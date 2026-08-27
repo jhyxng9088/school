@@ -19,6 +19,6 @@ test('summary sheet warms and decodes the first original before the user taps it
   const summary = read('src/reminder-summary.jsx')
   assert.match(summary, /preparedOriginalsRef = useRef\(new Map\(\)\)/)
   assert.match(summary, /void prepareOriginal\(originalEntries\[0\]\)/)
-  assert.match(summary, /blob: base64ToBlob\(original\.dataBase64, original\.mimeType\)/)
+  assert.match(summary, /blob: original\?\.blob instanceof Blob \? original\.blob : base64ToBlob\(original\.dataBase64, original\.mimeType\)/)
   assert.match(summary, /const original = await prepareOriginal\(entry\)/)
 })

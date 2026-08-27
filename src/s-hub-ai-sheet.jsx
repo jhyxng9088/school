@@ -6,6 +6,7 @@ import {
   reviewSchoolImportConflicts,
 } from './s-hub-ai.js'
 import { normalizeImportItem } from './s-hub-ai-core.js'
+import { SHubAIOrb } from './s-hub-ai-orb.jsx'
 import './s-hub-ai.css'
 
 const REMINDER_TYPES = [
@@ -470,6 +471,12 @@ export function SchoolAISheet({
       className="s-hub-ai-sheet"
     >
       <div className="s-hub-ai-content">
+        {working ? (
+          <div className="s-hub-ai-thinking-stage" role="status" aria-label="S-Hub AI가 생각 중">
+            <SHubAIOrb size={64} active />
+          </div>
+        ) : null}
+
         {state.mode === 'answer' ? (
           <section className="s-hub-ai-answer" aria-live="polite">
             <span>답변</span>

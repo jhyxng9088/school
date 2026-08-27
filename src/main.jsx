@@ -31,6 +31,7 @@ import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import { OfflineToast, useNetworkGuard } from './network-guard'
 import { activityKey, activityLabel, recordClassActivities, useClassActivity, useSharedAcademic } from './class-activity'
 import { SchoolAISheet } from './s-hub-ai-sheet.jsx'
+import { SHubAIOrb } from './s-hub-ai-orb.jsx'
 import { buildSchoolAIContext } from './s-hub-ai-core.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
@@ -419,8 +420,8 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
         </div>
         <div className="home-top-actions">
           <span className="user-name">{name}</span>
-          <button className="home-ai-trigger" type="button" aria-label="S-Hub 검색 및 공지 분석" onClick={onOpenAI}>
-            <Icon type="search" size={18} />
+          <button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick={onOpenAI}>
+            <SHubAIOrb size={23} />
           </button>
         </div>
       </header>
