@@ -288,13 +288,20 @@ button {
 }
 
 .class-presence-count {
+  min-width: 5ch;
   color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 680;
   line-height: 1;
   letter-spacing: 0.045em;
   font-variant-numeric: tabular-nums;
+  opacity: 0;
   transform: translateY(-2px);
+  transition: opacity 320ms var(--motion-soft);
+}
+
+.class-presence-count.is-ready {
+  opacity: 1;
 }
 
 .user-name {

@@ -404,8 +404,9 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
           <div className="home-title-row">
             <h1>홈</h1>
             <span
-              className="class-presence-count"
-              aria-label={`현재 접속 ${presence.online}명, 반 인원 ${presence.total}명`}
+              className={`class-presence-count ${presence.total > 0 ? 'is-ready' : ''}`}
+              aria-hidden={presence.total <= 0}
+              aria-label={presence.total > 0 ? `현재 접속 ${presence.online}명, 반 인원 ${presence.total}명` : undefined}
             >
               {presence.online}/{presence.total}
             </span>
