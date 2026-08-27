@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-shell-v132'
+const CACHE_NAME = 'school-shell-v134'
 const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './samsung-apple-nav-icons.css', './samsung-nav-icon-fixes.css', './samsung-nav-meal.svg', './samsung-nav-academic.svg', './school-timetable-motion.js', './school-home-nav.js', './first-run-notice.js', './notification-routing.js']
 
 self.addEventListener('install', (event) => {
@@ -65,6 +65,36 @@ self.addEventListener('push', (event) => {
   }))
 })
 
+async function routeExistingClient(appClient, targetUrl, targetTab) {
+  let routedClient = appClient
+
+  if (targetTab && typeof appClient.navigate === 'function') {
+    try {
+      routedClient = await appClient.navigate(targetUrl) || appClient
+    } catch {
+      routedClient = appClient
+    }
+  }
+
+  try {
+    routedClient = await routedClient.focus() || routedClient
+  } catch {
+    // Keep the original client as a fallback if iOS refuses the focus promise.
+  }
+
+  if (targetTab) {
+    try {
+      routedClient.postMessage({ type: 'SCHOOL_NOTIFICATION_ROUTE', tab: targetTab })
+    } catch {
+      // The URL navigation above is the fallback route if messaging is unavailable.
+    }
+  } else if (typeof routedClient.navigate === 'function' && routedClient.url !== targetUrl) {
+    await routedClient.navigate(targetUrl).catch(() => {})
+  }
+
+  return routedClient
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const targetUrl = new URL(event.notification.data?.url || './', self.registration.scope).href
@@ -73,17 +103,7 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
       const appClient = clients.find((client) => client.url.startsWith(self.registration.scope))
-      if (appClient) {
-        const focusedClient = await appClient.focus()
-        if (targetTab) {
-          focusedClient.postMessage({ type: 'SCHOOL_NOTIFICATION_ROUTE', tab: targetTab })
-          return focusedClient
-        }
-        if (typeof focusedClient.navigate === 'function' && focusedClient.url !== targetUrl) {
-          await focusedClient.navigate(targetUrl).catch(() => {})
-        }
-        return focusedClient
-      }
+      if (appClient) return routeExistingClient(appClient, targetUrl, targetTab)
       return self.clients.openWindow(targetUrl)
     }),
   )
