@@ -48,6 +48,8 @@ const ATTACHMENT_MAX_BYTES = 2_500_000
 const ORIGINAL_ATTACHMENT_MAX_BYTES = 8_000_000
 const ORIGINAL_ATTACHMENT_CHUNK_CHARS = 600_000
 const ORIGINAL_ATTACHMENT_MEMORY_CACHE_MAX = 10
+const REMINDER_ORIGINAL_API_URL = 'https://school-reminder-backend.vercel.app/api/reminder-original'
+const ORIGINAL_ATTACHMENT_SERVER_TIMEOUT_MS = 14_000
 const originalAttachmentMemoryCache = new Map()
 const ATTACHMENT_MIME_TYPES = new Set([
   'application/pdf',
@@ -353,6 +355,77 @@ export async function writeReminderOriginal(profile, todoId, file) {
   originalAttachmentMemoryCache.delete(`${classKeyFor(profile)}:${safeId}`)
 }
 
+async function getReminderOriginalFromServer(safeId) {
+  const user = await ensureSignedIn()
+  const idToken = String(await user.getIdToken()).trim()
+  if (!idToken) throw new Error('로그인 정보를 확인하지 못했어.')
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), ORIGINAL_ATTACHMENT_SERVER_TIMEOUT_MS)
+  try {
+    const response = await fetch(`${REMINDER_ORIGINAL_API_URL}?id=${encodeURIComponent(safeId)}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${idToken}` },
+      signal: controller.signal,
+    })
+    if (!response.ok) {
+      let payload = null
+      try { payload = await response.json() } catch { payload = null }
+      const error = new Error(String(payload?.message || '원본 사진을 불러오지 못했어.'))
+      error.status = response.status
+      error.code = String(payload?.error || `school-sync/original-http-${response.status}`)
+      if (response.status === 404) {
+        error.code = 'school-sync/original-not-found'
+        error.message = '이 리마인더는 원본 저장 기능 적용 전에 만들어졌거나 원본이 없어.'
+      }
+      throw error
+    }
+    const blob = await response.blob()
+    if (!blob.size || blob.size > ORIGINAL_ATTACHMENT_MAX_BYTES) throw new Error('원본 파일 정보가 올바르지 않아.')
+    const rawName = String(response.headers.get('x-file-name') || '')
+    let name = '원본 사진'
+    if (rawName) {
+      try { name = decodeURIComponent(rawName).slice(0, 120) || name } catch { name = rawName.slice(0, 120) || name }
+    }
+    return {
+      name,
+      mimeType: String(response.headers.get('content-type') || blob.type || 'application/octet-stream').split(';')[0],
+      size: blob.size,
+      blob,
+    }
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const timeout = new Error('원본 사진 서버 응답이 늦어 기존 방식으로 다시 불러올게.')
+      timeout.code = 'school-sync/original-server-timeout'
+      throw timeout
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
+async function getReminderOriginalFromFirestore(profile, safeId) {
+  await ensureSignedIn()
+  const metadataSnapshot = await getDoc(originalAttachmentRef(profile, safeId))
+  if (!metadataSnapshot.exists()) {
+    const error = new Error('이 리마인더는 원본 저장 기능 적용 전에 만들어져서 원본이 없어. 사진을 다시 올려줘.')
+    error.code = 'school-sync/original-not-found'
+    throw error
+  }
+  const metadata = metadataSnapshot.data() || {}
+  const chunkCount = Number(metadata.chunkCount || 0)
+  if (!Number.isInteger(chunkCount) || chunkCount < 1 || chunkCount > 24) throw new Error('원본 파일 정보가 올바르지 않아.')
+  const chunkSnapshot = await getDocs(collection(originalAttachmentRef(profile, safeId), 'chunks'))
+  const chunkDocs = [...chunkSnapshot.docs].sort((a, b) => a.id.localeCompare(b.id))
+  if (chunkDocs.length !== chunkCount) throw new Error('원본 파일 일부를 불러오지 못했어.')
+  return {
+    name: String(metadata.name || '원본 사진').slice(0, 120),
+    mimeType: String(metadata.mimeType || 'application/octet-stream'),
+    size: Number(metadata.size || 0),
+    dataBase64: chunkDocs.map((snapshot) => String(snapshot.data()?.data || '')).join(''),
+  }
+}
+
 export async function getReminderOriginal(profile, todoId) {
   const safeId = safeOriginalTodoId(todoId)
   if (!safeId) throw new Error('원본 파일을 찾을 수 없어.')
@@ -361,24 +434,12 @@ export async function getReminderOriginal(profile, todoId) {
   if (cached) return cached
 
   const request = (async () => {
-    await ensureSignedIn()
-    const metadataSnapshot = await getDoc(originalAttachmentRef(profile, safeId))
-    if (!metadataSnapshot.exists()) {
-      const error = new Error('이 리마인더는 원본 저장 기능 적용 전에 만들어져서 원본이 없어. 사진을 다시 올려줘.')
-      error.code = 'school-sync/original-not-found'
-      throw error
-    }
-    const metadata = metadataSnapshot.data() || {}
-    const chunkCount = Number(metadata.chunkCount || 0)
-    if (!Number.isInteger(chunkCount) || chunkCount < 1 || chunkCount > 24) throw new Error('원본 파일 정보가 올바르지 않아.')
-    const chunkSnapshot = await getDocs(collection(originalAttachmentRef(profile, safeId), 'chunks'))
-    const chunkDocs = [...chunkSnapshot.docs].sort((a, b) => a.id.localeCompare(b.id))
-    if (chunkDocs.length !== chunkCount) throw new Error('원본 파일 일부를 불러오지 못했어.')
-    return {
-      name: String(metadata.name || '원본 사진').slice(0, 120),
-      mimeType: String(metadata.mimeType || 'application/octet-stream'),
-      size: Number(metadata.size || 0),
-      dataBase64: chunkDocs.map((snapshot) => String(snapshot.data()?.data || '')).join(''),
+    try {
+      return await getReminderOriginalFromServer(safeId)
+    } catch (error) {
+      if (error?.code === 'school-sync/original-not-found') throw error
+      console.warn('Fast reminder original route unavailable; falling back to Firestore.', error)
+      return getReminderOriginalFromFirestore(profile, safeId)
     }
   })()
 

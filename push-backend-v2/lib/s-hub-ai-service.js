@@ -57,6 +57,13 @@ function safeSchema(value) {
   return JSON.parse(serialized)
 }
 
+function shouldTryNextModel(error) {
+  const status = Number(error?.status || 0)
+  if ([401, 403].includes(status)) return false
+  if (status === 400 && !String(error?.code || '').toUpperCase().includes('INVALID_ARGUMENT')) return false
+  return true
+}
+
 function responseText(payload) {
   return String(
     payload?.candidates?.[0]?.content?.parts
@@ -197,9 +204,7 @@ export async function generateStructuredWithFirebaseAI({
     } catch (error) {
       lastError = error
       attempts.push(`${modelName}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
-      const status = Number(error?.status || 0)
-      if ([401, 403].includes(status)) break
-      if (status === 400 && !String(error?.code || '').toUpperCase().includes('INVALID_ARGUMENT')) break
+      if (!shouldTryNextModel(error)) break
     }
   }
 

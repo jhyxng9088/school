@@ -11,14 +11,14 @@
 }
 
 .home-ai-trigger {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--border);
   border-radius: 50%;
-  background: transparent;
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
   color: var(--text-secondary);
   cursor: pointer;
   touch-action: manipulation;
@@ -29,6 +29,35 @@
   transform: scale(0.92);
   background: var(--surface-soft);
   color: var(--text);
+}
+
+
+.s-hub-ai-orb {
+  display: block;
+  width: var(--s-hub-ai-orb-size, 24px);
+  height: var(--s-hub-ai-orb-size, 24px);
+  color: currentColor;
+  pointer-events: none;
+}
+
+.s-hub-ai-orb canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.s-hub-ai-thinking-stage {
+  display: grid;
+  place-items: center;
+  min-height: 74px;
+  margin: -2px 0 2px;
+  color: var(--text);
+  animation: s-hub-ai-thinking-in 360ms var(--motion-ease) both;
+}
+
+@keyframes s-hub-ai-thinking-in {
+  from { opacity: 0; transform: translate3d(0, 5px, 0) scale(0.97); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 .s-hub-ai-content {

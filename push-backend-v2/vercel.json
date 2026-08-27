@@ -10,6 +10,9 @@
     },
     "api/s-hub-ai.js": {
       "maxDuration": 60
+    },
+    "api/reminder-original.js": {
+      "maxDuration": 30
     }
   }
 }

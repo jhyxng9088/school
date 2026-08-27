@@ -156,7 +156,7 @@
   left: 50%;
   bottom: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   width: min(calc(100% - 16px), 700px);
   height: calc(100dvh - max(10px, env(safe-area-inset-top)));
   overflow: hidden;
@@ -170,7 +170,8 @@
   will-change: transform;
 }
 
-.reminder-summary-sheet.is-collapsed {
+.reminder-summary-drag-zone {
+  min-width: 0;
   touch-action: none;
 }
 
@@ -253,6 +254,7 @@
   overscroll-behavior: contain;
   padding: 20px 20px calc(28px + env(safe-area-inset-bottom));
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .reminder-summary-sheet.is-collapsed .reminder-summary-scroll {
