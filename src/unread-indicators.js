@@ -329,7 +329,7 @@ async function startUnreadIndicators() {
       next.set(item.id, { updatedAt: Number(item.data()?.updatedAt || 0) })
     })
     state.seen = next
-    state.seenReady = true
+    if (!snapshot.metadata?.fromCache) state.seenReady = true
     scheduleRender()
   }, (error) => console.error('Unread seen-state sync failed:', error)))
 
