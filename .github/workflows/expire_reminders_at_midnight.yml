@@ -28,10 +28,10 @@ jobs:
         run: npm run build
       - name: Verify exact scope
         run: |
-          grep -q "const dueTime = String(todo?.dueTime || '').trim()" src/todo.jsx
-          grep -q "const expiryTime = /^([01]\\d|2[0-3]):[0-5]\\d$/.test(dueTime)" src/todo.jsx
-          grep -q '? `${dueTime}:00.000`' src/todo.jsx
-          grep -q ": '23:59:59.000'" src/todo.jsx
+          grep -Fq "const dueTime = String(todo?.dueTime || '').trim()" src/todo.jsx
+          grep -Fq "const expiryTime = /^([01]\\d|2[0-3]):[0-5]\\d$/.test(dueTime)" src/todo.jsx
+          grep -Fq '? `${dueTime}:00.000`' src/todo.jsx
+          grep -Fq ": '23:59:59.000'" src/todo.jsx
       - name: Commit verified change
         run: |
           git config user.name "github-actions[bot]"
