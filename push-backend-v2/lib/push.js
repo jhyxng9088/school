@@ -1,8 +1,18 @@
 import webpush from 'web-push'
+import { vapidKeyPairMatches } from './vapid.js'
 
 export const CURRENT_VAPID_PUBLIC_KEY = 'BDZVTlyGKMCXMCo8hRv4jsPorQYXaboTtUcj5GwLaKB1cqYWlHq8O5tOxDwFyv50MJPESNAR6XNq5Ftd_ZvHFqw'
 
 let configured = false
+
+export function vapidConfigurationState() {
+  const publicKey = String(process.env.VAPID_PUBLIC_KEY || process.env.WEB_PUSH_PUBLIC_KEY || CURRENT_VAPID_PUBLIC_KEY).trim()
+  const privateKey = String(process.env.VAPID_PRIVATE_KEY || process.env.WEB_PUSH_PRIVATE_KEY || '').trim()
+  return {
+    configured: Boolean(publicKey && privateKey),
+    keyPairMatches: vapidKeyPairMatches(publicKey, privateKey),
+  }
+}
 
 function configure() {
   if (configured) return
@@ -11,6 +21,7 @@ function configure() {
   const subject = String(process.env.VAPID_SUBJECT || process.env.WEB_PUSH_SUBJECT || 'https://github.com/jhyxng9088/school').trim()
   if (!publicKey) throw new Error('VAPID public key is missing')
   if (!privateKey) throw new Error('VAPID_PRIVATE_KEY is missing')
+  if (!vapidKeyPairMatches(publicKey, privateKey)) throw new Error('VAPID key pair does not match')
   webpush.setVapidDetails(subject, publicKey, privateKey)
   configured = true
 }
