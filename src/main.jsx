@@ -421,7 +421,7 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
         <div className="home-top-actions">
           <span className="user-name">{name}</span>
           <button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick={onOpenAI}>
-            <SHubAIOrb size={23} />
+            <SHubAIOrb size={27} />
           </button>
         </div>
       </header>

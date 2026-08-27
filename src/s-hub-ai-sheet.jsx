@@ -254,7 +254,7 @@ export function SchoolAISheet({
           setWorkingMessageIndex((current) => (current + 1) % pool.length)
           setWorkingMessageFading(false)
           scheduleSwap()
-        }, 180)
+        }, 240)
       }, delay)
     }
 
@@ -292,7 +292,7 @@ export function SchoolAISheet({
     if (requestSequenceRef.current !== requestId) return false
     setWorkingFinishing(true)
     setWorkingMessageFading(true)
-    await new Promise((resolve) => window.setTimeout(resolve, 240))
+    await new Promise((resolve) => window.setTimeout(resolve, 420))
     return requestSequenceRef.current === requestId
   }
 
@@ -552,7 +552,7 @@ export function SchoolAISheet({
       <div className="s-hub-ai-content">
         {working ? (
           <div className={`s-hub-ai-thinking-stage ${workingFinishing ? 'is-finishing' : ''}`.trim()} role="status" aria-live="polite" aria-atomic="true">
-            <SHubAIOrb size={48} active />
+            <SHubAIOrb size={56} active />
             <p className={`s-hub-ai-thinking-copy ${workingMessageFading ? 'is-fading' : ''}`.trim()}>{workingMessage}</p>
           </div>
         ) : null}
@@ -564,7 +564,7 @@ export function SchoolAISheet({
           </section>
         ) : null}
 
-        {state.mode === 'import' ? (
+        {!working && state.mode === 'import' ? (
           <section className="s-hub-ai-import">
             <div className="s-hub-ai-result-head">
               <strong>{state.items.length}개를 찾았어</strong>
@@ -661,7 +661,7 @@ export function SchoolAISheet({
           </section>
         ) : null}
 
-        {state.mode === 'result' ? (
+        {!working && state.mode === 'result' ? (
           <section className="s-hub-ai-save-result">
             <strong>{state.saveResult?.saved?.length || 0}개 추가했어</strong>
             {state.saveResult?.failed?.length ? (
