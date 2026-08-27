@@ -23,7 +23,11 @@ jobs:
           node-version: 22
 
       - name: Apply guarded server-route patch
-        run: python3 tools/apply_s_hub_ai_server_fix.py
+        run: |
+          python3 tools/apply_s_hub_ai_server_fix.py
+          test "$(grep -c 'school-shell-v142' tests/s-hub-ai-auth.test.js)" -eq 1
+          sed -i 's/school-shell-v142/school-shell-v143/' tests/s-hub-ai-auth.test.js
+          grep -q 'school-shell-v143' tests/s-hub-ai-auth.test.js
 
       - name: Remove temporary patch machinery
         run: |
@@ -42,6 +46,7 @@ jobs:
           ! grep -q "generateDirectStructured" src/s-hub-ai.js
           grep -q "1800" src/s-hub-ai-sheet.jsx
           grep -q "school-shell-v143" public/sw.js
+          grep -q "school-shell-v143" tests/s-hub-ai-auth.test.js
           test -f push-backend-v2/api/s-hub-ai.js
           test -f push-backend-v2/lib/s-hub-ai-service.js
 
