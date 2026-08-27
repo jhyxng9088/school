@@ -22,7 +22,17 @@ jobs:
           node-version: 22
       - name: Repair generator quoting
         run: |
-          python3 -c 'from pathlib import Path; p=Path(".github/scripts/stabilize_reminder_lifecycle.py"); s=p.read_text(); p.write_text(s.replace("r'\"'\"'''\\\\\n", "r'\"'\"'''\n"))'
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/stabilize_reminder_lifecycle.py')
+          lines = path.read_text().splitlines()
+          repaired = []
+          for line in lines:
+              if "textwrap.dedent(r'''" in line and line.endswith(chr(92)):
+                  line = line[:-1]
+              repaired.append(line)
+          path.write_text('\n'.join(repaired) + '\n')
+          PY
       - name: Apply guarded reminder lifecycle patch
         run: python3 .github/scripts/stabilize_reminder_lifecycle.py
       - name: Verify diff
