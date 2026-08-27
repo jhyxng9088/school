@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/scripts/stabilize_reminder_lifecycle.py'
+      - '.github/workflows/stabilize-reminder-lifecycle.yml'
 
 permissions:
   contents: write
@@ -19,6 +20,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Repair generator quoting
+        run: |
+          python3 -c 'from pathlib import Path; p=Path(".github/scripts/stabilize_reminder_lifecycle.py"); s=p.read_text(); p.write_text(s.replace("r'\"'\"'''\\\\\n", "r'\"'\"'''\n"))'
       - name: Apply guarded reminder lifecycle patch
         run: python3 .github/scripts/stabilize_reminder_lifecycle.py
       - name: Verify diff
