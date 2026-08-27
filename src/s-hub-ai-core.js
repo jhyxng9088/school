@@ -89,16 +89,18 @@ export function normalizeImportItem(raw, index = 0, now = new Date()) {
   if (raw.kind === 'reminder') {
     const title = clampText(raw.title, 80)
     const dueDate = clampText(raw.dueDate, 10)
-    if (!title || !validDateKey(dueDate) || dueDate < today) return null
+    if (!title) return null
+    const valid = validDateKey(dueDate) && dueDate >= today
     return {
       id,
       kind: 'reminder',
-      confidence,
+      confidence: valid ? confidence : 'low',
       reason,
       type: REMINDER_TYPES.has(raw.type) ? raw.type : 'task',
       title,
-      dueDate,
-      dueTime: validTime(raw.dueTime) ? String(raw.dueTime) : '',
+      dueDate: valid ? dueDate : '',
+      dueTime: valid && validTime(raw.dueTime) ? String(raw.dueTime) : '',
+      valid,
     }
   }
 
@@ -106,33 +108,36 @@ export function normalizeImportItem(raw, index = 0, now = new Date()) {
     const date = clampText(raw.date, 10)
     const period = Number(raw.period)
     const subject = clampText(raw.subject, 20)
-    if (!validDateKey(date) || date < today || !Number.isInteger(period) || period < 1 || period > 7 || !subject) return null
+    const valid = validDateKey(date) && date >= today && Number.isInteger(period) && period >= 1 && period <= 7 && Boolean(subject)
     return {
       id,
       kind: 'timetable_change',
-      confidence,
+      confidence: valid ? confidence : 'low',
       reason,
-      title: clampText(raw.title, 80) || `${period}교시 ${subject}`,
-      date,
-      period,
+      title: clampText(raw.title, 80) || (subject ? `${Number.isInteger(period) && period > 0 ? `${period}교시 ` : ''}${subject}` : '시간표 변경'),
+      date: validDateKey(date) ? date : '',
+      period: Number.isInteger(period) && period >= 1 && period <= 7 ? period : 0,
       subject,
+      valid,
     }
   }
 
   const title = clampText(raw.title, 80)
-  const startDate = clampText(raw.startDate, 10)
-  const endDate = clampText(raw.endDate || raw.startDate, 10)
-  if (!title || !validDateKey(startDate) || !validDateKey(endDate) || endDate < startDate || endDate < today) return null
+  if (!title) return null
+  const rawStartDate = clampText(raw.startDate, 10)
+  const rawEndDate = clampText(raw.endDate || raw.startDate, 10)
+  const valid = validDateKey(rawStartDate) && validDateKey(rawEndDate) && rawEndDate >= rawStartDate && rawEndDate >= today
   return {
     id,
     kind: 'academic',
-    confidence,
+    confidence: valid ? confidence : 'low',
     reason,
     title,
-    startDate,
-    endDate,
+    startDate: validDateKey(rawStartDate) ? rawStartDate : '',
+    endDate: validDateKey(rawEndDate) ? rawEndDate : '',
     detail: clampText(raw.detail, 500),
     important: Boolean(raw.important) || IMPORTANT_ACADEMIC_PATTERN.test(title),
+    valid,
   }
 }
 
@@ -286,7 +291,7 @@ function timetableEntries(context) {
 }
 
 export function findDeterministicConflict(item, context) {
-  if (!item || !context) return null
+  if (!item || !context || item.valid === false) return null
 
   if (item.kind === 'timetable_change') {
     const existing = timetableEntries(context).find((entry) => entry.date === item.date && entry.period === item.period)
@@ -353,7 +358,7 @@ function scoreAcademicCandidate(item, existing) {
 }
 
 export function semanticConflictShortlist(item, context, limit = 5) {
-  if (!item || !context || item.kind === 'timetable_change') return []
+  if (!item || !context || item.valid === false || item.kind === 'timetable_change') return []
   const source = item.kind === 'reminder' ? context.reminders || [] : context.academic || []
   return source
     .filter((existing) => existing.id !== item.id)
@@ -372,7 +377,7 @@ export function semanticConflictShortlist(item, context, limit = 5) {
 export function buildSemanticConflictPairs(items, context) {
   const pairs = []
   for (const item of items || []) {
-    if (findDeterministicConflict(item, context)) continue
+    if (item?.valid === false || findDeterministicConflict(item, context)) continue
     const shortlist = semanticConflictShortlist(item, context, 5)
     if (!shortlist.length) continue
     pairs.push({

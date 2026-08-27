@@ -458,3 +458,120 @@ export async function generateDirectReminder({
   error.customData = { attempts }
   throw error
 }
+
+async function runRawStructuredModel(modelName, {
+  prompt,
+  attachments,
+  responseSchema,
+  maxOutputTokens,
+  timeoutMs,
+  temperature,
+}) {
+  const parts = [
+    { text: String(prompt || '') },
+    ...(attachments || []).map(preparedPart).filter(Boolean),
+  ]
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(rawFirebaseEndpoint(modelName), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': firebaseConfig.apiKey,
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema,
+          temperature,
+          maxOutputTokens,
+        },
+      }),
+      signal: controller.signal,
+    })
+    const rawText = await response.text()
+    let payload = null
+    try { payload = rawText ? JSON.parse(rawText) : null } catch { payload = null }
+    if (!response.ok) {
+      const error = new Error(payload?.error?.message || rawText || `Structured Firebase AI HTTP ${response.status}`)
+      error.name = 'ReminderAIError'
+      error.code = payload?.error?.status || `school-ai/structured-http-${response.status}`
+      error.status = response.status
+      error.retryAfterMs = retryAfterMilliseconds(response.headers.get('Retry-After'))
+      throw error
+    }
+    const responseText = String(payload?.candidates?.[0]?.content?.parts?.map((part) => part?.text || '').join('') || '').trim()
+    if (!responseText) throw new Error(`Structured Firebase AI ${modelName} returned an empty response`)
+    return JSON.parse(responseText)
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const timeout = new Error(`Structured Firebase AI ${modelName} timed out`)
+      timeout.name = 'ReminderAIError'
+      timeout.code = 'school-ai/structured-timeout'
+      timeout.status = 504
+      throw timeout
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
+export async function generateDirectStructured({
+  prompt = '',
+  attachments = [],
+  responseSchema,
+  maxOutputTokens = 1600,
+  timeoutMs = 26000,
+  temperature = 0.05,
+} = {}) {
+  if (!String(prompt || '').trim() || !responseSchema || typeof responseSchema !== 'object') {
+    const error = new Error('Structured AI request is missing a prompt or response schema')
+    error.name = 'ReminderAIError'
+    error.code = 'school-ai/structured-invalid-request'
+    throw error
+  }
+
+  const attempts = []
+  let lastError = null
+  const now = Date.now()
+  const availableModels = FALLBACK_MODELS.filter((modelName) => !modelIsCoolingDown(modelName, now))
+  if (!availableModels.length) {
+    const error = new Error('All AI fallback models are temporarily cooling down after quota errors')
+    error.name = 'ReminderAIError'
+    error.code = 'school-ai/all-models-cooling-down'
+    error.status = 429
+    error.customData = { attempts: ['all models skipped by adaptive quota cooldown'] }
+    throw error
+  }
+
+  for (const modelName of availableModels) {
+    const startedAt = Date.now()
+    try {
+      const value = await runRawStructuredModel(modelName, {
+        prompt,
+        attachments,
+        responseSchema,
+        maxOutputTokens: Math.max(200, Math.min(Number(maxOutputTokens) || 1600, 5000)),
+        timeoutMs: Math.max(4000, Math.min(Number(timeoutMs) || 26000, 60000)),
+        temperature: Math.max(0, Math.min(Number(temperature) || 0, 1)),
+      })
+      markModelSuccess(modelName)
+      return { value, modelName, attempts }
+    } catch (error) {
+      lastError = error
+      markModelQuotaFailure(modelName, error)
+      attempts.push(`${modelName}: ${error?.code || error?.name || 'error'} (${Date.now() - startedAt}ms)`)
+    }
+  }
+
+  const error = new Error(attempts.join(' | ') || lastError?.message || 'Structured AI fallback failed')
+  error.name = 'ReminderAIError'
+  error.code = 'school-ai/structured-all-models-failed'
+  error.status = lastError?.status || null
+  error.customData = { attempts }
+  throw error
+}
