@@ -61,6 +61,11 @@ const ATTACHMENT_HYBRID_SCHEMA = {
   required: ['answer', 'items'],
 }
 
+function schoolQuestionCacheScope(question = '') {
+  const text = String(question || '')
+  return /(?:지금|현재|몇\s*시|몇\s*분|다음\s*교시|곧|방금)/i.test(text) ? '' : 'school-question'
+}
+
 const CONFLICT_SCHEMA = {
   type: 'object',
   properties: {
@@ -208,6 +213,7 @@ ${compactJSON(context)}`
       timeoutMs: 45000,
       temperature: 0.05,
       purpose: 'school',
+      cacheScope: schoolQuestionCacheScope(text),
       signal,
     })
     const answer = String(generated?.value?.answer || '').trim().slice(0, 5000)

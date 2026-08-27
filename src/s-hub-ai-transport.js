@@ -22,6 +22,7 @@ export async function generateSchoolStructured({
   timeoutMs = 26000,
   temperature = 0.05,
   purpose = 'school',
+  cacheScope = '',
   signal = null,
 } = {}) {
   const safePrompt = String(prompt || '').trim()
@@ -83,6 +84,7 @@ export async function generateSchoolStructured({
         maxOutputTokens,
         timeoutMs,
         temperature,
+        cacheScope: cacheScope === 'school-question' ? 'school-question' : '',
       }),
       signal: controller.signal,
     })
