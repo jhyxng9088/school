@@ -50,3 +50,7 @@ Run every 5 minutes, 24/7, Asia/Seoul:
 `*/5 * * * *`
 
 Keep the existing cron-job for `/api/push-scheduled`. After this backend is deployed and dry-run validated, add a second cron-job for `/api/reminder-scheduled`.
+
+## Deployment note
+
+After adding or changing Vercel environment variables, create a fresh production deployment so the new values are available to the function runtime.
