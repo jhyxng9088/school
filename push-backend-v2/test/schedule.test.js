@@ -153,9 +153,11 @@ test('학사일정은 중요 토글 prefix가 있는 일정만 전날 23시에 �
     nowMs: epochKst('2026-08-27T23:04:00'),
   })
   const academic = plans.filter((plan) => plan.type === 'academic-tomorrow')
-  assert.equal(academic.length, 1)
-  assert.equal(academic[0].payload.body, '내일 체육대회가 있어.')
-  assert.equal(academic[0].recipients.length, 3)
+  assert.equal(academic.length, 2)
+  assert.equal(academic.every((plan) => plan.payload.body === '내일 체육대회가 있어.'), true)
+  assert.deepEqual(academic.find((plan) => plan.studentKey === 'student-a').recipients.map((item) => item.id), ['a1', 'a2'])
+  assert.deepEqual(academic.find((plan) => plan.studentKey === 'student-b').recipients.map((item) => item.id), ['b1'])
+  assert.notEqual(academic[0].key, academic[1].key)
 })
 
 test('23시에 자정 마감 1시간 전 알림과 전날 요약이 겹치면 같은 todo를 두 번 넣지 않는다', () => {
