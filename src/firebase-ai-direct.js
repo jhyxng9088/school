@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp } from 'firebase/app'
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
+import { getToken as getAppCheckToken, initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from 'firebase/ai'
+import { ensureSignedIn } from './school-sync'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0',
@@ -12,7 +13,7 @@ const firebaseConfig = {
   measurementId: 'G-PFCP63TWQS',
 }
 
-const DIRECT_APP_NAME = 'school-ai-recovery'
+const DIRECT_APP_NAME = 'school-sync'
 const RECAPTCHA_ENTERPRISE_SITE_KEY = '6LfuppctAAAAAMbZELYt0w0spaR2qTUmgLFdELGu'
 const FALLBACK_MODELS = [
   'gemini-3.7-flash',
@@ -114,7 +115,7 @@ const SUMMARY_SCHEMA = Schema.object({
 })
 
 let directAI = null
-let appCheckInitialized = false
+let directAppCheck = null
 
 function readModelHealth() {
   try {
@@ -221,10 +222,7 @@ async function runRawFirebaseModel(modelName, { text, reference, attachments, ti
   try {
     const response = await fetch(rawFirebaseEndpoint(modelName), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': firebaseConfig.apiKey,
-      },
+      headers: await directFirebaseHeaders(),
       body: JSON.stringify({
         contents: [{ role: 'user', parts }],
         generationConfig: {
@@ -264,25 +262,44 @@ async function runRawFirebaseModel(modelName, { text, reference, attachments, ti
   }
 }
 
-function getDirectAI() {
-  if (directAI) return directAI
-  const app = getApps().some((item) => item.name === DIRECT_APP_NAME)
+function getDirectApp() {
+  return getApps().some((item) => item.name === DIRECT_APP_NAME)
     ? getApp(DIRECT_APP_NAME)
     : initializeApp(firebaseConfig, DIRECT_APP_NAME)
+}
 
-  if (!appCheckInitialized) {
-    appCheckInitialized = true
-    try {
-      initializeAppCheck(app, {
-        provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
-        isTokenAutoRefreshEnabled: true,
-      })
-    } catch (error) {
-      if (!/already|initialized/i.test(String(error?.message || ''))) throw error
-    }
+function getDirectAppCheck(app) {
+  if (directAppCheck) return directAppCheck
+  directAppCheck = initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
+    isTokenAutoRefreshEnabled: true,
+  })
+  return directAppCheck
+}
+
+async function getDirectSecurityContext() {
+  const user = await ensureSignedIn()
+  const app = getDirectApp()
+  const appCheck = getDirectAppCheck(app)
+  return { app, appCheck, user }
+}
+
+async function directFirebaseHeaders() {
+  const { appCheck, user } = await getDirectSecurityContext()
+  const idToken = await user.getIdToken()
+  const appCheckResult = await getAppCheckToken(appCheck, false)
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-goog-api-key': firebaseConfig.apiKey,
   }
+  if (idToken) headers.Authorization = `Firebase ${idToken}`
+  if (appCheckResult?.token) headers['X-Firebase-AppCheck'] = appCheckResult.token
+  return headers
+}
 
-  directAI = getAI(app, { backend: new GoogleAIBackend() })
+async function getDirectAI() {
+  const { app } = await getDirectSecurityContext()
+  if (!directAI) directAI = getAI(app, { backend: new GoogleAIBackend() })
   return directAI
 }
 
@@ -348,7 +365,7 @@ function summaryPrompt(text, reference) {
 }
 
 async function runSdkModel(modelName, { text, reference, attachments, titleOnly }) {
-  const ai = getDirectAI()
+  const ai = await getDirectAI()
   const schema = titleOnly ? TITLE_SCHEMA : SUMMARY_SCHEMA
   const model = getGenerativeModel(ai, {
     model: modelName,
@@ -477,10 +494,7 @@ async function runRawStructuredModel(modelName, {
   try {
     const response = await fetch(rawFirebaseEndpoint(modelName), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': firebaseConfig.apiKey,
-      },
+      headers: await directFirebaseHeaders(),
       body: JSON.stringify({
         contents: [{ role: 'user', parts }],
         generationConfig: {
@@ -520,6 +534,69 @@ async function runRawStructuredModel(modelName, {
   }
 }
 
+async function runSdkStructuredModel(modelName, {
+  prompt,
+  attachments,
+  responseSchema,
+  maxOutputTokens,
+  timeoutMs,
+  temperature,
+}) {
+  const ai = await getDirectAI()
+  const model = getGenerativeModel(ai, {
+    model: modelName,
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema,
+      temperature,
+      maxOutputTokens,
+    },
+  })
+  const parts = (attachments || []).map(preparedPart).filter(Boolean)
+  const result = await withTimeout(
+    model.generateContent([String(prompt || ''), ...parts]),
+    timeoutMs,
+    modelName,
+  )
+  const raw = String(result?.response?.text?.() || '').trim()
+  if (!raw) throw new Error(`Structured SDK AI ${modelName} returned an empty response`)
+  try {
+    return JSON.parse(raw)
+  } catch {
+    const error = new Error(`Structured SDK AI ${modelName} returned invalid JSON`)
+    error.name = 'ReminderAIError'
+    error.code = 'school-ai/structured-sdk-invalid-json'
+    throw error
+  }
+}
+
+async function runStructuredModel(modelName, args) {
+  let appleRawError = null
+  const appleStandalone = isAppleStandaloneWebApp()
+  if (appleStandalone) {
+    try {
+      return await runRawStructuredModel(modelName, args)
+    } catch (rawError) {
+      appleRawError = rawError
+      console.warn(`Authenticated raw iOS PWA structured AI failed for ${modelName}; trying SDK.`, rawError)
+    }
+  }
+
+  try {
+    return await runSdkStructuredModel(modelName, args)
+  } catch (sdkError) {
+    if (appleStandalone) {
+      if (appleRawError && isQuotaError(appleRawError)) throw appleRawError
+      throw sdkError
+    }
+    try {
+      return await runRawStructuredModel(modelName, args)
+    } catch {
+      throw sdkError
+    }
+  }
+}
+
 export async function generateDirectStructured({
   prompt = '',
   attachments = [],
@@ -551,7 +628,7 @@ export async function generateDirectStructured({
   for (const modelName of availableModels) {
     const startedAt = Date.now()
     try {
-      const value = await runRawStructuredModel(modelName, {
+      const value = await runStructuredModel(modelName, {
         prompt,
         attachments,
         responseSchema,
