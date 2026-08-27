@@ -10,6 +10,15 @@ def replace_once(path, old, new):
     target.write_text(text.replace(old, new, 1))
 
 
+def replace_exact(path, old, new, expected):
+    target = Path(path)
+    text = target.read_text()
+    count = text.count(old)
+    if count != expected:
+        raise SystemExit(f'{path}: expected exactly {expected} matches, found {count}')
+    target.write_text(text.replace(old, new))
+
+
 # Group multi-day official events so Q&A/conflict logic sees one real event, not repeated single days.
 replace_once(
     'src/s-hub-ai-core.js',
@@ -154,20 +163,11 @@ replace_once(
 """,
 )
 
-replace_once(
+replace_exact(
     'src/s-hub-ai-sheet.jsx',
-    """    const conflicts = await reviewSchoolImportConflicts(items, context, now)
-""",
-    """    const conflicts = await reviewSchoolImportConflicts(items, conflictContext, now)
-""",
-)
-
-replace_once(
-    'src/s-hub-ai-sheet.jsx',
-    """      const conflicts = await reviewSchoolImportConflicts(items, context, now)
-""",
-    """      const conflicts = await reviewSchoolImportConflicts(items, conflictContext, now)
-""",
+    """reviewSchoolImportConflicts(items, context, now)""",
+    """reviewSchoolImportConflicts(items, conflictContext, now)""",
+    2,
 )
 
 # Extra regression coverage for the edge cases above.
