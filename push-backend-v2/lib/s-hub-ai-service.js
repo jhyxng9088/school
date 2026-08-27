@@ -13,6 +13,12 @@ const ATTACHMENT_MODELS = [
   'gemini-3.5-flash-lite',
   'gemini-3.1-flash-lite',
 ]
+const REMINDER_ATTACHMENT_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+]
 const MAX_ATTACHMENT_BASE64_CHARS = 3_200_000
 const MAX_SCHEMA_CHARS = 14_000
 
@@ -144,6 +150,7 @@ export async function generateStructuredWithFirebaseAI({
   timeoutMs = 26000,
   temperature = 0.05,
   models = null,
+  purpose = 'school',
 }) {
   const safeProjectId = String(projectId || '').trim()
   const safeAccessToken = String(accessToken || '').trim()
@@ -163,12 +170,15 @@ export async function generateStructuredWithFirebaseAI({
   let lastError = null
   const preferredModels = Array.isArray(models) && models.length
     ? models
-    : (parts.length ? ATTACHMENT_MODELS : TEXT_MODELS)
+    : parts.length
+      ? (purpose === 'reminder' ? REMINDER_ATTACHMENT_MODELS : ATTACHMENT_MODELS)
+      : TEXT_MODELS
+  const attachmentAttemptCap = purpose === 'reminder' ? 9000 : 20000
 
   for (const modelName of preferredModels.slice(0, 4)) {
     const remaining = deadline - Date.now()
     if (remaining < 2500) break
-    const attemptTimeout = Math.max(2000, Math.min(remaining, parts.length ? 20_000 : 10_000))
+    const attemptTimeout = Math.max(2000, Math.min(remaining, parts.length ? attachmentAttemptCap : 10_000))
     const startedAt = Date.now()
     try {
       const value = await requestFirebaseModel({
@@ -188,7 +198,8 @@ export async function generateStructuredWithFirebaseAI({
       lastError = error
       attempts.push(`${modelName}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
       const status = Number(error?.status || 0)
-      if ([400, 401, 403].includes(status)) break
+      if ([401, 403].includes(status)) break
+      if (status === 400 && !String(error?.code || '').toUpperCase().includes('INVALID_ARGUMENT')) break
     }
   }
 

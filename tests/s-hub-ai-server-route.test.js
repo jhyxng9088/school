@@ -31,6 +31,6 @@ test('S-Hub input hints rotate with a soft 2.5 second cadence', () => {
   assert.match(css, /transition: opacity 220ms/)
 })
 
-test('service worker advances after iOS AI authentication repair', () => {
-  assert.match(read('public/sw.js'), /school-shell-v145/)
+test('service worker advances after unified S-Hub AI repair', () => {
+  assert.match(read('public/sw.js'), /school-shell-v146/)
 })

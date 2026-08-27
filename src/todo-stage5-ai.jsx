@@ -85,9 +85,9 @@ function resultSignature(result) {
 function attachmentErrorMessage(error) {
   const message = String(error?.message || '')
   if (/timed out|timeout|gemini-3\.[67]/i.test(message)) {
-    return '이미지 분석 시간이 초과됐어. 최적화된 이미지로 다시 분석해줘.'
+    return 'S-Hub AI 응답이 늦어졌어. 다시 분석해줘.'
   }
-  return message || '첨부 분석에 실패했어. 다시 시도해줘.'
+  return message || 'S-Hub AI 첨부 분석에 실패했어. 다시 시도해줘.'
 }
 
 function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
@@ -843,7 +843,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
         onClose={() => setSheetOpen(false)}
         closeDisabled={serverSaving || conflictChecking}
         title={draft.id ? '리마인더 수정' : '리마인더 추가'}
-        subtitle={sheetMode === 'natural' ? '해야 할 일을 그냥 한 문장으로 적어.' : '필요한 정보만 직접 수정해.'}
+        subtitle={sheetMode === 'natural' ? '문장이나 첨부를 S-Hub AI가 리마인더로 정리해.' : '필요한 정보만 직접 수정해.'}
         ariaLabel={draft.id ? '리마인더 수정' : '리마인더 추가'}
         className="todo-sheet"
       >
@@ -863,8 +863,6 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
 
               <AttachmentPicker
                 files={attachmentFiles}
-                busy={summaryBusy}
-                ready={summaryState === 'ready'}
                 error={attachmentFiles.length && summaryState === 'error' ? attachmentErrorMessage(summaryError) : ''}
                 onAdd={addAttachments}
                 onRemove={removeAttachment}
@@ -879,9 +877,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
 
               {attachmentFiles.length && aiBusy && !aiResult ? (
                 <section className="reminder-parse-preview is-title-loading" aria-live="polite">
-                  <p>첨부에서 제목을 찾는 중</p>
-                  <strong>제목 분석 중…</strong>
-                  <small className="reminder-ai-status is-working">전체 요약도 동시에 시작했어.</small>
+                  <strong>S-Hub AI가 첨부를 분석 중…</strong>
                 </section>
               ) : naturalResult ? (
                 <section className="reminder-parse-preview" aria-live="polite">
@@ -892,15 +888,11 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
                     <span>{formatParsedDue(naturalResult, now)}</span>
                   </div>
                   {aiBusy ? (
-                    <small className="reminder-ai-status is-working">AI가 제목을 정리하는 중…</small>
-                  ) : aiState === 'ready' ? (
-                    <small className="reminder-ai-status is-ready">
-                      {attachmentFiles.length
-                        ? summaryState === 'ready' ? '제목·요약 준비 완료' : '제목 준비됨 · 추가하면 요약은 뒤에서 계속돼.'
-                        : aiAdjusted ? '오타·축약을 보정했어.' : 'AI 제목 준비 완료'}
-                    </small>
-                  ) : aiState === 'error' ? (
-                    <small className="reminder-ai-status">{attachmentFiles.length ? 'AI 제목 생성에 실패했어. 다시 분석하거나 직접 입력해줘.' : 'AI 연결이 안 돼서 기기 분석 결과를 사용할 수 있어.'}</small>
+                    <small className="reminder-ai-status is-working">S-Hub AI가 내용을 정리 중…</small>
+                  ) : aiState === 'ready' && !attachmentFiles.length && aiAdjusted ? (
+                    <small className="reminder-ai-status is-ready">S-Hub AI가 오타·축약을 보정했어.</small>
+                  ) : aiState === 'error' && !attachmentFiles.length ? (
+                    <small className="reminder-ai-status">S-Hub AI 연결이 안 돼서 기기 분석 결과를 사용할 수 있어.</small>
                   ) : naturalResult.assumedDate ? (
                     <small>날짜를 안 써서 오늘로 잡았어. 다르면 직접 입력에서 바꿀 수 있어.</small>
                   ) : null}
