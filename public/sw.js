@@ -1,5 +1,5 @@
-const CACHE_NAME = 'school-shell-v126'
-const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './samsung-apple-nav-icons.css', './samsung-nav-icon-fixes.css', './samsung-nav-meal.svg', './samsung-nav-academic.svg', './school-timetable-motion.js', './school-home-nav.js', './first-run-notice.js']
+const CACHE_NAME = 'school-shell-v127'
+const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './samsung-apple-nav-icons.css', './samsung-nav-icon-fixes.css', './samsung-nav-meal.svg', './samsung-nav-academic.svg', './school-timetable-motion.js', './school-home-nav.js', './first-run-notice.js', './notification-routing.js']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -21,6 +21,15 @@ self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting()
 })
 
+function notificationRoute(tag, fallbackUrl = './') {
+  if (tag.startsWith('activity-reminder-')) return './?tab=todo'
+  if (tag.startsWith('activity-timetable-')) return './?tab=timetable'
+  if (tag.startsWith('activity-academic-')) return './?tab=academic'
+  if (tag.startsWith('meal-')) return './?tab=meal'
+  if (tag.startsWith('next-class-')) return './?tab=home'
+  return fallbackUrl
+}
+
 self.addEventListener('push', (event) => {
   let payload = {}
   try {
@@ -32,7 +41,7 @@ self.addEventListener('push', (event) => {
   const title = String(payload.title || 'S-Hub').slice(0, 80)
   const body = String(payload.body || '새로운 알림이 있어.').slice(0, 220)
   const tag = String(payload.tag || `school-push-${Date.now()}`).slice(0, 120)
-  const url = String(payload.url || './')
+  const url = notificationRoute(tag, String(payload.url || './'))
 
   event.waitUntil(self.registration.showNotification(title, {
     body,
