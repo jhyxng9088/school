@@ -25,6 +25,7 @@ if (!syncApp) throw new Error('School sync app is not initialized')
 const db = getFirestore(syncApp)
 const identityPromises = new Map()
 const ACTIVITY_CACHE_VERSION = 'v1'
+const PUSH_ACTIVITY_EVENT = 'school:activity-committed'
 
 function activityCacheKey(profile) {
   const normalized = currentProfile(profile)
@@ -77,6 +78,14 @@ function safeId(value) {
 
 function activityDocId(type, entityId) {
   return safeId(`${type}:${entityId}`)
+}
+
+function emitCommittedActivity(detail) {
+  try {
+    window.dispatchEvent(new CustomEvent(PUSH_ACTIVITY_EVENT, { detail }))
+  } catch {
+    // Firestore remains authoritative even if an old browser cannot emit the local event.
+  }
 }
 
 function identityRef(uid) {
@@ -219,21 +228,30 @@ export async function recordClassActivities(profile, entries) {
   const identity = await ensureIdentity(normalized)
   const batch = writeBatch(db)
   const updatedAt = Date.now()
+  const committed = []
 
   items.forEach((entry) => {
     const entityType = String(entry.entityType).slice(0, 30)
     const entityId = String(entry.entityId).slice(0, 120)
+    const action = entry.action === 'added' ? 'added' : 'edited'
+    const sourceId = activityDocId(entityType, entityId)
     batch.set(activityRef(normalized, entityType, entityId), {
       entityType,
       entityId,
       actorName: identity.profile.name,
       actorStudentKey: identity.studentKey,
-      action: entry.action === 'added' ? 'added' : 'edited',
+      action,
       updatedAt,
     })
+    committed.push({ entityType, entityId, sourceId, action })
   })
 
   await batch.commit()
+  committed.forEach((entry) => emitCommittedActivity({
+    ...entry,
+    actorStudentKey: identity.studentKey,
+    updatedAt,
+  }))
 }
 
 export function recordClassActivity(profile, entityType, entityId, action = 'edited') {
@@ -416,6 +434,14 @@ export function useSharedAcademic(profile) {
     const { important: _important, ...storedCandidate } = candidate
     storedCandidate.detail = encodeAcademicDetail(candidate.detail, candidate.important)
     await setDoc(ref, storedCandidate)
+    emitCommittedActivity({
+      entityType: 'academic',
+      entityId: id,
+      sourceId: id,
+      actorStudentKey: identity.studentKey,
+      action: candidate.lastAction,
+      updatedAt: candidate.updatedAt,
+    })
     return candidate
   }, [signature])
 
