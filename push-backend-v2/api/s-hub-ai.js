@@ -5,6 +5,7 @@ import { generateStructuredWithFirebaseAI } from '../lib/s-hub-ai-service.js'
 const FIREBASE_APP_ID = '1:321702677113:web:390c5d63e3d93ec17f22a8'
 const AI_CACHE_COLLECTION = 'sHubAiResponseCache'
 const AI_CACHE_TTL_MS = 10 * 60 * 1000
+const AI_CACHE_PRUNE_LIMIT = 20
 
 export function normalizedPromptForCache(prompt = '') {
   return String(prompt || '')
@@ -18,10 +19,12 @@ export function normalizedPromptForCache(prompt = '') {
     )
 }
 
-export function schoolQuestionCacheKey(body, prompt, purpose) {
-  if (body?.cacheScope !== 'school-question' || purpose !== 'school') return ''
+export function schoolQuestionCacheKey(body, prompt, purpose, classId = '') {
+  const safeClassId = String(classId || '').trim()
+  if (body?.cacheScope !== 'school-question' || purpose !== 'school' || !safeClassId) return ''
   const digest = createHash('sha256')
-  digest.update('s-hub-school-question-v1\n')
+  digest.update('s-hub-school-question-v2\n')
+  digest.update(`CLASS\n${safeClassId}\n`)
   digest.update(normalizedPromptForCache(prompt))
   digest.update('\nSCHEMA\n')
   digest.update(JSON.stringify(body.responseSchema || {}))
@@ -57,6 +60,24 @@ export async function writeSchoolQuestionCache(db, key, result) {
   })
 }
 
+export async function pruneExpiredSchoolQuestionCache(db, maxDocs = AI_CACHE_PRUNE_LIMIT) {
+  const safeLimit = Math.max(1, Math.min(AI_CACHE_PRUNE_LIMIT, Number(maxDocs) || AI_CACHE_PRUNE_LIMIT))
+  const snapshot = await db.collection(AI_CACHE_COLLECTION)
+    .where('expiresAtMs', '<=', Date.now())
+    .limit(safeLimit)
+    .get()
+  if (snapshot.empty) return 0
+  const batch = db.batch()
+  snapshot.docs.forEach((doc) => batch.delete(doc.ref))
+  await batch.commit()
+  return snapshot.docs.length
+}
+
+function shouldPruneCache(key) {
+  const prefix = Number.parseInt(String(key || '').slice(0, 2), 16)
+  return Number.isInteger(prefix) && prefix < 32
+}
+
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -90,6 +111,7 @@ export default async function handler(req, res) {
     const decoded = await adminAuth().verifyIdToken(token)
     const identity = await adminDb().collection('users').doc(decoded.uid).get()
     if (!identity.exists) return res.status(403).json({ ok: false, error: 'identity_missing', message: '학생 정보를 확인하지 못했어.' })
+    const classId = String(identity.data()?.classId || '').trim()
 
     const body = req.body && typeof req.body === 'object' ? req.body : {}
     const purpose = body.purpose === 'reminder' ? 'reminder' : 'school'
@@ -99,7 +121,7 @@ export default async function handler(req, res) {
     }
 
     const db = adminDb()
-    const cacheKey = schoolQuestionCacheKey(body, prompt, purpose)
+    const cacheKey = schoolQuestionCacheKey(body, prompt, purpose, classId)
     if (cacheKey) {
       const cached = await readSchoolQuestionCache(db, cacheKey)
       if (cached) return res.status(200).json({ ok: true, result: cached })
@@ -124,8 +146,9 @@ export default async function handler(req, res) {
     if (cacheKey) {
       try {
         await writeSchoolQuestionCache(db, cacheKey, result)
+        if (shouldPruneCache(cacheKey)) await pruneExpiredSchoolQuestionCache(db)
       } catch (cacheError) {
-        console.warn('s-hub-ai cache write failed', cacheError?.message || cacheError)
+        console.warn('s-hub-ai cache maintenance failed', cacheError?.message || cacheError)
       }
     }
     return res.status(200).json({ ok: true, result: { ...result, cacheHit: false } })
