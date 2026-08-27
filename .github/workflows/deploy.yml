@@ -1,4 +1,4 @@
-# GitHub Pages deployment and temporary guarded presence patch
+# GitHub Pages deployment and regression gate
 name: Deploy School PWA
 
 on:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -21,26 +21,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Apply guarded presence paint fix
-        run: python3 .github/scripts/fix_presence_flash.py
-
-      - name: Verify patch
-        run: |
-          git diff --check
-          git diff -- src/main.jsx src/styles.css
-
-      - name: Remove temporary helper before regression checks
-        run: |
-          rm .github/scripts/fix_presence_flash.py
-          rmdir .github/scripts
 
       - name: Install app dependencies
         run: npm ci
@@ -58,18 +43,6 @@ jobs:
       - name: Test reminder backend
         working-directory: push-backend-v2
         run: npm test
-
-      - name: Commit source only after checks pass
-        run: |
-          if git diff --quiet -- src/main.jsx src/styles.css; then
-            echo "Presence paint fix already applied"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/main.jsx src/styles.css
-            git commit -m "Hide unresolved presence count on first paint"
-            git push
-          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
