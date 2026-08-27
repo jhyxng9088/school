@@ -1,0 +1,43 @@
+.school-unread-dot {
+  position: absolute;
+  z-index: 4;
+  width: 6px;
+  height: 6px;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--text);
+  pointer-events: none;
+  animation: school-unread-breathe 2.4s ease-in-out infinite;
+}
+
+.school-unread-dot.is-nav {
+  top: 8px;
+  left: calc(50% + 8px);
+}
+
+.school-unread-dot.is-reminder {
+  top: 9px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+}
+
+@keyframes school-unread-breathe {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .school-unread-dot {
+    animation: none;
+    opacity: 0.88;
+    transform: none;
+  }
+}
