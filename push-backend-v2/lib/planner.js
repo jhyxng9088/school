@@ -89,18 +89,20 @@ export function planClassNotifications({
     && isImportantAcademic(event)
   ))
   if (importantTomorrow.length) {
-    plans.push({
-      key: `academic-tomorrow|${classId}|${tomorrow}`,
-      type: 'academic-tomorrow',
-      studentKey: '',
-      recipients: subscriptions,
-      payload: {
-        title: 'S-Hub',
-        body: academicTomorrowBody(importantTomorrow),
-        tag: `academic-tomorrow-${tomorrow}`,
-        url: './?tab=academic',
-      },
-    })
+    for (const [studentKey, studentSubscriptions] of subscriptionsByStudent) {
+      plans.push({
+        key: `academic-tomorrow|${classId}|${studentKey}|${tomorrow}`,
+        type: 'academic-tomorrow',
+        studentKey,
+        recipients: studentSubscriptions,
+        payload: {
+          title: 'S-Hub',
+          body: academicTomorrowBody(importantTomorrow),
+          tag: `academic-tomorrow-${tomorrow}`,
+          url: './?tab=academic',
+        },
+      })
+    }
   }
 
   return plans
