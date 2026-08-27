@@ -2,9 +2,15 @@ name: S-Hub scheduled push
 
 on:
   schedule:
-    # Run every 5 minutes on weekdays. The backend uses KST and decides
-    # whether a next-class or lunch notification is actually due.
-    - cron: '*/5 * * * 1-5'
+    # KST school-time windows. Each window is triggered three times so a delayed
+    # or dropped GitHub scheduled run still has another chance inside the
+    # backend's 10-minute notification window.
+    - cron: '1,4,7 9-12 * * 1-5'
+      timezone: 'Asia/Seoul'
+    - cron: '1,4,7 13 * * 1-5'
+      timezone: 'Asia/Seoul'
+    - cron: '51,54,57 13-15 * * 1-5'
+      timezone: 'Asia/Seoul'
   workflow_dispatch:
   push:
     branches: [main]
