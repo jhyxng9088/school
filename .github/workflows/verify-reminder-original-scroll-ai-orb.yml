@@ -1,0 +1,71 @@
+name: Verify reminder original scroll and AI orb patch
+
+on:
+  push:
+    branches:
+      - fix/reminder-original-scroll-ai-orb
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/reminder-original-scroll-ai-orb
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply guarded fixes
+        run: python3 .github/scripts/apply_reminder_original_scroll_ai_orb.py
+
+      - name: Remove temporary verification machinery
+        run: |
+          rm -f .github/scripts/apply_reminder_original_scroll_ai_orb.py
+          rm -f .github/workflows/verify-reminder-original-scroll-ai-orb.yml
+          rmdir .github/scripts 2>/dev/null || true
+
+      - name: Verify final repository shape
+        run: |
+          test ! -e .github/scripts
+          test ! -e .github/workflows/verify-reminder-original-scroll-ai-orb.yml
+          test "$(find .github/workflows -maxdepth 1 -type f -name '*.yml' -printf '%f\n' | sort)" = "deploy.yml"
+          grep -q "school-shell-v147" public/sw.js
+          grep -q "api/reminder-original" src/school-sync.js
+          grep -q "s-hub-ai-thinking-stage" src/s-hub-ai-sheet.jsx
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test app
+        run: npm test
+
+      - name: Build app
+        run: npm run build
+
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit verified final tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Fix reminder originals, summary scroll and S-Hub AI orb [skip ci]"
+            git push origin HEAD:fix/reminder-original-scroll-ai-orb
+          fi
