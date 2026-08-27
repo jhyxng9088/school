@@ -8,6 +8,7 @@ import {
   getCountFromServer,
   getDoc,
   getDocFromServer,
+  getDocs,
   getDocsFromServer,
   initializeFirestore,
   onSnapshot,
@@ -370,15 +371,14 @@ export async function getReminderOriginal(profile, todoId) {
     const metadata = metadataSnapshot.data() || {}
     const chunkCount = Number(metadata.chunkCount || 0)
     if (!Number.isInteger(chunkCount) || chunkCount < 1 || chunkCount > 24) throw new Error('원본 파일 정보가 올바르지 않아.')
-    const snapshots = await Promise.all(
-      Array.from({ length: chunkCount }, (_, index) => getDoc(originalAttachmentChunkRef(profile, safeId, index))),
-    )
-    if (snapshots.some((snapshot) => !snapshot.exists())) throw new Error('원본 파일 일부를 불러오지 못했어.')
+    const chunkSnapshot = await getDocs(collection(originalAttachmentRef(profile, safeId), 'chunks'))
+    const chunkDocs = [...chunkSnapshot.docs].sort((a, b) => a.id.localeCompare(b.id))
+    if (chunkDocs.length !== chunkCount) throw new Error('원본 파일 일부를 불러오지 못했어.')
     return {
       name: String(metadata.name || '원본 사진').slice(0, 120),
       mimeType: String(metadata.mimeType || 'application/octet-stream'),
       size: Number(metadata.size || 0),
-      dataBase64: snapshots.map((snapshot) => String(snapshot.data()?.data || '')).join(''),
+      dataBase64: chunkDocs.map((snapshot) => String(snapshot.data()?.data || '')).join(''),
     }
   })()
 

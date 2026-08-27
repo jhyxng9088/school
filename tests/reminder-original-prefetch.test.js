@@ -11,6 +11,8 @@ test('original reminder attachments reuse an in-memory fetch promise', () => {
   assert.match(sync, /const cached = originalAttachmentMemoryCache\.get\(cacheKey\)/)
   assert.match(sync, /if \(cached\) return cached/)
   assert.match(sync, /originalAttachmentMemoryCache\.set\(cacheKey, request\)/)
+  assert.match(sync, /getDocs\(collection\(originalAttachmentRef\(profile, safeId\), 'chunks'\)\)/)
+  assert.doesNotMatch(sync, /Array\.from\(\{ length: chunkCount \}.*getDoc\(originalAttachmentChunkRef/s)
 })
 
 test('summary sheet warms and decodes the first original before the user taps it', () => {

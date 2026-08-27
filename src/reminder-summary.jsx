@@ -253,6 +253,7 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
   const sections = Array.isArray(todo?.summary?.sections) ? todo.summary.sections : []
   const visibleSections = sections.filter((section) => section?.heading !== REMINDER_ATTACHMENT_MANIFEST_HEADING && section?.heading !== REMINDER_SUMMARY_PENDING_HEADING)
   const originalEntries = attachmentManifest(todo)
+  const firstOriginalKey = String(originalEntries[0]?.key || '')
   const canShowOriginal = Boolean(originalEntries.length && loadOriginal)
 
   function collapsedY() {
@@ -379,7 +380,7 @@ export function SummarySheet({ todo, onClose, loadOriginal = null }) {
       if (preloadTimerRef.current) window.clearTimeout(preloadTimerRef.current)
       preloadTimerRef.current = null
     }
-  }, [todo?.id])
+  }, [todo?.id, firstOriginalKey, canShowOriginal])
 
   if (!todo?.summary) return null
 
