@@ -1,27 +1,3 @@
-from pathlib import Path
-
-
-def replace_once(path, old, new):
-    p = Path(path)
-    text = p.read_text()
-    count = text.count(old)
-    if count != 1:
-        raise SystemExit(f'{path}: expected one match, found {count}')
-    p.write_text(text.replace(old, new, 1))
-
-
-def write(path, content):
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content.strip() + '\n')
-
-
-replace_once('push-backend-v2/api/s-hub-ai.js', 'function normalizedPromptForCache(prompt = \'\') {', 'export function normalizedPromptForCache(prompt = \'\') {')
-replace_once('push-backend-v2/api/s-hub-ai.js', 'function schoolQuestionCacheKey(body, prompt, purpose) {', 'export function schoolQuestionCacheKey(body, prompt, purpose) {')
-replace_once('push-backend-v2/api/s-hub-ai.js', 'async function readSchoolQuestionCache(db, key) {', 'export async function readSchoolQuestionCache(db, key) {')
-replace_once('push-backend-v2/api/s-hub-ai.js', 'async function writeSchoolQuestionCache(db, key, result) {', 'export async function writeSchoolQuestionCache(db, key, result) {')
-
-write('push-backend-v2/test/s-hub-ai-cache.test.js', r"""
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
@@ -103,4 +79,3 @@ test('cache write stores only result metadata, not prompt or attachment bytes', 
   assert.equal(JSON.stringify(db.state.written).includes('dataBase64'), false)
   assert.equal(JSON.stringify(db.state.written).includes('학생 질문'), false)
 })
-""")

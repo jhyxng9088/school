@@ -443,8 +443,27 @@ export function SchoolAISheet({
     try {
       const result = await askSchoolHubWithAttachments({ question, files, context, now, signal: controller.signal })
       if (requestSequenceRef.current !== requestId) return
-      if (!await finishWorkingStage(requestId)) return
-      setState((current) => ({ ...current, mode: 'answer', answer: result.answer, saveResult: null }))
+      const items = Array.isArray(result.items) ? result.items : []
+      if (items.length) {
+        showWorkingMode('conflict')
+        const conflicts = await reviewSchoolImportConflicts(items, conflictContext, now, { signal: controller.signal })
+        if (requestSequenceRef.current !== requestId) return
+        if (!await finishWorkingStage(requestId)) return
+        const choices = applyConflictSelection(items, conflicts)
+        setState({
+          mode: 'hybrid',
+          answer: result.answer,
+          items,
+          selected: choices.selected,
+          conflicts,
+          resolutions: choices.resolutions,
+          saveResult: null,
+        })
+        setConflictsDirty(false)
+      } else {
+        if (!await finishWorkingStage(requestId)) return
+        setState((current) => ({ ...current, mode: 'answer', answer: result.answer, saveResult: null }))
+      }
     } catch (requestError) {
       if (requestSequenceRef.current !== requestId || controller.signal.aborted || requestError?.code === 'school-ai/cancelled') return
       console.error('S-Hub attachment question failed:', requestError)
@@ -601,14 +620,14 @@ export function SchoolAISheet({
           </div>
         ) : null}
 
-        {!working && state.mode === 'answer' ? (
+        {!working && (state.mode === 'answer' || state.mode === 'hybrid') ? (
           <section className="s-hub-ai-answer" aria-live="polite">
             <span>답변</span>
             <p>{state.answer}</p>
           </section>
         ) : null}
 
-        {!working && state.mode === 'import' ? (
+        {!working && (state.mode === 'import' || state.mode === 'hybrid') ? (
           <section className="s-hub-ai-import">
             <div className="s-hub-ai-result-head">
               <strong>{state.items.length}개를 찾았어</strong>
@@ -757,7 +776,7 @@ export function SchoolAISheet({
 
         {error ? <p className="s-hub-ai-error" role="alert">{error}</p> : null}
 
-        {state.mode === 'import' ? (
+        {(state.mode === 'import' || state.mode === 'hybrid') ? (
           <div className="s-hub-ai-footer">
             <button type="button" onClick={startOver} disabled={saving}>다시 하기</button>
             <button type="button" className="s-hub-ai-primary" onClick={saveImports} disabled={saving || !validSelectedItems.length}>
