@@ -8,10 +8,15 @@ const AI_CACHE_COLLECTION = 'sHubAiResponseCache'
 const AI_CACHE_TTL_MS = 10 * 60 * 1000
 
 export function normalizedPromptForCache(prompt = '') {
-  return String(prompt || '').replace(
-    /현재 기준 시각:\s*(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}/,
-    '현재 기준 날짜: $1',
-  )
+  return String(prompt || '')
+    .replace(
+      /현재 기준 시각:\s*(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}/g,
+      '현재 기준 날짜: $1',
+    )
+    .replace(
+      /"reference":"(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}"/g,
+      '"reference":"$1"',
+    )
 }
 
 export function schoolQuestionCacheKey(body, prompt, purpose) {
