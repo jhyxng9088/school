@@ -3,13 +3,8 @@ name: S-Hub scheduled push backup
 on:
   schedule:
     # Independent backup schedule, staggered from the primary workflow.
-    # Each schedule respects GitHub Actions' 5-minute minimum interval.
-    # The backend owns KST due-time checks and deduplicates notification sends.
-    - cron: '3,8 9-12 * * 1-5'
-      timezone: 'Asia/Seoul'
-    - cron: '3,8 13 * * 1-5'
-      timezone: 'Asia/Seoul'
-    - cron: '53,58 13-15 * * 1-5'
+    # The backend owns KST due-time checks, skips outside windows, and deduplicates sends.
+    - cron: '4-59/5 9-16 * * 1-5'
       timezone: 'Asia/Seoul'
   workflow_dispatch:
   push:
