@@ -11,7 +11,8 @@ const NAV_STATE_IDS = {
   academic: `${INTERNAL_PREFIX}nav_academic`,
   meal: `${INTERNAL_PREFIX}nav_meal`,
 }
-const REMINDER_ROW_BASELINE_ID = `${INTERNAL_PREFIX}reminder_rows_v2`
+const REMINDER_ROW_BASELINE_ID = `${INTERNAL_PREFIX}reminder_rows_v3`
+const ACADEMIC_BASELINE_ID = `${INTERNAL_PREFIX}academic_v2`
 const MEAL_CACHE_KEY = 'school.stage3.meals.v1'
 const LABEL_TO_TAB = {
   '리마인더': 'todo',
@@ -100,7 +101,9 @@ async function startUnreadIndicators() {
     timetableOverrides: {},
     activityReady: false,
     seenReady: false,
+    todosReady: false,
     timetableReady: false,
+    academicReady: false,
     mealAvailable: hasTodayMealInCache(),
     stopped: false,
   }
@@ -156,9 +159,16 @@ async function startUnreadIndicators() {
     return latest
   }
 
+  function academicEventStillRelevant(value) {
+    const endDate = String(value?.endDate || value?.startDate || '')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return false
+    return endDate >= todayDateKey()
+  }
+
   function academicVersion() {
     let latest = 0
     state.academic.forEach((value) => {
+      if (!academicEventStillRelevant(value)) return
       if (value.lastEditedByStudentKey && value.lastEditedByStudentKey === studentKey) return
       latest = Math.max(latest, Number(value.updatedAt || value.createdAt || 0))
     })
@@ -195,7 +205,7 @@ async function startUnreadIndicators() {
   }
 
   function reminderRowUnread(todo) {
-    if (!state.activityReady || !state.seenReady || !todo) return false
+    if (!state.activityReady || !state.seenReady || !state.todosReady || !todo) return false
     const baseline = seenVersion(REMINDER_ROW_BASELINE_ID)
     if (baseline <= 0) return false
     const version = reminderActivityVersion(todo)
@@ -212,6 +222,7 @@ async function startUnreadIndicators() {
 
   function navUnread(tab) {
     if (tab === 'todo') {
+      if (!state.activityReady || !state.seenReady || !state.todosReady) return false
       const baseline = seenVersion(REMINDER_ROW_BASELINE_ID)
       return latestReminderActivityVersion() > Math.max(seenVersion(NAV_STATE_IDS.todo), baseline)
         || hasUnreadReminderRow()
@@ -221,7 +232,8 @@ async function startUnreadIndicators() {
       return otherActivityVersion('timetable') > seenVersion(NAV_STATE_IDS.timetable)
     }
     if (tab === 'academic') {
-      return academicVersion() > seenVersion(NAV_STATE_IDS.academic)
+      if (!state.seenReady || !state.academicReady) return false
+      return academicVersion() > Math.max(seenVersion(NAV_STATE_IDS.academic), seenVersion(ACADEMIC_BASELINE_ID))
     }
     if (tab === 'meal') {
       return state.seenReady
@@ -252,7 +264,7 @@ async function startUnreadIndicators() {
   }
 
   function ensureReminderBaseline() {
-    if (!state.activityReady || !state.seenReady) return
+    if (!state.activityReady || !state.seenReady || !state.todosReady) return
     if (seenVersion(REMINDER_ROW_BASELINE_ID) > 0) return
     writeSeen(REMINDER_ROW_BASELINE_ID, Math.max(1, latestReminderActivityVersion()))
   }
@@ -261,6 +273,12 @@ async function startUnreadIndicators() {
     if (!state.activityReady || !state.seenReady || !state.timetableReady) return
     if (seenVersion(NAV_STATE_IDS.timetable) > 0) return
     writeSeen(NAV_STATE_IDS.timetable, Math.max(1, otherActivityVersion('timetable')))
+  }
+
+  function ensureAcademicBaseline() {
+    if (!state.seenReady || !state.academicReady) return
+    if (seenVersion(ACADEMIC_BASELINE_ID) > 0) return
+    writeSeen(ACADEMIC_BASELINE_ID, Math.max(1, academicVersion()))
   }
 
   function markTabSeen(tab) {
@@ -296,6 +314,7 @@ async function startUnreadIndicators() {
     state.mealAvailable = hasTodayMealInCache()
     ensureReminderBaseline()
     ensureTimetableBaseline()
+    ensureAcademicBaseline()
     renderReminderRows()
     renderNav()
     scheduleNextReminderExpiry()
@@ -380,22 +399,34 @@ async function startUnreadIndicators() {
       })
     })
     state.todos = next
+    state.todosReady = true
     scheduleRender()
-  }, (error) => console.error('Unread reminder sync failed:', error)))
+  }, (error) => {
+    state.todosReady = false
+    console.error('Unread reminder sync failed:', error)
+    scheduleRender()
+  }))
 
   subscriptions.push(onSnapshot(collection(db, 'classes', classId, 'academicEvents'), (snapshot) => {
     const next = new Map()
     snapshot.docs.forEach((item) => {
       const value = item.data() || {}
       next.set(item.id, {
+        startDate: String(value.startDate || ''),
+        endDate: String(value.endDate || value.startDate || ''),
         createdAt: Number(value.createdAt || 0),
         updatedAt: Number(value.updatedAt || value.createdAt || 0),
         lastEditedByStudentKey: String(value.lastEditedByStudentKey || ''),
       })
     })
     state.academic = next
+    state.academicReady = true
     scheduleRender()
-  }, (error) => console.error('Unread academic sync failed:', error)))
+  }, (error) => {
+    state.academicReady = false
+    console.error('Unread academic sync failed:', error)
+    scheduleRender()
+  }))
 
   subscriptions.push(onSnapshot(collection(db, 'students', studentKey, 'todoState'), (snapshot) => {
     if (snapshot.metadata?.fromCache) return
