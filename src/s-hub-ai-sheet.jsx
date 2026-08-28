@@ -195,12 +195,14 @@ export function SchoolAISheet({
   const fileInputRef = useRef(null)
   const requestControllerRef = useRef(null)
   const requestSequenceRef = useRef(0)
+  const editingCloseRef = useRef('')
 
   useEffect(() => {
     if (!open) {
       requestSequenceRef.current += 1
       requestControllerRef.current?.abort()
       requestControllerRef.current = null
+      editingCloseRef.current = ''
       setWorking(false)
       return
     }
@@ -210,6 +212,7 @@ export function SchoolAISheet({
     setWorking(false)
     setSaving(false)
     setError('')
+    editingCloseRef.current = ''
     setEditingId('')
     setConflictsDirty(false)
     setHintIndex(0)
@@ -529,6 +532,56 @@ export function SchoolAISheet({
     }))
   }
 
+  async function toggleEditor(id, event) {
+    if (editingId !== id) {
+      editingCloseRef.current = ''
+      setEditingId(id)
+      return
+    }
+    if (editingCloseRef.current === id) return
+
+    const editor = event.currentTarget.closest('.s-hub-ai-item')?.querySelector('.s-hub-ai-editor')
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!editor || reducedMotion || typeof editor.animate !== 'function') {
+      setEditingId('')
+      return
+    }
+
+    editingCloseRef.current = id
+    editor.getAnimations().forEach((animation) => animation.cancel())
+    const animation = editor.animate([
+      {
+        maxHeight: `${Math.max(editor.scrollHeight, 1)}px`,
+        marginTop: '12px',
+        paddingTop: '12px',
+        paddingBottom: '12px',
+        opacity: 1,
+        transform: 'translate3d(0, 0, 0) scale(1)',
+      },
+      {
+        maxHeight: '0px',
+        marginTop: '0px',
+        paddingTop: '0px',
+        paddingBottom: '0px',
+        opacity: 0,
+        transform: 'translate3d(0, -7px, 0) scale(0.985)',
+      },
+    ], {
+      duration: 360,
+      easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      fill: 'forwards',
+    })
+
+    try {
+      await animation.finished
+    } catch {
+      // A replaced or cancelled animation can safely finish by removing the editor.
+    }
+    if (editingCloseRef.current !== id) return
+    editingCloseRef.current = ''
+    setEditingId((current) => current === id ? '' : current)
+  }
+
   function updateItem(id, patch) {
     setState((current) => {
       const index = current.items.findIndex((item) => item.id === id)
@@ -598,6 +651,7 @@ export function SchoolAISheet({
     setFiles([])
     setState(blankState())
     setError('')
+    editingCloseRef.current = ''
     setEditingId('')
     setConflictsDirty(false)
   }
@@ -668,7 +722,7 @@ export function SchoolAISheet({
                       <button
                         className={`s-hub-ai-edit ${editing ? 'is-done' : ''}`.trim()}
                         type="button"
-                        onClick={() => setEditingId(editing ? '' : item.id)}
+                        onClick={(event) => void toggleEditor(item.id, event)}
                       >
                         {editing ? '완료' : '수정'}
                       </button>
