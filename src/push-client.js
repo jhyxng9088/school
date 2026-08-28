@@ -19,7 +19,6 @@ import {
 const PUSH_API_BASE = 'https://school-push-backend.vercel.app/api'
 const REMINDER_ACTIVITY_API_BASE = 'https://school-reminder-backend.vercel.app/api'
 const DEVICE_ID_KEY = 'school.pushDeviceId.v1'
-const PROMPT_SESSION_KEY = 'school.pushPromptSeen.v1'
 const CONTACT_NOTICE_KEY = 'school.contactNotice.v1'
 const IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
 
@@ -248,9 +247,9 @@ function removePrompt(layer) {
 }
 
 async function maybeShowPermissionPrompt(profile) {
-  if (!pushSupported() || Notification.permission !== 'default') return
+  if (!pushSupported() || Notification.permission === 'granted') return
   if (IOS && !isStandalone()) return
-  if (sessionStorage.getItem(PROMPT_SESSION_KEY) === 'shown') return
+  if (document.hidden) return
   if (localStorage.getItem(CONTACT_NOTICE_KEY) !== 'done') {
     window.setTimeout(() => maybeShowPermissionPrompt(profile), 900)
     return
@@ -260,7 +259,7 @@ async function maybeShowPermissionPrompt(profile) {
     return
   }
 
-  sessionStorage.setItem(PROMPT_SESSION_KEY, 'shown')
+  const permissionDenied = Notification.permission === 'denied'
   installPromptStyles()
   const layer = document.createElement('section')
   layer.className = 'school-push-prompt'
@@ -268,9 +267,9 @@ async function maybeShowPermissionPrompt(profile) {
   layer.innerHTML = `
     <div class="school-push-prompt-copy">
       <strong>알림 켜기</strong>
-      <span>시간표 변경 · 다음 수업 · 급식을 알려줄게.</span>
+      <span>${permissionDenied ? '기기 설정에서 S-Hub 알림을 허용해줘.' : '시간표 변경 · 다음 수업 · 급식을 알려줄게.'}</span>
     </div>
-    <button class="school-push-enable" type="button">켜기</button>
+    <button class="school-push-enable" type="button">${permissionDenied ? '확인' : '켜기'}</button>
     <button class="school-push-close" type="button" aria-label="나중에">×</button>
   `
 
@@ -279,6 +278,10 @@ async function maybeShowPermissionPrompt(profile) {
     const button = layer.querySelector('.school-push-enable')
     if (button) button.disabled = true
     try {
+      if (permissionDenied) {
+        removePrompt(layer)
+        return
+      }
       const permission = await Notification.requestPermission()
       if (permission === 'granted') await ensurePushSubscription(profile)
       removePrompt(layer)
@@ -292,6 +295,34 @@ async function maybeShowPermissionPrompt(profile) {
 
   document.body.appendChild(layer)
   requestAnimationFrame(() => requestAnimationFrame(() => layer.classList.add('is-open')))
+}
+
+function installPermissionPromptEntryWatcher(profile) {
+  let leftApp = false
+
+  const refreshPermissionState = () => {
+    if (document.hidden) {
+      leftApp = true
+      return
+    }
+    if (!leftApp) return
+    leftApp = false
+
+    if (Notification.permission === 'granted') {
+      const layer = document.querySelector('.school-push-prompt')
+      if (layer) removePrompt(layer)
+      ensurePushSubscription(profile).catch((error) => console.error('Push subscription refresh failed:', error))
+      return
+    }
+    maybeShowPermissionPrompt(profile)
+  }
+
+  document.addEventListener('visibilitychange', refreshPermissionState)
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted || document.hidden) return
+    leftApp = true
+    refreshPermissionState()
+  })
 }
 
 async function hashEvent(value) {
@@ -448,10 +479,11 @@ async function startPushBridge() {
 
   watchOwnActivity(profile)
   watchOwnAcademic(profile)
+  installPermissionPromptEntryWatcher(profile)
 
   if (Notification.permission === 'granted') {
     ensurePushSubscription(profile).catch((error) => console.error('Push subscription refresh failed:', error))
-  } else if (Notification.permission === 'default') {
+  } else {
     maybeShowPermissionPrompt(profile)
   }
 }
