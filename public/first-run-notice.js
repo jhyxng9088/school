@@ -82,11 +82,25 @@
     }
     if (type === 'notice') {
       return `
-        <svg viewBox="0 0 120 120" aria-hidden="true">
-          <rect x="34" y="23" width="52" height="72" rx="12"></rect>
-          <path d="M47 45h26M47 56h18M47 67h23"></path>
-          <path class="feature-tour-accent-line" d="M25 39v-9a7 7 0 0 1 7-7h9M95 39v-9a7 7 0 0 0-7-7h-9M25 79v9a7 7 0 0 0 7 7h9M95 79v9a7 7 0 0 1-7 7h-9"></path>
-        </svg>
+        <div class="feature-tour-scan" aria-hidden="true">
+          <div class="feature-tour-scan-frame">
+            <i class="feature-tour-scan-corner is-tl"></i>
+            <i class="feature-tour-scan-corner is-tr"></i>
+            <i class="feature-tour-scan-corner is-bl"></i>
+            <i class="feature-tour-scan-corner is-br"></i>
+            <div class="feature-tour-scan-document">
+              <span class="feature-tour-scan-title"></span>
+              <span class="feature-tour-scan-line is-one"></span>
+              <span class="feature-tour-scan-line is-two"></span>
+              <span class="feature-tour-scan-line is-three"></span>
+              <span class="feature-tour-scan-line is-four"></span>
+              <i class="feature-tour-scan-detect is-one"></i>
+              <i class="feature-tour-scan-detect is-two"></i>
+              <i class="feature-tour-scan-detect is-three"></i>
+            </div>
+            <span class="feature-tour-scan-beam"></span>
+          </div>
+        </div>
       `
     }
     if (type === 'organize') {
