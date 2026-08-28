@@ -105,12 +105,24 @@
     }
     if (type === 'organize') {
       return `
-        <svg viewBox="0 0 120 120" aria-hidden="true">
-          <rect x="26" y="29" width="68" height="62" rx="15"></rect>
-          <path d="M42 47h36M42 61h25M42 75h30"></path>
-          <circle cx="88" cy="82" r="15"></circle>
-          <path class="feature-tour-accent-line" d="m81.5 82 4.5 4.5 8-9"></path>
-        </svg>
+        <div class="feature-tour-reminder-demo" aria-hidden="true">
+          <div class="feature-tour-reminder-row" style="--enter-delay: 260ms;">
+            <i class="feature-tour-mini-check"></i>
+            <div class="feature-tour-mini-copy"><strong>수학 과제</strong><span>오늘</span></div>
+          </div>
+          <div class="feature-tour-reminder-row is-demo-complete" style="--enter-delay: 610ms; --check-delay: 2240ms;">
+            <i class="feature-tour-mini-check"></i>
+            <div class="feature-tour-mini-copy"><strong>영어 수행평가</strong><span>내일</span></div>
+          </div>
+          <div class="feature-tour-reminder-row" style="--enter-delay: 960ms;">
+            <i class="feature-tour-mini-check"></i>
+            <div class="feature-tour-mini-copy"><strong>준비물 챙기기</strong><span>금요일</span></div>
+          </div>
+          <div class="feature-tour-reminder-row is-demo-complete" style="--enter-delay: 1310ms; --check-delay: 2860ms;">
+            <i class="feature-tour-mini-check"></i>
+            <div class="feature-tour-mini-copy"><strong>과학 보고서</strong><span>9/2</span></div>
+          </div>
+        </div>
       `
     }
     if (type === 'hub') {
