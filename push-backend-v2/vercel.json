@@ -13,9 +13,6 @@
     },
     "api/reminder-original.js": {
       "maxDuration": 30
-    },
-    "api/targeted-test-8c71.js": {
-      "maxDuration": 30
     }
   }
 }
