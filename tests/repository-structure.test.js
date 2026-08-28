@@ -56,6 +56,7 @@ test('retired duplicate runtime files stay removed', () => {
     'public/school-sheet.js',
     'public/icon-v117.svg',
     'public/samsung-apple-nav-icons.css',
+    'src/firebase-ai-direct.js',
     'src/unread-indicators.js',
   ]) assert.equal(existsSync(resolve(root, path)), false, path)
 })
