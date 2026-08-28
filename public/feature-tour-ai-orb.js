@@ -199,5 +199,34 @@
     }
   }
 
-  window.SHubFeatureTourAI = Object.freeze({ mountThinkingOrb })
+  const mountedOrbs = new WeakSet()
+
+  function mountTourOrbs(root = document) {
+    root.querySelectorAll?.('.feature-tour-ai-orb').forEach((host) => {
+      if (mountedOrbs.has(host)) return
+      mountedOrbs.add(host)
+      host.replaceChildren()
+      const canvas = document.createElement('canvas')
+      canvas.className = 'feature-tour-ai-canvas'
+      canvas.setAttribute('aria-hidden', 'true')
+      host.appendChild(canvas)
+      mountThinkingOrb(canvas, { size: 176 })
+    })
+  }
+
+  const observer = new MutationObserver((records) => {
+    records.forEach((record) => {
+      record.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) return
+        if (node.matches?.('.feature-tour-ai-orb')) mountTourOrbs(node.parentElement || document)
+        else mountTourOrbs(node)
+      })
+    })
+  })
+
+  observer.observe(document.documentElement, { childList: true, subtree: true })
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => mountTourOrbs(), { once: true })
+  else mountTourOrbs()
+
+  window.SHubFeatureTourAI = Object.freeze({ mountThinkingOrb, mountTourOrbs })
 })()
