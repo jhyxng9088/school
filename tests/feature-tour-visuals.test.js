@@ -72,3 +72,22 @@ test('feature tour organizer adds four reminders and completes exactly two with 
   assert.match(index, /feature-tour-sequences\.css/)
   assert.match(sw, /\.\/feature-tour-sequences\.css/)
 })
+
+test('feature tour home card builds the four core home sections with the home entrance motion', () => {
+  const source = read('public/first-run-notice.js')
+  const css = read('public/feature-tour-sequences.css')
+
+  assert.match(source, /class="feature-tour-home-demo"/)
+  assert.equal((source.match(/class="feature-tour-home-block/g) || []).length, 4)
+  assert.match(source, /feature-tour-home-block is-reminder/)
+  assert.match(source, /feature-tour-home-block is-meal/)
+  assert.match(source, /feature-tour-home-block is-timetable/)
+  assert.match(source, /feature-tour-home-block is-academic/)
+  assert.match(source, /--home-delay: 220ms/)
+  assert.match(source, /--home-delay: 1060ms/)
+
+  assert.match(css, /feature-tour-home-enter 700ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/)
+  assert.match(css, /@keyframes feature-tour-home-enter/)
+  assert.match(css, /translate3d\(0, 10px, 0\)/)
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*feature-tour-home-block/)
+})
