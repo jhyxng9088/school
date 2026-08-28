@@ -30,3 +30,23 @@ test('feature tour first card uses the same S-Hub AI thinking motion profiles', 
   assert.match(sw, /school-shell-v154/)
   assert.match(sw, /\.\/feature-tour-ai-orb\.js/)
 })
+
+test('feature tour notice card visibly scans the document and marks detected regions', () => {
+  const source = read('public/first-run-notice.js')
+  const css = read('public/first-run-notice.css')
+
+  assert.match(source, /class="feature-tour-scan"/)
+  assert.match(source, /class="feature-tour-scan-document"/)
+  assert.match(source, /feature-tour-scan-corner is-tl/)
+  assert.match(source, /feature-tour-scan-beam/)
+  assert.match(source, /feature-tour-scan-detect is-one/)
+  assert.match(source, /feature-tour-scan-detect is-two/)
+  assert.match(source, /feature-tour-scan-detect is-three/)
+
+  assert.match(css, /\.feature-tour-slide\.is-active \.feature-tour-scan-beam[\s\S]*feature-tour-scan-sweep/)
+  assert.match(css, /@keyframes feature-tour-scan-sweep/)
+  assert.match(css, /top: 15px;[\s\S]*top: 157px;/)
+  assert.match(css, /@keyframes feature-tour-scan-detect/)
+  assert.match(css, /\.feature-tour-slide\.is-active \.feature-tour-scan-corner[\s\S]*feature-tour-scan-corners/)
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*feature-tour-scan-beam/)
+})
