@@ -54,11 +54,13 @@ export default function HomeMealPreview({ now, schoolData }) {
   }, [schoolData.ensureMealWeek, targetWeekOffset])
 
   const title = weekend ? '오늘 급식' : afterLunch ? '내일 급식' : '오늘 급식'
-  const statusCopy = week.loading
-    ? '급식 정보를 불러오는 중이에요.'
-    : week.error
-      ? '급식 정보를 불러오지 못했어요.'
-      : `${dateLabel(targetDate)} 급식이 등록되지 않았어요.`
+  const statusCopy = weekend && !meal
+    ? '오늘 급식이 없어요.'
+    : week.loading
+      ? '급식 정보를 불러오는 중이에요.'
+      : week.error
+        ? '급식 정보를 불러오지 못했어요.'
+        : `${dateLabel(targetDate)} 급식이 등록되지 않았어요.`
 
   return (
     <section className="home-section meal-preview stage3-home-block">
