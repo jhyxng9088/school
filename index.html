@@ -15,6 +15,18 @@
     <link rel="manifest" href="./manifest.webmanifest?v=10" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
+    <script>
+      (() => {
+        const ua = navigator.userAgent
+        const mobileBrowser = /iPhone|iPod|Android|SamsungBrowser/i.test(ua)
+        const iPadDesktopUA = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1
+        const finePointer = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
+        if (!mobileBrowser && !iPadDesktopUA && finePointer) {
+          document.documentElement.classList.add('school-desktop-laptop')
+        }
+      })()
+    </script>
+    <link rel="stylesheet" href="/src/desktop-motion.css" />
     <link rel="stylesheet" href="./school-refinements.css" />
     <link rel="stylesheet" href="./stage3-polish.css" />
     <link rel="stylesheet" href="./school-page-motion.css" />
