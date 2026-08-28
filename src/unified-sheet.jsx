@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import './unified-sheet.css'
+import './desktop-motion.css'
 
 const OPEN_MS = 560
 const CLOSE_MS = 320
@@ -16,6 +17,13 @@ function afterTwoFrames(callback) {
     if (state.first) window.cancelAnimationFrame(state.first)
     if (state.second) window.cancelAnimationFrame(state.second)
   }
+}
+
+function needsFixedBodyScrollLock() {
+  const userAgent = navigator.userAgent
+  return /iPhone|iPad|iPod/i.test(userAgent) || (
+    /Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1
+  )
 }
 
 export function UnifiedBottomSheet({
@@ -125,7 +133,7 @@ export function UnifiedBottomSheet({
     if (!rendered) return undefined
     const body = document.body
     const root = document.documentElement
-    const android = /Android|SamsungBrowser/i.test(navigator.userAgent)
+    const fixedBodyScrollLock = needsFixedBodyScrollLock()
     const scrollY = window.scrollY || document.documentElement.scrollTop || 0
     const previous = {
       bodyPosition: body.style.position,
@@ -139,17 +147,17 @@ export function UnifiedBottomSheet({
     }
 
     root.classList.add('school-unified-sheet-open')
-    if (android) {
-      root.style.overflow = 'hidden'
-      body.style.overflow = 'hidden'
-      body.style.overscrollBehavior = 'none'
-    } else {
+    if (fixedBodyScrollLock) {
       body.style.position = 'fixed'
       body.style.top = `-${scrollY}px`
       body.style.left = '0'
       body.style.right = '0'
       body.style.width = '100%'
       body.style.overflow = 'hidden'
+    } else {
+      root.style.overflow = 'hidden'
+      body.style.overflow = 'hidden'
+      body.style.overscrollBehavior = 'none'
     }
 
     return () => {
@@ -162,7 +170,7 @@ export function UnifiedBottomSheet({
       body.style.overflow = previous.bodyOverflow
       body.style.overscrollBehavior = previous.bodyOverscroll
       root.style.overflow = previous.rootOverflow
-      if (!android) window.scrollTo(0, scrollY)
+      if (fixedBodyScrollLock) window.scrollTo(0, scrollY)
     }
   }, [rendered])
 
