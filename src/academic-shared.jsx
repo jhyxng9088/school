@@ -98,6 +98,13 @@ function dDayLabel(now, date) {
   return days === 0 ? '오늘' : `D-${days}`
 }
 
+function academicStatusLabel(now, group) {
+  const today = rawDate(now)
+  const isMultiDay = group.startRawDate !== group.endRawDate
+  const isOngoing = isMultiDay && group.startRawDate <= today && today <= group.endRawDate
+  return isOngoing ? '진행 중' : dDayLabel(now, group.startDate)
+}
+
 function dateRangeLabel(group) {
   const start = group.startDate
   const end = group.endDate
@@ -139,7 +146,7 @@ export function SharedAcademicPreview({ now, schoolData, academicData }) {
               <strong>{exam.title}</strong>
               {attribution(exam) ? <small className="activity-attribution">{attribution(exam)}</small> : null}
             </div>
-            <b>{dDayLabel(now, exam.startDate)}</b>
+            <b>{academicStatusLabel(now, exam)}</b>
           </div>
         ) : null}
         {others.map((group) => (
@@ -149,7 +156,7 @@ export function SharedAcademicPreview({ now, schoolData, academicData }) {
               <strong>{group.title}</strong>
               {attribution(group) ? <small className="activity-attribution">{attribution(group)}</small> : null}
             </div>
-            <b>{dDayLabel(now, group.startDate)}</b>
+            <b>{academicStatusLabel(now, group)}</b>
           </div>
         ))}
         {!exam && !others.length ? (
@@ -305,7 +312,7 @@ export function SharedAcademicPage({ now, schoolData, academicData, requireOnlin
       {exam ? (
         <section className="academic-focus-card">
           <p>가장 가까운 중요 일정</p>
-          <div><h2>{exam.title}</h2><strong>{dDayLabel(now, exam.startDate)}</strong></div>
+          <div><h2>{exam.title}</h2><strong>{academicStatusLabel(now, exam)}</strong></div>
           <span>{dateRangeLabel(exam)}</span>
           {attribution(exam) ? <small className="activity-attribution">{attribution(exam)}</small> : null}
         </section>
@@ -329,7 +336,7 @@ export function SharedAcademicPage({ now, schoolData, academicData, requireOnlin
               {attribution(group) ? <small className="activity-attribution">{attribution(group)}</small> : null}
             </div>
             <div className="academic-item-actions">
-              <b>{dDayLabel(now, group.startDate)}</b>
+              <b>{academicStatusLabel(now, group)}</b>
               {group.source === 'custom' ? <button type="button" onClick={() => openEdit(group)}>수정</button> : null}
             </div>
           </article>
