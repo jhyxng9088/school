@@ -1,3 +1,4 @@
+// Regression coverage for class isolation and custom academic expiry cleanup.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
