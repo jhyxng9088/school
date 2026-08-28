@@ -33,12 +33,13 @@ test('normal reminder saving runs the conflict check before save', () => {
   assert.match(todo, /reminder-conflict-warning/)
 })
 
-test('structured AI helper and attachment preparation are explicitly exported', () => {
-  const direct = read('src/firebase-ai-direct.js')
+test('shared AI transport and attachment preparation are explicitly exported', () => {
+  const transport = read('src/s-hub-ai-transport.js')
   const firebaseAI = read('src/firebase-ai.js')
 
-  assert.match(direct, /export async function generateDirectStructured/)
+  assert.match(transport, /export async function generateSchoolStructured/)
   assert.match(firebaseAI, /export async function prepareAttachment/)
+  assert.doesNotMatch(transport, /firebase-ai-direct/)
 })
 
 test('duplicate checks use class-shared reminders instead of personal completion state', () => {
