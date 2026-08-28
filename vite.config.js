@@ -1,7 +1,64 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import {
+  POLITE_AI_TONE,
+  POLITE_COPY_REPLACEMENTS,
+  POLITE_SOURCE_FRAGMENTS,
+} from './src/polite-copy-runtime.js'
+
+const AI_PROMPT_MARKERS = [
+  '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
+  '너는 S-Hub의 학교 정보 질문 도우미다.',
+  '너는 S-Hub 내부 학교 정보 검색 도우미다.',
+  '너는 한국 고등학생용 학교 리마인더 정리 AI다.',
+]
+
+function replaceCopy(source) {
+  let next = String(source || '')
+  for (const [from, to] of [...POLITE_COPY_REPLACEMENTS, ...POLITE_SOURCE_FRAGMENTS]) {
+    next = next.split(from).join(to)
+  }
+  for (const marker of AI_PROMPT_MARKERS) {
+    const withTone = `${marker}\n${POLITE_AI_TONE}`
+    if (!next.includes(withTone)) next = next.split(marker).join(withTone)
+  }
+  return next
+}
+
+function patchPublicBuildFiles(directory) {
+  if (!fs.existsSync(directory)) return
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.js')) continue
+    const filePath = path.join(directory, entry.name)
+    const current = fs.readFileSync(filePath, 'utf8')
+    const next = replaceCopy(current)
+    if (next !== current) fs.writeFileSync(filePath, next)
+  }
+}
+
+function politeCopyPlugin() {
+  return {
+    name: 'school-polite-copy',
+    enforce: 'pre',
+    transform(code, id) {
+      const cleanId = id.split('?')[0]
+      if (!cleanId.includes('/src/') || cleanId.endsWith('/polite-copy-runtime.js')) return null
+
+      let next = replaceCopy(code)
+      if (cleanId.endsWith('/src/main.jsx')) {
+        next = `import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n${next}\ninstallPoliteCopyRuntime()\n`
+      }
+      return next === code ? null : { code: next, map: null }
+    },
+    closeBundle() {
+      patchPublicBuildFiles(path.resolve('dist'))
+    },
+  }
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [politeCopyPlugin(), react()],
   base: '/school/',
 })
