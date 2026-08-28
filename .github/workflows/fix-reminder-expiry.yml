@@ -1,0 +1,98 @@
+name: One-time reminder expiry safety patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  patch-test-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove one-time workflow before repository tests
+        run: rm -f .github/workflows/fix-reminder-expiry.yml
+
+      - name: Patch automatic reminder expiry cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/todo.jsx')
+          source = path.read_text()
+          old = """      const tombstone = {
+                ...todo,
+                dueDate: '1970-01-01',
+                dueTime: '',
+                updatedAt: Date.now(),
+              }
+              writeSharedTodo(profile, tombstone)
+                .then(() => deleteExpiredSharedTodo(profile, todo.id))
+                .catch((error) => {
+                  console.error('Expired shared reminder delete failed:', error)
+                  window.setTimeout(() => expiryDeleteAttemptsRef.current.delete(todo.id), 60_000)
+                })"""
+          new = """      deleteExpiredSharedTodo(profile, todo.id)
+                .catch((error) => {
+                  console.error('Expired shared reminder delete failed:', error)
+                  window.setTimeout(() => expiryDeleteAttemptsRef.current.delete(todo.id), 60_000)
+                })"""
+          if old not in source:
+              raise SystemExit('Expected automatic-expiry tombstone block was not found')
+          source = source.replace(old, new, 1)
+          path.write_text(source)
+
+          test = Path('tests/reminder-expiry-server-guard.test.js')
+          test.write_text("""import test from 'node:test'\nimport assert from 'node:assert/strict'\nimport fs from 'node:fs'\n\nconst source = fs.readFileSync(new URL('../src/todo.jsx', import.meta.url), 'utf8')\n\ntest('automatic reminder expiry deletes the original server document without tombstoning its due date', () => {\n  const autoStart = source.indexOf('const expired = sourceTodos.filter')\n  const autoEnd = source.indexOf('}, [signature, sourceTodos, expiryClock])', autoStart)\n  assert.ok(autoStart >= 0 && autoEnd > autoStart)\n  const block = source.slice(autoStart, autoEnd)\n  assert.match(block, /deleteExpiredSharedTodo\\(profile, todo\\.id\\)/)\n  assert.doesNotMatch(block, /1970-01-01|writeSharedTodo\\(profile, tombstone\\)/)\n})\n""")
+          PY
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test app
+        run: npm test
+
+      - name: Build app
+        run: npm run build
+
+      - name: Install reminder backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test reminder backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit safe expiry cleanup
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/todo.jsx tests/reminder-expiry-server-guard.test.js .github/workflows/fix-reminder-expiry.yml
+          git commit -m "Use server rules for reminder expiry deletion"
+          git push
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload patched Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+      - name: Deploy patched build
+        uses: actions/deploy-pages@v4
