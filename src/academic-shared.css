@@ -577,3 +577,23 @@ body .unified-school-sheet.academic-editor.is-closing {
   transform: translateX(16px);
   background: var(--bg);
 }
+
+/* Keep the focus title and D-day in separate columns so Korean words never get split by the badge. */
+.academic-focus-card > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  justify-content: stretch;
+  gap: 12px;
+}
+
+.academic-focus-card h2 {
+  min-width: 0;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.academic-focus-card > div > strong {
+  justify-self: end;
+  white-space: nowrap;
+}
