@@ -1,5 +1,6 @@
 const CACHE_NAME = 'school-shell-v153'
 const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './samsung-nav-icon-fixes.css', './school-timetable-motion.js', './school-home-nav.js', './school-home-live.js', './first-run-notice.js', './notification-routing.js']
+const ROUTINE_PUSH_PAUSE_FROM_MS = Date.parse('2026-09-01T00:00:00+09:00')
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -33,6 +34,19 @@ function notificationTarget(tag, body, fallbackUrl = './') {
   return { url: fallbackUrl, tab: '' }
 }
 
+function routinePushPaused(tag, body, nowMs = Date.now()) {
+  if (Number(nowMs) < ROUTINE_PUSH_PAUSE_FROM_MS) return false
+  const normalizedTag = String(tag || '').toLowerCase()
+  const normalizedBody = String(body || '')
+  const mealPush = normalizedTag.includes('meal')
+    || normalizedBody.includes('급식')
+    || normalizedBody.includes('점심시간')
+  const nextClassPush = normalizedTag.includes('next-class')
+    || normalizedTag.includes('period-')
+    || normalizedBody.includes('다음 시간은')
+  return mealPush || nextClassPush
+}
+
 function tabFromUrl(value) {
   try {
     const tab = new URL(value || './', self.registration.scope).searchParams.get('tab') || ''
@@ -53,6 +67,14 @@ self.addEventListener('push', (event) => {
   const title = String(payload.title || 'S-Hub').slice(0, 80)
   const body = String(payload.body || '새로운 알림이 있어.').slice(0, 220)
   const tag = String(payload.tag || `school-push-${Date.now()}`).slice(0, 120)
+
+  // Keep the routine push implementation intact, but temporarily suppress only
+  // next-class and meal notifications from 2026-09-01 KST onward.
+  if (routinePushPaused(tag, body)) {
+    event.waitUntil(Promise.resolve())
+    return
+  }
+
   const target = notificationTarget(tag, body, String(payload.url || './'))
 
   event.waitUntil(self.registration.showNotification(title, {
