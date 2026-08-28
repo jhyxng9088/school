@@ -180,6 +180,7 @@
 
     const viewport = layer.querySelector('.feature-tour-viewport')
     const track = layer.querySelector('.feature-tour-track')
+    const actions = layer.querySelector('.feature-tour-actions')
     const back = layer.querySelector('.feature-tour-back')
     const next = layer.querySelector('.feature-tour-next')
     const slideNodes = [...layer.querySelectorAll('.feature-tour-slide')]
@@ -195,7 +196,11 @@
         slideNode.setAttribute('aria-hidden', active ? 'false' : 'true')
       })
       progressNodes.forEach((dot, step) => dot.classList.toggle('is-active', step === index))
-      if (back) back.disabled = index === 0
+      actions?.classList.toggle('has-back', index > 0)
+      if (back) {
+        back.disabled = index === 0
+        back.setAttribute('aria-hidden', index === 0 ? 'true' : 'false')
+      }
       if (next) next.textContent = index === slides.length - 1 ? 'S-Hub 시작하기' : '다음'
     }
 
