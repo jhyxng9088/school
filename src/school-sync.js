@@ -126,6 +126,11 @@ export function saveStudentProfile(value) {
   const profile = normalizeStudentProfile(value)
   if (!profile) return null
   localStorage.setItem(STUDENT_PROFILE_KEY, JSON.stringify(profile))
+  try {
+    window.dispatchEvent(new CustomEvent('school:student-profile-saved', { detail: profile }))
+  } catch {
+    // The stored profile remains authoritative if custom events are unavailable.
+  }
   return profile
 }
 
@@ -197,24 +202,75 @@ const db = initializeFirestore(syncApp, samsungInternet
   : { experimentalAutoDetectLongPolling: true })
 
 let authPromise = null
+const identitySyncPromises = new Map()
 
-export async function ensureSignedIn() {
-  if (auth.currentUser) return auth.currentUser
-  if (!authPromise) {
-    authPromise = (async () => {
-      try {
-        await setPersistence(auth, browserLocalPersistence)
-      } catch {
-        // The session can still work when persistent auth storage is unavailable.
+async function ensureStoredProfileIdentity(user) {
+  const profile = readStudentProfile()
+  if (!profile || !user?.uid) return user
+
+  const classId = classKeyFor(profile)
+  const studentKey = studentKeyFor(profile)
+  const signature = profileSignature(profile)
+  if (!classId || !studentKey || !signature) return user
+
+  const cacheKey = `${user.uid}|${signature}`
+  if (!identitySyncPromises.has(cacheKey)) {
+    const pending = (async () => {
+      const identity = doc(db, 'users', user.uid)
+      const snapshot = await getDoc(identity)
+
+      if (!snapshot.exists()) {
+        const now = Date.now()
+        await setDoc(identity, {
+          classId,
+          studentKey,
+          name: profile.name,
+          createdAt: now,
+          updatedAt: now,
+        })
+        return user
       }
-      const credential = await signInAnonymously(auth)
-      return credential.user
+
+      const existing = snapshot.data() || {}
+      if (
+        String(existing.classId || '') !== classId
+        || String(existing.studentKey || '') !== studentKey
+        || String(existing.name || '') !== profile.name
+      ) {
+        throw new Error('저장된 학생 정보와 로그인 정보가 달라. 앱 데이터를 초기화한 뒤 다시 등록해줘.')
+      }
+      return user
     })().catch((error) => {
-      authPromise = null
+      identitySyncPromises.delete(cacheKey)
       throw error
     })
+    identitySyncPromises.set(cacheKey, pending)
   }
-  return authPromise
+
+  await identitySyncPromises.get(cacheKey)
+  return user
+}
+
+export async function ensureSignedIn() {
+  let user = auth.currentUser
+  if (!user) {
+    if (!authPromise) {
+      authPromise = (async () => {
+        try {
+          await setPersistence(auth, browserLocalPersistence)
+        } catch {
+          // The session can still work when persistent auth storage is unavailable.
+        }
+        const credential = await signInAnonymously(auth)
+        return credential.user
+      })().catch((error) => {
+        authPromise = null
+        throw error
+      })
+    }
+    user = await authPromise
+  }
+  return ensureStoredProfileIdentity(user)
 }
 
 function installServerRevalidation(refresh) {

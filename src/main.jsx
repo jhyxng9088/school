@@ -27,6 +27,7 @@ import {
 import { TodoHomePreview, TodoPage, useTodos } from './todo'
 import { prepareClientDataGeneration, readStudentProfile, saveStudentProfile, useClassPresence, useSharedTimetable } from './school-sync'
 import { SharedAcademicPage, SharedAcademicPreview } from './academic-shared'
+import './academic-expiry-cleanup.js'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import { OfflineToast, useNetworkGuard } from './network-guard'
 import { activityKey, activityLabel, recordClassActivities, useClassActivity, useSharedAcademic } from './class-activity'

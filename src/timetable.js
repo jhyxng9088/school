@@ -20,6 +20,39 @@ export const WEEKDAYS = [
 
 export const TIMETABLE_STORAGE_KEY = 'school.timetable.weekly.v2'
 export const OVERRIDES_STORAGE_KEY = 'school.timetable.overrides.v2'
+const STUDENT_PROFILE_STORAGE_KEY = 'school.studentProfile.v1'
+
+function storedClassNumber() {
+  try {
+    const profile = JSON.parse(localStorage.getItem(STUDENT_PROFILE_STORAGE_KEY) || 'null')
+    const classNumber = Number(profile?.classNumber)
+    return Number.isInteger(classNumber) && classNumber >= 1 && classNumber <= 30 ? classNumber : null
+  } catch {
+    return null
+  }
+}
+
+function classScopedStorageKey(baseKey, classNumber = storedClassNumber()) {
+  return classNumber ? `${baseKey}.class-${classNumber}` : baseKey
+}
+
+function readClassScopedStorage(baseKey) {
+  const classNumber = storedClassNumber()
+  const key = classScopedStorageKey(baseKey, classNumber)
+  let stored = localStorage.getItem(key)
+
+  // Existing S-Hub users were class 1 before class isolation existed.
+  // Migrate that old cache only into class 1; no other class may inherit it.
+  if (stored === null && classNumber === 1 && key !== baseKey) {
+    const legacy = localStorage.getItem(baseKey)
+    if (legacy !== null) {
+      stored = legacy
+      localStorage.setItem(key, legacy)
+    }
+  }
+
+  return { classNumber, key, stored }
+}
 
 export const DEFAULT_WEEKLY_SCHEDULE = {
   mon: {
@@ -256,21 +289,25 @@ export function pruneExpiredOverrides(value, now = new Date()) {
 }
 
 export function loadWeeklySchedule() {
+  const fallback = () => storedClassNumber() === 1
+    ? createDefaultWeeklySchedule()
+    : createEmptyWeeklySchedule()
   try {
-    const stored = localStorage.getItem(TIMETABLE_STORAGE_KEY)
-    if (!stored) return createDefaultWeeklySchedule()
+    const { stored } = readClassScopedStorage(TIMETABLE_STORAGE_KEY)
+    if (!stored) return fallback()
     return normalizeWeeklySchedule(JSON.parse(stored))
   } catch {
-    return createDefaultWeeklySchedule()
+    return fallback()
   }
 }
 
 export function loadOverrides() {
   try {
-    const normalized = normalizeOverrides(JSON.parse(localStorage.getItem(OVERRIDES_STORAGE_KEY) || 'null'))
+    const { key, stored } = readClassScopedStorage(OVERRIDES_STORAGE_KEY)
+    const normalized = normalizeOverrides(JSON.parse(stored || 'null'))
     const pruned = pruneExpiredOverrides(normalized)
     if (JSON.stringify(pruned) !== JSON.stringify(normalized)) {
-      localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(pruned))
+      localStorage.setItem(key, JSON.stringify(pruned))
     }
     return pruned
   } catch {
@@ -279,11 +316,17 @@ export function loadOverrides() {
 }
 
 export function saveWeeklySchedule(schedule) {
-  localStorage.setItem(TIMETABLE_STORAGE_KEY, JSON.stringify(normalizeWeeklySchedule(schedule)))
+  localStorage.setItem(
+    classScopedStorageKey(TIMETABLE_STORAGE_KEY),
+    JSON.stringify(normalizeWeeklySchedule(schedule)),
+  )
 }
 
 export function saveOverrides(overrides) {
-  localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(pruneExpiredOverrides(overrides)))
+  localStorage.setItem(
+    classScopedStorageKey(OVERRIDES_STORAGE_KEY),
+    JSON.stringify(pruneExpiredOverrides(overrides)),
+  )
 }
 
 export function getDayForDate(date) {
