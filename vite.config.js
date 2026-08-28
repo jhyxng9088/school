@@ -15,11 +15,21 @@ const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 학교 리마인더 정리 AI다.',
 ]
 
-function replaceCopy(source) {
+function replacePairs(source, pairs) {
   let next = String(source || '')
-  for (const [from, to] of [...POLITE_COPY_REPLACEMENTS, ...POLITE_SOURCE_FRAGMENTS]) {
-    next = next.split(from).join(to)
-  }
+  const applied = []
+  pairs.forEach(([from, to], index) => {
+    if (!next.includes(from)) return
+    const token = `__S_HUB_POLITE_COPY_${index}_${applied.length}__`
+    next = next.split(from).join(token)
+    applied.push([token, to])
+  })
+  for (const [token, to] of applied) next = next.split(token).join(to)
+  return next
+}
+
+function replaceCopy(source) {
+  let next = replacePairs(source, [...POLITE_COPY_REPLACEMENTS, ...POLITE_SOURCE_FRAGMENTS])
   for (const marker of AI_PROMPT_MARKERS) {
     const withTone = `${marker}\n${POLITE_AI_TONE}`
     if (!next.includes(withTone)) next = next.split(marker).join(withTone)
