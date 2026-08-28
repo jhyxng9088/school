@@ -189,7 +189,8 @@ export function SHubAIOrb({ size = 24, active = false, className = '' }) {
       const baseDot = Math.max(0.62, Math.min(1.16, cssSize * 0.019))
       projected.forEach((point) => {
         const depth = (point.z + 1) / 2
-        context.globalAlpha = (0.36 + depth * 0.64) * brightness
+        context.globalAlpha = 0.36 + depth * 0.64
+        context.globalAlpha *= brightness
         context.beginPath()
         context.arc(point.x, point.y, baseDot * (0.72 + depth * 0.62) * point.perspective, 0, Math.PI * 2)
         context.fill()
