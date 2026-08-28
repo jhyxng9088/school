@@ -50,14 +50,15 @@
     return candidates[Math.floor(Math.random() * candidates.length)] || THINKING_MOTIONS[0]
   }
 
-  function mountThinkingOrb(canvas, { size = 176 } = {}) {
+  function mountThinkingOrb(canvas, { size = 156 } = {}) {
     if (!(canvas instanceof HTMLCanvasElement)) return () => {}
-    const cssSize = clamp(Number(size) || 176, 72, 220)
+    const cssSize = clamp(Number(size) || 156, 72, 220)
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     canvas.width = Math.round(cssSize * dpr)
     canvas.height = Math.round(cssSize * dpr)
     canvas.style.width = `${cssSize}px`
     canvas.style.height = `${cssSize}px`
+    canvas.style.display = 'block'
 
     const context = canvas.getContext('2d')
     if (!context) return () => {}
@@ -205,13 +206,13 @@
     root.querySelectorAll?.('.feature-tour-ai-orb').forEach((host) => {
       if (mountedOrbs.has(host)) return
       mountedOrbs.add(host)
+      const hostSize = host.getBoundingClientRect().width || 156
       host.replaceChildren()
       const canvas = document.createElement('canvas')
       canvas.className = 'feature-tour-ai-canvas'
       canvas.setAttribute('aria-hidden', 'true')
       host.appendChild(canvas)
-      const configuredSize = Number.parseFloat(getComputedStyle(host).getPropertyValue('--feature-tour-ai-size'))
-      mountThinkingOrb(canvas, { size: Number.isFinite(configuredSize) ? configuredSize : 176 })
+      mountThinkingOrb(canvas, { size: hostSize })
     })
   }
 
