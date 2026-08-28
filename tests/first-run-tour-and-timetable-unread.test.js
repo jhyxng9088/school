@@ -37,6 +37,20 @@ test('feature tour has five product cards, a creator finish card, and polite cop
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
+test('feature tour next button starts centered and makes room for a fixed-width back button smoothly', () => {
+  const source = read('public/first-run-notice.js')
+  const css = read('public/first-run-notice.css')
+
+  assert.match(source, /const actions = layer\.querySelector\('\.feature-tour-actions'\)/)
+  assert.match(source, /actions\?\.classList\.toggle\('has-back', index > 0\)/)
+  assert.match(css, /\.feature-tour-actions \{[\s\S]*position: relative;[\s\S]*height: 52px;/)
+  assert.match(css, /\.feature-tour-back \{[\s\S]*width: 84px;/)
+  assert.match(css, /\.feature-tour-next \{[\s\S]*left: 0;[\s\S]*width: 100%;/)
+  assert.match(css, /\.feature-tour-actions\.has-back \.feature-tour-next \{[\s\S]*left: 96px;[\s\S]*width: calc\(100% - 96px\);/)
+  assert.match(css, /left 620ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
+  assert.match(css, /width 620ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
+})
+
 test('timetable unread dot ignores historical and stale override activity', () => {
   const source = read('src/unread-indicators-v2.js')
 
