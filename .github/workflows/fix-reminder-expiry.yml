@@ -29,26 +29,33 @@ jobs:
 
           path = Path('src/todo.jsx')
           source = path.read_text()
-          old = """      const tombstone = {
-                ...todo,
-                dueDate: '1970-01-01',
-                dueTime: '',
-                updatedAt: Date.now(),
-              }
-              writeSharedTodo(profile, tombstone)
-                .then(() => deleteExpiredSharedTodo(profile, todo.id))
-                .catch((error) => {
-                  console.error('Expired shared reminder delete failed:', error)
-                  window.setTimeout(() => expiryDeleteAttemptsRef.current.delete(todo.id), 60_000)
-                })"""
-          new = """      deleteExpiredSharedTodo(profile, todo.id)
-                .catch((error) => {
-                  console.error('Expired shared reminder delete failed:', error)
-                  window.setTimeout(() => expiryDeleteAttemptsRef.current.delete(todo.id), 60_000)
-                })"""
-          if old not in source:
+          auto_start = source.index('const expired = sourceTodos.filter')
+          tombstone_token = source.index('const tombstone = {', auto_start)
+          block_start = source.rfind('\n', 0, tombstone_token) + 1
+          indent = source[block_start:tombstone_token]
+          timeout_token = source.index(
+              'window.setTimeout(() => expiryDeleteAttemptsRef.current.delete(todo.id), 60_000)',
+              tombstone_token,
+          )
+          close_token = source.index('})', timeout_token)
+          block_end = source.find('\n', close_token)
+          if block_end < 0:
+              block_end = len(source)
+          else:
+              block_end += 1
+
+          old_block = source[block_start:block_end]
+          if 'writeSharedTodo(profile, tombstone)' not in old_block or "dueDate: '1970-01-01'" not in old_block:
               raise SystemExit('Expected automatic-expiry tombstone block was not found')
-          source = source.replace(old, new, 1)
+
+          new_block = (
+              f"{indent}deleteExpiredSharedTodo(profile, todo.id)\n"
+              f"{indent}  .catch((error) => {{\n"
+              f"{indent}    console.error('Expired shared reminder delete failed:', error)\n"
+              f"{indent}    window.setTimeout(() => expiryDeleteAttemptsRef.current.delete(todo.id), 60_000)\n"
+              f"{indent}  }})\n"
+          )
+          source = source[:block_start] + new_block + source[block_end:]
           path.write_text(source)
 
           test = Path('tests/reminder-expiry-server-guard.test.js')
