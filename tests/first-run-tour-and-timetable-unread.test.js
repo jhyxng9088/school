@@ -50,3 +50,28 @@ test('timetable unread dot ignores historical and stale override activity', () =
   assert.match(source, /!state\.activityReady \|\| !state\.seenReady \|\| !state\.timetableReady/)
   assert.match(source, /doc\(db, 'classes', classId, 'settings', 'timetable'\)/)
 })
+
+test('reminder unread baseline waits for the real reminder snapshot and repairs the old baseline generation', () => {
+  const source = read('src/unread-indicators-v2.js')
+
+  assert.match(source, /reminder_rows_v3/)
+  assert.match(source, /todosReady: false/)
+  assert.match(source, /!state\.activityReady \|\| !state\.seenReady \|\| !state\.todosReady/)
+  assert.match(source, /function ensureReminderBaseline\(\)/)
+  assert.match(source, /state\.todosReady = true/)
+  assert.match(source, /state\.todosReady = false/)
+})
+
+test('academic unread dot establishes a fresh baseline and ignores finished schedules', () => {
+  const source = read('src/unread-indicators-v2.js')
+
+  assert.match(source, /academic_v2/)
+  assert.match(source, /academicReady: false/)
+  assert.match(source, /function academicEventStillRelevant\(value\)/)
+  assert.match(source, /endDate >= todayDateKey\(\)/)
+  assert.match(source, /function ensureAcademicBaseline\(\)/)
+  assert.match(source, /Math\.max\(seenVersion\(NAV_STATE_IDS\.academic\), seenVersion\(ACADEMIC_BASELINE_ID\)\)/)
+  assert.match(source, /startDate: String\(value\.startDate \|\| ''\)/)
+  assert.match(source, /endDate: String\(value\.endDate \|\| value\.startDate \|\| ''\)/)
+  assert.match(source, /state\.academicReady = true/)
+})
