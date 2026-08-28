@@ -149,12 +149,34 @@
     }
     if (type === 'share') {
       return `
-        <svg viewBox="0 0 120 120" aria-hidden="true">
-          <circle cx="60" cy="34" r="13"></circle>
-          <circle cx="34" cy="82" r="13"></circle>
-          <circle cx="86" cy="82" r="13"></circle>
-          <path class="feature-tour-accent-line" d="M53.5 45.5 40.5 70M66.5 45.5 79.5 70M47 82h26"></path>
-        </svg>
+        <div class="feature-tour-network" aria-hidden="true">
+          <svg viewBox="0 0 160 160">
+            <g class="feature-tour-network-lines">
+              <path d="M80 24L126 50L130 106L80 136L30 106L34 50Z"></path>
+              <path d="M80 24L80 80M126 50L80 80M130 106L80 80M80 136L80 80M30 106L80 80M34 50L80 80"></path>
+              <path d="M34 50L126 50M30 106L130 106"></path>
+            </g>
+            <g class="feature-tour-network-signals">
+              <path class="is-signal is-one" d="M80 24L80 80"></path>
+              <path class="is-signal is-two" d="M80 80L126 50"></path>
+              <path class="is-signal is-three" d="M126 50L130 106"></path>
+              <path class="is-signal is-four" d="M130 106L80 80"></path>
+              <path class="is-signal is-five" d="M80 80L80 136"></path>
+              <path class="is-signal is-six" d="M80 136L30 106"></path>
+              <path class="is-signal is-seven" d="M30 106L34 50"></path>
+              <path class="is-signal is-eight" d="M34 50L80 80"></path>
+            </g>
+            <g class="feature-tour-network-nodes">
+              <circle cx="80" cy="24" r="6"></circle>
+              <circle cx="126" cy="50" r="6"></circle>
+              <circle cx="130" cy="106" r="6"></circle>
+              <circle cx="80" cy="136" r="6"></circle>
+              <circle cx="30" cy="106" r="6"></circle>
+              <circle cx="34" cy="50" r="6"></circle>
+              <circle class="is-center" cx="80" cy="80" r="7"></circle>
+            </g>
+          </svg>
+        </div>
       `
     }
     return `
