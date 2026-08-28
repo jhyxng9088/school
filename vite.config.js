@@ -15,6 +15,10 @@ const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 학교 리마인더 정리 AI다.',
 ]
 
+const BUILD_COPY_REPLACEMENTS = POLITE_COPY_REPLACEMENTS.filter(
+  ([from]) => from !== '등록된 급식이 없어',
+)
+
 function replacePairs(source, pairs) {
   let next = String(source || '')
   const applied = []
@@ -29,7 +33,7 @@ function replacePairs(source, pairs) {
 }
 
 function replaceCopy(source) {
-  let next = replacePairs(source, [...POLITE_COPY_REPLACEMENTS, ...POLITE_SOURCE_FRAGMENTS])
+  let next = replacePairs(source, [...BUILD_COPY_REPLACEMENTS, ...POLITE_SOURCE_FRAGMENTS])
   for (const marker of AI_PROMPT_MARKERS) {
     const withTone = `${marker}\n${POLITE_AI_TONE}`
     if (!next.includes(withTone)) next = next.split(marker).join(withTone)
