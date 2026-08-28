@@ -86,6 +86,20 @@ service cloud.firestore {
         && (datePassed || untimedExpired || timedExpired);
     }
 
+    function academicExpiredInKorea() {
+      let endDate = resource.data.endDate;
+      let kstNow = request.time + duration.value(9, 'h');
+      let endYear = int(endDate[0:4]);
+      let endMonth = int(endDate[5:7]);
+      let endDay = int(endDate[8:10]);
+      let datePassed = kstNow.year() > endYear
+        || (kstNow.year() == endYear && kstNow.month() > endMonth)
+        || (kstNow.year() == endYear && kstNow.month() == endMonth && kstNow.day() > endDay);
+      return endDate is string
+        && endDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && datePassed;
+    }
+
     function validTimetable() {
       return request.resource.data.keys().hasOnly(['weeklySchedule', 'overrides', 'updatedAt'])
         && request.resource.data.keys().hasAll(['updatedAt'])
@@ -158,6 +172,12 @@ service cloud.firestore {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classId == classId;
+    }
+
+    function isCurrentStudent(studentId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey == studentId;
     }
 
     function validActivity() {
@@ -240,7 +260,7 @@ service cloud.firestore {
     function validPushDispatchClaim() {
       return request.resource.data.keys().hasOnly(['kind', 'actorStudentKey', 'createdAt'])
         && request.resource.data.keys().hasAll(['kind', 'actorStudentKey', 'createdAt'])
-        && request.resource.data.kind in ['activity', 'scheduled']
+        && request.resource.data.kind == 'activity'
         && request.resource.data.actorStudentKey is string
         && request.resource.data.actorStudentKey.size() >= 3
         && request.resource.data.actorStudentKey.size() <= 80
@@ -284,43 +304,42 @@ service cloud.firestore {
         && request.resource.data.lastEditedByName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
         && request.resource.data.lastAction == 'edited';
       allow delete: if belongsToClass(classId)
-        && resource.data.creatorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+        && (resource.data.creatorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey
+          || academicExpiredInKorea());
     }
 
     match /classes/{classId}/todos/{todoId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && validReminder(todoId);
-      allow delete: if signedIn() && reminderExpiredInKorea();
+      allow read: if belongsToClass(classId);
+      allow create, update: if belongsToClass(classId) && validReminder(todoId);
+      allow delete: if belongsToClass(classId) && reminderExpiredInKorea();
     }
 
     match /classes/{classId}/settings/timetable {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && validTimetable();
+      allow read: if belongsToClass(classId);
+      allow create, update: if belongsToClass(classId) && validTimetable();
       allow delete: if false;
     }
 
     match /classes/{classId}/members/{studentId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && validMember();
+      allow read: if belongsToClass(classId);
+      allow create, update: if belongsToClass(classId)
+        && isCurrentStudent(studentId)
+        && validMember();
       allow delete: if false;
     }
 
     match /classes/{classId}/presence/{presenceId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn()
+      allow read: if belongsToClass(classId);
+      allow create, update: if belongsToClass(classId)
+        && isCurrentStudent(presenceId)
         && presenceId == request.resource.data.studentKey
         && validPresence();
       allow delete: if false;
     }
 
-    // Allow the scheduled backend's collectionGroup('pushSubscriptions') read.
-    // Write permissions remain restricted by the class-scoped rule below.
-    match /{path=**}/pushSubscriptions/{subscriptionId} {
-      allow read: if signedIn();
-    }
-
     match /classes/{classId}/pushSubscriptions/{subscriptionId} {
-      allow read: if signedIn();
+      allow read: if belongsToClass(classId)
+        && resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
       allow create, update: if belongsToClass(classId)
         && validPushSubscription()
         && request.resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
@@ -329,16 +348,10 @@ service cloud.firestore {
     }
 
     match /classes/{classId}/pushDispatchClaims/{claimId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if belongsToClass(classId);
+      allow create: if belongsToClass(classId)
         && validPushDispatchClaim()
-        && (
-          (request.resource.data.kind == 'activity'
-            && belongsToClass(classId)
-            && request.resource.data.actorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey)
-          || (request.resource.data.kind == 'scheduled'
-            && request.resource.data.actorStudentKey == 'scheduler')
-        );
+        && request.resource.data.actorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
       allow update: if false;
       allow delete: if belongsToClass(classId)
         && resource.data.kind == 'activity'
@@ -346,20 +359,20 @@ service cloud.firestore {
     }
 
     match /classes/{classId}/originalAttachments/{todoId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && validOriginalAttachment();
+      allow read: if belongsToClass(classId);
+      allow create, update: if belongsToClass(classId) && validOriginalAttachment();
       allow delete: if false;
     }
 
     match /classes/{classId}/originalAttachments/{todoId}/chunks/{chunkId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && validOriginalChunk();
+      allow read: if belongsToClass(classId);
+      allow create, update: if belongsToClass(classId) && validOriginalChunk();
       allow delete: if false;
     }
 
     match /students/{studentId}/todoState/{todoId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && validPersonalTodoState();
+      allow read: if isCurrentStudent(studentId);
+      allow create, update: if isCurrentStudent(studentId) && validPersonalTodoState();
       allow delete: if false;
     }
 
