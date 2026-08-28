@@ -270,14 +270,7 @@ export function useTodos(profile) {
     expired.forEach((todo) => {
       if (expiryDeleteAttemptsRef.current.has(todo.id)) return
       expiryDeleteAttemptsRef.current.add(todo.id)
-      const tombstone = {
-        ...todo,
-        dueDate: '1970-01-01',
-        dueTime: '',
-        updatedAt: Date.now(),
-      }
-      writeSharedTodo(profile, tombstone)
-        .then(() => deleteExpiredSharedTodo(profile, todo.id))
+      deleteExpiredSharedTodo(profile, todo.id)
         .catch((error) => {
           console.error('Expired shared reminder delete failed:', error)
           window.setTimeout(() => expiryDeleteAttemptsRef.current.delete(todo.id), 60_000)
