@@ -5,10 +5,10 @@
   display: grid;
   place-items: center;
   padding:
-    max(18px, env(safe-area-inset-top))
-    max(18px, env(safe-area-inset-right))
-    max(18px, env(safe-area-inset-bottom))
-    max(18px, env(safe-area-inset-left));
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
   overflow: hidden;
   background: var(--bg, #f5f5f7);
   color: var(--text, #161617);
@@ -32,11 +32,11 @@
 
 .first-run-notice-card.feature-tour-shell {
   width: min(100%, 520px);
-  height: min(760px, calc(100dvh - max(36px, env(safe-area-inset-top)) - max(36px, env(safe-area-inset-bottom))));
+  height: min(724px, calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))));
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: 12px;
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -73,15 +73,15 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(210px, 1fr) auto;
+  grid-template-rows: minmax(180px, 1fr) auto;
   align-items: center;
-  gap: 24px;
-  padding: 30px 28px 32px;
+  gap: 16px;
+  padding: 20px 22px 22px;
 }
 
 .feature-tour-visual {
   width: 100%;
-  min-height: 210px;
+  min-height: 180px;
   display: grid;
   place-items: center;
   color: var(--text, #161617);
@@ -119,8 +119,8 @@
 }
 
 .feature-tour-copy {
-  min-height: 170px;
-  padding: 0 3px;
+  min-height: 154px;
+  padding: 0 2px;
 }
 
 .feature-tour-copy > p {
@@ -289,8 +289,8 @@
 
 .feature-tour-footer {
   display: grid;
-  gap: 15px;
-  padding: 0 2px 2px;
+  gap: 11px;
+  padding: 0;
 }
 
 .feature-tour-progress {
@@ -321,13 +321,15 @@
 }
 
 .feature-tour-actions {
-  display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
-  gap: 10px;
+  position: relative;
+  height: 52px;
 }
 
 .feature-tour-actions button {
+  position: absolute;
+  top: 0;
   min-height: 52px;
+  height: 52px;
   border: 0;
   border-radius: 16px;
   font: inherit;
@@ -336,8 +338,10 @@
   cursor: pointer;
   touch-action: manipulation;
   transition:
-    transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    left 620ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 620ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 440ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 420ms cubic-bezier(0.16, 1, 0.3, 1),
     background-color 440ms cubic-bezier(0.16, 1, 0.3, 1),
     color 440ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -347,8 +351,19 @@
 }
 
 .feature-tour-back {
+  left: 0;
+  width: 84px;
   background: var(--surface-soft, #ececef);
   color: var(--text-secondary, #6e6e73);
+  opacity: 0;
+  transform: translate3d(-12px, 0, 0) scale(0.985);
+  pointer-events: none;
+}
+
+.feature-tour-actions.has-back .feature-tour-back {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  pointer-events: auto;
 }
 
 .feature-tour-back:disabled {
@@ -357,8 +372,15 @@
 }
 
 .feature-tour-next {
+  left: 0;
+  width: 100%;
   background: var(--text, #161617);
   color: var(--bg, #f5f5f7);
+}
+
+.feature-tour-actions.has-back .feature-tour-next {
+  left: 96px;
+  width: calc(100% - 96px);
 }
 
 @media (max-height: 720px) {
@@ -367,17 +389,17 @@
   }
 
   .feature-tour-slide {
-    grid-template-rows: minmax(160px, 0.9fr) auto;
-    gap: 18px;
-    padding: 22px 24px 25px;
+    grid-template-rows: minmax(150px, 0.9fr) auto;
+    gap: 13px;
+    padding: 16px 20px 18px;
   }
 
   .feature-tour-visual {
-    min-height: 160px;
+    min-height: 150px;
   }
 
   .feature-tour-copy {
-    min-height: 150px;
+    min-height: 142px;
   }
 
   .feature-tour-visual svg {
