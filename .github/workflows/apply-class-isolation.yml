@@ -1,0 +1,496 @@
+name: Apply class isolation patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-class-isolation.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply guarded source patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, found {count}')
+              p.write_text(text.replace(old, new, 1))
+
+          # 1) Every authenticated class-data operation now guarantees that
+          # /users/{uid} already contains the immutable class/student identity.
+          replace_once(
+              'src/school-sync.js',
+              """export function saveStudentProfile(value) {
+            const profile = normalizeStudentProfile(value)
+            if (!profile) return null
+            localStorage.setItem(STUDENT_PROFILE_KEY, JSON.stringify(profile))
+            return profile
+          }
+          """,
+              """export function saveStudentProfile(value) {
+            const profile = normalizeStudentProfile(value)
+            if (!profile) return null
+            localStorage.setItem(STUDENT_PROFILE_KEY, JSON.stringify(profile))
+            try {
+              window.dispatchEvent(new CustomEvent('school:student-profile-saved', { detail: profile }))
+            } catch {
+              // The stored profile remains authoritative if custom events are unavailable.
+            }
+            return profile
+          }
+          """,
+          )
+
+          replace_once(
+              'src/school-sync.js',
+              """let authPromise = null
+
+          export async function ensureSignedIn() {
+            if (auth.currentUser) return auth.currentUser
+            if (!authPromise) {
+              authPromise = (async () => {
+                try {
+                  await setPersistence(auth, browserLocalPersistence)
+                } catch {
+                  // The session can still work when persistent auth storage is unavailable.
+                }
+                const credential = await signInAnonymously(auth)
+                return credential.user
+              })().catch((error) => {
+                authPromise = null
+                throw error
+              })
+            }
+            return authPromise
+          }
+          """,
+              """let authPromise = null
+          const identitySyncPromises = new Map()
+
+          async function ensureStoredProfileIdentity(user) {
+            const profile = readStudentProfile()
+            if (!profile || !user?.uid) return user
+
+            const classId = classKeyFor(profile)
+            const studentKey = studentKeyFor(profile)
+            const signature = profileSignature(profile)
+            if (!classId || !studentKey || !signature) return user
+
+            const cacheKey = `${user.uid}|${signature}`
+            if (!identitySyncPromises.has(cacheKey)) {
+              const pending = (async () => {
+                const identity = doc(db, 'users', user.uid)
+                const snapshot = await getDoc(identity)
+
+                if (!snapshot.exists()) {
+                  const now = Date.now()
+                  await setDoc(identity, {
+                    classId,
+                    studentKey,
+                    name: profile.name,
+                    createdAt: now,
+                    updatedAt: now,
+                  })
+                  return user
+                }
+
+                const existing = snapshot.data() || {}
+                if (
+                  String(existing.classId || '') !== classId
+                  || String(existing.studentKey || '') !== studentKey
+                  || String(existing.name || '') !== profile.name
+                ) {
+                  throw new Error('저장된 학생 정보와 로그인 정보가 달라. 앱 데이터를 초기화한 뒤 다시 등록해줘.')
+                }
+                return user
+              })().catch((error) => {
+                identitySyncPromises.delete(cacheKey)
+                throw error
+              })
+              identitySyncPromises.set(cacheKey, pending)
+            }
+
+            await identitySyncPromises.get(cacheKey)
+            return user
+          }
+
+          export async function ensureSignedIn() {
+            let user = auth.currentUser
+            if (!user) {
+              if (!authPromise) {
+                authPromise = (async () => {
+                  try {
+                    await setPersistence(auth, browserLocalPersistence)
+                  } catch {
+                    // The session can still work when persistent auth storage is unavailable.
+                  }
+                  const credential = await signInAnonymously(auth)
+                  return credential.user
+                })().catch((error) => {
+                  authPromise = null
+                  throw error
+                })
+              }
+              user = await authPromise
+            }
+            return ensureStoredProfileIdentity(user)
+          }
+          """,
+          )
+
+          # 2) Timetable local caches are class-scoped. Only class 1 can import
+          # the historical unscoped cache, preventing class-1 data from flashing in other classes.
+          replace_once(
+              'src/timetable.js',
+              """export const TIMETABLE_STORAGE_KEY = 'school.timetable.weekly.v2'
+          export const OVERRIDES_STORAGE_KEY = 'school.timetable.overrides.v2'
+          """,
+              """export const TIMETABLE_STORAGE_KEY = 'school.timetable.weekly.v2'
+          export const OVERRIDES_STORAGE_KEY = 'school.timetable.overrides.v2'
+          const STUDENT_PROFILE_STORAGE_KEY = 'school.studentProfile.v1'
+
+          function storedClassNumber() {
+            try {
+              const profile = JSON.parse(localStorage.getItem(STUDENT_PROFILE_STORAGE_KEY) || 'null')
+              const classNumber = Number(profile?.classNumber)
+              return Number.isInteger(classNumber) && classNumber >= 1 && classNumber <= 30 ? classNumber : null
+            } catch {
+              return null
+            }
+          }
+
+          function classScopedStorageKey(baseKey, classNumber = storedClassNumber()) {
+            return classNumber ? `${baseKey}.class-${classNumber}` : baseKey
+          }
+
+          function readClassScopedStorage(baseKey) {
+            const classNumber = storedClassNumber()
+            const key = classScopedStorageKey(baseKey, classNumber)
+            let stored = localStorage.getItem(key)
+
+            // Existing S-Hub users were class 1 before class isolation existed.
+            // Migrate that old cache only into class 1; no other class may inherit it.
+            if (stored === null && classNumber === 1 && key !== baseKey) {
+              const legacy = localStorage.getItem(baseKey)
+              if (legacy !== null) {
+                stored = legacy
+                localStorage.setItem(key, legacy)
+              }
+            }
+
+            return { classNumber, key, stored }
+          }
+          """,
+          )
+
+          replace_once(
+              'src/timetable.js',
+              """export function loadWeeklySchedule() {
+            try {
+              const stored = localStorage.getItem(TIMETABLE_STORAGE_KEY)
+              if (!stored) return createDefaultWeeklySchedule()
+              return normalizeWeeklySchedule(JSON.parse(stored))
+            } catch {
+              return createDefaultWeeklySchedule()
+            }
+          }
+
+          export function loadOverrides() {
+            try {
+              const normalized = normalizeOverrides(JSON.parse(localStorage.getItem(OVERRIDES_STORAGE_KEY) || 'null'))
+              const pruned = pruneExpiredOverrides(normalized)
+              if (JSON.stringify(pruned) !== JSON.stringify(normalized)) {
+                localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(pruned))
+              }
+              return pruned
+            } catch {
+              return {}
+            }
+          }
+
+          export function saveWeeklySchedule(schedule) {
+            localStorage.setItem(TIMETABLE_STORAGE_KEY, JSON.stringify(normalizeWeeklySchedule(schedule)))
+          }
+
+          export function saveOverrides(overrides) {
+            localStorage.setItem(OVERRIDES_STORAGE_KEY, JSON.stringify(pruneExpiredOverrides(overrides)))
+          }
+          """,
+              """export function loadWeeklySchedule() {
+            const fallback = () => storedClassNumber() === 1
+              ? createDefaultWeeklySchedule()
+              : createEmptyWeeklySchedule()
+            try {
+              const { stored } = readClassScopedStorage(TIMETABLE_STORAGE_KEY)
+              if (!stored) return fallback()
+              return normalizeWeeklySchedule(JSON.parse(stored))
+            } catch {
+              return fallback()
+            }
+          }
+
+          export function loadOverrides() {
+            try {
+              const { key, stored } = readClassScopedStorage(OVERRIDES_STORAGE_KEY)
+              const normalized = normalizeOverrides(JSON.parse(stored || 'null'))
+              const pruned = pruneExpiredOverrides(normalized)
+              if (JSON.stringify(pruned) !== JSON.stringify(normalized)) {
+                localStorage.setItem(key, JSON.stringify(pruned))
+              }
+              return pruned
+            } catch {
+              return {}
+            }
+          }
+
+          export function saveWeeklySchedule(schedule) {
+            localStorage.setItem(
+              classScopedStorageKey(TIMETABLE_STORAGE_KEY),
+              JSON.stringify(normalizeWeeklySchedule(schedule)),
+            )
+          }
+
+          export function saveOverrides(overrides) {
+            localStorage.setItem(
+              classScopedStorageKey(OVERRIDES_STORAGE_KEY),
+              JSON.stringify(pruneExpiredOverrides(overrides)),
+            )
+          }
+          """,
+          )
+
+          # 3) Load the custom-academic cleanup bridge from the app shell.
+          replace_once(
+              'src/main.jsx',
+              """import { SharedAcademicPage, SharedAcademicPreview } from './academic-shared'
+          """,
+              """import { SharedAcademicPage, SharedAcademicPreview } from './academic-shared'
+          import './academic-expiry-cleanup.js'
+          """,
+          )
+
+          Path('src/academic-expiry-cleanup.js').write_text("""import { getApp, getApps } from 'firebase/app'
+          import { collection, deleteDoc, getDocsFromServer, getFirestore } from 'firebase/firestore'
+          import { classKeyFor, ensureSignedIn, readStudentProfile } from './school-sync'
+
+          const KOREA_OFFSET_MS = 9 * 60 * 60 * 1000
+          const DATE_KEY_PATTERN = /^\\d{4}-\\d{2}-\\d{2}$/
+          let cleanupPromise = null
+          let midnightTimer = null
+
+          function koreaDateKey(nowMs = Date.now()) {
+            const shifted = new Date(nowMs + KOREA_OFFSET_MS)
+            const year = shifted.getUTCFullYear()
+            const month = String(shifted.getUTCMonth() + 1).padStart(2, '0')
+            const day = String(shifted.getUTCDate()).padStart(2, '0')
+            return `${year}-${month}-${day}`
+          }
+
+          function millisecondsUntilNextKoreaMidnight(nowMs = Date.now()) {
+            const shifted = new Date(nowMs + KOREA_OFFSET_MS)
+            const nextShiftedMidnight = Date.UTC(
+              shifted.getUTCFullYear(),
+              shifted.getUTCMonth(),
+              shifted.getUTCDate() + 1,
+            )
+            return Math.max(1000, nextShiftedMidnight - (nowMs + KOREA_OFFSET_MS) + 1500)
+          }
+
+          export async function cleanupExpiredCustomAcademicEvents(nowMs = Date.now()) {
+            if (cleanupPromise) return cleanupPromise
+            const profile = readStudentProfile()
+            const classId = classKeyFor(profile)
+            if (!profile || !classId || navigator.onLine === false) return false
+
+            cleanupPromise = (async () => {
+              await ensureSignedIn()
+              const syncApp = getApps().some((app) => app.name === 'school-sync')
+                ? getApp('school-sync')
+                : null
+              if (!syncApp) return false
+
+              const db = getFirestore(syncApp)
+              const snapshot = await getDocsFromServer(collection(db, 'classes', classId, 'academicEvents'))
+              const today = koreaDateKey(nowMs)
+              const expired = snapshot.docs.filter((item) => {
+                const endDate = String(item.data()?.endDate || '')
+                return DATE_KEY_PATTERN.test(endDate) && endDate < today
+              })
+              if (!expired.length) return true
+
+              const results = await Promise.allSettled(expired.map((item) => deleteDoc(item.ref)))
+              const rejected = results.filter((result) => result.status === 'rejected')
+              if (rejected.length) {
+                console.warn(`Expired academic cleanup could not delete ${rejected.length} item(s). Firebase rules may not be updated yet.`)
+              }
+              return rejected.length === 0
+            })().catch((error) => {
+              console.warn('Expired academic cleanup skipped:', error)
+              return false
+            }).finally(() => {
+              cleanupPromise = null
+            })
+
+            return cleanupPromise
+          }
+
+          function scheduleNextMidnight() {
+            if (midnightTimer) window.clearTimeout(midnightTimer)
+            midnightTimer = window.setTimeout(() => {
+              void cleanupExpiredCustomAcademicEvents().finally(scheduleNextMidnight)
+            }, millisecondsUntilNextKoreaMidnight())
+          }
+
+          function refreshCleanup() {
+            if (!document.hidden) void cleanupExpiredCustomAcademicEvents()
+          }
+
+          document.addEventListener('visibilitychange', refreshCleanup)
+          window.addEventListener('focus', refreshCleanup)
+          window.addEventListener('online', refreshCleanup)
+          window.addEventListener('school:student-profile-saved', refreshCleanup)
+          scheduleNextMidnight()
+          void cleanupExpiredCustomAcademicEvents()
+          """)
+
+          Path('tests/class-isolation.test.js').write_text("""import test from 'node:test'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          import {
+            createEmptyWeeklySchedule,
+            loadOverrides,
+            loadWeeklySchedule,
+            saveOverrides,
+            saveWeeklySchedule,
+            TIMETABLE_STORAGE_KEY,
+            OVERRIDES_STORAGE_KEY,
+          } from '../src/timetable.js'
+
+          const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+
+          function memoryStorage() {
+            const values = new Map()
+            return {
+              getItem: (key) => values.has(key) ? values.get(key) : null,
+              setItem: (key, value) => values.set(String(key), String(value)),
+              removeItem: (key) => values.delete(String(key)),
+              clear: () => values.clear(),
+            }
+          }
+
+          function setProfile(classNumber) {
+            localStorage.setItem('school.studentProfile.v1', JSON.stringify({
+              name: `학생${classNumber}`,
+              classNumber,
+              studentNumber: 1,
+            }))
+          }
+
+          test('authenticated class operations synchronize immutable class identity first', () => {
+            const source = read('src/school-sync.js')
+            assert.match(source, /async function ensureStoredProfileIdentity\(user\)/)
+            assert.match(source, /const classId = classKeyFor\(profile\)/)
+            assert.match(source, /const studentKey = studentKeyFor\(profile\)/)
+            assert.match(source, /return ensureStoredProfileIdentity\(user\)/)
+            assert.match(source, /String\(existing\.classId \|\| ''\) !== classId/)
+          })
+
+          test('class 2 never inherits the historical class-1 timetable cache', () => {
+            globalThis.localStorage = memoryStorage()
+            const legacy = createEmptyWeeklySchedule()
+            legacy.mon[1] = '1반전용'
+            localStorage.setItem(TIMETABLE_STORAGE_KEY, JSON.stringify(legacy))
+            setProfile(2)
+
+            const loaded = loadWeeklySchedule()
+            assert.equal(loaded.mon[1], '')
+            saveWeeklySchedule({ ...loaded, mon: { ...loaded.mon, 1: '2반전용' } })
+            assert.equal(localStorage.getItem(`${TIMETABLE_STORAGE_KEY}.class-2`) !== null, true)
+            assert.equal(JSON.parse(localStorage.getItem(TIMETABLE_STORAGE_KEY)).mon['1'], '1반전용')
+          })
+
+          test('class 1 migrates the old timetable cache without exposing it to other classes', () => {
+            globalThis.localStorage = memoryStorage()
+            const legacy = createEmptyWeeklySchedule()
+            legacy.tue[2] = '기존1반'
+            localStorage.setItem(TIMETABLE_STORAGE_KEY, JSON.stringify(legacy))
+            setProfile(1)
+
+            const loaded = loadWeeklySchedule()
+            assert.equal(loaded.tue[2], '기존1반')
+            assert.equal(localStorage.getItem(`${TIMETABLE_STORAGE_KEY}.class-1`) !== null, true)
+          })
+
+          test('timetable overrides are stored independently per class', () => {
+            globalThis.localStorage = memoryStorage()
+            setProfile(1)
+            saveOverrides({ '2099-09-01': { 1: '1반변경' } })
+            setProfile(2)
+            saveOverrides({ '2099-09-01': { 1: '2반변경' } })
+
+            assert.equal(JSON.parse(localStorage.getItem(`${OVERRIDES_STORAGE_KEY}.class-1`))['2099-09-01']['1'], '1반변경')
+            assert.equal(JSON.parse(localStorage.getItem(`${OVERRIDES_STORAGE_KEY}.class-2`))['2099-09-01']['1'], '2반변경')
+            assert.equal(loadOverrides()['2099-09-01']['1'], '2반변경')
+          })
+
+          test('academic expiry cleanup targets only class custom academicEvents', () => {
+            const source = read('src/academic-expiry-cleanup.js')
+            assert.match(source, /collection\(db, 'classes', classId, 'academicEvents'\)/)
+            assert.match(source, /DATE_KEY_PATTERN\.test\(endDate\) && endDate < today/)
+            assert.match(source, /millisecondsUntilNextKoreaMidnight/)
+            assert.doesNotMatch(source, /schoolData|NEIS|neis/i)
+          })
+          """)
+          PY
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test app
+        run: npm test
+
+      - name: Build app
+        run: npm run build
+
+      - name: Check new cleanup module syntax
+        run: node --check src/academic-expiry-cleanup.js
+
+      - name: Install reminder backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test reminder backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit verified patch and remove one-shot workflow
+        shell: bash
+        run: |
+          rm .github/workflows/apply-class-isolation.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/school-sync.js src/timetable.js src/main.jsx src/academic-expiry-cleanup.js tests/class-isolation.test.js .github/workflows/apply-class-isolation.yml
+          git diff --cached --check
+          git commit -m "Isolate class data and prune expired academic events"
+          git push origin HEAD:main
