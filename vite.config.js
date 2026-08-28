@@ -15,9 +15,10 @@ const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 학교 리마인더 정리 AI다.',
 ]
 
-const BUILD_COPY_REPLACEMENTS = POLITE_COPY_REPLACEMENTS.filter(
-  ([from]) => from !== '등록된 급식이 없어',
-)
+const BUILD_COPY_REPLACEMENTS = [
+  ...POLITE_COPY_REPLACEMENTS.filter(([from]) => from !== '등록된 급식이 없어'),
+  ['같은 학사일정이 이미 있어.', '같은 학사일정이 이미 있어요.'],
+]
 
 function replacePairs(source, pairs) {
   let next = String(source || '')
