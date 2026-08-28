@@ -110,17 +110,17 @@ export function SHubAIOrb({ size = 24, active = false, className = '' }) {
 
     function idleAttentionProfile(time) {
       const seconds = time / 1000
-      const accelerationBurst = Math.pow(Math.max(0, Math.sin(seconds * 0.72 - 0.45)), 5)
-      const breathing = 0.5 + 0.5 * Math.sin(seconds * 0.46 + 0.8)
-      const drift = 0.5 + 0.5 * Math.sin(seconds * 0.19 - 1.1)
+      const accelerationBurst = Math.pow(Math.max(0, Math.sin(seconds * 1.08 - 0.45)), 5)
+      const breathing = 0.5 + 0.5 * Math.sin(seconds * 0.72 + 0.8)
+      const drift = 0.5 + 0.5 * Math.sin(seconds * 0.33 - 1.1)
       return {
         radiusScale: 0.985 + breathing * 0.02 + accelerationBurst * 0.015,
-        speed: 0.14 + drift * 0.16 + accelerationBurst * 0.86,
-        tilt: 0.27 + Math.sin(seconds * 0.22) * 0.04,
+        speed: 0.20 + drift * 0.24 + accelerationBurst * 1.12,
+        tilt: 0.27 + Math.sin(seconds * 0.34) * 0.04,
         wave: 0.008 + breathing * 0.018 + accelerationBurst * 0.024,
         twist: 0.012 + accelerationBurst * 0.075,
         pulse: 0,
-        roll: Math.sin(seconds * 0.17) * 0.045,
+        roll: Math.sin(seconds * 0.28) * 0.045,
         brightness: clamp(0.48 + breathing * 0.28 + accelerationBurst * 0.24, 0.48, 1),
       }
     }
