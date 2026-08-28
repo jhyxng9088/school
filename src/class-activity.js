@@ -136,23 +136,20 @@ export function activityKey(type, entityId) {
   return `${type}:${entityId}`
 }
 
-function subjectParticle(name) {
-  const text = String(name || '').trim()
-  if (!text) return '가'
-  const code = text.charCodeAt(text.length - 1)
-  if (code >= 0xAC00 && code <= 0xD7A3) return (code - 0xAC00) % 28 === 0 ? '가' : '이'
-  return '가'
-}
-
-export function actorActionLabel(actorName, action = 'edited') {
+export function actorActionLabel(actorName, action = 'edited', entityType = '') {
   const name = String(actorName || '').trim()
   if (!name) return ''
-  return `${name}${subjectParticle(name)} ${action === 'added' ? '추가함' : '수정함'}`
+  const verb = action === 'added'
+    ? '추가했어요'
+    : entityType === 'timetable'
+      ? '변경했어요'
+      : '수정했어요'
+  return `${name}님이 ${verb}`
 }
 
 export function activityLabel(value) {
   if (!value?.actorName) return ''
-  return actorActionLabel(value.actorName, value.action)
+  return actorActionLabel(value.actorName, value.action, value.entityType)
 }
 
 export function useClassActivity(profile = null) {
