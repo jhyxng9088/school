@@ -108,8 +108,25 @@ export function SHubAIOrb({ size = 24, active = false, className = '' }) {
       }
     }
 
+    function idleAttentionProfile(time) {
+      const seconds = time / 1000
+      const accelerationBurst = Math.pow(Math.max(0, Math.sin(seconds * 0.72 - 0.45)), 5)
+      const breathing = 0.5 + 0.5 * Math.sin(seconds * 0.46 + 0.8)
+      const drift = 0.5 + 0.5 * Math.sin(seconds * 0.19 - 1.1)
+      return {
+        radiusScale: 0.985 + breathing * 0.02 + accelerationBurst * 0.015,
+        speed: 0.14 + drift * 0.16 + accelerationBurst * 0.86,
+        tilt: 0.27 + Math.sin(seconds * 0.22) * 0.04,
+        wave: 0.008 + breathing * 0.018 + accelerationBurst * 0.024,
+        twist: 0.012 + accelerationBurst * 0.075,
+        pulse: 0,
+        roll: Math.sin(seconds * 0.17) * 0.045,
+        brightness: clamp(0.48 + breathing * 0.28 + accelerationBurst * 0.24, 0.48, 1),
+      }
+    }
+
     function profile(time) {
-      if (!active) return IDLE_PROFILE
+      if (!active) return idleAttentionProfile(time)
       let state = interpolatedMotion(time)
       if (time - motionStart >= motionDuration) {
         startNextMotion(time, state)
@@ -120,6 +137,7 @@ export function SHubAIOrb({ size = 24, active = false, className = '' }) {
         ...state,
         radiusScale: state.radiusScale * (1 + state.pulse * Math.sin(seconds * 4.1)),
         tilt: state.tilt + 0.018 * Math.sin(seconds * 0.82),
+        brightness: 1,
       }
     }
 
@@ -145,6 +163,7 @@ export function SHubAIOrb({ size = 24, active = false, className = '' }) {
       const cosRoll = Math.cos(state.roll)
       const sinRoll = Math.sin(state.roll)
       const seconds = time / 1000
+      const brightness = clamp(state.brightness ?? 1, 0.35, 1)
       const projected = SPHERE_POINTS.map((point) => {
         const pointAngle = angle + state.twist * point.y
         const cosY = Math.cos(pointAngle)
@@ -170,7 +189,7 @@ export function SHubAIOrb({ size = 24, active = false, className = '' }) {
       const baseDot = Math.max(0.62, Math.min(1.16, cssSize * 0.019))
       projected.forEach((point) => {
         const depth = (point.z + 1) / 2
-        context.globalAlpha = 0.36 + depth * 0.64
+        context.globalAlpha = (0.36 + depth * 0.64) * brightness
         context.beginPath()
         context.arc(point.x, point.y, baseDot * (0.72 + depth * 0.62) * point.perspective, 0, Math.PI * 2)
         context.fill()
