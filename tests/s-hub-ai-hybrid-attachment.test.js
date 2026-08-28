@@ -5,13 +5,15 @@ import fs from 'node:fs'
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('attachment questions return answer and actionable items in one AI call', () => {
-  const ai = read('src/s-hub-ai.js')
+  const ai = read('src/s-hub-ai-engine.js')
+  const facade = read('src/s-hub-ai.js')
   assert.match(ai, /ATTACHMENT_HYBRID_SCHEMA/)
   assert.match(ai, /required: \['answer', 'items'\]/)
   assert.match(ai, /answerAndAnalyzeSchoolAttachments/)
   assert.match(ai, /responseSchema: ATTACHMENT_HYBRID_SCHEMA/)
   assert.match(ai, /answer와 items는 서로 배타적이지 않다/)
   assert.match(ai, /items: normalizeImportItems\(generated\?\.value, now\)/)
+  assert.match(facade, /rememberSchoolAIReminderSources/)
 })
 
 test('attachment question UI keeps answer and import candidates together', () => {
