@@ -92,11 +92,11 @@ function bearerToken(req) {
 
 function clientMessage(error) {
   const status = Number(error?.status || 0)
-  if (status === 413) return '첨부 용량이 너무 커. 사진 수나 파일 용량을 줄여줘.'
-  if (status === 429) return 'AI 사용량이 잠시 많아. 잠시 후 다시 시도해줘.'
-  if (status === 504) return 'AI 응답 시간이 초과됐어. 다시 시도해줘.'
-  if (status === 400) return 'AI 요청 내용을 처리하지 못했어. 입력이나 첨부를 확인해줘.'
-  return 'AI 서버에 연결하지 못했어. 다시 시도해줘.'
+  if (status === 413) return '첨부 용량이 너무 커요. 사진 수나 파일 용량을 줄여 주세요.'
+  if (status === 429) return 'AI 사용량이 잠시 많아요. 잠시 후 다시 시도해 주세요.'
+  if (status === 504) return 'AI 응답 시간이 초과됐어요. 다시 시도해 주세요.'
+  if (status === 400) return 'AI 요청 내용을 처리하지 못했어요. 입력이나 첨부를 확인해 주세요.'
+  return 'AI 서버에 연결하지 못했어요. 다시 시도해 주세요.'
 }
 
 export default async function handler(req, res) {
@@ -105,19 +105,19 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' })
 
   const token = bearerToken(req)
-  if (!token) return res.status(401).json({ ok: false, error: 'missing_auth', message: '로그인 정보를 확인하지 못했어.' })
+  if (!token) return res.status(401).json({ ok: false, error: 'missing_auth', message: '로그인 정보를 확인하지 못했어요.' })
 
   try {
     const decoded = await adminAuth().verifyIdToken(token)
     const identity = await adminDb().collection('users').doc(decoded.uid).get()
-    if (!identity.exists) return res.status(403).json({ ok: false, error: 'identity_missing', message: '학생 정보를 확인하지 못했어.' })
+    if (!identity.exists) return res.status(403).json({ ok: false, error: 'identity_missing', message: '학생 정보를 확인하지 못했어요.' })
     const classId = String(identity.data()?.classId || '').trim()
 
     const body = req.body && typeof req.body === 'object' ? req.body : {}
     const purpose = body.purpose === 'reminder' ? 'reminder' : 'school'
     const prompt = String(body.prompt || '').trim()
     if (!prompt || prompt.length > 40_000) {
-      return res.status(400).json({ ok: false, error: 'invalid_prompt', message: 'AI 요청 내용이 올바르지 않아.' })
+      return res.status(400).json({ ok: false, error: 'invalid_prompt', message: 'AI 요청 내용이 올바르지 않아요.' })
     }
 
     const db = adminDb()
@@ -154,7 +154,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, result: { ...result, cacheHit: false } })
   } catch (error) {
     const code = String(error?.code || '')
-    if (code.startsWith('auth/')) return res.status(401).json({ ok: false, error: 'invalid_auth', message: '로그인 정보가 만료됐어. 앱을 다시 열어줘.' })
+    if (code.startsWith('auth/')) return res.status(401).json({ ok: false, error: 'invalid_auth', message: '로그인 정보가 만료됐어요. 앱을 다시 열어 주세요.' })
     console.error('s-hub-ai failed', {
       code: error?.code,
       status: error?.status,
