@@ -31,6 +31,11 @@ function todayRawDate() {
   return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
 }
 
+function todayDateKey() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 function todayVersion() {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
@@ -92,8 +97,10 @@ async function startUnreadIndicators() {
     academic: new Map(),
     seen: new Map(),
     todoState: new Map(),
+    timetableOverrides: {},
     activityReady: false,
     seenReady: false,
+    timetableReady: false,
     mealAvailable: hasTodayMealInCache(),
     stopped: false,
   }
@@ -129,11 +136,21 @@ async function startUnreadIndicators() {
     }, delay)
   }
 
+  function timetableActivityStillRelevant(activity) {
+    if (!activity || activity.entityType !== 'timetable') return true
+    const match = /^(\d{4}-\d{2}-\d{2})-(\d+)$/.exec(String(activity.entityId || ''))
+    if (!match) return true
+    const [, date, period] = match
+    if (date < todayDateKey()) return false
+    return Boolean(String(state.timetableOverrides?.[date]?.[String(Number(period))] || '').trim())
+  }
+
   function otherActivityVersion(entityType) {
     let latest = 0
     state.activity.forEach((value) => {
       if (value.entityType !== entityType) return
       if (value.actorStudentKey && value.actorStudentKey === studentKey) return
+      if (entityType === 'timetable' && !timetableActivityStillRelevant(value)) return
       latest = Math.max(latest, Number(value.updatedAt || 0))
     })
     return latest
@@ -200,6 +217,7 @@ async function startUnreadIndicators() {
         || hasUnreadReminderRow()
     }
     if (tab === 'timetable') {
+      if (!state.activityReady || !state.seenReady || !state.timetableReady) return false
       return otherActivityVersion('timetable') > seenVersion(NAV_STATE_IDS.timetable)
     }
     if (tab === 'academic') {
@@ -239,6 +257,12 @@ async function startUnreadIndicators() {
     writeSeen(REMINDER_ROW_BASELINE_ID, Math.max(1, latestReminderActivityVersion()))
   }
 
+  function ensureTimetableBaseline() {
+    if (!state.activityReady || !state.seenReady || !state.timetableReady) return
+    if (seenVersion(NAV_STATE_IDS.timetable) > 0) return
+    writeSeen(NAV_STATE_IDS.timetable, Math.max(1, otherActivityVersion('timetable')))
+  }
+
   function markTabSeen(tab) {
     if (tab === 'todo') writeSeen(NAV_STATE_IDS.todo, latestReminderActivityVersion())
     else if (tab === 'timetable') writeSeen(NAV_STATE_IDS.timetable, otherActivityVersion('timetable'))
@@ -271,6 +295,7 @@ async function startUnreadIndicators() {
   function render() {
     state.mealAvailable = hasTodayMealInCache()
     ensureReminderBaseline()
+    ensureTimetableBaseline()
     renderReminderRows()
     renderNav()
     scheduleNextReminderExpiry()
@@ -315,6 +340,32 @@ async function startUnreadIndicators() {
     state.activityReady = true
     scheduleRender()
   }, (error) => console.error('Unread activity sync failed:', error)))
+
+  subscriptions.push(onSnapshot(doc(db, 'classes', classId, 'settings', 'timetable'), (snapshot) => {
+    const rawOverrides = snapshot.exists() ? snapshot.data()?.overrides : null
+    const nextOverrides = {}
+    const today = todayDateKey()
+    if (rawOverrides && typeof rawOverrides === 'object') {
+      Object.entries(rawOverrides).forEach(([date, periods]) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today || !periods || typeof periods !== 'object') return
+        const nextPeriods = {}
+        Object.entries(periods).forEach(([period, subject]) => {
+          const number = Number(period)
+          const cleanSubject = String(subject || '').trim()
+          if (!Number.isInteger(number) || number < 1 || number > 7 || !cleanSubject) return
+          nextPeriods[String(number)] = cleanSubject
+        })
+        if (Object.keys(nextPeriods).length) nextOverrides[date] = nextPeriods
+      })
+    }
+    state.timetableOverrides = nextOverrides
+    state.timetableReady = true
+    scheduleRender()
+  }, (error) => {
+    state.timetableReady = false
+    console.error('Unread timetable sync failed:', error)
+    scheduleRender()
+  }))
 
   subscriptions.push(onSnapshot(collection(db, 'classes', classId, 'todos'), (snapshot) => {
     const next = new Map()
