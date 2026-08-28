@@ -283,9 +283,110 @@
   }
 }
 
+.feature-tour-network {
+  width: 210px;
+  height: 210px;
+  display: grid;
+  place-items: center;
+}
+
+.feature-tour-network svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.feature-tour-network-lines path {
+  fill: none;
+  stroke: color-mix(in srgb, currentColor 22%, transparent);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.feature-tour-network-signals .is-signal {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 9 84;
+  stroke-dashoffset: 0;
+  opacity: 0;
+}
+
+.feature-tour-network-nodes circle {
+  fill: var(--surface, #fff);
+  stroke: color-mix(in srgb, currentColor 82%, transparent);
+  stroke-width: 1.65;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.feature-tour-network-nodes .is-center {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.feature-tour-slide.is-active .feature-tour-network-signals .is-signal {
+  animation: feature-tour-network-flow 2.65s linear infinite;
+}
+
+.feature-tour-slide.is-active .feature-tour-network-signals .is-one { animation-delay: 0ms; }
+.feature-tour-slide.is-active .feature-tour-network-signals .is-two { animation-delay: -920ms; }
+.feature-tour-slide.is-active .feature-tour-network-signals .is-three { animation-delay: -1640ms; }
+.feature-tour-slide.is-active .feature-tour-network-signals .is-four { animation-delay: -420ms; }
+.feature-tour-slide.is-active .feature-tour-network-signals .is-five { animation-delay: -2080ms; }
+.feature-tour-slide.is-active .feature-tour-network-signals .is-six { animation-delay: -1280ms; }
+.feature-tour-slide.is-active .feature-tour-network-signals .is-seven { animation-delay: -2380ms; }
+.feature-tour-slide.is-active .feature-tour-network-signals .is-eight { animation-delay: -680ms; }
+
+.feature-tour-slide.is-active .feature-tour-network-nodes circle {
+  animation: feature-tour-network-node 3.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.feature-tour-slide.is-active .feature-tour-network-nodes circle:nth-child(2) { animation-delay: -1.2s; }
+.feature-tour-slide.is-active .feature-tour-network-nodes circle:nth-child(3) { animation-delay: -2.3s; }
+.feature-tour-slide.is-active .feature-tour-network-nodes circle:nth-child(4) { animation-delay: -0.7s; }
+.feature-tour-slide.is-active .feature-tour-network-nodes circle:nth-child(5) { animation-delay: -1.8s; }
+.feature-tour-slide.is-active .feature-tour-network-nodes circle:nth-child(6) { animation-delay: -2.8s; }
+.feature-tour-slide.is-active .feature-tour-network-nodes circle:nth-child(7) { animation-delay: -0.35s; }
+
+@keyframes feature-tour-network-flow {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.92;
+  }
+  78% {
+    opacity: 0.92;
+  }
+  100% {
+    stroke-dashoffset: -93;
+    opacity: 0;
+  }
+}
+
+@keyframes feature-tour-network-node {
+  0%, 68%, 100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  76% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  88% {
+    opacity: 0.86;
+    transform: scale(1.02);
+  }
+}
+
 @media (max-height: 720px) {
   .feature-tour-reminder-demo,
-  .feature-tour-home-demo {
+  .feature-tour-home-demo,
+  .feature-tour-network {
     transform: scale(0.88);
   }
 }
@@ -298,7 +399,9 @@
   .feature-tour-slide.is-active .feature-tour-reminder-row.is-demo-complete .feature-tour-mini-copy,
   .feature-tour-slide.is-active .feature-tour-reminder-row.is-demo-complete .feature-tour-mini-copy strong::after,
   .feature-tour-home-block,
-  .feature-tour-slide.is-active .feature-tour-home-block {
+  .feature-tour-slide.is-active .feature-tour-home-block,
+  .feature-tour-slide.is-active .feature-tour-network-signals .is-signal,
+  .feature-tour-slide.is-active .feature-tour-network-nodes circle {
     animation: none !important;
   }
 
@@ -326,5 +429,11 @@
 
   .feature-tour-reminder-row.is-demo-complete .feature-tour-mini-copy strong::after {
     width: 100%;
+  }
+
+  .feature-tour-network-signals .is-signal {
+    stroke-dasharray: 8 18;
+    stroke-dashoffset: 0;
+    opacity: 0.42;
   }
 }
