@@ -1,17 +1,18 @@
-/* Desktop browsers allocate a real scrollbar gutter. Keep that width stable so
+/* Laptop browsers allocate a real scrollbar gutter. Keep that width stable so
    long Home/Academic pages and shorter tabs share the exact same center line.
-   Touch-first iOS/Android/Samsung paths keep their existing compositor behavior. */
-@media (min-width: 700px) and (hover: hover) and (pointer: fine) {
-  html:not(.school-mobile-compat) {
+   iPhone, iPad and Android/Samsung paths are deliberately excluded by the
+   school-desktop-laptop class assigned in index.html. */
+@media (min-width: 700px) {
+  html.school-desktop-laptop {
     scrollbar-gutter: stable both-edges;
   }
 }
 
 /* Older desktop engines without scrollbar-gutter support get the same invariant
    by reserving the vertical scrollbar track all the time. */
-@media (min-width: 700px) and (hover: hover) and (pointer: fine) {
+@media (min-width: 700px) {
   @supports not (scrollbar-gutter: stable) {
-    html:not(.school-mobile-compat) {
+    html.school-desktop-laptop {
       overflow-y: scroll;
     }
   }
