@@ -34,16 +34,11 @@ function notificationTarget(tag, body, fallbackUrl = './') {
   return { url: fallbackUrl, tab: '' }
 }
 
-function routinePushPaused(tag, body, nowMs = Date.now()) {
+function routinePushPaused(tag, nowMs = Date.now()) {
   if (Number(nowMs) < ROUTINE_PUSH_PAUSE_FROM_MS) return false
   const normalizedTag = String(tag || '').toLowerCase()
-  const normalizedBody = String(body || '')
   const mealPush = normalizedTag.includes('meal')
-    || normalizedBody.includes('급식')
-    || normalizedBody.includes('점심시간')
-  const nextClassPush = normalizedTag.includes('next-class')
-    || normalizedTag.includes('period-')
-    || normalizedBody.includes('다음 시간은')
+  const nextClassPush = normalizedTag.includes('next-class') || normalizedTag.includes('period-')
   return mealPush || nextClassPush
 }
 
@@ -68,9 +63,9 @@ self.addEventListener('push', (event) => {
   const body = String(payload.body || '새로운 알림이 있어.').slice(0, 220)
   const tag = String(payload.tag || `school-push-${Date.now()}`).slice(0, 120)
 
-  // Keep the routine push implementation intact, but temporarily suppress only
-  // next-class and meal notifications from 2026-09-01 KST onward.
-  if (routinePushPaused(tag, body)) {
+  // Keep every other notification path intact. From 2026-09-01 KST onward,
+  // suppress only notifications explicitly tagged as routine meal/next-class pushes.
+  if (routinePushPaused(tag)) {
     event.waitUntil(Promise.resolve())
     return
   }
