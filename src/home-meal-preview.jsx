@@ -37,9 +37,10 @@ function dateLabel(date) {
 
 export default function HomeMealPreview({ now, schoolData }) {
   const afterLunch = now.getHours() >= 14
+  const weekend = now.getDay() === 0 || now.getDay() === 6
   const targetDate = useMemo(
-    () => afterLunch ? addDays(now, 1) : dayStart(now),
-    [now.getFullYear(), now.getMonth(), now.getDate(), afterLunch],
+    () => weekend ? dayStart(now) : afterLunch ? addDays(now, 1) : dayStart(now),
+    [now.getFullYear(), now.getMonth(), now.getDate(), afterLunch, weekend],
   )
 
   const currentWeek = schoolData.mealWeek(0)
@@ -52,7 +53,7 @@ export default function HomeMealPreview({ now, schoolData }) {
     schoolData.ensureMealWeek(targetWeekOffset)
   }, [schoolData.ensureMealWeek, targetWeekOffset])
 
-  const title = afterLunch ? '내일 급식' : '오늘 급식'
+  const title = weekend ? '오늘 급식' : afterLunch ? '내일 급식' : '오늘 급식'
   const statusCopy = week.loading
     ? '급식 정보를 불러오는 중이에요.'
     : week.error
