@@ -2,7 +2,7 @@
    long Home/Academic pages and shorter tabs share the exact same center line.
    iPhone, iPad and Android/Samsung paths are deliberately excluded by the
    school-desktop-laptop class assigned in index.html. */
-@media (min-width: 700px) {
+@media (min-width: 700px) and (hover: hover) and (pointer: fine) {
   html.school-desktop-laptop {
     scrollbar-gutter: stable both-edges;
   }
@@ -10,7 +10,7 @@
 
 /* Older desktop engines without scrollbar-gutter support get the same invariant
    by reserving the vertical scrollbar track all the time. */
-@media (min-width: 700px) {
+@media (min-width: 700px) and (hover: hover) and (pointer: fine) {
   @supports not (scrollbar-gutter: stable) {
     html.school-desktop-laptop {
       overflow-y: scroll;
