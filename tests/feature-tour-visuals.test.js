@@ -91,3 +91,23 @@ test('feature tour home card builds the four core home sections with the home en
   assert.match(css, /translate3d\(0, 10px, 0\)/)
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*feature-tour-home-block/)
 })
+
+test('feature tour sharing card has seven nodes with light signals moving between them', () => {
+  const source = read('public/first-run-notice.js')
+  const css = read('public/feature-tour-sequences.css')
+  const networkMarkup = source.match(/<div class="feature-tour-network"[\s\S]*?<\/svg>\n\s*<\/div>/)?.[0] || ''
+
+  assert.match(networkMarkup, /feature-tour-network-lines/)
+  assert.match(networkMarkup, /feature-tour-network-signals/)
+  assert.match(networkMarkup, /feature-tour-network-nodes/)
+  assert.equal((networkMarkup.match(/<circle/g) || []).length, 7)
+  assert.equal((networkMarkup.match(/class="is-signal/g) || []).length, 8)
+
+  assert.match(css, /stroke-dasharray: 9 84/)
+  assert.match(css, /feature-tour-network-flow 2\.65s linear infinite/)
+  assert.match(css, /@keyframes feature-tour-network-flow/)
+  assert.match(css, /stroke-dashoffset: -93/)
+  assert.match(css, /\.is-eight \{ animation-delay: -680ms; \}/)
+  assert.match(css, /feature-tour-network-node 3\.4s/)
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*feature-tour-network-signals/)
+})
