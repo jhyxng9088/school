@@ -127,13 +127,24 @@
     }
     if (type === 'hub') {
       return `
-        <svg viewBox="0 0 120 120" aria-hidden="true">
-          <rect x="25" y="25" width="29" height="29" rx="9"></rect>
-          <rect x="66" y="25" width="29" height="29" rx="9"></rect>
-          <rect x="25" y="66" width="29" height="29" rx="9"></rect>
-          <rect x="66" y="66" width="29" height="29" rx="9"></rect>
-          <path class="feature-tour-accent-line" d="M54 39.5h12M39.5 54v12M80.5 54v12M54 80.5h12"></path>
-        </svg>
+        <div class="feature-tour-home-demo" aria-hidden="true">
+          <div class="feature-tour-home-block is-reminder" style="--home-delay: 220ms;">
+            <div class="feature-tour-home-head"><strong>리마인더</strong><span>3개</span></div>
+            <div class="feature-tour-home-reminders"><i></i><i></i><i></i></div>
+          </div>
+          <div class="feature-tour-home-block is-meal" style="--home-delay: 500ms;">
+            <div class="feature-tour-home-head"><strong>급식</strong><span>오늘</span></div>
+            <div class="feature-tour-home-meal"><b></b><b></b><b></b><b></b></div>
+          </div>
+          <div class="feature-tour-home-block is-timetable" style="--home-delay: 780ms;">
+            <div class="feature-tour-home-head"><strong>시간표</strong><span>오늘</span></div>
+            <div class="feature-tour-home-periods"><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i></div>
+          </div>
+          <div class="feature-tour-home-block is-academic" style="--home-delay: 1060ms;">
+            <div class="feature-tour-home-head"><strong>학사일정</strong><span>D-4</span></div>
+            <div class="feature-tour-home-academic"><i></i><b></b></div>
+          </div>
+        </div>
       `
     }
     if (type === 'share') {
