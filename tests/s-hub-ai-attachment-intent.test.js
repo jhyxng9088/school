@@ -17,9 +17,10 @@ test('attachment text intent distinguishes questions from import instructions an
 })
 
 test('S-Hub has a multimodal answer route that combines attachments with internal school data', () => {
-  const ai = read('src/s-hub-ai.js')
+  const facade = read('src/s-hub-ai.js')
+  const ai = read('src/s-hub-ai-engine.js')
   const sheet = read('src/s-hub-ai-sheet.jsx')
-  assert.match(ai, /export async function answerAndAnalyzeSchoolAttachments/)
+  assert.match(facade, /export async function answerAndAnalyzeSchoolAttachments/)
   assert.match(ai, /첨부된 사진, 캡처, PDF, 텍스트 파일과 아래 SCHOOL_DATA를 함께 읽어서/)
   assert.match(ai, /오늘 제출·수행·준비·시험·해야 할 일/)
   assert.match(ai, /attachments,/)
