@@ -210,7 +210,8 @@
       canvas.className = 'feature-tour-ai-canvas'
       canvas.setAttribute('aria-hidden', 'true')
       host.appendChild(canvas)
-      mountThinkingOrb(canvas, { size: 176 })
+      const configuredSize = Number.parseFloat(getComputedStyle(host).getPropertyValue('--feature-tour-ai-size'))
+      mountThinkingOrb(canvas, { size: Number.isFinite(configuredSize) ? configuredSize : 176 })
     })
   }
 
