@@ -27,5 +27,5 @@ test('attachment question UI keeps answer and import candidates together', () =>
 })
 
 test('service worker advances for hybrid attachment answers', () => {
-  assert.match(read('public/sw.js'), /school-shell-v153/)
+  assert.match(read('public/sw.js'), /school-shell-v154/)
 })
