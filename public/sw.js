@@ -1,5 +1,8 @@
 const CACHE_NAME = 'school-shell-v153'
-const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './samsung-nav-icon-fixes.css', './school-timetable-motion.js', './school-home-nav.js', './school-home-live.js', './first-run-notice.js', './notification-routing.js']
+const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
+const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
+const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
+const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './samsung-nav-icon-fixes.css', './school-timetable-motion.js', './school-home-nav.js', './school-home-live.js', './first-run-notice.js', './notification-routing.js', './notification-tone-profile.js']
 const ROUTINE_PUSH_PAUSE_FROM_MS = Date.parse('2026-09-01T00:00:00+09:00')
 
 self.addEventListener('install', (event) => {
@@ -13,13 +16,39 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys
+        .filter((key) => ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))
+        .map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   )
 })
 
+async function saveNotificationToneProfile(studentKey) {
+  const cache = await caches.open(NOTIFICATION_PROFILE_CACHE)
+  await cache.put(
+    new Request(NOTIFICATION_PROFILE_URL),
+    new Response(String(studentKey || ''), { headers: { 'content-type': 'text/plain' } }),
+  )
+}
+
+async function readNotificationToneProfile() {
+  try {
+    const cache = await caches.open(NOTIFICATION_PROFILE_CACHE)
+    const response = await cache.match(new Request(NOTIFICATION_PROFILE_URL))
+    return response ? String(await response.text()).trim() : ''
+  } catch {
+    return ''
+  }
+}
+
 self.addEventListener('message', (event) => {
-  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting()
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+    return
+  }
+  if (event.data?.type === 'SET_NOTIFICATION_TONE_PROFILE') {
+    event.waitUntil(saveNotificationToneProfile(String(event.data?.studentKey || '')))
+  }
 })
 
 function notificationTarget(tag, body, fallbackUrl = './') {
@@ -40,6 +69,12 @@ function routinePushPaused(tag, nowMs = Date.now()) {
   const mealPush = normalizedTag.includes('meal')
   const nextClassPush = normalizedTag.includes('next-class') || normalizedTag.includes('period-')
   return mealPush || nextClassPush
+}
+
+async function notificationBodyForProfile(body) {
+  const studentKey = await readNotificationToneProfile()
+  if (studentKey !== PERSONALIZED_STUDENT_KEY) return body
+  return `☺️ ${String(body || '').trim()} 잊지 않게 살짝 알려줄게. 오늘도 너무 무리하지 말고, 천천히 잘 챙겨. 좋은 하루 보내!`.slice(0, 220)
 }
 
 function tabFromUrl(value) {
@@ -63,23 +98,23 @@ self.addEventListener('push', (event) => {
   const body = String(payload.body || '새로운 알림이 있어.').slice(0, 220)
   const tag = String(payload.tag || `school-push-${Date.now()}`).slice(0, 120)
 
-  // Keep every other notification path intact. From 2026-09-01 KST onward,
-  // suppress only notifications explicitly tagged as routine meal/next-class pushes.
-  if (routinePushPaused(tag)) {
-    event.waitUntil(Promise.resolve())
-    return
-  }
+  event.waitUntil((async () => {
+    // Keep every other notification path intact. From 2026-09-01 KST onward,
+    // suppress only notifications explicitly tagged as routine meal/next-class pushes.
+    if (routinePushPaused(tag)) return
 
-  const target = notificationTarget(tag, body, String(payload.url || './'))
+    const target = notificationTarget(tag, body, String(payload.url || './'))
+    const displayBody = await notificationBodyForProfile(body)
 
-  event.waitUntil(self.registration.showNotification(title, {
-    body,
-    tag,
-    icon: './icon-180.png',
-    badge: './icon-180.png',
-    renotify: false,
-    data: { url: target.url, tab: target.tab },
-  }))
+    await self.registration.showNotification(title, {
+      body: displayBody,
+      tag,
+      icon: './icon-180.png',
+      badge: './icon-180.png',
+      renotify: false,
+      data: { url: target.url, tab: target.tab },
+    })
+  })())
 })
 
 async function routeExistingClient(appClient, targetUrl, targetTab) {
