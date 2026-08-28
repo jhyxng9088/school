@@ -56,10 +56,7 @@ function politeCopyPlugin() {
       const cleanId = id.split('?')[0]
       if (!cleanId.includes('/src/') || cleanId.endsWith('/polite-copy-runtime.js')) return null
 
-      let next = replaceCopy(code)
-      if (cleanId.endsWith('/src/main.jsx')) {
-        next = `import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n${next}\ninstallPoliteCopyRuntime()\n`
-      }
+      const next = replaceCopy(code)
       return next === code ? null : { code: next, map: null }
     },
     closeBundle() {
