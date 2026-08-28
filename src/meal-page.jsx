@@ -41,12 +41,13 @@ function stableDishKey(dish, index, dishes) {
 }
 
 export default function MealPage({ schoolData }) {
-  const initialIndex = (() => {
-    const day = new Date().getDay()
-    return day >= 1 && day <= 5 ? day - 1 : 0
-  })()
+  const today = new Date()
+  const todayDay = today.getDay()
+  const weekend = todayDay === 0 || todayDay === 6
+  const defaultWeekOffset = weekend ? 1 : 0
+  const initialIndex = todayDay >= 1 && todayDay <= 5 ? todayDay - 1 : 0
 
-  const [weekOffset, setWeekOffset] = useState(0)
+  const [weekOffset, setWeekOffset] = useState(defaultWeekOffset)
   const [selectedIndex, setSelectedIndex] = useState(initialIndex)
 
   const week = schoolData.mealWeek(weekOffset)
@@ -66,7 +67,8 @@ export default function MealPage({ schoolData }) {
   }
 
   function backToCurrentWeek() {
-    if (weekOffset !== 0) setWeekOffset(0)
+    if (weekOffset !== defaultWeekOffset) setWeekOffset(defaultWeekOffset)
+    if (weekend && selectedIndex !== 0) setSelectedIndex(0)
   }
 
   let detailContent
@@ -89,18 +91,18 @@ export default function MealPage({ schoolData }) {
     detailContent = (
       <div className="stage3-status" key={`loading-${week.key}`}>
         <strong>급식 불러오는 중</strong>
-        <p>{formatWeekRange(week.dates)} 급식을 확인하고 있어.</p>
+        <p>{formatWeekRange(week.dates)} 급식을 확인하고 있어요.</p>
       </div>
     )
   } else {
     const statusKey = `${week.error ? 'error' : 'empty'}-${rawDate(selectedDate)}`
     detailContent = (
       <div className="stage3-status" key={statusKey}>
-        <strong>{week.error ? '급식을 불러오지 못했어' : '등록된 급식이 없어'}</strong>
+        <strong>{week.error ? '급식을 불러오지 못했어요' : '등록된 급식이 없어요'}</strong>
         <p>
           {week.error
-            ? '인터넷 연결이나 NEIS 응답을 확인해줘.'
-            : `${formatDate(selectedDate)} 급식이 아직 NEIS에 등록되지 않았어.`}
+            ? '인터넷 연결이나 NEIS 응답을 확인해 주세요.'
+            : `${formatDate(selectedDate)} 급식이 아직 NEIS에 등록되지 않았어요.`}
         </p>
         {week.error ? <button onClick={() => schoolData.ensureMealWeek(weekOffset, true)}>다시 불러오기</button> : null}
       </div>
