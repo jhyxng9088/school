@@ -1,18 +1,18 @@
-/* Laptop browsers allocate a real scrollbar gutter. Keep that width stable so
-   long Home/Academic pages and shorter tabs share the exact same center line.
-   iPhone, iPad and Android/Samsung paths are deliberately excluded by the
-   school-desktop-laptop class assigned in index.html. */
+/* Laptop browsers can add/remove a real vertical scrollbar when moving between
+   long Home/Academic pages and shorter tabs. Reserve that track permanently so
+   the fixed bottom navigation keeps the same viewport center. The dedicated
+   school-desktop-laptop class excludes iPhone, iPad and Android/Samsung paths. */
 @media (min-width: 700px) and (hover: hover) and (pointer: fine) {
-  html.school-desktop-laptop {
+  html:not(.school-mobile-compat).school-desktop-laptop {
     scrollbar-gutter: stable both-edges;
+    overflow-y: scroll;
   }
 }
 
-/* Older desktop engines without scrollbar-gutter support get the same invariant
-   by reserving the vertical scrollbar track all the time. */
+/* Keep the explicit fallback contract for older desktop engines. */
 @media (min-width: 700px) and (hover: hover) and (pointer: fine) {
   @supports not (scrollbar-gutter: stable) {
-    html.school-desktop-laptop {
+    html:not(.school-mobile-compat).school-desktop-laptop {
       overflow-y: scroll;
     }
   }
