@@ -25,6 +25,11 @@ jobs:
       - name: Apply guarded patch
         run: python .github/patches/push-prompt-every-entry.py
 
+      - name: Remove temporary verification files
+        run: |
+          rm .github/patches/push-prompt-every-entry.py
+          rm .github/workflows/verify-push-prompt-every-entry.yml
+
       - name: Install app dependencies
         run: npm ci
 
@@ -33,11 +38,6 @@ jobs:
 
       - name: Build app
         run: npm run build
-
-      - name: Remove temporary verification files
-        run: |
-          rm .github/patches/push-prompt-every-entry.py
-          rm .github/workflows/verify-push-prompt-every-entry.yml
 
       - name: Commit verified tree
         run: |
