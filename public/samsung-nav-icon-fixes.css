@@ -40,3 +40,20 @@ html.school-samsung .bottom-nav .nav-button.active > svg > * {
   color: var(--text) !important;
   stroke: var(--text) !important;
 }
+
+/* Samsung Internet can resolve canvas color to black instead of inheriting
+   the S-Hub AI orb color. Force the orb and its canvas to inherit the
+   surrounding UI color so the white AI mark matches Safari/iOS. */
+html.school-samsung .s-hub-ai-orb {
+  color: inherit !important;
+}
+
+html.school-samsung .s-hub-ai-orb canvas {
+  color: inherit !important;
+}
+
+html.school-samsung .home-ai-trigger,
+html.school-samsung .home-ai-trigger .s-hub-ai-orb,
+html.school-samsung .home-ai-trigger .s-hub-ai-orb canvas {
+  color: var(--text) !important;
+}
