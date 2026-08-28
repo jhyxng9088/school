@@ -356,21 +356,59 @@
   background: var(--surface-soft);
   color: var(--text-secondary);
   font-size: 12px;
+  transform: translateZ(0) scale(1);
+  transition:
+    border-color 320ms var(--motion-ease),
+    background-color 320ms var(--motion-ease),
+    color 260ms var(--motion-soft),
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .s-hub-ai-edit.is-done {
   border-color: var(--text);
   background: var(--text);
   color: var(--bg);
+  transform: translateZ(0) scale(0.98);
+  animation: s-hub-ai-edit-done 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes s-hub-ai-edit-done {
+  0% { transform: translateZ(0) scale(0.94); }
+  62% { transform: translateZ(0) scale(1.025); }
+  100% { transform: translateZ(0) scale(0.98); }
 }
 
 .s-hub-ai-editor {
   display: grid;
   gap: 9px;
+  max-height: 520px;
   margin: 12px 0 0 37px;
   padding: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
   border-radius: 16px;
   background: var(--surface-soft);
+  transform-origin: top center;
+  animation: s-hub-ai-editor-open 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes s-hub-ai-editor-open {
+  from {
+    max-height: 0;
+    margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    transform: translate3d(0, -7px, 0) scale(0.985);
+  }
+  to {
+    max-height: 520px;
+    margin-top: 12px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 .s-hub-ai-editor label {
@@ -645,13 +683,16 @@
 
 @media (prefers-reduced-motion: reduce) {
   .s-hub-ai-thinking-stage .s-hub-ai-orb,
-  .s-hub-ai-thinking-copy {
+  .s-hub-ai-thinking-copy,
+  .s-hub-ai-edit {
     transition: none;
   }
 
   .s-hub-ai-answer,
   .s-hub-ai-import,
-  .s-hub-ai-save-result {
+  .s-hub-ai-save-result,
+  .s-hub-ai-editor,
+  .s-hub-ai-edit.is-done {
     animation: none;
   }
 }
