@@ -1,0 +1,34 @@
+/* Final viewport/layout corrections for mobile overlays and academic titles. */
+
+/* Korean academic titles should wrap only at natural word boundaries. */
+.academic-focus-card h2 {
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  line-break: strict;
+  white-space: normal;
+}
+
+/*
+ * A transformed page ancestor can become the containing block for position: fixed
+ * on iOS Safari. Compensate for a centered, narrower containing block so the
+ * original-file viewer still occupies the real visual viewport.
+ */
+.reminder-original-viewer {
+  box-sizing: border-box;
+  left: calc((100% - 100vw) / 2) !important;
+  right: auto !important;
+  width: 100vw !important;
+  max-width: none !important;
+}
+
+.reminder-original-panel {
+  box-sizing: border-box;
+  max-width: calc(100vw - 28px);
+  min-width: 0;
+}
+
+.reminder-original-panel > header,
+.reminder-original-image-wrap,
+.reminder-original-save {
+  min-width: 0;
+}
