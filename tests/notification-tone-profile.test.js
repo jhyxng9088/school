@@ -25,8 +25,8 @@ test('only the matching profile receives the gentle notification body', () => {
 
   assert.match(sw, /studentKey !== PERSONALIZED_STUDENT_KEY\) return body/)
   assert.match(sw, /☺️/)
-  assert.match(sw, /잊지 않게 살짝 알려줄게/)
-  assert.match(sw, /좋은 하루 보내/)
+  assert.match(sw, /잊지 않도록 알려 드릴게요/)
+  assert.match(sw, /좋은 하루 보내세요/)
   assert.match(sw, /body: displayBody/)
 })
 
