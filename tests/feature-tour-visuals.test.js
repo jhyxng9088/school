@@ -50,3 +50,25 @@ test('feature tour notice card visibly scans the document and marks detected reg
   assert.match(css, /\.feature-tour-slide\.is-active \.feature-tour-scan-corner[\s\S]*feature-tour-scan-corners/)
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*feature-tour-scan-beam/)
 })
+
+test('feature tour organizer adds four reminders and completes exactly two with the app motion cadence', () => {
+  const source = read('public/first-run-notice.js')
+  const css = read('public/feature-tour-sequences.css')
+  const index = read('index.html')
+  const sw = read('public/sw.js')
+
+  assert.equal((source.match(/class="feature-tour-reminder-row/g) || []).length, 4)
+  assert.equal((source.match(/feature-tour-reminder-row is-demo-complete/g) || []).length, 2)
+  assert.match(source, /--enter-delay: 260ms/)
+  assert.match(source, /--enter-delay: 1310ms/)
+  assert.match(source, /--check-delay: 2240ms/)
+  assert.match(source, /--check-delay: 2860ms/)
+
+  assert.match(css, /feature-tour-reminder-enter 620ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
+  assert.match(css, /feature-tour-reminder-check 520ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
+  assert.match(css, /feature-tour-reminder-copy-complete 520ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
+  assert.match(css, /@keyframes feature-tour-reminder-checkmark/)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
+  assert.match(index, /feature-tour-sequences\.css/)
+  assert.match(sw, /\.\/feature-tour-sequences\.css/)
+})
