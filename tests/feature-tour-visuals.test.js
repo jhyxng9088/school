@@ -5,7 +5,11 @@ import { readFileSync } from 'node:fs'
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 function thinkingMotions(source) {
-  return source.match(/const THINKING_MOTIONS = \[[\s\S]*?\n\]/)?.[0] || ''
+  const block = source.match(/const THINKING_MOTIONS = \[[\s\S]*?\n\s*\]/)?.[0] || ''
+  return block
+    .split('\n')
+    .map((line) => line.trim())
+    .join('\n')
 }
 
 test('feature tour first card uses the same S-Hub AI thinking motion profiles', () => {
