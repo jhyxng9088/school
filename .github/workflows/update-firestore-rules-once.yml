@@ -1,0 +1,310 @@
+name: Prepare class-isolated Firestore rules
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/update-firestore-rules-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch Firestore rules exactly
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path('firestore.rules')
+          text = p.read_text()
+
+          def replace_once(old, new):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected one rules match, found {count}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+          """    function belongsToClass(classId) {
+                return signedIn()
+                  && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classId == classId;
+              }
+          """,
+          """    function belongsToClass(classId) {
+                return signedIn()
+                  && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classId == classId;
+              }
+
+              function isCurrentStudent(studentId) {
+                return signedIn()
+                  && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey == studentId;
+              }
+
+              function academicExpiredInKorea() {
+                let endDate = resource.data.endDate;
+                let kstNow = request.time + duration.value(9, 'h');
+                let endYear = int(endDate[0:4]);
+                let endMonth = int(endDate[5:7]);
+                let endDay = int(endDate[8:10]);
+                let datePassed = kstNow.year() > endYear
+                  || (kstNow.year() == endYear && kstNow.month() > endMonth)
+                  || (kstNow.year() == endYear && kstNow.month() == endMonth && kstNow.day() > endDay);
+                return endDate is string
+                  && endDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+                  && datePassed;
+              }
+          """,
+          )
+
+          replace_once(
+          """        && request.resource.data.endDate is string
+                && request.resource.data.endDate.size() == 10
+                && request.resource.data.detail is string
+          """,
+          """        && request.resource.data.endDate is string
+                && request.resource.data.endDate.size() == 10
+                && request.resource.data.endDate >= request.resource.data.startDate
+                && request.resource.data.detail is string
+          """,
+          )
+
+          replace_once(
+          """        && request.resource.data.kind in ['activity', 'scheduled']
+          """,
+          """        && request.resource.data.kind == 'activity'
+          """,
+          )
+
+          replace_once(
+          """      allow delete: if belongsToClass(classId)
+                && resource.data.creatorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+          """,
+          """      allow delete: if belongsToClass(classId)
+                && (resource.data.creatorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey
+                  || academicExpiredInKorea());
+          """,
+          )
+
+          replace_once(
+          """    match /classes/{classId}/todos/{todoId} {
+                allow read: if signedIn();
+                allow create, update: if signedIn() && validReminder(todoId);
+                allow delete: if signedIn() && reminderExpiredInKorea();
+              }
+
+              match /classes/{classId}/settings/timetable {
+                allow read: if signedIn();
+                allow create, update: if signedIn() && validTimetable();
+                allow delete: if false;
+              }
+
+              match /classes/{classId}/members/{studentId} {
+                allow read: if signedIn();
+                allow create, update: if signedIn() && validMember();
+                allow delete: if false;
+              }
+
+              match /classes/{classId}/presence/{presenceId} {
+                allow read: if signedIn();
+                allow create, update: if signedIn()
+                  && presenceId == request.resource.data.studentKey
+                  && validPresence();
+                allow delete: if false;
+              }
+
+              // Allow the scheduled backend's collectionGroup('pushSubscriptions') read.
+              // Write permissions remain restricted by the class-scoped rule below.
+              match /{path=**}/pushSubscriptions/{subscriptionId} {
+                allow read: if signedIn();
+              }
+
+              match /classes/{classId}/pushSubscriptions/{subscriptionId} {
+                allow read: if signedIn();
+                allow create, update: if belongsToClass(classId)
+                  && validPushSubscription()
+                  && request.resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+                allow delete: if belongsToClass(classId)
+                  && resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+              }
+
+              match /classes/{classId}/pushDispatchClaims/{claimId} {
+                allow read: if signedIn();
+                allow create: if signedIn()
+                  && validPushDispatchClaim()
+                  && (
+                    (request.resource.data.kind == 'activity'
+                      && belongsToClass(classId)
+                      && request.resource.data.actorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey)
+                    || (request.resource.data.kind == 'scheduled'
+                      && request.resource.data.actorStudentKey == 'scheduler')
+                  );
+                allow update: if false;
+                allow delete: if belongsToClass(classId)
+                  && resource.data.kind == 'activity'
+                  && resource.data.actorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+              }
+
+              match /classes/{classId}/originalAttachments/{todoId} {
+                allow read: if signedIn();
+                allow create, update: if signedIn() && validOriginalAttachment();
+                allow delete: if false;
+              }
+
+              match /classes/{classId}/originalAttachments/{todoId}/chunks/{chunkId} {
+                allow read: if signedIn();
+                allow create, update: if signedIn() && validOriginalChunk();
+                allow delete: if false;
+              }
+
+              match /students/{studentId}/todoState/{todoId} {
+                allow read: if signedIn();
+                allow create, update: if signedIn() && validPersonalTodoState();
+                allow delete: if false;
+              }
+          """,
+          """    match /classes/{classId}/todos/{todoId} {
+                allow read: if belongsToClass(classId);
+                allow create, update: if belongsToClass(classId) && validReminder(todoId);
+                allow delete: if belongsToClass(classId) && reminderExpiredInKorea();
+              }
+
+              match /classes/{classId}/settings/timetable {
+                allow read: if belongsToClass(classId);
+                allow create, update: if belongsToClass(classId) && validTimetable();
+                allow delete: if false;
+              }
+
+              match /classes/{classId}/members/{studentId} {
+                allow read: if belongsToClass(classId);
+                allow create, update: if belongsToClass(classId)
+                  && isCurrentStudent(studentId)
+                  && validMember();
+                allow delete: if false;
+              }
+
+              match /classes/{classId}/presence/{presenceId} {
+                allow read: if belongsToClass(classId);
+                allow create, update: if belongsToClass(classId)
+                  && isCurrentStudent(presenceId)
+                  && presenceId == request.resource.data.studentKey
+                  && validPresence();
+                allow delete: if false;
+              }
+
+              match /classes/{classId}/pushSubscriptions/{subscriptionId} {
+                allow read: if belongsToClass(classId)
+                  && resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+                allow create, update: if belongsToClass(classId)
+                  && validPushSubscription()
+                  && request.resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+                allow delete: if belongsToClass(classId)
+                  && resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+              }
+
+              match /classes/{classId}/pushDispatchClaims/{claimId} {
+                allow read: if belongsToClass(classId);
+                allow create: if belongsToClass(classId)
+                  && validPushDispatchClaim()
+                  && request.resource.data.kind == 'activity'
+                  && request.resource.data.actorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+                allow update: if false;
+                allow delete: if belongsToClass(classId)
+                  && resource.data.kind == 'activity'
+                  && resource.data.actorStudentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
+              }
+
+              match /classes/{classId}/originalAttachments/{todoId} {
+                allow read: if belongsToClass(classId);
+                allow create, update: if belongsToClass(classId) && validOriginalAttachment();
+                allow delete: if false;
+              }
+
+              match /classes/{classId}/originalAttachments/{todoId}/chunks/{chunkId} {
+                allow read: if belongsToClass(classId);
+                allow create, update: if belongsToClass(classId) && validOriginalChunk();
+                allow delete: if false;
+              }
+
+              match /students/{studentId}/todoState/{todoId} {
+                allow read: if isCurrentStudent(studentId);
+                allow create, update: if isCurrentStudent(studentId) && validPersonalTodoState();
+                allow delete: if false;
+              }
+          """,
+          )
+
+          p.write_text(text)
+          PY
+
+      - name: Add rule regression assertions
+        shell: bash
+        run: |
+          cat >> tests/class-isolation.test.js <<'EOF'
+
+          test('Firestore rules isolate every class-owned client collection', () => {
+            const rules = read('firestore.rules')
+            assert.match(rules, /match \/classes\/\{classId\}\/todos\/\{todoId\}[\s\S]*allow read: if belongsToClass\(classId\);/)
+            assert.match(rules, /match \/classes\/\{classId\}\/settings\/timetable[\s\S]*allow read: if belongsToClass\(classId\);/)
+            assert.match(rules, /match \/classes\/\{classId\}\/originalAttachments\/\{todoId\}[\s\S]*allow read: if belongsToClass\(classId\);/)
+            assert.match(rules, /match \/students\/\{studentId\}\/todoState\/\{todoId\}[\s\S]*allow read: if isCurrentStudent\(studentId\);/)
+            assert.doesNotMatch(rules, /match \/\{path=\*\*\}\/pushSubscriptions/)
+          })
+
+          test('Firestore rules permit automatic deletion only after a custom academic event end date', () => {
+            const rules = read('firestore.rules')
+            assert.match(rules, /function academicExpiredInKorea\(\)/)
+            assert.match(rules, /resource\.data\.creatorStudentKey[\s\S]*\|\| academicExpiredInKorea\(\)/)
+            assert.match(rules, /request\.resource\.data\.endDate >= request\.resource\.data\.startDate/)
+          })
+          EOF
+
+      - name: Remove one-shot workflow before repository tests
+        run: rm .github/workflows/update-firestore-rules-once.yml
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install and test app
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Test reminder backend
+        working-directory: push-backend-v2
+        run: |
+          npm ci
+          npm test
+
+      - name: Verify rule invariants
+        shell: bash
+        run: |
+          ! grep -q "match /{path=**}/pushSubscriptions" firestore.rules
+          grep -q "allow read: if belongsToClass(classId);" firestore.rules
+          grep -q "academicExpiredInKorea" firestore.rules
+          git diff --check
+
+      - name: Commit verified rules source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Harden Firestore class isolation rules"
+          git push origin HEAD:main
