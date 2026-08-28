@@ -46,7 +46,7 @@ service cloud.firestore {
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 80
         && request.resource.data.dueDate is string
-        && request.resource.data.dueDate.size() == 10
+        && request.resource.data.dueDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && request.resource.data.dueTime is string
         && (request.resource.data.dueTime == ''
           || request.resource.data.dueTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'))
@@ -56,6 +56,8 @@ service cloud.firestore {
         && validReminderAttachment();
     }
 
+    // Timed reminders expire at their exact KST due minute.
+    // Untimed reminders expire at 23:59:59 KST on their due date.
     function reminderExpiredInKorea() {
       let due = resource.data.dueDate;
       let dueTime = resource.data.dueTime;
@@ -69,23 +71,25 @@ service cloud.firestore {
       let datePassed = kstNow.year() > dueYear
         || (kstNow.year() == dueYear && kstNow.month() > dueMonth)
         || (kstNow.year() == dueYear && kstNow.month() == dueMonth && kstNow.day() > dueDay);
-      let untimedExpired = dueTime == ''
-        && sameDay
-        && kstNow.hours() == 23
-        && kstNow.minutes() == 59
-        && kstNow.seconds() >= 59;
-      let timed = dueTime is string
-        && dueTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$');
-      let timedExpired = timed
+      let timedExpired = dueTime is string
+        && dueTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
         && sameDay
         && (kstNow.hours() > int(dueTime[0:2])
           || (kstNow.hours() == int(dueTime[0:2])
             && kstNow.minutes() >= int(dueTime[3:5])));
       return due is string
         && due.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-        && (datePassed || untimedExpired || timedExpired);
+        && (datePassed
+          || (dueTime == ''
+            && sameDay
+            && kstNow.hours() == 23
+            && kstNow.minutes() == 59
+            && kstNow.seconds() >= 59)
+          || timedExpired);
     }
 
+    // Custom academic events remain through their end date and may be cleaned
+    // up from the following KST calendar day. NEIS data is not stored here.
     function academicExpiredInKorea() {
       let endDate = resource.data.endDate;
       let kstNow = request.time + duration.value(9, 'h');
@@ -208,9 +212,10 @@ service cloud.firestore {
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 80
         && request.resource.data.startDate is string
-        && request.resource.data.startDate.size() == 10
+        && request.resource.data.startDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && request.resource.data.endDate is string
-        && request.resource.data.endDate.size() == 10
+        && request.resource.data.endDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.endDate >= request.resource.data.startDate
         && request.resource.data.detail is string
         && request.resource.data.detail.size() <= 500
         && request.resource.data.createdAt is int
@@ -286,6 +291,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Student-created academic events only. NEIS schedules never use this path.
     match /classes/{classId}/academicEvents/{eventId} {
       allow read: if belongsToClass(classId);
       allow create: if belongsToClass(classId)
@@ -310,7 +316,10 @@ service cloud.firestore {
 
     match /classes/{classId}/todos/{todoId} {
       allow read: if belongsToClass(classId);
-      allow create, update: if belongsToClass(classId) && validReminder(todoId);
+      allow create: if belongsToClass(classId) && validReminder(todoId);
+      allow update: if belongsToClass(classId)
+        && validReminder(todoId)
+        && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if belongsToClass(classId) && reminderExpiredInKorea();
     }
 
@@ -337,6 +346,8 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Scheduled push backends use Firebase Admin SDK and bypass client rules.
+    // A client may only read/write its own subscription inside its class.
     match /classes/{classId}/pushSubscriptions/{subscriptionId} {
       allow read: if belongsToClass(classId)
         && resource.data.studentKey == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentKey;
