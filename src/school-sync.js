@@ -50,6 +50,7 @@ const ORIGINAL_ATTACHMENT_CHUNK_CHARS = 600_000
 const ORIGINAL_ATTACHMENT_MEMORY_CACHE_MAX = 10
 const REMINDER_ORIGINAL_API_URL = 'https://school-reminder-backend.vercel.app/api/reminder-original'
 const ORIGINAL_ATTACHMENT_SERVER_TIMEOUT_MS = 14_000
+const PERSONAL_TIMETABLE_API_URL = 'https://school-reminder-backend.vercel.app/api/personal-timetable'
 const originalAttachmentMemoryCache = new Map()
 const ATTACHMENT_MIME_TYPES = new Set([
   'application/pdf',
@@ -766,6 +767,50 @@ export async function migrateLegacyTodos(profile, legacyTodos) {
   localStorage.setItem(marker, 'done')
 }
 
+function movingClassEnabled(profile) {
+  const classNumber = Number(profile?.classNumber)
+  return Number.isInteger(classNumber) && classNumber >= 7 && classNumber <= 15
+}
+
+function mergeWeeklyTimetables(sharedSchedule, personalSchedule) {
+  const shared = normalizeWeeklySchedule(sharedSchedule)
+  const personal = normalizeWeeklySchedule(personalSchedule)
+  const merged = normalizeWeeklySchedule(shared)
+  for (const [dayId, periods] of Object.entries(personal)) {
+    for (const [period, subject] of Object.entries(periods)) {
+      if (String(subject || '').trim()) merged[dayId][period] = subject
+    }
+  }
+  return merged
+}
+
+function mergeTimetableOverrides(sharedOverrides, personalOverrides, now = new Date()) {
+  const shared = pruneExpiredOverrides(normalizeOverrides(sharedOverrides), now)
+  const personal = pruneExpiredOverrides(normalizeOverrides(personalOverrides), now)
+  const merged = { ...shared }
+  for (const [date, periods] of Object.entries(personal)) {
+    merged[date] = { ...(merged[date] || {}), ...periods }
+  }
+  return merged
+}
+
+async function requestPersonalTimetable(profile, payload) {
+  if (!movingClassEnabled(profile)) return null
+  const user = await ensureSignedIn()
+  const idToken = String(await user.getIdToken()).trim()
+  const response = await fetch(PERSONAL_TIMETABLE_API_URL, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${idToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body?.ok !== true) throw new Error(body?.error || 'personal_timetable_failed')
+  return body.data || {}
+}
+
 async function writeInitialTimetable(profile, value) {
   await ensureSignedIn()
   await setDoc(timetableRef(profile), {
@@ -794,7 +839,10 @@ async function writeOverridesCloud(profile, overrides) {
 export function useSharedTimetable(profile, now) {
   const [weeklySchedule, setWeeklySchedule] = useState(() => loadWeeklySchedule())
   const [overrides, setOverrides] = useState(() => pruneExpiredOverrides(loadOverrides(), now))
+  const [personalWeeklySchedule, setPersonalWeeklySchedule] = useState(() => normalizeWeeklySchedule(null))
+  const [personalOverrides, setPersonalOverrides] = useState({})
   const signature = profileSignature(profile)
+  const movingClass = movingClassEnabled(profile)
 
   useEffect(() => {
     if (!signature) return undefined
@@ -855,6 +903,31 @@ export function useSharedTimetable(profile, now) {
     }
   }, [signature])
 
+  useEffect(() => {
+    if (!signature || !movingClass) {
+      setPersonalWeeklySchedule(normalizeWeeklySchedule(null))
+      setPersonalOverrides({})
+      return undefined
+    }
+    let stopped = false
+    const refresh = async () => {
+      try {
+        const data = await requestPersonalTimetable(profile, { action: 'load' })
+        if (stopped) return
+        setPersonalWeeklySchedule(normalizeWeeklySchedule(data?.weeklySchedule))
+        setPersonalOverrides(pruneExpiredOverrides(normalizeOverrides(data?.overrides), new Date()))
+      } catch (error) {
+        if (!stopped) console.error('Personal timetable load failed:', error)
+      }
+    }
+    refresh()
+    const removeRevalidation = installServerRevalidation(refresh)
+    return () => {
+      stopped = true
+      removeRevalidation()
+    }
+  }, [signature, movingClass])
+
   const commitWeeklySchedule = useCallback(async (nextSchedule) => {
     const normalized = normalizeWeeklySchedule(nextSchedule)
     try {
@@ -881,10 +954,49 @@ export function useSharedTimetable(profile, now) {
     }
   }, [signature, now])
 
+  const commitPersonalWeeklySchedule = useCallback(async (nextSchedule) => {
+    if (!movingClass) return false
+    const normalized = normalizeWeeklySchedule(nextSchedule)
+    try {
+      await requestPersonalTimetable(profile, { action: 'saveWeekly', weeklySchedule: normalized })
+      setPersonalWeeklySchedule(normalized)
+      return true
+    } catch (error) {
+      console.error('Personal timetable save failed:', error)
+      return false
+    }
+  }, [signature, movingClass])
+
+  const commitPersonalOverrides = useCallback(async (nextOverrides) => {
+    if (!movingClass) return false
+    const normalized = pruneExpiredOverrides(nextOverrides, now)
+    try {
+      await requestPersonalTimetable(profile, { action: 'saveOverrides', overrides: normalized })
+      setPersonalOverrides(normalized)
+      return true
+    } catch (error) {
+      console.error('Personal timetable override save failed:', error)
+      return false
+    }
+  }, [signature, movingClass, now])
+
+  const effectiveWeeklySchedule = movingClass
+    ? mergeWeeklyTimetables(weeklySchedule, personalWeeklySchedule)
+    : weeklySchedule
+  const effectiveOverrides = movingClass
+    ? mergeTimetableOverrides(overrides, personalOverrides, now)
+    : overrides
+
   return {
-    weeklySchedule,
-    overrides,
+    weeklySchedule: effectiveWeeklySchedule,
+    overrides: effectiveOverrides,
+    sharedWeeklySchedule: weeklySchedule,
+    sharedOverrides: overrides,
+    personalWeeklySchedule,
+    personalOverrides,
     commitWeeklySchedule,
     commitOverrides,
+    commitPersonalWeeklySchedule,
+    commitPersonalOverrides,
   }
 }

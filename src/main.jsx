@@ -457,8 +457,26 @@ function formatWeekRange(weekDates) {
   return `${first.getMonth() + 1}월 ${first.getDate()}일–${last.getMonth() + 1}월 ${last.getDate()}일`
 }
 
-function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOverrides, activity, profile, requireOnline = () => true }) {
+function TimetablePage({
+  now,
+  weeklySchedule,
+  overrides,
+  sharedWeeklySchedule,
+  sharedOverrides,
+  personalWeeklySchedule,
+  personalOverrides,
+  onSaveWeekly,
+  onSaveOverrides,
+  onSavePersonalWeekly,
+  onSavePersonalOverrides,
+  activity,
+  profile,
+  requireOnline = () => true,
+}) {
+  const movingClass = Number(profile?.classNumber) >= 7 && Number(profile?.classNumber) <= 15
   const [editing, setEditing] = useState(false)
+  const [editScope, setEditScope] = useState('shared')
+  const [changeScope, setChangeScope] = useState('shared')
   const [draft, setDraft] = useState(() => cloneWeeklySchedule(weeklySchedule))
   const [changeOpen, setChangeOpen] = useState(false)
   const [changeDate, setChangeDate] = useState(() => dateKey(now))
@@ -478,7 +496,10 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     : []
   const availablePeriodSignature = availablePeriods.map((period) => period.number).join(',')
   const selectedPeriodIsAvailable = availablePeriods.some((period) => period.number === changePeriod)
-  const baseSubject = selectedDay ? weeklySchedule?.[selectedDay.id]?.[changePeriod] || '' : ''
+  const changeBaseSchedule = movingClass && changeScope === 'shared'
+    ? sharedWeeklySchedule
+    : weeklySchedule
+  const baseSubject = selectedDay ? changeBaseSchedule?.[selectedDay.id]?.[changePeriod] || '' : ''
 
   useEffect(() => {
     if (!selectedPeriodIsAvailable) {
@@ -498,14 +519,31 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
         dayLabel: WEEKDAYS[dayIndex].label,
         ...period,
         activity: activity?.[activityKey('timetable', `${dateKey(date)}-${period.number}`)] || null,
+        scope: movingClass && Object.prototype.hasOwnProperty.call(personalOverrides?.[dateKey(date)] || {}, period.number)
+          ? 'personal'
+          : 'shared',
       })),
   ).sort((a, b) => dateKey(a.date).localeCompare(dateKey(b.date)) || a.number - b.number)
 
-  function startEditing() {
+  function startEditing(scope = 'shared') {
     if (!requireOnline('시간표를 수정')) return
-    setDraft(cloneWeeklySchedule(weeklySchedule))
+    const nextScope = movingClass ? scope : 'shared'
+    const source = nextScope === 'personal' ? personalWeeklySchedule : (sharedWeeklySchedule || weeklySchedule)
+    setEditScope(nextScope)
+    setDraft(cloneWeeklySchedule(source))
     setChangeOpen(false)
     setEditing(true)
+  }
+
+  function openChange(scope = 'shared') {
+    if (!requireOnline('시간표를 수정')) return
+    const initialDate = currentState.kind === 'done'
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12, 0, 0, 0)
+      : now
+    setChangeScope(movingClass ? scope : 'shared')
+    setChangeDate(dateKey(initialDate))
+    setChangeSubject('')
+    setChangeOpen(true)
   }
 
   function updateDraft(dayId, period, value) {
@@ -520,10 +558,13 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
 
   async function saveBaseSchedule() {
     if (!requireOnline('시간표를 수정')) return
+    const sourceSchedule = movingClass && editScope === 'personal'
+      ? personalWeeklySchedule
+      : (sharedWeeklySchedule || weeklySchedule)
     const changedCells = WEEKDAYS.flatMap((day) =>
       PERIODS
         .filter((period) => period.number <= day.regularPeriodCount)
-        .filter((period) => String(weeklySchedule?.[day.id]?.[period.number] || '').trim() !== String(draft?.[day.id]?.[period.number] || '').trim())
+        .filter((period) => String(sourceSchedule?.[day.id]?.[period.number] || '').trim() !== String(draft?.[day.id]?.[period.number] || '').trim())
         .map((period) => ({ dayId: day.id, period: period.number })),
     )
 
@@ -532,9 +573,11 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
       return
     }
 
-    const saved = await onSaveWeekly(draft)
+    const saved = movingClass && editScope === 'personal'
+      ? await onSavePersonalWeekly(draft)
+      : await onSaveWeekly(draft)
     if (!saved) return
-    recordClassActivities(profile, [
+    if (!(movingClass && editScope === 'personal')) recordClassActivities(profile, [
       { entityType: 'timetable', entityId: 'weekly', action: 'edited' },
       ...changedCells.map(({ dayId, period }) => ({
         entityType: 'timetable',
@@ -550,9 +593,12 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     if (!requireOnline('시간표를 수정')) return
     const subject = changeSubject.trim()
     if (!subject) return
-    const activityAction = overrides?.[changeDate]?.[changePeriod] ? 'edited' : 'added'
+    const sourceOverrides = movingClass && changeScope === 'personal'
+      ? personalOverrides
+      : (sharedOverrides || overrides)
+    const activityAction = sourceOverrides?.[changeDate]?.[changePeriod] ? 'edited' : 'added'
 
-    const next = { ...overrides }
+    const next = { ...sourceOverrides }
     const dateOverrides = { ...(next[changeDate] || {}) }
 
     if (subject === baseSubject.trim()) {
@@ -564,9 +610,11 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     if (Object.keys(dateOverrides).length) next[changeDate] = dateOverrides
     else delete next[changeDate]
 
-    const saved = await onSaveOverrides(next)
+    const saved = movingClass && changeScope === 'personal'
+      ? await onSavePersonalOverrides(next)
+      : await onSaveOverrides(next)
     if (!saved) return
-    recordClassActivities(profile, [{
+    if (!(movingClass && changeScope === 'personal')) recordClassActivities(profile, [{
       entityType: 'timetable',
       entityId: `${changeDate}-${changePeriod}`,
       action: activityAction,
@@ -575,15 +623,17 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
     setChangeOpen(false)
   }
 
-  async function removeChange(targetDate, period) {
+  async function removeChange(targetDate, period, scope = 'shared') {
     if (!requireOnline('시간표를 수정')) return
     const key = dateKey(targetDate)
-    const next = { ...overrides }
+    const source = movingClass && scope === 'personal' ? personalOverrides : (sharedOverrides || overrides)
+    const next = { ...source }
     const dateOverrides = { ...(next[key] || {}) }
     delete dateOverrides[period]
     if (Object.keys(dateOverrides).length) next[key] = dateOverrides
     else delete next[key]
-    await onSaveOverrides(next)
+    if (movingClass && scope === 'personal') await onSavePersonalOverrides(next)
+    else await onSaveOverrides(next)
   }
 
   async function clearAllChanges() {
@@ -594,34 +644,30 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
 
   return (
     <section className="timetable-page">
-      <header className="timetable-header">
+      <header className={`timetable-header ${movingClass ? 'has-moving-actions' : ''}`}>
         <div>
-          <p className="date-label">{editing ? '기본 시간표' : '이번 주'}</p>
+          <p className="date-label">{editing ? `${editScope === 'personal' ? '개인' : '공동'} 기본 시간표` : '이번 주'}</p>
           <h1>시간표</h1>
         </div>
         {!editing ? (
-          <div className="timetable-actions">
-            <button className="timetable-action" onClick={startEditing}>기본 수정</button>
-            <button
-              className="timetable-action primary"
-              onClick={() => {
-                if (!requireOnline('시간표를 수정')) return
-                const initialDate = currentState.kind === 'done'
-                  ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12, 0, 0, 0)
-                  : now
-                setChangeDate(dateKey(initialDate))
-                setChangeSubject('')
-                setChangeOpen(true)
-              }}
-            >
-              변경 추가
-            </button>
-          </div>
+          movingClass ? (
+            <div className="timetable-actions timetable-actions-moving" aria-label="시간표 변경 종류">
+              <button className="timetable-action" onClick={() => startEditing('shared')}><span>공동 기본</span><small>시간표 변경</small></button>
+              <button className="timetable-action primary" onClick={() => openChange('shared')}><span>공동</span><small>시간표 변경</small></button>
+              <button className="timetable-action" onClick={() => startEditing('personal')}><span>개인 기본</span><small>시간표 변경</small></button>
+              <button className="timetable-action primary" onClick={() => openChange('personal')}><span>개인</span><small>시간표 변경</small></button>
+            </div>
+          ) : (
+            <div className="timetable-actions">
+              <button className="timetable-action" onClick={() => startEditing('shared')}>기본 수정</button>
+              <button className="timetable-action primary" onClick={() => openChange('shared')}>변경 추가</button>
+            </div>
+          )
         ) : null}
       </header>
 
       <div className="week-summary">
-        <strong>{editing ? '월–금 기본 시간표' : formatWeekRange(weekDates)}</strong>
+        <strong>{editing ? `${editScope === 'personal' ? '개인' : '공동'} · 월–금 기본 시간표` : formatWeekRange(weekDates)}</strong>
         <div className="week-legend">
           {!editing ? <span className="legend-item"><i className="legend-dot" />변경</span> : null}
           {!editing ? <span className="legend-item"><i className="legend-ring" />현재</span> : null}
@@ -668,7 +714,9 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
                         aria-label={`${day.label}요일 ${period.number}교시`}
                         value={draft?.[day.id]?.[period.number] || ''}
                         onChange={(event) => updateDraft(day.id, period.number, event.target.value)}
-                        placeholder="—"
+                        placeholder={movingClass && editScope === 'personal'
+                          ? (sharedWeeklySchedule?.[day.id]?.[period.number] || '—')
+                          : '—'}
                         maxLength={20}
                         autoComplete="off"
                       />
@@ -718,9 +766,9 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
       <UnifiedBottomSheet
         open={changeOpen && !editing}
         onClose={() => setChangeOpen(false)}
-        title="변경 시간표 추가"
-        subtitle="기본 시간표는 그대로 두고 선택한 날짜에만 적용돼."
-        ariaLabel="변경 시간표 추가"
+        title={movingClass ? `${changeScope === 'personal' ? '개인' : '공동'} 시간표 변경` : '변경 시간표 추가'}
+        subtitle="기본 시간표는 그대로 두고 선택한 날짜에만 적용돼. 지나면 자동으로 기본 시간표로 돌아와."
+        ariaLabel={movingClass ? `${changeScope === 'personal' ? '개인' : '공동'} 시간표 변경` : '변경 시간표 추가'}
         className="timetable-unified-sheet"
       >
         <div className="timetable-sheet-form">
@@ -792,17 +840,17 @@ function TimetablePage({ now, weeklySchedule, overrides, onSaveWeekly, onSaveOve
         <section className="week-changes">
           <div className="week-changes-head">
             <h2>이번 주 변경</h2>
-            <button className="clear-changes" onClick={clearAllChanges}>변경 모두 지우기</button>
+            {!movingClass ? <button className="clear-changes" onClick={clearAllChanges}>변경 모두 지우기</button> : null}
           </div>
           <div className="change-list">
             {weekChanges.map((change) => (
               <div className="change-item" key={`${dateKey(change.date)}-${change.number}`}>
                 <div className="change-item-main">
-                  <strong>{change.date.getMonth() + 1}/{change.date.getDate()} {change.dayLabel} · {change.number}교시</strong>
+                  <strong>{change.date.getMonth() + 1}/{change.date.getDate()} {change.dayLabel} · {change.number}교시{movingClass ? ` · ${change.scope === 'personal' ? '개인' : '공동'}` : ''}</strong>
                   <span>{change.baseSubject.trim() || '미설정'} → {change.subject.trim() || '수업 없음'}</span>
                   {change.activity ? <small className="activity-attribution">{activityLabel(change.activity)}</small> : null}
                 </div>
-                <button className="remove-change" onClick={() => removeChange(change.date, change.number)}>되돌리기</button>
+                <button className="remove-change" onClick={() => removeChange(change.date, change.number, change.scope)}>되돌리기</button>
               </div>
             ))}
           </div>
@@ -954,6 +1002,12 @@ function AppShell({ profile }) {
     overrides,
     commitWeeklySchedule,
     commitOverrides,
+    sharedWeeklySchedule,
+    sharedOverrides,
+    personalWeeklySchedule,
+    personalOverrides,
+    commitPersonalWeeklySchedule,
+    commitPersonalOverrides,
   } = useSharedTimetable(profile, now)
   const schoolData = useSchoolData(now)
   const todoData = useTodos(profile)
@@ -1156,8 +1210,14 @@ function AppShell({ profile }) {
         now={now}
         weeklySchedule={weeklySchedule}
         overrides={overrides}
+        sharedWeeklySchedule={sharedWeeklySchedule}
+        sharedOverrides={sharedOverrides}
+        personalWeeklySchedule={personalWeeklySchedule}
+        personalOverrides={personalOverrides}
         onSaveWeekly={commitWeeklySchedule}
         onSaveOverrides={commitOverrides}
+        onSavePersonalWeekly={commitPersonalWeeklySchedule}
+        onSavePersonalOverrides={commitPersonalOverrides}
         activity={activity}
         profile={profile}
         requireOnline={requireOnline}
