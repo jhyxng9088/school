@@ -24,6 +24,9 @@
     },
     "api/admin-console.js": {
       "maxDuration": 60
+    },
+    "api/admin-class-details.js": {
+      "maxDuration": 30
     }
   }
 }
