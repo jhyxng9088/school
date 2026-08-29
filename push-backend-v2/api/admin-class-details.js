@@ -1,3 +1,4 @@
+// Deployment retry marker: no runtime behavior change.
 import { adminAuth, adminDb } from '../lib/firebase-admin.js'
 
 function setCors(res) {
