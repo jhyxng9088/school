@@ -16,6 +16,9 @@
     },
     "api/class-roster.js": {
       "maxDuration": 30
+    },
+    "api/class-roster-repair.js": {
+      "maxDuration": 30
     }
   }
 }
