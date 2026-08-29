@@ -166,6 +166,12 @@ html.class-roster-modal-open body {
   animation-delay: var(--roster-delay, 0ms);
 }
 
+.class-roster-row.is-static {
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
 .class-roster-row:last-child {
   border-bottom: 0;
 }
