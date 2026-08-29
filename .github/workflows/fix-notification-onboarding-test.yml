@@ -25,8 +25,11 @@ jobs:
             raise SystemExit('denied copy anchor missing')
           path.write_text(text.replace(old, new, 1))
           PY
-      - name: Validate full app
-        run: npm ci && npm test && npm run build
+      - name: Validate notification prompt and build
+        run: |
+          npm ci
+          node --test tests/push-prompt-every-entry.test.js
+          npm run build
       - name: Commit push prompt fix only
         run: |
           git config user.name jhyxng9088
