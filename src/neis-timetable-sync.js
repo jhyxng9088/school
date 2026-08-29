@@ -1,10 +1,11 @@
 import { getApp } from 'firebase/app'
-import { doc, getDocFromServer, getFirestore, setDoc } from 'firebase/firestore'
+import { doc, getFirestore, setDoc } from 'firebase/firestore'
 import { classKeyFor, ensureSignedIn, readStudentProfile } from './school-sync'
-import { NEIS_TIMETABLE_SCHOOL, fetchGrade2ClassTimetable, neisTargetWeek } from './neis-timetable'
+import { fetchGrade2ClassTimetable, neisTargetWeek } from './neis-timetable'
 
 const SYNC_MAX_AGE_MS = 6 * 60 * 60 * 1000
 const RETRY_GUARD_MS = 15 * 60 * 1000
+const CACHE_PREFIX = 'school.neisTimetableSync.v1'
 const attemptTimes = new Map()
 
 function timetableRef(db, profile) {
@@ -14,6 +15,26 @@ function timetableRef(db, profile) {
 function validProfile(profile) {
   const classNumber = Number(profile?.classNumber)
   return profile && Number.isInteger(classNumber) && classNumber >= 1 && classNumber <= 30
+}
+
+function cacheKey(classNumber, weekStart) {
+  return `${CACHE_PREFIX}.class-${classNumber}.${weekStart}`
+}
+
+function readCache(classNumber, weekStart) {
+  try {
+    return JSON.parse(localStorage.getItem(cacheKey(classNumber, weekStart)) || 'null')
+  } catch {
+    return null
+  }
+}
+
+function writeCache(classNumber, weekStart, value) {
+  try {
+    localStorage.setItem(cacheKey(classNumber, weekStart), JSON.stringify(value))
+  } catch {
+    // A failed local cache must never block Firestore/NEIS sync.
+  }
 }
 
 function recentlyAttempted(classNumber, weekStart) {
@@ -30,45 +51,47 @@ export async function syncCurrentClassTimetableFromNeis({ force = false } = {}) 
 
   const classNumber = Number(profile.classNumber)
   const week = neisTargetWeek(new Date())
+  const cached = readCache(classNumber, week.weekStart)
+  const cachedFresh = cached?.ok === true
+    && cached.weekStart === week.weekStart
+    && Date.now() - Number(cached.syncedAt || 0) < SYNC_MAX_AGE_MS
+
+  if (!force && cachedFresh) return { ok: true, reason: 'fresh' }
   if (!force && recentlyAttempted(classNumber, week.weekStart)) return { ok: true, reason: 'recent_attempt' }
-
-  await ensureSignedIn()
-  const db = getFirestore(getApp('school-sync'))
-  const ref = timetableRef(db, profile)
-  const snapshot = await getDocFromServer(ref)
-  const current = snapshot.exists() ? snapshot.data() || {} : {}
-
-  const alreadyFresh = current.source === 'neis'
-    && Number(current.neisGrade) === 2
-    && String(current.neisSchoolCode || '') === NEIS_TIMETABLE_SCHOOL.schoolCode
-    && String(current.neisWeekStart || '') === week.weekStart
-    && Date.now() - Number(current.neisSyncedAt || 0) < SYNC_MAX_AGE_MS
-
-  if (!force && alreadyFresh) return { ok: true, reason: 'fresh' }
 
   const result = await fetchGrade2ClassTimetable(classNumber, new Date())
   if (!result.available) {
+    writeCache(classNumber, week.weekStart, {
+      ok: false,
+      attemptedAt: Date.now(),
+      weekStart: result.weekStart,
+      reason: 'neis_unavailable',
+    })
     return { ok: false, reason: 'neis_unavailable', classNumber, weekStart: result.weekStart }
   }
 
-  const firstNeisMigration = current.source !== 'neis'
+  await ensureSignedIn()
+  const db = getFirestore(getApp('school-sync'))
   const now = Date.now()
-  const payload = {
-    weeklySchedule: result.weeklySchedule,
-    source: 'neis',
-    neisGrade: 2,
-    neisSchoolCode: NEIS_TIMETABLE_SCHOOL.schoolCode,
-    neisWeekStart: result.weekStart,
-    neisWeekEnd: result.weekEnd,
-    neisSyncedAt: now,
-    updatedAt: now,
-    ...(firstNeisMigration ? { overrides: {} } : {}),
-  }
 
-  await setDoc(ref, payload, { merge: true })
+  // Only the shared weekly base is replaced. Date-specific shared overrides and
+  // 7~15반 personal moving-class data remain independent and are not touched.
+  await setDoc(timetableRef(db, profile), {
+    weeklySchedule: result.weeklySchedule,
+    updatedAt: now,
+  }, { merge: true })
+
+  writeCache(classNumber, result.weekStart, {
+    ok: true,
+    syncedAt: now,
+    weekStart: result.weekStart,
+    weekEnd: result.weekEnd,
+    subjectCount: result.subjectCount,
+  })
+
   return {
     ok: true,
-    reason: firstNeisMigration ? 'migrated' : 'updated',
+    reason: 'updated',
     classNumber,
     subjectCount: result.subjectCount,
     weekStart: result.weekStart,
