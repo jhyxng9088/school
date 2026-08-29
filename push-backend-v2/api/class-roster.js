@@ -60,6 +60,8 @@ export default async function handler(req, res) {
     const users = usersSnapshot.docs
       .map((snapshot) => snapshot.data() || {})
       .filter((user) => memberKeys.has(String(user?.studentKey || '').trim()))
+    const resolvedIdentityKeys = new Set(users.map((user) => String(user?.studentKey || '').trim()).filter(Boolean))
+    const missingIdentityCount = [...memberKeys].filter((studentKey) => !resolvedIdentityKeys.has(studentKey)).length
     const presence = presenceSnapshot.docs.map((snapshot) => snapshot.data() || {})
     const roster = buildClassRoster({ classId, users, presence, nowMs: Date.now() })
 
@@ -70,7 +72,7 @@ export default async function handler(req, res) {
       legacyMemberCount: memberKeys.size,
       total: roster.total,
       online: roster.online,
-      unresolved: roster.unresolved,
+      unresolved: roster.unresolved + missingIdentityCount,
       members: roster.members,
       generatedAt: Date.now(),
     })
