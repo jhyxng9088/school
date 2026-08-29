@@ -54,6 +54,123 @@ function numericTime(value) {
   return Number.isFinite(number) && number > 0 ? number : 0
 }
 
+function candidateKey(name) {
+  return normalizeName(name).toLowerCase().replace(/\s+/g, '')
+}
+
+export function recoverClassRosterUsers({
+  classId,
+  memberKeys = [],
+  users = [],
+  activities = [],
+  academicEvents = [],
+} = {}) {
+  const safeClassId = String(classId || '').trim()
+  const safeMemberKeys = new Set(
+    Array.from(memberKeys || [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean),
+  )
+  const candidatesByStudentKey = new Map()
+
+  function addCandidate(studentKey, name, source, createdAt = 0, updatedAt = 0) {
+    const safeKey = String(studentKey || '').trim()
+    const safeName = normalizeName(name)
+    if (!safeMemberKeys.has(safeKey) || !safeName) return
+    if (!candidatesByStudentKey.has(safeKey)) candidatesByStudentKey.set(safeKey, [])
+    candidatesByStudentKey.get(safeKey).push({
+      name: safeName,
+      source,
+      createdAt: numericTime(createdAt),
+      updatedAt: numericTime(updatedAt),
+    })
+  }
+
+  for (const user of Array.isArray(users) ? users : []) {
+    if (String(user?.classId || '').trim() !== safeClassId) continue
+    addCandidate(user?.studentKey, user?.name, 'user', user?.createdAt, user?.updatedAt)
+  }
+
+  for (const activity of Array.isArray(activities) ? activities : []) {
+    addCandidate(
+      activity?.actorStudentKey,
+      activity?.actorName,
+      'activity',
+      activity?.updatedAt,
+      activity?.updatedAt,
+    )
+  }
+
+  for (const event of Array.isArray(academicEvents) ? academicEvents : []) {
+    addCandidate(
+      event?.creatorStudentKey,
+      event?.creatorName,
+      'academic',
+      event?.createdAt,
+      event?.updatedAt,
+    )
+    addCandidate(
+      event?.lastEditedByStudentKey,
+      event?.lastEditedByName,
+      'academic',
+      event?.createdAt,
+      event?.updatedAt,
+    )
+  }
+
+  const sourcePriority = { user: 0, activity: 1, academic: 2 }
+  const recoveredUsers = []
+  const unresolvedKeys = []
+  const recoveredFromHistory = []
+
+  for (const studentKey of safeMemberKeys) {
+    const rawCandidates = candidatesByStudentKey.get(studentKey) || []
+    const uniqueCandidates = new Map()
+    for (const candidate of rawCandidates) {
+      const key = candidateKey(candidate.name)
+      if (!key) continue
+      const existing = uniqueCandidates.get(key)
+      if (!existing || (sourcePriority[candidate.source] ?? 9) < (sourcePriority[existing.source] ?? 9)) {
+        uniqueCandidates.set(key, candidate)
+      }
+    }
+
+    const resolved = [...uniqueCandidates.values()]
+      .map((candidate) => ({
+        ...candidate,
+        studentNumber: inferStudentNumber({ classId: safeClassId, studentKey, name: candidate.name }),
+      }))
+      .filter((candidate) => candidate.studentNumber > 0)
+      .sort((a, b) => {
+        const sourceDifference = (sourcePriority[a.source] ?? 9) - (sourcePriority[b.source] ?? 9)
+        if (sourceDifference) return sourceDifference
+        if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt
+        return b.updatedAt - a.updatedAt
+      })
+
+    if (!resolved.length) {
+      unresolvedKeys.push(studentKey)
+      continue
+    }
+
+    const primary = resolved[0]
+    recoveredUsers.push({
+      classId: safeClassId,
+      studentKey,
+      name: primary.name,
+      createdAt: primary.createdAt,
+      updatedAt: Math.max(...resolved.map((candidate) => candidate.updatedAt), 0),
+    })
+    if (primary.source !== 'user') recoveredFromHistory.push(studentKey)
+  }
+
+  return {
+    users: recoveredUsers,
+    unresolvedKeys,
+    recoveredFromHistory,
+  }
+}
+
 export function buildClassRoster({
   classId,
   users = [],
