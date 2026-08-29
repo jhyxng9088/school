@@ -8,32 +8,35 @@ test('Sunday targets the upcoming school week', () => {
   assert.equal(week.weekEnd, '20260904')
 })
 
-test('grade 2 class timetable is assembled from NEIS sample-sized requests', async () => {
+test('grade 2 class timetable uses the verified NEIS mirror in one request', async () => {
   const originalFetch = global.fetch
   const calls = []
   global.fetch = async (input) => {
     const url = new URL(String(input))
     calls.push(url)
-    const date = url.searchParams.get('ALL_TI_YMD')
-    const classNumber = Number(url.searchParams.get('CLASS_NM'))
-    const requestedPeriod = Number(url.searchParams.get('PERIO') || 0)
-    const periods = requestedPeriod ? [requestedPeriod] : [1, 2, 3, 4, 5]
-    const rows = periods.map((period) => ({
-      ALL_TI_YMD: date,
-      GRADE: '2',
-      CLASS_NM: String(classNumber),
-      PERIO: String(period),
-      ITRT_CNTNT: `C${classNumber}-${date}-P${period}`,
-    }))
+    assert.equal(url.hostname, 'kschoolinfo.com')
+
+    const classNumber = Number(url.searchParams.get('class'))
+    const rows = []
+    const dates = ['20260831', '20260901', '20260902', '20260903', '20260904']
+    const periodCounts = [6, 6, 7, 6, 7]
+    dates.forEach((date, dayIndex) => {
+      for (let period = 1; period <= periodCounts[dayIndex]; period += 1) {
+        rows.push({
+          date,
+          grade: '2',
+          class: String(classNumber),
+          period,
+          subject: `C${classNumber}-${date}-P${period}`,
+          classroom: String(classNumber),
+        })
+      }
+    })
+
     return {
       ok: true,
       async json() {
-        return {
-          hisTimetable: [
-            { head: [{ list_total_count: rows.length }, { RESULT: { CODE: 'INFO-000', MESSAGE: '정상 처리되었습니다.' } }] },
-            { row: rows },
-          ],
-        }
+        return { ok: true, data: rows, meta: { source: 'NEIS', count: rows.length } }
       },
     }
   }
@@ -41,23 +44,25 @@ test('grade 2 class timetable is assembled from NEIS sample-sized requests', asy
   try {
     const result = await fetchGrade2ClassTimetable(3, new Date(2026, 7, 30, 12, 0, 0, 0))
     assert.equal(result.available, true)
+    assert.equal(result.dataSource, 'NEIS-mirror')
     assert.equal(result.classNumber, 3)
     assert.equal(result.weekStart, '20260831')
     assert.equal(result.weekEnd, '20260904')
-    assert.equal(result.rows.length, 35)
+    assert.equal(result.rows.length, 32)
     assert.equal(result.subjectCount, 32)
     assert.equal(result.weeklySchedule.mon[1], 'C3-20260831-P1')
     assert.equal(result.weeklySchedule.wed[7], 'C3-20260902-P7')
     assert.equal(result.weeklySchedule.fri[7], 'C3-20260904-P7')
-    assert.equal(calls.length, 15)
-    calls.forEach((url) => {
-      assert.equal(url.searchParams.get('KEY'), 'sample')
-      assert.equal(url.searchParams.get('ATPT_OFCDC_SC_CODE'), 'J10')
-      assert.equal(url.searchParams.get('SD_SCHUL_CODE'), '7530093')
-      assert.equal(url.searchParams.get('GRADE'), '2')
-      assert.equal(url.searchParams.get('CLASS_NM'), '3')
-      assert.equal(url.searchParams.get('pSize'), '5')
-    })
+    assert.equal(calls.length, 1)
+
+    const url = calls[0]
+    assert.equal(url.searchParams.get('eduCode'), 'J10')
+    assert.equal(url.searchParams.get('schoolCode'), '7530093')
+    assert.equal(url.searchParams.get('grade'), '2')
+    assert.equal(url.searchParams.get('class'), '3')
+    assert.equal(url.searchParams.get('kind'), 'his')
+    assert.equal(url.searchParams.get('from'), '20260831')
+    assert.equal(url.searchParams.get('to'), '20260904')
   } finally {
     global.fetch = originalFetch
   }
@@ -65,12 +70,23 @@ test('grade 2 class timetable is assembled from NEIS sample-sized requests', asy
 
 test('no NEIS rows never produces a replacement timetable', async () => {
   const originalFetch = global.fetch
-  global.fetch = async () => ({
-    ok: true,
-    async json() {
-      return { RESULT: { CODE: 'INFO-200', MESSAGE: '해당하는 데이터가 없습니다.' } }
-    },
-  })
+  global.fetch = async (input) => {
+    const url = new URL(String(input))
+    if (url.hostname === 'kschoolinfo.com') {
+      return {
+        ok: true,
+        async json() {
+          return { ok: true, data: [], meta: { source: 'NEIS', count: 0 } }
+        },
+      }
+    }
+    return {
+      ok: true,
+      async json() {
+        return { RESULT: { CODE: 'INFO-200', MESSAGE: '해당하는 데이터가 없습니다.' } }
+      },
+    }
+  }
 
   try {
     const result = await fetchGrade2ClassTimetable(16, new Date(2026, 7, 30, 12, 0, 0, 0))
