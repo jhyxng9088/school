@@ -111,3 +111,16 @@ test('feature tour sharing card has seven nodes with light signals moving betwee
   assert.match(css, /feature-tour-network-node 3\.4s/)
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*feature-tour-network-signals/)
 })
+
+test('feature tour creator card renders the real S-Hub icon asset instead of the placeholder S', () => {
+  const source = read('public/first-run-notice.js')
+  const css = read('public/feature-tour-sequences.css')
+  const icon = read('public/icon.svg')
+
+  assert.match(source, /class="feature-tour-creator-mark"/)
+  assert.match(css, /background: #000 url\('\.\/icon\.svg'\) center \/ cover no-repeat/)
+  assert.match(css, /\.feature-tour-creator-mark span \{\s*display: none;/)
+  assert.match(css, /border-radius: 29px/)
+  assert.match(icon, /aria-label="S-Hub"/)
+  assert.match(icon, /fill="url\(#silver\)"/)
+})
