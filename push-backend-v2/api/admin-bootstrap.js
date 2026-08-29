@@ -35,22 +35,23 @@ export default async function handler(req, res) {
     if (!provided || !safeEqual(provided, expected)) return res.status(403).json({ ok: false, error: 'invalid_secret', message: '관리자 부트스트랩 키가 올바르지 않아.' })
 
     const db = adminDb()
-    const existingAdmins = await db.collection('admins').limit(1).get()
-    const role = existingAdmins.empty ? 'super_admin' : 'admin'
+    const role = 'super_admin'
+    const now = Date.now()
+    const existing = await db.collection('admins').doc(decoded.uid).get()
     await db.collection('admins').doc(decoded.uid).set({
       active: true,
       role,
-      label: role === 'super_admin' ? 'S-Hub 최고 관리자' : 'S-Hub 관리자',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      label: 'S-Hub 최고 관리자',
+      createdAt: Number(existing.data()?.createdAt || now),
+      updatedAt: now,
     }, { merge: true })
 
     await db.collection('adminAudit').add({
-      action: 'admin_bootstrap',
+      action: existing.exists ? 'admin_super_admin_verified' : 'admin_bootstrap',
       actorUid: decoded.uid,
       targetUid: decoded.uid,
       role,
-      createdAt: Date.now(),
+      createdAt: now,
     })
 
     return res.status(200).json({ ok: true, role })
