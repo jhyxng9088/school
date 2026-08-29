@@ -108,35 +108,57 @@ function Icon({ type, size = 22 }) {
   return null
 }
 
-function InstallGuide({ onDone }) {
+function InstallGuide({ onDone, standalone }) {
   const browser = getBrowser()
+  const ua = navigator.userAgent
+  const appleTouchDevice = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
+  const androidDevice = /Android/i.test(ua)
+  const desktop = !appleTouchDevice && !androidDevice
 
-  const guide = browser === 'safari'
-    ? {
-        title: 'Safari에서 홈 화면에 추가해줘',
-        steps: [
-          '더 보기(…)에서 ‘공유’를 눌러.',
-          '‘홈 화면에 추가’를 선택해.',
-          '‘웹 앱으로 열기’를 켜고 ‘추가’를 눌러.',
-        ],
-      }
-    : browser === 'samsung'
+  const guide = desktop
+    ? browser === 'safari'
       ? {
-          title: 'Samsung Internet에서 설치해줘',
+          title: 'S-Hub를 웹 앱으로 추가해줘',
           steps: [
-            '주소창의 + 또는 설치 아이콘을 눌러.',
-            '없으면 메뉴에서 ‘홈 화면에 추가’를 선택해.',
-            '추가가 끝나면 아래 버튼을 눌러.',
+            'Safari 메뉴에서 ‘파일’을 열어.',
+            '‘Dock에 추가’를 선택해 S-Hub를 설치해.',
+            '설치된 S-Hub 앱을 다시 열어.',
           ],
         }
       : {
-          title: '먼저 홈 화면에 추가해줘',
+          title: 'S-Hub를 앱으로 설치해줘',
           steps: [
-            '브라우저 메뉴를 열어.',
-            '‘홈 화면에 추가’ 또는 ‘앱 설치’를 선택해.',
-            '설치가 끝나면 아래 버튼을 눌러.',
+            '주소창의 설치 아이콘 또는 브라우저 메뉴를 열어.',
+            '‘앱 설치’ 또는 ‘S-Hub 설치’를 선택해.',
+            '설치된 S-Hub 앱을 다시 열어.',
           ],
         }
+    : browser === 'safari'
+      ? {
+          title: 'Safari에서 홈 화면에 추가해줘',
+          steps: [
+            '더 보기(…)에서 ‘공유’를 눌러.',
+            '‘홈 화면에 추가’를 선택해.',
+            '‘웹 앱으로 열기’를 켜고 ‘추가’를 눌러.',
+          ],
+        }
+      : browser === 'samsung'
+        ? {
+            title: 'Samsung Internet에서 설치해줘',
+            steps: [
+              '주소창의 + 또는 설치 아이콘을 눌러.',
+              '없으면 메뉴에서 ‘홈 화면에 추가’를 선택해.',
+              '설치된 S-Hub 앱을 다시 열어.',
+            ],
+          }
+        : {
+            title: 'S-Hub를 홈 화면에 추가해줘',
+            steps: [
+              '브라우저 메뉴 또는 설치 아이콘을 열어.',
+              '‘홈 화면에 추가’ 또는 ‘앱 설치’를 선택해.',
+              '설치된 S-Hub 앱을 다시 열어.',
+            ],
+          }
 
   return (
     <main className="onboarding-page">
@@ -152,7 +174,7 @@ function InstallGuide({ onDone }) {
             </li>
           ))}
         </ol>
-        <button className="primary-button" onClick={onDone}>홈 화면에 추가했어</button>
+        <button className="primary-button" onClick={onDone} disabled={!standalone}>홈 화면에 추가했어</button>
       </section>
     </main>
   )
@@ -1307,6 +1329,7 @@ function App() {
   const legacyName = localStorage.getItem(USER_NAME_KEY) || ''
 
   function completeInstallGuide() {
+    if (!isStandalone()) return
     localStorage.setItem(INSTALL_DONE_KEY, 'true')
     setInstallDone(true)
   }
@@ -1318,7 +1341,9 @@ function App() {
     setProfile(saved)
   }
 
-  if (!standalone && !installDone) return <InstallGuide onDone={completeInstallGuide} />
+  if (!standalone || !installDone) {
+    return <InstallGuide standalone={standalone} onDone={completeInstallGuide} />
+  }
   if (!profile) return <StudentSetup initialName={legacyName} onSave={saveProfile} />
   return <AppShell profile={profile} />
 }
