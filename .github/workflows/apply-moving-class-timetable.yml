@@ -15,6 +15,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Apply patch
         run: python .github/scripts/apply-moving-class-timetable.py
+      - name: Remove one-time patch files before tests
+        run: |
+          rm .github/workflows/apply-moving-class-timetable.yml
+          rm .github/scripts/apply-moving-class-timetable.py
       - name: Validate app
         run: |
           npm ci
@@ -26,11 +30,11 @@ jobs:
           npm ci
           npm test
           node --check api/personal-timetable.js
-      - name: Commit scoped files only
+      - name: Commit validated timetable split
         run: |
           git config user.name jhyxng9088
           git config user.email j.hyxng9088@gmail.com
-          git add src/school-sync.js src/main.jsx src/timetable.css
+          git add src/school-sync.js src/main.jsx src/timetable.css .github/workflows/apply-moving-class-timetable.yml .github/scripts/apply-moving-class-timetable.py
           git diff --cached --check
           git commit -m 'Split moving-class shared and personal timetables'
           git push
