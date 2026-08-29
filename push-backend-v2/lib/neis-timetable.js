@@ -1,6 +1,8 @@
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const OFFICE_CODE = 'J10'
+const SCHOOL_CODE = '7530093'
 const SCHOOL_NAME = '수지고등학교'
+const SCHOOL_ADDRESS = '경기도 용인시 수지구 수풍로 73 (풍덕천동)'
 const GRADE = 2
 const NEIS_API_KEY = String(process.env.NEIS_API_KEY || '').trim()
 
@@ -68,22 +70,13 @@ async function neisJson(path, params, options = {}) {
   return data?.[path]?.[1]?.row || []
 }
 
-let cachedSchool = null
 export async function getSujiHighSchool() {
-  if (cachedSchool) return cachedSchool
-  const rows = await neisJson('schoolInfo', {
-    ATPT_OFCDC_SC_CODE: OFFICE_CODE,
-    SCHUL_NM: SCHOOL_NAME,
-  }, { pSize: NEIS_API_KEY ? 100 : 5 })
-  const exact = rows.find((row) => String(row.SCHUL_NM || '').trim() === SCHOOL_NAME)
-  if (!exact?.SD_SCHUL_CODE) throw new Error('suji_high_school_not_found')
-  cachedSchool = {
-    officeCode: String(exact.ATPT_OFCDC_SC_CODE || OFFICE_CODE),
-    schoolCode: String(exact.SD_SCHUL_CODE),
-    schoolName: String(exact.SCHUL_NM || SCHOOL_NAME),
-    address: String(exact.ORG_RDNMA || ''),
+  return {
+    officeCode: OFFICE_CODE,
+    schoolCode: SCHOOL_CODE,
+    schoolName: SCHOOL_NAME,
+    address: SCHOOL_ADDRESS,
   }
-  return cachedSchool
 }
 
 function normalizeTimetableRows(rows, classNumber) {
@@ -158,6 +151,7 @@ export function weeklyScheduleFromRows(rows) {
 
 export const NEIS_TIMETABLE_META = {
   officeCode: OFFICE_CODE,
+  schoolCode: SCHOOL_CODE,
   schoolName: SCHOOL_NAME,
   grade: GRADE,
   keyed: Boolean(NEIS_API_KEY),
