@@ -44,7 +44,7 @@ function datesBetween(fromDate, toDate) {
 
 async function neisJson(path, params, options = {}) {
   const url = new URL(`${NEIS_BASE}/${path}`)
-  if (NEIS_API_KEY) url.searchParams.set('KEY', NEIS_API_KEY)
+  url.searchParams.set('KEY', NEIS_API_KEY || 'sample')
   url.searchParams.set('Type', 'json')
   url.searchParams.set('pIndex', '1')
   url.searchParams.set('pSize', String(options.pSize || (NEIS_API_KEY ? 1000 : 5)))
