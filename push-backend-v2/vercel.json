@@ -1,4 +1,3 @@
-
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
@@ -19,6 +18,12 @@
     },
     "api/class-roster-repair.js": {
       "maxDuration": 30
+    },
+    "api/admin-bootstrap.js": {
+      "maxDuration": 30
+    },
+    "api/admin-console.js": {
+      "maxDuration": 60
     }
   }
 }
