@@ -470,6 +470,16 @@ function cloneWeeklySchedule(schedule) {
   return JSON.parse(JSON.stringify(schedule))
 }
 
+function mergeVisibleTimetableOverrides(sharedOverrides, personalOverrides, now) {
+  const shared = pruneExpiredOverrides(sharedOverrides || {}, now)
+  const personal = pruneExpiredOverrides(personalOverrides || {}, now)
+  const merged = { ...shared }
+  for (const [date, periods] of Object.entries(personal)) {
+    merged[date] = { ...(merged[date] || {}), ...periods }
+  }
+  return merged
+}
+
 function formatWeekRange(weekDates) {
   const first = weekDates[0]
   const last = weekDates[weekDates.length - 1]
@@ -496,6 +506,9 @@ function TimetablePage({
   requireOnline = () => true,
 }) {
   const movingClass = Number(profile?.classNumber) >= 7 && Number(profile?.classNumber) <= 15
+  const displayOverrides = movingClass
+    ? mergeVisibleTimetableOverrides(sharedOverrides, personalOverrides, now)
+    : overrides
   const [editing, setEditing] = useState(false)
   const [editScope, setEditScope] = useState('shared')
   const [changeScope, setChangeScope] = useState('shared')
@@ -506,7 +519,7 @@ function TimetablePage({
   const [changeSubject, setChangeSubject] = useState('')
 
   const weekDates = useMemo(() => getWeekDates(now), [dateKey(now)])
-  const currentState = getSchoolState(now, weeklySchedule, overrides)
+  const currentState = getSchoolState(now, weeklySchedule, displayOverrides)
   const todayKey = dateKey(now)
   const selectedDate = dateFromKey(changeDate)
   const selectedDay = getDayForDate(selectedDate)
@@ -534,7 +547,7 @@ function TimetablePage({
   }, [changePeriod])
 
   const weekChanges = weekDates.flatMap((date, dayIndex) =>
-    getScheduleForDate(date, weeklySchedule, overrides)
+    getScheduleForDate(date, weeklySchedule, displayOverrides)
       .filter((period) => period.isOverride)
       .map((period) => ({
         date,
@@ -674,10 +687,10 @@ function TimetablePage({
         {!editing ? (
           movingClass ? (
             <div className="timetable-actions timetable-actions-moving" aria-label="시간표 변경 종류">
-              <button className="timetable-action" onClick={() => startEditing('shared')}><span>공동 기본</span><small>시간표 변경</small></button>
-              <button className="timetable-action primary" onClick={() => openChange('shared')}><span>공동</span><small>시간표 변경</small></button>
-              <button className="timetable-action" onClick={() => startEditing('personal')}><span>개인 기본</span><small>시간표 변경</small></button>
-              <button className="timetable-action primary" onClick={() => openChange('personal')}><span>개인</span><small>시간표 변경</small></button>
+              <button className="timetable-action" onClick={() => startEditing('shared')}><span>공동 기본</span><small>주간표 수정</small></button>
+              <button className="timetable-action primary" onClick={() => openChange('shared')}><span>공동 임시</span><small>날짜별 변경</small></button>
+              <button className="timetable-action" onClick={() => startEditing('personal')}><span>개인 기본</span><small>주간표 수정</small></button>
+              <button className="timetable-action primary" onClick={() => openChange('personal')}><span>개인 임시</span><small>날짜별 변경</small></button>
             </div>
           ) : (
             <div className="timetable-actions">
@@ -722,7 +735,7 @@ function TimetablePage({
 
               {WEEKDAYS.map((day, dayIndex) => {
                 const date = weekDates[dayIndex]
-                const daySchedule = getScheduleForDate(date, weeklySchedule, overrides)
+                const daySchedule = getScheduleForDate(date, weeklySchedule, displayOverrides)
                 const item = daySchedule.find((entry) => entry.number === period.number)
                 const outsideBaseSchedule = period.number > day.regularPeriodCount
 
@@ -788,9 +801,9 @@ function TimetablePage({
       <UnifiedBottomSheet
         open={changeOpen && !editing}
         onClose={() => setChangeOpen(false)}
-        title={movingClass ? `${changeScope === 'personal' ? '개인' : '공동'} 시간표 변경` : '변경 시간표 추가'}
+        title={movingClass ? `${changeScope === 'personal' ? '개인' : '공동'} 임시 시간표 변경` : '변경 시간표 추가'}
         subtitle="기본 시간표는 그대로 두고 선택한 날짜에만 적용돼. 지나면 자동으로 기본 시간표로 돌아와."
-        ariaLabel={movingClass ? `${changeScope === 'personal' ? '개인' : '공동'} 시간표 변경` : '변경 시간표 추가'}
+        ariaLabel={movingClass ? `${changeScope === 'personal' ? '개인' : '공동'} 임시 시간표 변경` : '변경 시간표 추가'}
         className="timetable-unified-sheet"
       >
         <div className="timetable-sheet-form">
@@ -1030,12 +1043,16 @@ function AppShell({ profile }) {
     personalOverrides,
     commitPersonalWeeklySchedule,
     commitPersonalOverrides,
+    refreshSharedTimetable,
   } = useSharedTimetable(profile, now)
   const schoolData = useSchoolData(now)
   const todoData = useTodos(profile)
   const presence = useClassPresence(profile)
   const academicData = useSharedAcademic(profile)
   const activity = useClassActivity(profile)
+  const timetableActivityRevision = useMemo(() => Object.values(activity || {}).reduce((latest, item) => (
+    item?.entityType === 'timetable' ? Math.max(latest, Number(item.updatedAt || 0)) : latest
+  ), 0), [activity])
   const name = profile.name
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab)
   const activeTabRef = useRef(activeTab)
@@ -1043,6 +1060,11 @@ function AppShell({ profile }) {
   activeTabRef.current = activeTab
   activeIndexRef.current = activeIndex
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
+
+  useEffect(() => {
+    if (!timetableActivityRevision || navigator.onLine === false) return
+    refreshSharedTimetable()
+  }, [timetableActivityRevision, refreshSharedTimetable])
 
   const aiContext = useMemo(() => {
     const timetableDays = Array.from({ length: 14 }, (_, offset) => {

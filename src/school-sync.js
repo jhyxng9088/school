@@ -836,6 +836,17 @@ async function writeOverridesCloud(profile, overrides) {
   }, { mergeFields: ['overrides', 'updatedAt'] })
 }
 
+function timetableStateFromSnapshot(snapshot, now = new Date()) {
+  if (!snapshot.exists()) {
+    return { weeklySchedule: normalizeWeeklySchedule(null), overrides: {} }
+  }
+  const data = snapshot.data() || {}
+  return {
+    weeklySchedule: normalizeWeeklySchedule(data.weeklySchedule),
+    overrides: pruneExpiredOverrides(normalizeOverrides(data.overrides), now),
+  }
+}
+
 export function useSharedTimetable(profile, now) {
   const [weeklySchedule, setWeeklySchedule] = useState(() => loadWeeklySchedule())
   const [overrides, setOverrides] = useState(() => pruneExpiredOverrides(loadOverrides(), now))
@@ -843,6 +854,36 @@ export function useSharedTimetable(profile, now) {
   const [personalOverrides, setPersonalOverrides] = useState({})
   const signature = profileSignature(profile)
   const movingClass = movingClassEnabled(profile)
+
+  const refreshSharedTimetable = useCallback(async () => {
+    if (!signature) return false
+    try {
+      await ensureSignedIn()
+      const snapshot = await getDocFromServer(timetableRef(profile))
+      const next = timetableStateFromSnapshot(snapshot, new Date())
+      saveWeeklySchedule(next.weeklySchedule)
+      saveOverrides(next.overrides)
+      setWeeklySchedule(next.weeklySchedule)
+      setOverrides(next.overrides)
+      return true
+    } catch (error) {
+      console.error('Timetable server refresh failed:', error)
+      return false
+    }
+  }, [signature])
+
+  const refreshPersonalTimetable = useCallback(async () => {
+    if (!signature || !movingClass) return false
+    try {
+      const data = await requestPersonalTimetable(profile, { action: 'load' })
+      setPersonalWeeklySchedule(normalizeWeeklySchedule(data?.weeklySchedule))
+      setPersonalOverrides(pruneExpiredOverrides(normalizeOverrides(data?.overrides), new Date()))
+      return true
+    } catch (error) {
+      console.error('Personal timetable server refresh failed:', error)
+      return false
+    }
+  }, [signature, movingClass])
 
   useEffect(() => {
     if (!signature) return undefined
@@ -852,25 +893,13 @@ export function useSharedTimetable(profile, now) {
     let generation = 0
 
     const applySnapshot = (snapshot) => {
-      if (stopped || snapshot.metadata?.fromCache) return
+      if (stopped) return
       generation += 1
-      if (!snapshot.exists()) {
-        const nextWeekly = normalizeWeeklySchedule(null)
-        const nextOverrides = {}
-        saveWeeklySchedule(nextWeekly)
-        saveOverrides(nextOverrides)
-        setWeeklySchedule(nextWeekly)
-        setOverrides(nextOverrides)
-        return
-      }
-
-      const data = snapshot.data() || {}
-      const nextWeekly = normalizeWeeklySchedule(data.weeklySchedule)
-      const nextOverrides = pruneExpiredOverrides(normalizeOverrides(data.overrides), new Date())
-      saveWeeklySchedule(nextWeekly)
-      saveOverrides(nextOverrides)
-      setWeeklySchedule(nextWeekly)
-      setOverrides(nextOverrides)
+      const next = timetableStateFromSnapshot(snapshot, new Date())
+      saveWeeklySchedule(next.weeklySchedule)
+      saveOverrides(next.overrides)
+      setWeeklySchedule(next.weeklySchedule)
+      setOverrides(next.overrides)
     }
 
     const refreshFromServer = async () => {
@@ -893,6 +922,7 @@ export function useSharedTimetable(profile, now) {
           (error) => console.error('Timetable realtime sync failed:', error),
         )
         removeRevalidation = installServerRevalidation(refreshFromServer)
+        refreshFromServer()
         })
       .catch((error) => console.error('Timetable cloud connection failed:', error))
 
@@ -911,14 +941,8 @@ export function useSharedTimetable(profile, now) {
     }
     let stopped = false
     const refresh = async () => {
-      try {
-        const data = await requestPersonalTimetable(profile, { action: 'load' })
-        if (stopped) return
-        setPersonalWeeklySchedule(normalizeWeeklySchedule(data?.weeklySchedule))
-        setPersonalOverrides(pruneExpiredOverrides(normalizeOverrides(data?.overrides), new Date()))
-      } catch (error) {
-        if (!stopped) console.error('Personal timetable load failed:', error)
-      }
+      if (stopped) return
+      await refreshPersonalTimetable()
     }
     refresh()
     const removeRevalidation = installServerRevalidation(refresh)
@@ -926,7 +950,7 @@ export function useSharedTimetable(profile, now) {
       stopped = true
       removeRevalidation()
     }
-  }, [signature, movingClass])
+  }, [signature, movingClass, refreshPersonalTimetable])
 
   const commitWeeklySchedule = useCallback(async (nextSchedule) => {
     const normalized = normalizeWeeklySchedule(nextSchedule)
@@ -947,6 +971,7 @@ export function useSharedTimetable(profile, now) {
       await writeOverridesCloud(profile, normalized)
       saveOverrides(normalized)
       setOverrides(normalized)
+      await refreshSharedTimetable()
       return true
     } catch (error) {
       console.error('Shared timetable override save failed:', error)
@@ -958,8 +983,8 @@ export function useSharedTimetable(profile, now) {
     if (!movingClass) return false
     const normalized = normalizeWeeklySchedule(nextSchedule)
     try {
-      await requestPersonalTimetable(profile, { action: 'saveWeekly', weeklySchedule: normalized })
-      setPersonalWeeklySchedule(normalized)
+      const data = await requestPersonalTimetable(profile, { action: 'saveWeekly', weeklySchedule: normalized })
+      setPersonalWeeklySchedule(normalizeWeeklySchedule(data?.weeklySchedule || normalized))
       return true
     } catch (error) {
       console.error('Personal timetable save failed:', error)
@@ -971,8 +996,8 @@ export function useSharedTimetable(profile, now) {
     if (!movingClass) return false
     const normalized = pruneExpiredOverrides(nextOverrides, now)
     try {
-      await requestPersonalTimetable(profile, { action: 'saveOverrides', overrides: normalized })
-      setPersonalOverrides(normalized)
+      const data = await requestPersonalTimetable(profile, { action: 'saveOverrides', overrides: normalized })
+      setPersonalOverrides(pruneExpiredOverrides(normalizeOverrides(data?.overrides || normalized), now))
       return true
     } catch (error) {
       console.error('Personal timetable override save failed:', error)
@@ -998,5 +1023,7 @@ export function useSharedTimetable(profile, now) {
     commitOverrides,
     commitPersonalWeeklySchedule,
     commitPersonalOverrides,
+    refreshSharedTimetable,
+    refreshPersonalTimetable,
   }
 }
