@@ -33,10 +33,11 @@ jobs:
           const sync = fs.readFileSync('src/school-sync.js', 'utf8')
           const main = fs.readFileSync('src/main.jsx', 'utf8')
           const must = (ok, message) => { if (!ok) throw new Error(message) }
+          const timetableHook = sync.slice(sync.indexOf('export function useSharedTimetable'))
           must(sync.includes('refreshSharedTimetable'), 'missing shared refresh')
           must(sync.includes('refreshPersonalTimetable'), 'missing personal refresh')
           must(sync.includes("setPersonalOverrides(pruneExpiredOverrides(normalizeOverrides(data?.overrides || normalized), now))"), 'personal override server response not applied')
-          must(!sync.includes('if (stopped || snapshot.metadata?.fromCache) return'), 'shared timetable still drops cached snapshot')
+          must(timetableHook.includes('const applySnapshot = (snapshot) => {\n      if (stopped) return'), 'timetable snapshot still rejects cache updates')
           must(main.includes('mergeVisibleTimetableOverrides(sharedOverrides, personalOverrides, now)'), 'moving-class display merge missing')
           must(main.includes('<span>공동 임시</span><small>날짜별 변경</small>'), 'shared temporary label missing')
           must(main.includes('<span>개인 임시</span><small>날짜별 변경</small>'), 'personal temporary label missing')
