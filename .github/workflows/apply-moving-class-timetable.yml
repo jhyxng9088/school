@@ -19,6 +19,7 @@ jobs:
         run: |
           rm .github/workflows/apply-moving-class-timetable.yml
           rm .github/scripts/apply-moving-class-timetable.py
+          rmdir .github/scripts
       - name: Validate app
         run: |
           npm ci
@@ -34,7 +35,7 @@ jobs:
         run: |
           git config user.name jhyxng9088
           git config user.email j.hyxng9088@gmail.com
-          git add src/school-sync.js src/main.jsx src/timetable.css .github/workflows/apply-moving-class-timetable.yml .github/scripts/apply-moving-class-timetable.py
+          git add -A src/school-sync.js src/main.jsx src/timetable.css .github/workflows/apply-moving-class-timetable.yml .github/scripts
           git diff --cached --check
           git commit -m 'Split moving-class shared and personal timetables'
           git push
