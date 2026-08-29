@@ -1,3 +1,4 @@
+// Moving-class personal timetable storage is isolated to the authenticated student.
 import { adminAuth, adminDb } from '../lib/firebase-admin.js'
 
 function setCors(res) {
