@@ -16,7 +16,7 @@ test('class roster API only resolves identities for actual class members', () =>
   assert.match(source, /const memberKeys = new Set/)
   assert.match(source, /recoverClassRosterUsers\(\{/)
   assert.match(source, /memberKeys,/)
-  assert.match(source, /unresolved:|const unresolved/)
+  assert.match(source, /unresolved:|let unresolved/)
 })
 
 test('class roster API can recover exact legacy identities from class history', () => {
@@ -25,6 +25,17 @@ test('class roster API can recover exact legacy identities from class history', 
   assert.match(source, /activities,/)
   assert.match(source, /academicEvents,/)
   assert.match(source, /recoveredFromHistory/)
+})
+
+test('requested orphan cleanup only matches the exact known 24-to-23 class-1 state', () => {
+  assert.match(source, /classId === 'class-1'/)
+  assert.match(source, /legacyMemberCount === 24/)
+  assert.match(source, /roster\.total === 23/)
+  assert.match(source, /unresolved === 1/)
+  assert.match(source, /recovery\.unresolvedKeys\.length === 1/)
+  assert.match(source, /batch\.delete\(classRef\.collection\('members'\)\.doc\(orphanKey\)\)/)
+  assert.match(source, /batch\.delete\(classRef\.collection\('presence'\)\.doc\(orphanKey\)\)/)
+  assert.match(source, /removedRequestedOrphan = true/)
 })
 
 test('class roster API remains private behind a bearer token and disables caching', () => {
