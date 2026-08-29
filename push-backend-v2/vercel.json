@@ -13,6 +13,9 @@
     },
     "api/reminder-original.js": {
       "maxDuration": 30
+    },
+    "api/class-roster.js": {
+      "maxDuration": 30
     }
   }
 }
