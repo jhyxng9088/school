@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { classifyRosterOrphans } from '../lib/class-roster-repair.js'
 
-const NOW = 1_000_000
+const NOW = 10_000_000
 
 function baseInput(overrides = {}) {
   return {
