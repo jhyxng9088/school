@@ -84,12 +84,41 @@ export default async function handler(req, res) {
       presence,
       nowMs: Date.now(),
     })
-    const unresolved = roster.unresolved + recovery.unresolvedKeys.length
+    let legacyMemberCount = memberKeys.size
+    let unresolved = roster.unresolved + recovery.unresolvedKeys.length
+    let removedRequestedOrphan = false
+
+    // One-time cleanup for the exact stale record already identified in class 1:
+    // Firestore members=24, resolvable students=23, unresolved legacy member=1.
+    // The guard deliberately refuses to delete anything if that exact shape changes.
+    if (
+      classId === 'class-1'
+      && legacyMemberCount === 24
+      && roster.total === 23
+      && unresolved === 1
+      && recovery.unresolvedKeys.length === 1
+    ) {
+      const orphanKey = recovery.unresolvedKeys[0]
+      const batch = db.batch()
+      batch.delete(classRef.collection('members').doc(orphanKey))
+      batch.delete(classRef.collection('presence').doc(orphanKey))
+      await batch.commit()
+      memberKeys.delete(orphanKey)
+      legacyMemberCount = memberKeys.size
+      unresolved = 0
+      removedRequestedOrphan = true
+      console.info('class-roster removed requested orphan', {
+        classId,
+        legacyMemberCountBefore: 24,
+        legacyMemberCountAfter: legacyMemberCount,
+        rosterTotal: roster.total,
+      })
+    }
 
     if (unresolved > 0) {
       console.warn('class-roster unresolved legacy members', {
         classId,
-        legacyMemberCount: memberKeys.size,
+        legacyMemberCount,
         unresolved,
         recoveredFromHistory: recovery.recoveredFromHistory.length,
       })
@@ -99,11 +128,12 @@ export default async function handler(req, res) {
       ok: true,
       classId,
       classNumber,
-      legacyMemberCount: memberKeys.size,
+      legacyMemberCount,
       total: roster.total,
       online: roster.online,
       unresolved,
       recoveredFromHistory: recovery.recoveredFromHistory.length,
+      removedRequestedOrphan,
       members: roster.members,
       generatedAt: Date.now(),
     })
