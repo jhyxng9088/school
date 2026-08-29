@@ -64,7 +64,7 @@ async function fetchClassRows(classNumber) {
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
-  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' })
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ ok: false, error: 'method_not_allowed' })
 
   try {
     const db = adminDb()
