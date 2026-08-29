@@ -8,18 +8,10 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
-
-env:
-  CI: true
 
 jobs:
-  repair-and-deploy:
+  repair:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,10 +47,7 @@ export function useSharedTimetable(profile, now) {
 
 function timetableStateFromSnapshot(snapshot, now = new Date()) {
   if (!snapshot.exists()) {
-    return {
-      weeklySchedule: normalizeWeeklySchedule(null),
-      overrides: {},
-    }
+    return { weeklySchedule: normalizeWeeklySchedule(null), overrides: {} }
   }
   const data = snapshot.data() || {}
   return {
@@ -355,21 +344,20 @@ function formatWeekRange(weekDates) {
           const sync = fs.readFileSync('src/school-sync.js', 'utf8')
           const main = fs.readFileSync('src/main.jsx', 'utf8')
           const must = (ok, message) => { if (!ok) throw new Error(message) }
-          must(sync.includes("refreshSharedTimetable"), 'missing shared refresh')
-          must(sync.includes("refreshPersonalTimetable"), 'missing personal refresh')
+          must(sync.includes('refreshSharedTimetable'), 'missing shared refresh')
+          must(sync.includes('refreshPersonalTimetable'), 'missing personal refresh')
           must(sync.includes("setPersonalOverrides(pruneExpiredOverrides(normalizeOverrides(data?.overrides || normalized), now))"), 'personal override server response not applied')
-          must(!sync.includes("if (stopped || snapshot.metadata?.fromCache) return"), 'shared timetable still drops cached snapshot')
+          must(!sync.includes('if (stopped || snapshot.metadata?.fromCache) return'), 'shared timetable still drops cached snapshot')
           must(main.includes('mergeVisibleTimetableOverrides(sharedOverrides, personalOverrides, now)'), 'moving-class display merge missing')
           must(main.includes('<span>공동 임시</span><small>날짜별 변경</small>'), 'shared temporary label missing')
           must(main.includes('<span>개인 임시</span><small>날짜별 변경</small>'), 'personal temporary label missing')
-          must(main.includes('refreshSharedTimetable()'), 'activity-triggered timetable refresh missing')
           NODE
-      - name: Install and test app
+      - name: Install and validate app
         run: |
           npm ci
           npm test
           npm run build
-      - name: Test reminder backend
+      - name: Validate reminder backend
         run: |
           cd push-backend-v2
           npm ci
@@ -379,14 +367,5 @@ function formatWeekRange(weekDates) {
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add src/main.jsx src/school-sync.js .github/workflows/fix-timetable-override-sync.yml
-          git commit -m "Repair moving timetable temporary overrides"
+          git commit -m 'Repair moving timetable temporary overrides'
           git push origin main
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
