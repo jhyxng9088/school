@@ -2,15 +2,21 @@ import { ensureSignedIn, readStudentProfile } from './school-sync'
 import './class-roster.css'
 
 const CLASS_ROSTER_API_URL = 'https://school-reminder-backend.vercel.app/api/class-roster'
+const CLASS_ROSTER_REPAIR_API_URL = 'https://school-reminder-backend.vercel.app/api/class-roster-repair'
 const ROSTER_REFRESH_MS = 60_000
 const MODAL_CLOSE_MS = 320
 
 let cachedRoster = null
 let refreshPromise = null
+let repairPromise = null
+let repairAttempted = false
 let lastFetchedAt = 0
 let liveOnline = null
+let liveTotal = null
 let lastRenderedLabel = ''
 let modalState = null
+let modalWarmupScheduled = false
+let closeTimerId = 0
 let syncQueued = false
 const enhancedCounters = new WeakSet()
 
@@ -44,10 +50,36 @@ function normalizeRoster(payload) {
   return {
     classNumber: Number(payload.classNumber || 0),
     total: Number(payload.total || members.length),
+    registeredTotal: Number(payload.legacyMemberCount || payload.total || members.length),
     online: Number(payload.online || 0),
     unresolved: Number(payload.unresolved || 0),
     members,
   }
+}
+
+function rosterSignature(roster) {
+  if (!roster) return ''
+  return [
+    roster.classNumber,
+    roster.total,
+    roster.registeredTotal,
+    roster.online,
+    roster.unresolved,
+    ...roster.members.map((member) => [
+      member.studentNumber,
+      member.name,
+      member.online ? 1 : 0,
+      member.conflict ? 1 : 0,
+      member.aliases.join('|'),
+    ].join(':')),
+  ].join('~')
+}
+
+async function authToken() {
+  const user = await ensureSignedIn()
+  const idToken = String(await user.getIdToken()).trim()
+  if (!idToken) throw new Error('로그인 정보를 확인하지 못했어요.')
+  return idToken
 }
 
 async function fetchRoster({ force = false } = {}) {
@@ -55,10 +87,7 @@ async function fetchRoster({ force = false } = {}) {
   if (refreshPromise) return refreshPromise
 
   refreshPromise = (async () => {
-    const user = await ensureSignedIn()
-    const idToken = String(await user.getIdToken()).trim()
-    if (!idToken) throw new Error('로그인 정보를 확인하지 못했어요.')
-
+    const idToken = await authToken()
     const response = await fetch(CLASS_ROSTER_API_URL, {
       method: 'GET',
       headers: { Authorization: `Bearer ${idToken}` },
@@ -78,12 +107,52 @@ async function fetchRoster({ force = false } = {}) {
   return refreshPromise
 }
 
+async function repairRosterIfNeeded() {
+  if (repairAttempted || repairPromise || !cachedRoster?.unresolved) return null
+  repairAttempted = true
+
+  repairPromise = (async () => {
+    const idToken = await authToken()
+    const response = await fetch(CLASS_ROSTER_REPAIR_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    })
+    let payload = null
+    try { payload = await response.json() } catch { payload = null }
+    if (!response.ok) throw new Error(String(payload?.message || '반 명단 정리를 완료하지 못했어요.'))
+
+    if (Number(payload?.archived || 0) > 0) {
+      const before = rosterSignature(cachedRoster)
+      await fetchRoster({ force: true })
+      syncCounter()
+      if (modalState?.layer?.classList.contains('is-visible') && rosterSignature(cachedRoster) !== before) {
+        renderRoster({ animateRows: false, force: true })
+      }
+    }
+    return payload
+  })().catch((error) => {
+    console.error('Class roster repair failed:', error)
+    return null
+  }).finally(() => {
+    repairPromise = null
+  })
+
+  return repairPromise
+}
+
 function applyRosterCounter(counter) {
   if (!counter) return
 
   if (counter.textContent.trim() !== lastRenderedLabel) {
     const reactCount = parseCounter(counter.textContent)
-    if (reactCount) liveOnline = reactCount.online
+    if (reactCount) {
+      liveOnline = reactCount.online
+      liveTotal = reactCount.total
+    }
   }
 
   counter.classList.add('is-roster-button')
@@ -100,7 +169,8 @@ function applyRosterCounter(counter) {
     return
   }
 
-  const total = Math.max(0, cachedRoster.total)
+  const fallbackTotal = Math.max(0, cachedRoster.registeredTotal || cachedRoster.total)
+  const total = Math.max(0, Number.isInteger(liveTotal) ? liveTotal : fallbackTotal)
   const online = Math.max(0, Math.min(Number.isInteger(liveOnline) ? liveOnline : cachedRoster.online, total))
   const nextLabel = `${online}/${total}`
   if (counter.textContent.trim() !== nextLabel) counter.textContent = nextLabel
@@ -109,19 +179,27 @@ function applyRosterCounter(counter) {
   counter.setAttribute('aria-label', `${classNumber}반 명단 보기, 현재 접속 ${online}명, 등록 ${total}명`)
 }
 
+function clearCloseTimer() {
+  if (!closeTimerId) return
+  window.clearTimeout(closeTimerId)
+  closeTimerId = 0
+}
+
 function closeModal() {
   if (!modalState?.layer?.classList.contains('is-visible')) return
+  clearCloseTimer()
   modalState.layer.classList.remove('is-open')
   document.documentElement.classList.remove('class-roster-modal-open')
-  window.setTimeout(() => {
+  closeTimerId = window.setTimeout(() => {
     modalState?.layer?.classList.remove('is-visible')
+    closeTimerId = 0
   }, MODAL_CLOSE_MS)
 }
 
-function memberRow(member, index) {
+function memberRow(member, index, animate = true) {
   const row = document.createElement('div')
-  row.className = 'class-roster-row'
-  row.style.setProperty('--roster-delay', `${Math.min(index * 28, 280)}ms`)
+  row.className = `class-roster-row${animate ? '' : ' is-static'}`
+  if (animate) row.style.setProperty('--roster-delay', `${Math.min(index * 28, 280)}ms`)
 
   const number = document.createElement('span')
   number.className = 'class-roster-number'
@@ -158,12 +236,14 @@ function memberRow(member, index) {
   return row
 }
 
-function renderRoster({ loading = false, error = '' } = {}) {
+function renderRoster({ loading = false, error = '', animateRows = true, force = false } = {}) {
   if (!modalState) return
   const { summary, list } = modalState
-  list.replaceChildren()
 
   if (loading && !cachedRoster) {
+    if (!force && modalState.renderMode === 'loading') return
+    modalState.renderMode = 'loading'
+    modalState.renderedSignature = ''
     summary.textContent = '명단을 확인하고 있어요.'
     const message = document.createElement('div')
     message.className = 'class-roster-message'
@@ -172,11 +252,13 @@ function renderRoster({ loading = false, error = '' } = {}) {
     const span = document.createElement('span')
     span.textContent = '기존 등록 정보를 안전하게 확인하고 있어요.'
     message.append(strong, span)
-    list.appendChild(message)
+    list.replaceChildren(message)
     return
   }
 
   if (error && !cachedRoster) {
+    modalState.renderMode = 'error'
+    modalState.renderedSignature = ''
     summary.textContent = '명단을 불러오지 못했어요.'
     const message = document.createElement('div')
     message.className = 'class-roster-message'
@@ -188,18 +270,22 @@ function renderRoster({ loading = false, error = '' } = {}) {
     retry.type = 'button'
     retry.className = 'class-roster-retry'
     retry.textContent = '다시 확인하기'
-    retry.addEventListener('click', () => refreshModal(true))
+    retry.addEventListener('click', () => refreshModal({ force: true, showLoading: true }))
     message.append(strong, span, retry)
-    list.appendChild(message)
+    list.replaceChildren(message)
     return
   }
 
   const roster = cachedRoster
   if (!roster) return
+  const signature = rosterSignature(roster)
   const classNumber = roster.classNumber || profileClassNumber()
-  summary.textContent = `${roster.total}명 · 현재 ${roster.online}명 접속`
+  summary.textContent = `${roster.registeredTotal || roster.total}명 · 현재 ${roster.online}명 접속`
   modalState.title.textContent = `${classNumber}반 명단`
 
+  if (!force && !error && modalState.renderMode === 'roster' && modalState.renderedSignature === signature) return
+
+  const fragment = document.createDocumentFragment()
   if (!roster.members.length) {
     const message = document.createElement('div')
     message.className = 'class-roster-message'
@@ -208,35 +294,48 @@ function renderRoster({ loading = false, error = '' } = {}) {
     const span = document.createElement('span')
     span.textContent = '학생 등록 정보가 생기면 번호순으로 여기에 표시돼요.'
     message.append(strong, span)
-    list.appendChild(message)
+    fragment.appendChild(message)
   } else {
-    roster.members.forEach((member, index) => list.appendChild(memberRow(member, index)))
+    roster.members.forEach((member, index) => fragment.appendChild(memberRow(member, index, animateRows)))
   }
 
   if (roster.unresolved > 0) {
     const note = document.createElement('p')
     note.className = 'class-roster-note'
     note.textContent = `번호를 확인하지 못한 기존 등록 ${roster.unresolved}개가 있어요. 잘못된 인원으로 합치지 않고 따로 보류했어요.`
-    list.appendChild(note)
+    fragment.appendChild(note)
   }
 
   if (error) {
     const note = document.createElement('p')
     note.className = 'class-roster-note'
     note.textContent = `최신 명단 확인에 실패해서 마지막으로 확인한 명단을 보여드리고 있어요. ${error}`
-    list.appendChild(note)
+    fragment.appendChild(note)
   }
+
+  list.replaceChildren(fragment)
+  modalState.renderMode = 'roster'
+  modalState.renderedSignature = error ? '' : signature
 }
 
-async function refreshModal(force = false) {
-  renderRoster({ loading: true })
+async function refreshModal({ force = false, showLoading = false } = {}) {
+  const hadRoster = Boolean(cachedRoster)
+  const before = rosterSignature(cachedRoster)
+  if (showLoading && !hadRoster) renderRoster({ loading: true })
+
   try {
     await fetchRoster({ force })
     syncCounter()
-    renderRoster()
+    const changed = rosterSignature(cachedRoster) !== before
+    if (modalState?.layer?.classList.contains('is-visible') && (!hadRoster || changed)) {
+      renderRoster({ animateRows: !hadRoster, force: true })
+    }
+    void repairRosterIfNeeded()
   } catch (error) {
     console.error('Class roster refresh failed:', error)
-    renderRoster({ error: String(error?.message || '잠시 후 다시 확인해 주세요.') })
+    if (modalState?.layer?.classList.contains('is-visible')) {
+      renderRoster({ error: String(error?.message || '잠시 후 다시 확인해 주세요.'), animateRows: false, force: true })
+    }
   }
 }
 
@@ -268,30 +367,61 @@ function ensureModal() {
   backdrop?.addEventListener('click', closeModal)
   document.body.appendChild(layer)
 
-  modalState = { layer, title, summary, list, close }
+  modalState = {
+    layer,
+    title,
+    summary,
+    list,
+    close,
+    renderMode: '',
+    renderedSignature: '',
+  }
   return modalState
 }
 
-function openModal() {
+function scheduleModalWarmup() {
+  if (modalState || modalWarmupScheduled) return
+  modalWarmupScheduled = true
+  const warm = () => {
+    modalWarmupScheduled = false
+    if (readStudentProfile()) ensureModal()
+  }
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(warm, { timeout: 900 })
+  } else {
+    window.setTimeout(warm, 0)
+  }
+}
+
+function openModal({ keyboard = false } = {}) {
   const modal = ensureModal()
+  clearCloseTimer()
+  if (modal.layer.classList.contains('is-visible')) return
+
+  modal.layer.classList.remove('is-open')
   modal.layer.classList.add('is-visible')
   document.documentElement.classList.add('class-roster-modal-open')
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+
+  if (cachedRoster) renderRoster({ animateRows: true, force: true })
+  else renderRoster({ loading: true })
+
+  window.requestAnimationFrame(() => {
+    if (!modal.layer.classList.contains('is-visible')) return
     modal.layer.classList.add('is-open')
-    modal.close?.focus({ preventScroll: true })
-  }))
-  renderRoster({ loading: !cachedRoster })
-  void refreshModal(true)
+    if (keyboard) modal.close?.focus({ preventScroll: true })
+  })
+
+  void refreshModal({ force: true, showLoading: false })
 }
 
 function enhanceCounter(counter) {
   if (!counter || enhancedCounters.has(counter)) return
   enhancedCounters.add(counter)
-  counter.addEventListener('click', openModal)
+  counter.addEventListener('click', () => openModal())
   counter.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
-    openModal()
+    openModal({ keyboard: true })
   })
 }
 
@@ -300,10 +430,14 @@ function syncCounter() {
   const counter = document.querySelector('.class-presence-count')
   if (!counter) return
   enhanceCounter(counter)
+  scheduleModalWarmup()
   applyRosterCounter(counter)
   if (!cachedRoster && !refreshPromise && readStudentProfile()) {
     void fetchRoster()
-      .then(() => syncCounter())
+      .then(() => {
+        syncCounter()
+        void repairRosterIfNeeded()
+      })
       .catch((error) => console.error('Initial class roster load failed:', error))
   }
 }
@@ -325,7 +459,10 @@ window.addEventListener('focus', () => {
   syncCounter()
   if (readStudentProfile() && Date.now() - lastFetchedAt >= ROSTER_REFRESH_MS) {
     void fetchRoster({ force: true })
-      .then(() => syncCounter())
+      .then(() => {
+        syncCounter()
+        void repairRosterIfNeeded()
+      })
       .catch((error) => console.error('Class roster focus refresh failed:', error))
   }
 })
