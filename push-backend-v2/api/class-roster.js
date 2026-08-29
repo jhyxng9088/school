@@ -49,12 +49,17 @@ export default async function handler(req, res) {
       })
     }
 
-    const [usersSnapshot, presenceSnapshot] = await Promise.all([
+    const classRef = db.collection('classes').doc(classId)
+    const [usersSnapshot, membersSnapshot, presenceSnapshot] = await Promise.all([
       db.collection('users').where('classId', '==', classId).get(),
-      db.collection('classes').doc(classId).collection('presence').get(),
+      classRef.collection('members').get(),
+      classRef.collection('presence').get(),
     ])
 
-    const users = usersSnapshot.docs.map((snapshot) => snapshot.data() || {})
+    const memberKeys = new Set(membersSnapshot.docs.map((snapshot) => String(snapshot.id || '').trim()).filter(Boolean))
+    const users = usersSnapshot.docs
+      .map((snapshot) => snapshot.data() || {})
+      .filter((user) => memberKeys.has(String(user?.studentKey || '').trim()))
     const presence = presenceSnapshot.docs.map((snapshot) => snapshot.data() || {})
     const roster = buildClassRoster({ classId, users, presence, nowMs: Date.now() })
 
@@ -62,6 +67,7 @@ export default async function handler(req, res) {
       ok: true,
       classId,
       classNumber,
+      legacyMemberCount: memberKeys.size,
       total: roster.total,
       online: roster.online,
       unresolved: roster.unresolved,
