@@ -11,12 +11,20 @@ test('class roster API derives the class from the authenticated identity', () =>
   assert.doesNotMatch(source, /req\.query\?\.class/)
 })
 
-test('class roster API only includes student keys already present in the class member set', () => {
+test('class roster API only resolves identities for actual class members', () => {
   assert.match(source, /classRef\.collection\('members'\)\.get\(\)/)
   assert.match(source, /const memberKeys = new Set/)
-  assert.match(source, /memberKeys\.has\(String\(user\?\.studentKey/)
-  assert.match(source, /missingIdentityCount/)
-  assert.match(source, /unresolved: roster\.unresolved \+ missingIdentityCount/)
+  assert.match(source, /recoverClassRosterUsers\(\{/)
+  assert.match(source, /memberKeys,/)
+  assert.match(source, /unresolved:|const unresolved/)
+})
+
+test('class roster API can recover exact legacy identities from class history', () => {
+  assert.match(source, /classRef\.collection\('activity'\)\.get\(\)/)
+  assert.match(source, /classRef\.collection\('academicEvents'\)\.get\(\)/)
+  assert.match(source, /activities,/)
+  assert.match(source, /academicEvents,/)
+  assert.match(source, /recoveredFromHistory/)
 })
 
 test('class roster API remains private behind a bearer token and disables caching', () => {
