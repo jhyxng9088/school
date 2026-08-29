@@ -1,5 +1,9 @@
 import { adminAuth, adminDb } from '../lib/firebase-admin.js'
-import { buildClassRoster, classNumberFromId } from '../lib/class-roster.js'
+import {
+  buildClassRoster,
+  classNumberFromId,
+  recoverClassRosterUsers,
+} from '../lib/class-roster.js'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -50,20 +54,46 @@ export default async function handler(req, res) {
     }
 
     const classRef = db.collection('classes').doc(classId)
-    const [usersSnapshot, membersSnapshot, presenceSnapshot] = await Promise.all([
+    const [usersSnapshot, membersSnapshot, presenceSnapshot, activitySnapshot, academicSnapshot] = await Promise.all([
       db.collection('users').where('classId', '==', classId).get(),
       classRef.collection('members').get(),
       classRef.collection('presence').get(),
+      classRef.collection('activity').get(),
+      classRef.collection('academicEvents').get(),
     ])
 
-    const memberKeys = new Set(membersSnapshot.docs.map((snapshot) => String(snapshot.id || '').trim()).filter(Boolean))
-    const users = usersSnapshot.docs
-      .map((snapshot) => snapshot.data() || {})
-      .filter((user) => memberKeys.has(String(user?.studentKey || '').trim()))
-    const resolvedIdentityKeys = new Set(users.map((user) => String(user?.studentKey || '').trim()).filter(Boolean))
-    const missingIdentityCount = [...memberKeys].filter((studentKey) => !resolvedIdentityKeys.has(studentKey)).length
+    const memberKeys = new Set(
+      membersSnapshot.docs
+        .map((snapshot) => String(snapshot.id || '').trim())
+        .filter(Boolean),
+    )
+    const rawUsers = usersSnapshot.docs.map((snapshot) => snapshot.data() || {})
+    const activities = activitySnapshot.docs.map((snapshot) => snapshot.data() || {})
+    const academicEvents = academicSnapshot.docs.map((snapshot) => snapshot.data() || {})
+    const recovery = recoverClassRosterUsers({
+      classId,
+      memberKeys,
+      users: rawUsers,
+      activities,
+      academicEvents,
+    })
     const presence = presenceSnapshot.docs.map((snapshot) => snapshot.data() || {})
-    const roster = buildClassRoster({ classId, users, presence, nowMs: Date.now() })
+    const roster = buildClassRoster({
+      classId,
+      users: recovery.users,
+      presence,
+      nowMs: Date.now(),
+    })
+    const unresolved = roster.unresolved + recovery.unresolvedKeys.length
+
+    if (unresolved > 0) {
+      console.warn('class-roster unresolved legacy members', {
+        classId,
+        legacyMemberCount: memberKeys.size,
+        unresolved,
+        recoveredFromHistory: recovery.recoveredFromHistory.length,
+      })
+    }
 
     return res.status(200).json({
       ok: true,
@@ -72,7 +102,8 @@ export default async function handler(req, res) {
       legacyMemberCount: memberKeys.size,
       total: roster.total,
       online: roster.online,
-      unresolved: roster.unresolved + missingIdentityCount,
+      unresolved,
+      recoveredFromHistory: recovery.recoveredFromHistory.length,
       members: roster.members,
       generatedAt: Date.now(),
     })
