@@ -1132,7 +1132,9 @@ function AppShell({ profile }) {
     }
 
     if (timetableItems.length) {
-      const nextOverrides = { ...overrides }
+      const movingClass = Number(profile?.classNumber) >= 7 && Number(profile?.classNumber) <= 15
+      const sourceOverrides = movingClass ? personalOverrides : overrides
+      const nextOverrides = { ...sourceOverrides }
       const applied = []
       const activities = []
 
@@ -1169,10 +1171,12 @@ function AppShell({ profile }) {
 
       if (applied.length) {
         try {
-          const committed = await commitOverrides(nextOverrides)
+          const committed = movingClass
+            ? await commitPersonalOverrides(nextOverrides)
+            : await commitOverrides(nextOverrides)
           if (!committed) throw new Error('시간표 변경을 저장하지 못했어.')
           applied.forEach((item) => saved.push({ item, id: `${item.date}-${item.period}` }))
-          recordClassActivities(profile, activities)
+          if (!movingClass) recordClassActivities(profile, activities)
             .catch((error) => console.error('AI timetable attribution save failed:', error))
         } catch (error) {
           applied.forEach((item) => failed.push({ item, message: error?.message || '시간표 저장 실패' }))
@@ -1185,10 +1189,18 @@ function AppShell({ profile }) {
 
   useEffect(() => {
     if (navigator.onLine === false) return
-    const pruned = pruneExpiredOverrides(overrides, now)
-    if (JSON.stringify(pruned) === JSON.stringify(overrides)) return
+    const pruned = pruneExpiredOverrides(sharedOverrides, now)
+    if (JSON.stringify(pruned) === JSON.stringify(sharedOverrides)) return
     commitOverrides(pruned)
-  }, [now, overrides, commitOverrides])
+  }, [now, sharedOverrides, commitOverrides])
+
+  useEffect(() => {
+    const movingClass = Number(profile?.classNumber) >= 7 && Number(profile?.classNumber) <= 15
+    if (!movingClass || navigator.onLine === false) return
+    const pruned = pruneExpiredOverrides(personalOverrides, now)
+    if (JSON.stringify(pruned) === JSON.stringify(personalOverrides)) return
+    commitPersonalOverrides(pruned)
+  }, [now, profile?.classNumber, personalOverrides, commitPersonalOverrides])
 
   const content = {
     home: (
