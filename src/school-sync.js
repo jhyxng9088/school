@@ -772,6 +772,49 @@ function movingClassEnabled(profile) {
   return Number.isInteger(classNumber) && classNumber >= 7 && classNumber <= 15
 }
 
+function personalTimetableCacheKey(profile, kind) {
+  const studentKey = studentKeyFor(profile)
+  return studentKey ? `school.timetable.personal.${kind}.v1.${studentKey}` : ''
+}
+
+function readPersonalTimetableCache(profile, kind) {
+  const key = personalTimetableCacheKey(profile, kind)
+  if (!key) return null
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null')
+  } catch {
+    return null
+  }
+}
+
+function loadPersonalWeeklyScheduleCache(profile) {
+  return normalizeWeeklySchedule(readPersonalTimetableCache(profile, 'weekly'))
+}
+
+function loadPersonalOverridesCache(profile, now = new Date()) {
+  return pruneExpiredOverrides(normalizeOverrides(readPersonalTimetableCache(profile, 'overrides')), now)
+}
+
+function savePersonalWeeklyScheduleCache(profile, schedule) {
+  const key = personalTimetableCacheKey(profile, 'weekly')
+  if (!key) return
+  try {
+    localStorage.setItem(key, JSON.stringify(normalizeWeeklySchedule(schedule)))
+  } catch {
+    // Server state remains authoritative when local storage is unavailable.
+  }
+}
+
+function savePersonalOverridesCache(profile, overrides) {
+  const key = personalTimetableCacheKey(profile, 'overrides')
+  if (!key) return
+  try {
+    localStorage.setItem(key, JSON.stringify(pruneExpiredOverrides(overrides || {})))
+  } catch {
+    // Server state remains authoritative when local storage is unavailable.
+  }
+}
+
 function mergeWeeklyTimetables(sharedSchedule, personalSchedule) {
   const shared = normalizeWeeklySchedule(sharedSchedule)
   const personal = normalizeWeeklySchedule(personalSchedule)
@@ -848,12 +891,16 @@ function timetableStateFromSnapshot(snapshot, now = new Date()) {
 }
 
 export function useSharedTimetable(profile, now) {
-  const [weeklySchedule, setWeeklySchedule] = useState(() => loadWeeklySchedule())
-  const [overrides, setOverrides] = useState(() => pruneExpiredOverrides(loadOverrides(), now))
-  const [personalWeeklySchedule, setPersonalWeeklySchedule] = useState(() => normalizeWeeklySchedule(null))
-  const [personalOverrides, setPersonalOverrides] = useState({})
   const signature = profileSignature(profile)
   const movingClass = movingClassEnabled(profile)
+  const [weeklySchedule, setWeeklySchedule] = useState(() => loadWeeklySchedule())
+  const [overrides, setOverrides] = useState(() => pruneExpiredOverrides(loadOverrides(), now))
+  const [personalWeeklySchedule, setPersonalWeeklySchedule] = useState(() => movingClass
+    ? loadPersonalWeeklyScheduleCache(profile)
+    : normalizeWeeklySchedule(null))
+  const [personalOverrides, setPersonalOverrides] = useState(() => movingClass
+    ? loadPersonalOverridesCache(profile, now)
+    : {})
 
   const refreshSharedTimetable = useCallback(async () => {
     if (!signature) return false
@@ -876,8 +923,12 @@ export function useSharedTimetable(profile, now) {
     if (!signature || !movingClass) return false
     try {
       const data = await requestPersonalTimetable(profile, { action: 'load' })
-      setPersonalWeeklySchedule(normalizeWeeklySchedule(data?.weeklySchedule))
-      setPersonalOverrides(pruneExpiredOverrides(normalizeOverrides(data?.overrides), new Date()))
+      const nextWeekly = normalizeWeeklySchedule(data?.weeklySchedule)
+      const nextOverrides = pruneExpiredOverrides(normalizeOverrides(data?.overrides), new Date())
+      savePersonalWeeklyScheduleCache(profile, nextWeekly)
+      savePersonalOverridesCache(profile, nextOverrides)
+      setPersonalWeeklySchedule(nextWeekly)
+      setPersonalOverrides(nextOverrides)
       return true
     } catch (error) {
       console.error('Personal timetable server refresh failed:', error)
@@ -939,6 +990,8 @@ export function useSharedTimetable(profile, now) {
       setPersonalOverrides({})
       return undefined
     }
+    setPersonalWeeklySchedule(loadPersonalWeeklyScheduleCache(profile))
+    setPersonalOverrides(loadPersonalOverridesCache(profile, new Date()))
     let stopped = false
     const refresh = async () => {
       if (stopped) return
@@ -982,28 +1035,42 @@ export function useSharedTimetable(profile, now) {
   const commitPersonalWeeklySchedule = useCallback(async (nextSchedule) => {
     if (!movingClass) return false
     const normalized = normalizeWeeklySchedule(nextSchedule)
+    const previous = personalWeeklySchedule
+    savePersonalWeeklyScheduleCache(profile, normalized)
+    setPersonalWeeklySchedule(normalized)
     try {
       const data = await requestPersonalTimetable(profile, { action: 'saveWeekly', weeklySchedule: normalized })
-      setPersonalWeeklySchedule(normalizeWeeklySchedule(data?.weeklySchedule || normalized))
+      const confirmed = normalizeWeeklySchedule(data?.weeklySchedule || normalized)
+      savePersonalWeeklyScheduleCache(profile, confirmed)
+      setPersonalWeeklySchedule(confirmed)
       return true
     } catch (error) {
+      savePersonalWeeklyScheduleCache(profile, previous)
+      setPersonalWeeklySchedule(previous)
       console.error('Personal timetable save failed:', error)
       return false
     }
-  }, [signature, movingClass])
+  }, [signature, movingClass, personalWeeklySchedule])
 
   const commitPersonalOverrides = useCallback(async (nextOverrides) => {
     if (!movingClass) return false
     const normalized = pruneExpiredOverrides(nextOverrides, now)
+    const previous = personalOverrides
+    savePersonalOverridesCache(profile, normalized)
+    setPersonalOverrides(normalized)
     try {
       const data = await requestPersonalTimetable(profile, { action: 'saveOverrides', overrides: normalized })
-      setPersonalOverrides(pruneExpiredOverrides(normalizeOverrides(data?.overrides || normalized), now))
+      const confirmed = pruneExpiredOverrides(normalizeOverrides(data?.overrides || normalized), now)
+      savePersonalOverridesCache(profile, confirmed)
+      setPersonalOverrides(confirmed)
       return true
     } catch (error) {
+      savePersonalOverridesCache(profile, previous)
+      setPersonalOverrides(previous)
       console.error('Personal timetable override save failed:', error)
       return false
     }
-  }, [signature, movingClass, now])
+  }, [signature, movingClass, now, personalOverrides])
 
   const effectiveWeeklySchedule = movingClass
     ? mergeWeeklyTimetables(weeklySchedule, personalWeeklySchedule)

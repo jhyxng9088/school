@@ -11,10 +11,12 @@ import {
   dateFromKey,
   dateKey,
   getDayForDate,
+  getNextSchoolDate,
   getPeriodVisualState,
   getPeriodsForDay,
   getScheduleForDate,
   getSchoolState,
+  getTimetableWeekAnchor,
   getWeekDates,
   pruneExpiredOverrides,
   timeToMinutes,
@@ -517,9 +519,14 @@ function TimetablePage({
   const [changeDate, setChangeDate] = useState(() => dateKey(now))
   const [changePeriod, setChangePeriod] = useState(1)
   const [changeSubject, setChangeSubject] = useState('')
+  const [weekAnchor, setWeekAnchor] = useState(() => getTimetableWeekAnchor(now))
 
-  const weekDates = useMemo(() => getWeekDates(now), [dateKey(now)])
+  const weekDates = useMemo(() => getWeekDates(weekAnchor), [dateKey(weekAnchor)])
   const currentState = getSchoolState(now, weeklySchedule, displayOverrides)
+
+  useEffect(() => {
+    setWeekAnchor(getTimetableWeekAnchor(now))
+  }, [dateKey(now)])
   const todayKey = dateKey(now)
   const selectedDate = dateFromKey(changeDate)
   const selectedDay = getDayForDate(selectedDate)
@@ -572,9 +579,7 @@ function TimetablePage({
 
   function openChange(scope = 'shared') {
     if (!requireOnline('시간표를 수정')) return
-    const initialDate = currentState.kind === 'done'
-      ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12, 0, 0, 0)
-      : now
+    const initialDate = getNextSchoolDate(now, currentState.kind === 'done')
     setChangeScope(movingClass ? scope : 'shared')
     setChangeDate(dateKey(initialDate))
     setChangeSubject('')
@@ -649,6 +654,7 @@ function TimetablePage({
       ? await onSavePersonalOverrides(next)
       : await onSaveOverrides(next)
     if (!saved) return
+    setWeekAnchor(selectedDate)
     if (!(movingClass && changeScope === 'personal')) recordClassActivities(profile, [{
       entityType: 'timetable',
       entityId: `${changeDate}-${changePeriod}`,
@@ -802,7 +808,7 @@ function TimetablePage({
         open={changeOpen && !editing}
         onClose={() => setChangeOpen(false)}
         title={movingClass ? `${changeScope === 'personal' ? '개인' : '공동'} 임시 시간표 변경` : '변경 시간표 추가'}
-        subtitle="기본 시간표는 그대로 두고 선택한 날짜에만 적용돼. 지나면 자동으로 기본 시간표로 돌아와."
+        subtitle="기본 시간표는 그대로 두고 선택한 날짜에만 적용됩니다. 지나면 자동으로 기본 시간표로 돌아옵니다."
         ariaLabel={movingClass ? `${changeScope === 'personal' ? '개인' : '공동'} 임시 시간표 변경` : '변경 시간표 추가'}
         className="timetable-unified-sheet"
       >

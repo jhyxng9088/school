@@ -351,6 +351,20 @@ export function dateFromKey(value) {
   return new Date(year, month - 1, day, 12, 0, 0, 0)
 }
 
+export function getNextSchoolDate(anchor = new Date(), advance = false) {
+  const date = new Date(anchor)
+  date.setHours(12, 0, 0, 0)
+  if (advance) date.setDate(date.getDate() + 1)
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date.setDate(date.getDate() + 1)
+  }
+  return date
+}
+
+export function getTimetableWeekAnchor(anchor = new Date()) {
+  return getNextSchoolDate(anchor, false)
+}
+
 export function getWeekDates(anchor = new Date()) {
   const start = new Date(anchor)
   start.setHours(12, 0, 0, 0)
