@@ -1,4 +1,4 @@
-import { normalizeWeeklySchedule } from './timetable'
+import { normalizeWeeklySchedule } from './timetable.js'
 
 export const NEIS_TIMETABLE_SCHOOL = {
   officeCode: 'J10',
