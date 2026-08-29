@@ -383,6 +383,21 @@
   }
 }
 
+.feature-tour-creator-mark {
+  width: 116px;
+  height: 116px;
+  overflow: hidden;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.09));
+  border-radius: 29px;
+  background: #000 url('./icon.svg') center / cover no-repeat;
+  color: transparent;
+  transform: none;
+}
+
+.feature-tour-creator-mark span {
+  display: none;
+}
+
 @media (max-height: 720px) {
   .feature-tour-reminder-demo,
   .feature-tour-home-demo,
