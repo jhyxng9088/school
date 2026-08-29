@@ -1,0 +1,66 @@
+name: One-off NEIS timetable live check
+
+on:
+  push:
+    paths:
+      - '.github/workflows/neis-live-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Suji High grade 2 class timetables
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const classes = [1, 3, 11]
+          const eduCode = 'J10'
+          const schoolCode = '7530093'
+          const from = '20260831'
+          const to = '20260904'
+
+          async function mirror(classNumber) {
+            const url = new URL('https://kschoolinfo.com/api/v1/timetable')
+            Object.entries({ eduCode, schoolCode, grade: 2, class: classNumber, kind: 'his', from, to })
+              .forEach(([key, value]) => url.searchParams.set(key, String(value)))
+            const response = await fetch(url)
+            const text = await response.text()
+            if (!response.ok) throw new Error(`mirror ${classNumber} HTTP ${response.status}: ${text.slice(0, 300)}`)
+            const payload = JSON.parse(text)
+            const rows = Array.isArray(payload?.data) ? payload.data : []
+            return { source: payload?.meta?.source || '', count: rows.length, sample: rows.slice(0, 4) }
+          }
+
+          async function official(classNumber) {
+            const dates = ['20260831', '20260901', '20260902', '20260903', '20260904']
+            const rows = []
+            for (const date of dates) {
+              for (const period of [1, 2, 3, 4, 5, 6, 7]) {
+                const url = new URL('https://open.neis.go.kr/hub/hisTimetable')
+                Object.entries({ KEY: 'sample', Type: 'json', pIndex: 1, pSize: 5, ATPT_OFCDC_SC_CODE: eduCode, SD_SCHUL_CODE: schoolCode, GRADE: 2, CLASS_NM: classNumber, ALL_TI_YMD: date, PERIO: period })
+                  .forEach(([key, value]) => url.searchParams.set(key, String(value)))
+                const response = await fetch(url)
+                if (!response.ok) throw new Error(`official ${classNumber} HTTP ${response.status}`)
+                const payload = await response.json()
+                const section = payload?.hisTimetable
+                const found = Array.isArray(section) ? section.find((block) => Array.isArray(block?.row))?.row || [] : []
+                rows.push(...found)
+              }
+            }
+            return { count: rows.length, sample: rows.slice(0, 4) }
+          }
+
+          for (const classNumber of classes) {
+            let officialResult = null
+            let officialError = ''
+            try { officialResult = await official(classNumber) } catch (error) { officialError = String(error?.message || error) }
+            const mirrorResult = await mirror(classNumber)
+            console.log(JSON.stringify({ classNumber, officialResult, officialError, mirrorResult }, null, 2))
+            if (mirrorResult.source && mirrorResult.source !== 'NEIS') throw new Error(`unexpected mirror source for class ${classNumber}: ${mirrorResult.source}`)
+            if (mirrorResult.count < 1) throw new Error(`no timetable rows for class ${classNumber}`)
+          }
+          NODE
