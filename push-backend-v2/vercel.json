@@ -27,6 +27,9 @@
     },
     "api/admin-class-details.js": {
       "maxDuration": 30
+    },
+    "api/personal-timetable.js": {
+      "maxDuration": 30
     }
   }
 }
