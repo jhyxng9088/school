@@ -183,55 +183,53 @@ function installPromptStyles() {
     .school-push-prompt {
       position: fixed;
       z-index: 10020;
-      left: max(16px, env(safe-area-inset-left));
-      right: max(16px, env(safe-area-inset-right));
-      bottom: calc(86px + env(safe-area-inset-bottom));
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 13px 13px 13px 15px;
+      left: 50%;
+      bottom: calc(96px + env(safe-area-inset-bottom));
+      width: min(420px, calc(100vw - 32px));
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding: 20px;
       border: 1px solid rgba(0, 0, 0, .08);
-      border-radius: 20px;
-      background: rgba(250, 250, 252, .94);
+      border-radius: 24px;
+      background: rgba(250, 250, 252, .97);
       color: #111114;
-      box-shadow: 0 12px 38px rgba(0, 0, 0, .12);
+      box-shadow: 0 18px 54px rgba(0, 0, 0, .18);
       -webkit-backdrop-filter: blur(24px) saturate(1.2);
       backdrop-filter: blur(24px) saturate(1.2);
       opacity: 0;
-      transform: translate3d(0, 10px, 0) scale(.985);
+      transform: translate3d(-50%, 14px, 0) scale(.985);
       transition: opacity .42s ease, transform .52s cubic-bezier(.16,1,.3,1);
     }
-    .school-push-prompt.is-open { opacity: 1; transform: translate3d(0,0,0) scale(1); }
-    .school-push-prompt-copy { min-width: 0; flex: 1; }
-    .school-push-prompt-copy strong { display: block; font-size: 14px; line-height: 1.25; letter-spacing: -.02em; }
-    .school-push-prompt-copy span { display: block; margin-top: 3px; font-size: 12px; line-height: 1.35; opacity: .62; }
+    .school-push-prompt.is-open { opacity: 1; transform: translate3d(-50%,0,0) scale(1); }
+    .school-push-prompt-copy { min-width: 0; }
+    .school-push-prompt-copy strong { display: block; font-size: 18px; line-height: 1.25; letter-spacing: -.025em; }
+    .school-push-prompt-copy span { display: block; margin-top: 7px; font-size: 13px; line-height: 1.45; opacity: .65; }
     .school-push-enable {
-      flex: none;
+      width: 100%;
       border: 0;
       border-radius: 14px;
-      padding: 9px 12px;
+      padding: 12px 14px;
       background: #111114;
       color: #fff;
       font: inherit;
-      font-size: 13px;
-      font-weight: 650;
+      font-size: 14px;
+      font-weight: 700;
     }
     .school-push-close {
-      flex: none;
-      width: 30px;
-      height: 30px;
+      width: 100%;
       border: 0;
-      padding: 0;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, .06);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(0, 0, 0, .055);
       color: inherit;
       font: inherit;
-      font-size: 17px;
-      line-height: 30px;
-      opacity: .62;
+      font-size: 14px;
+      font-weight: 700;
+      opacity: .72;
     }
     @media (prefers-color-scheme: dark) {
-      .school-push-prompt { border-color: rgba(255,255,255,.12); background: rgba(27,27,30,.94); color: #f5f5f7; }
+      .school-push-prompt { border-color: rgba(255,255,255,.12); background: rgba(27,27,30,.97); color: #f5f5f7; }
       .school-push-enable { background: #f5f5f7; color: #111114; }
       .school-push-close { background: rgba(255,255,255,.08); }
     }
@@ -266,11 +264,11 @@ async function maybeShowPermissionPrompt(profile) {
   layer.setAttribute('role', 'status')
   layer.innerHTML = `
     <div class="school-push-prompt-copy">
-      <strong>알림 켜기</strong>
-      <span>${permissionDenied ? '기기 설정에서 S-Hub 알림을 허용해줘.' : '시간표 변경 · 다음 수업 · 급식을 알려줄게.'}</span>
+      <strong>${permissionDenied ? 'S-Hub 알림이 꺼져 있어' : 'S-Hub 알림을 켜둘까?'}</strong>
+      <span>${permissionDenied ? '기기 설정에서 S-Hub 알림을 허용하면 중요한 학교 소식을 놓치지 않을 수 있어.' : '새 리마인더와 시간표 변경 같은 중요한 학교 소식을 바로 알려줄게.'}</span>
     </div>
-    <button class="school-push-enable" type="button">${permissionDenied ? '확인' : '켜기'}</button>
-    <button class="school-push-close" type="button" aria-label="나중에">×</button>
+    <button class="school-push-enable" type="button">${permissionDenied ? '확인' : '알림 켜기'}</button>
+    <button class="school-push-close" type="button">나중에</button>
   `
 
   layer.querySelector('.school-push-close')?.addEventListener('click', () => removePrompt(layer))
