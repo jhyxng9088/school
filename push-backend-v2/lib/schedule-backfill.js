@@ -1,4 +1,4 @@
-export const SCHEDULE_BACKFILL_LOOKBACK_MS = 2 * 60 * 60 * 1000
+export const SCHEDULE_BACKFILL_LOOKBACK_MS = 24 * 60 * 60 * 1000
 export const SCHEDULE_BACKFILL_STEP_MS = 5 * 60 * 1000
 export const SCHEDULE_BACKFILL_OVERLAP_MS = 10 * 60 * 1000
 
@@ -39,4 +39,13 @@ export function uniqueScheduledPlans(plans = []) {
     unique.set(key, plan)
   }
   return [...unique.values()]
+}
+
+export function recoverableScheduledPlans(plans = [], nowMs = Date.now()) {
+  const now = Number(nowMs)
+  return uniqueScheduledPlans(plans).filter((plan) => {
+    const expiresAt = Number(plan?.expiresAt)
+    if (!Number.isFinite(expiresAt)) return true
+    return !Number.isFinite(now) || now <= expiresAt
+  })
 }
