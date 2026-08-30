@@ -4,14 +4,18 @@ import fs from 'node:fs'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('desktop tab layout reserves scrollbar space without changing mobile paths', () => {
+test('desktop tab layout reserves scrollbar space even at phone-like window widths without changing mobile paths', () => {
   const css = read('src/desktop-motion.css')
   const sheet = read('src/unified-sheet.jsx')
 
   assert.match(sheet, /import '\.\/desktop-motion\.css'/)
-  assert.match(css, /@media \(min-width: 700px\) and \(hover: hover\) and \(pointer: fine\)/)
-  assert.match(css, /html:not\(\.school-mobile-compat\)/)
+  assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/)
+  assert.doesNotMatch(css, /min-width:\s*700px/)
+  assert.match(css, /html:not\(\.school-mobile-compat\)\.school-desktop-laptop/)
   assert.match(css, /scrollbar-gutter:\s*stable both-edges;/)
+  assert.match(css, /overflow-x:\s*clip;/)
+  assert.match(css, /overscroll-behavior-x:\s*none;/)
+  assert.match(css, /school-desktop-laptop body\s*\{[\s\S]*?min-width:\s*0;/)
   assert.match(css, /@supports not \(scrollbar-gutter: stable\)/)
   assert.match(css, /overflow-y:\s*scroll;/)
 })

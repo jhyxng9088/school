@@ -3,16 +3,30 @@ import {
   classKeyFor,
   deleteExpiredSharedTodo,
   getReminderOriginal,
+  listenClassReminderCategories,
   listenClassTodos,
   listenStudentTodoState,
   profileSignature,
   studentKeyFor,
+  writeClassReminderCategory,
   writeReminderOriginal,
   writeSharedTodo,
   writeStudentTodoState,
 } from './school-sync'
 import { recordClassActivity } from './class-activity'
 import { isReminderExpired, reminderExpiryMs } from './reminder-lifecycle.js'
+import {
+  TODO_TYPES,
+  createReminderCategoryId,
+  isReminderTypeId,
+  normalizeReminderCategories,
+  normalizeReminderCategory,
+  reminderTypeColor,
+  reminderTypeLabel,
+  usedReminderCategoryColors,
+} from './reminder-categories.js'
+
+export { TODO_TYPES } from './reminder-categories.js'
 
 const SUMMARY_MAX_SECTIONS = 14
 const SUMMARY_MAX_ITEMS = 16
@@ -59,13 +73,6 @@ function safeAttachment(value) {
 }
 
 
-export const TODO_TYPES = [
-  { id: 'task', label: '일반' },
-  { id: 'performance', label: '수행평가' },
-  { id: 'exam', label: '시험' },
-  { id: 'material', label: '준비물' },
-]
-
 function dateKey(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -95,7 +102,7 @@ function sharedTodoShape(todo) {
   const attachment = safeAttachment(todo.attachment)
   return {
     id: String(todo.id),
-    type: TODO_TYPES.some((type) => type.id === todo.type) ? todo.type : 'task',
+    type: isReminderTypeId(todo.type) ? todo.type : 'task',
     title: String(todo.title || '').trim().slice(0, 80),
     dueDate: String(todo.dueDate || ''),
     dueTime: String(todo.dueTime || ''),
@@ -123,6 +130,32 @@ function createTodoId() {
 const SHARED_TODOS_CACHE_VERSION = 'v1'
 const PERSONAL_TODO_STATE_CACHE_VERSION = 'v1'
 const VISIBLE_TODOS_CACHE_VERSION = 'v1'
+const REMINDER_CATEGORIES_CACHE_VERSION = 'v1'
+
+function reminderCategoriesCacheKey(profile) {
+  const classKey = classKeyFor(profile)
+  return classKey ? `school.reminderCategories.${REMINDER_CATEGORIES_CACHE_VERSION}.${classKey}` : ''
+}
+
+function readReminderCategoriesCache(profile) {
+  const key = reminderCategoriesCacheKey(profile)
+  if (!key) return []
+  try {
+    return normalizeReminderCategories(JSON.parse(localStorage.getItem(key) || '[]'))
+  } catch {
+    return []
+  }
+}
+
+function writeReminderCategoriesCache(profile, categories) {
+  const key = reminderCategoriesCacheKey(profile)
+  if (!key) return
+  try {
+    localStorage.setItem(key, JSON.stringify(normalizeReminderCategories(categories)))
+  } catch {
+    // Firestore remains authoritative; the cache only avoids a flash on entry.
+  }
+}
 
 function visibleTodosCacheKey(profile) {
   const studentKey = studentKeyFor(profile)
@@ -220,6 +253,8 @@ function writePersonalTodoStateCache(profile, state) {
 
 export function useTodos(profile) {
   const signature = profileSignature(profile)
+  const [categories, setCategories] = useState(() => readReminderCategoriesCache(profile))
+  const categoriesRef = useRef(categories)
   const [sharedTodos, setSharedTodos] = useState(() => readSharedTodosCache(profile))
   const sharedTodosRef = useRef(sharedTodos)
   const [personalState, setPersonalState] = useState(() => readPersonalTodoStateCache(profile))
@@ -281,6 +316,28 @@ export function useTodos(profile) {
   useEffect(() => {
     try { localStorage.removeItem('school.todos.v1') } catch { /* stale cache cleanup is best-effort */ }
   }, [])
+
+  useEffect(() => {
+    if (!signature) {
+      categoriesRef.current = []
+      setCategories([])
+      return undefined
+    }
+
+    const cached = readReminderCategoriesCache(profile)
+    categoriesRef.current = cached
+    setCategories(cached)
+    return listenClassReminderCategories(
+      profile,
+      (remoteCategories) => {
+        const next = normalizeReminderCategories(remoteCategories)
+        categoriesRef.current = next
+        setCategories(next)
+        writeReminderCategoriesCache(profile, next)
+      },
+      (error) => console.error('Reminder category sync failed:', error),
+    )
+  }, [signature])
 
   useEffect(() => {
     if (!signature) {
@@ -374,7 +431,7 @@ export function useTodos(profile) {
     const title = String(input.title || '').trim()
     const dueDate = String(input.dueDate || '')
     if (!title || !dueDate) return ''
-    const type = TODO_TYPES.some((item) => item.id === input.type) ? input.type : 'task'
+    const type = isReminderTypeId(input.type) ? input.type : 'task'
     const dueTime = String(input.dueTime || '')
     const summary = safeSummary(input.summary)
     const attachment = safeAttachment(input.attachment)
@@ -528,9 +585,48 @@ export function useTodos(profile) {
     return getReminderOriginal(profile, originalAttachmentId(todoId, key))
   }
 
+  async function addReminderCategory(input) {
+    const color = String(input?.color || '').trim().toLowerCase()
+    const now = Date.now()
+    const category = normalizeReminderCategory({
+      id: createReminderCategoryId(color),
+      label: input?.label,
+      color,
+      createdAt: now,
+      updatedAt: now,
+    })
+    if (!category) throw new Error('Invalid reminder category')
+
+    const comparableLabel = category.label.toLocaleLowerCase('ko')
+    const existing = categoriesRef.current
+    if (usedReminderCategoryColors(existing).has(category.color)) throw new Error('Reminder category color already exists')
+    if ([...TODO_TYPES, ...existing].some((item) => item.label.toLocaleLowerCase('ko') === comparableLabel)) {
+      throw new Error('Reminder category label already exists')
+    }
+
+    const previous = categoriesRef.current
+    const next = normalizeReminderCategories([...previous, category])
+    categoriesRef.current = next
+    setCategories(next)
+    writeReminderCategoriesCache(profile, next)
+    try {
+      await writeClassReminderCategory(profile, category)
+      return category
+    } catch (error) {
+      if (categoriesRef.current.some((item) => item.id === category.id && item.updatedAt === category.updatedAt)) {
+        categoriesRef.current = previous
+        setCategories(previous)
+        writeReminderCategoriesCache(profile, previous)
+      }
+      throw error
+    }
+  }
+
   return {
     todos,
     sharedTodos,
+    categories,
+    addReminderCategory,
     saveTodo,
     enrichTodo,
     toggleTodo,
@@ -541,8 +637,8 @@ export function useTodos(profile) {
   }
 }
 
-function typeLabel(typeId) {
-  return TODO_TYPES.find((type) => type.id === typeId)?.label || '일반'
+function typeLabel(typeId, categories = []) {
+  return reminderTypeLabel(typeId, categories)
 }
 
 function dueLabel(todo, now) {
@@ -579,7 +675,7 @@ function AnimatedText({ as = 'span', value, className = '', delay = 0 }) {
   )
 }
 
-export function TodoHomePreview({ todos, now }) {
+export function TodoHomePreview({ todos, categories = [], now }) {
   const upcoming = upcomingTodos(todos)
   const visible = upcoming.slice(0, 3)
 
@@ -593,10 +689,10 @@ export function TodoHomePreview({ todos, now }) {
         <div className="todo-home-list">
           {visible.map((todo) => (
             <div className="todo-home-item" key={todo.id}>
-              <span className={`todo-type-dot type-${todo.type}`} aria-hidden="true" />
+              <span className="todo-type-dot" style={{ backgroundColor: reminderTypeColor(todo.type, categories) }} aria-hidden="true" />
               <div>
                 <strong>{todo.title}</strong>
-                <span>{typeLabel(todo.type)} · {dueLabel(todo, now)}</span>
+                <span>{typeLabel(todo.type, categories)} · {dueLabel(todo, now)}</span>
               </div>
             </div>
           ))}

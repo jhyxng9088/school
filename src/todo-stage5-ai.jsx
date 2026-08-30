@@ -1,5 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { TODO_TYPES } from './todo.jsx'
+import {
+  REMINDER_CATEGORY_COLORS,
+  reminderTypeColor,
+  reminderTypeLabel,
+  reminderTypeOptions,
+  usedReminderCategoryColors,
+} from './reminder-categories.js'
 import { formatParsedDue, parseReminderText } from './reminder-parser.js'
 import { parseReminderTitleWithAI, parseReminderWithAI } from './firebase-ai.js'
 import { findReminderConflict } from './s-hub-ai.js'
@@ -9,7 +15,6 @@ import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import './todo-stage5.css'
 import './todo-ai.css'
 
-const FILTERS = [{ id: 'all', label: '전체' }, ...TODO_TYPES]
 const SAMSUNG_INTERNET = /SamsungBrowser/i.test(navigator.userAgent)
 
 function dateKey(date) {
@@ -43,10 +48,6 @@ function sortTodos(todos) {
     if (a.completed !== b.completed) return a.completed ? 1 : -1
     return parseDue(a) - parseDue(b) || a.createdAt - b.createdAt
   })
-}
-
-function typeLabel(typeId) {
-  return TODO_TYPES.find((type) => type.id === typeId)?.label || '일반'
 }
 
 function dueDateLabel(todo) {
@@ -138,14 +139,21 @@ function SummaryPendingStatus({ pending, withAttribution = false }) {
   )
 }
 
-function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEdit, onDelete, onOpenSummary, attribution }) {
+function ReminderRow({ todo, categories, now, completed = false, motion = '', onToggle, onEdit, onDelete, onOpenSummary, attribution }) {
   const dateLabel = dueDateLabel(todo)
   const meta = completed ? '' : dueMetaLabel(todo, now)
   const summaryPending = isReminderSummaryPending(todo.summary)
   const readableSummary = Boolean(todo.summary && !summaryPending)
   const content = (
     <>
-      <AnimatedText as="span" className="todo-kind" value={typeLabel(todo.type)} delay={0} />
+      <span className="todo-kind-line">
+        <span
+          className="reminder-type-dot"
+          style={{ '--reminder-type-color': reminderTypeColor(todo.type, categories) }}
+          aria-hidden="true"
+        />
+        <AnimatedText as="span" className="todo-kind" value={reminderTypeLabel(todo.type, categories)} delay={0} />
+      </span>
       <AnimatedText as="strong" value={todo.title} delay={45} />
       {(summaryPending || attribution) ? (
         <span className="reminder-attribution-line">
@@ -183,6 +191,19 @@ function ReminderRow({ todo, now, completed = false, motion = '', onToggle, onEd
       <div className="todo-row-actions">
         {meta ? <AnimatedText as="span" className="todo-meta-text" value={meta} delay={90} /> : null}
         <span className="todo-date-text">{dateLabel}</span>
+        {readableSummary ? (
+          <button
+            className="reminder-summary-handle"
+            type="button"
+            aria-label={`${todo.title} 요약 열기`}
+            onClick={() => onOpenSummary(todo)}
+          >
+            <span className="reminder-summary-handle-icon" aria-hidden="true">
+              <span className="reminder-summary-handle-grip" />
+              <span className="reminder-summary-handle-sheet" />
+            </span>
+          </button>
+        ) : null}
         {completed ? (
           <button
             className="todo-permanent-delete"
@@ -216,6 +237,8 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     toggleTodo,
     removeTodo,
     createTodoId,
+    categories = [],
+    addReminderCategory,
     uploadOriginalAttachment,
     getOriginalAttachment,
   } = todoData
@@ -241,6 +264,11 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const [conflictChecking, setConflictChecking] = useState(false)
   const [reminderConflict, setReminderConflict] = useState(null)
   const [summaryTodo, setSummaryTodo] = useState(null)
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false)
+  const [categoryName, setCategoryName] = useState('')
+  const [categoryColor, setCategoryColor] = useState('')
+  const [categorySaving, setCategorySaving] = useState(false)
+  const [categorySaveError, setCategorySaveError] = useState('')
   const activity = useClassActivity()
   const pageRef = useRef(null)
   const rowMotionRef = useRef(new Map())
@@ -250,11 +278,18 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const conflictApprovalRef = useRef('')
 
   const sorted = useMemo(() => sortTodos(todos), [todos])
+  const types = useMemo(() => reminderTypeOptions(categories), [categories])
+  const filters = useMemo(() => [{ id: 'all', label: '전체' }, ...types], [types])
+  const usedCategoryColors = useMemo(() => usedReminderCategoryColors(categories), [categories])
+  const availableCategoryColors = useMemo(
+    () => REMINDER_CATEGORY_COLORS.filter((color) => !usedCategoryColors.has(color.id)),
+    [usedCategoryColors],
+  )
   const active = sorted.filter((todo) => !todo.completed)
   const completed = sorted.filter((todo) => todo.completed)
   const visibleActive = filter === 'all' ? active : active.filter((todo) => todo.type === filter)
   const visibleCompleted = filter === 'all' ? completed : completed.filter((todo) => todo.type === filter)
-  const selectedFilterLabel = FILTERS.find((item) => item.id === filter)?.label || '전체'
+  const selectedFilterLabel = filters.find((item) => item.id === filter)?.label || '전체'
   const localNaturalResult = useMemo(() => parseReminderText(naturalText, now), [naturalText, now])
   const naturalResult = attachmentFiles.length ? aiResult : (aiResult || localNaturalResult)
   const attachmentSignature = attachmentFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`).join('|')
@@ -380,6 +415,35 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     setSheetMode('natural')
     resetAI()
     setSheetOpen(true)
+  }
+
+  function openCategoryCreate() {
+    if (!requireOnline('리마인더 섹션을 추가')) return
+    setCategoryName('')
+    setCategoryColor(availableCategoryColors[0]?.id || '')
+    setCategorySaveError('')
+    setCategorySaving(false)
+    setCategorySheetOpen(true)
+  }
+
+  async function submitCategory() {
+    const label = categoryName.normalize('NFKC').trim().replace(/\s+/g, ' ')
+    if (!label || !categoryColor || categorySaving || !addReminderCategory) return
+    if (!requireOnline('리마인더 섹션을 추가')) return
+    setCategorySaving(true)
+    setCategorySaveError('')
+    try {
+      const category = await addReminderCategory({ label, color: categoryColor })
+      setCategorySheetOpen(false)
+      setFilter(category.id)
+    } catch (error) {
+      const message = String(error?.message || '')
+      if (/color already exists/i.test(message)) setCategorySaveError('이미 사용 중인 색이야. 다른 색을 골라줘.')
+      else if (/label already exists/i.test(message)) setCategorySaveError('이미 있는 이름이야. 다른 이름을 넣어줘.')
+      else setCategorySaveError('섹션을 저장하지 못했어. 인터넷 연결을 확인하고 다시 눌러줘.')
+    } finally {
+      setCategorySaving(false)
+    }
   }
 
   function openEdit(todo) {
@@ -767,7 +831,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
         <div className="reminder-list-heading">
           <h2>다가오는 일정</h2>
           <div className="reminder-filter-row" role="group" aria-label="리마인더 종류 필터">
-            {FILTERS.map((item) => (
+            {filters.map((item) => (
               <button
                 type="button"
                 className={filter === item.id ? 'is-selected' : ''}
@@ -775,9 +839,25 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
                 onClick={() => setFilter(item.id)}
                 key={item.id}
               >
-                {item.label}
+                {item.id !== 'all' ? (
+                  <span
+                    className="reminder-filter-dot"
+                    style={{ '--reminder-type-color': reminderTypeColor(item.id, categories) }}
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <span>{item.label}</span>
               </button>
             ))}
+            <button
+              type="button"
+              className="reminder-filter-add"
+              aria-label="리마인더 섹션 추가"
+              disabled={!availableCategoryColors.length}
+              onClick={openCategoryCreate}
+            >
+              <span aria-hidden="true">+</span>
+            </button>
           </div>
         </div>
 
@@ -786,6 +866,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
             {visibleActive.map((todo) => (
               <ReminderRow
                 todo={todo}
+                categories={categories}
                 now={now}
                 onToggle={animateToggleTodo}
                 onEdit={openEdit}
@@ -816,6 +897,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
               {visibleCompleted.map((todo) => (
                 <ReminderRow
                   todo={todo}
+                  categories={categories}
                   now={now}
                   completed
                   motion={rowMotion[todo.id] || ''}
@@ -837,6 +919,66 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
         onClose={() => setSummaryTodo(null)}
         loadOriginal={summaryTodo?.id ? (key = '') => getOriginalAttachment(summaryTodo.id, key) : null}
       />
+
+      <UnifiedBottomSheet
+        open={categorySheetOpen}
+        onClose={() => setCategorySheetOpen(false)}
+        closeDisabled={categorySaving}
+        title="새 섹션"
+        subtitle="리마인더를 구분할 이름과 색을 골라."
+        ariaLabel="리마인더 섹션 추가"
+        className="reminder-category-sheet"
+      >
+        <div className="reminder-category-form">
+          <label className="change-field full reminder-category-name-field">
+            <span>섹션 이름</span>
+            <input
+              value={categoryName}
+              onChange={(event) => setCategoryName(event.target.value.slice(0, 16))}
+              placeholder="예: 동아리"
+              autoComplete="off"
+              spellCheck="false"
+            />
+          </label>
+
+          <fieldset className="reminder-category-colors">
+            <legend>색상</legend>
+            <div>
+              {REMINDER_CATEGORY_COLORS.map((color) => {
+                const used = usedCategoryColors.has(color.id)
+                return (
+                  <button
+                    type="button"
+                    className={categoryColor === color.id ? 'is-selected' : ''}
+                    aria-label={`${color.label}${used ? ', 사용 중' : ''}`}
+                    aria-pressed={categoryColor === color.id}
+                    disabled={used}
+                    onClick={() => setCategoryColor(color.id)}
+                    key={color.id}
+                  >
+                    <span style={{ '--reminder-type-color': color.id }} aria-hidden="true" />
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
+
+          {categorySaveError ? <p className="change-warning">{categorySaveError}</p> : null}
+          {!availableCategoryColors.length ? <p className="change-warning">사용할 수 있는 색을 모두 썼어.</p> : null}
+
+          <div className="change-submit-row">
+            <button type="button" onClick={() => setCategorySheetOpen(false)}>취소</button>
+            <button
+              type="button"
+              className="save-change"
+              disabled={!categoryName.trim() || !categoryColor || categorySaving}
+              onClick={submitCategory}
+            >
+              {categorySaving ? '추가 중…' : '추가'}
+            </button>
+          </div>
+        </div>
+      </UnifiedBottomSheet>
 
       <UnifiedBottomSheet
         open={sheetOpen}
@@ -884,7 +1026,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
                   <p>이렇게 이해했어</p>
                   <strong>{naturalResult.title}</strong>
                   <div className="reminder-parse-chips">
-                    <span>{typeLabel(naturalResult.type)}</span>
+                    <span>{reminderTypeLabel(naturalResult.type, categories)}</span>
                     <span>{formatParsedDue(naturalResult, now)}</span>
                   </div>
                   {aiBusy ? (
@@ -906,14 +1048,19 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
 
             <div className={`reminder-manual-fields ${sheetMode === 'manual' ? 'is-visible' : ''}`} aria-hidden={sheetMode !== 'manual'}>
               <div className="todo-type-picker" role="group" aria-label="리마인더 종류">
-                {TODO_TYPES.map((type) => (
+                {types.map((type) => (
                   <button
                     type="button"
                     className={draft.type === type.id ? 'is-selected' : ''}
                     onClick={() => setDraft((current) => ({ ...current, type: type.id }))}
                     key={type.id}
                   >
-                    {type.label}
+                    <span
+                      className="reminder-picker-dot"
+                      style={{ '--reminder-type-color': type.color }}
+                      aria-hidden="true"
+                    />
+                    <span>{type.label}</span>
                   </button>
                 ))}
               </div>

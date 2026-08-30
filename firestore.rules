@@ -41,7 +41,8 @@ service cloud.firestore {
           'summary', 'attachment'
         ])
         && request.resource.data.id == todoId
-        && request.resource.data.type in ['task', 'performance', 'exam', 'material']
+        && (request.resource.data.type in ['task', 'performance', 'exam', 'material']
+          || request.resource.data.type.matches('^custom-[0-9a-f]{6}$'))
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 80
@@ -235,6 +236,22 @@ service cloud.firestore {
         && request.resource.data.updatedAt is int;
     }
 
+    function validReminderCategory(categoryId) {
+      return request.resource.data.keys().hasOnly(['id', 'label', 'color', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['id', 'label', 'color', 'createdAt', 'updatedAt'])
+        && request.resource.data.id == categoryId
+        && categoryId.matches('^custom-[0-9a-f]{6}$')
+        && request.resource.data.label is string
+        && request.resource.data.label.size() > 0
+        && request.resource.data.label.size() <= 16
+        && request.resource.data.color in [
+          '#d68a45', '#3f91c7', '#9b6fd0', '#d85b91',
+          '#38a6a6', '#a77851', '#78a947', '#b8615c'
+        ]
+        && request.resource.data.createdAt is int
+        && request.resource.data.updatedAt is int;
+    }
+
     function validPushSubscription() {
       return request.resource.data.keys().hasOnly([
           'studentKey', 'deviceId', 'endpoint', 'p256dh', 'auth', 'userAgent', 'updatedAt'
@@ -321,6 +338,15 @@ service cloud.firestore {
         && validReminder(todoId)
         && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if belongsToClass(classId) && reminderExpiredInKorea();
+    }
+
+    match /classes/{classId}/reminderCategories/{categoryId} {
+      allow read: if belongsToClass(classId);
+      allow create: if belongsToClass(classId) && validReminderCategory(categoryId);
+      allow update: if belongsToClass(classId)
+        && validReminderCategory(categoryId)
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
     }
 
     match /classes/{classId}/settings/timetable {
