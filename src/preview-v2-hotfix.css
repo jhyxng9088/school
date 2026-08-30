@@ -10,7 +10,7 @@ html.shub-preview-v2 .preview-v2-layer {
 }
 
 @keyframes preview-v2-reveal {
-  from { opacity: 0.76; transform: translate3d(0, 4px, 0); }
+  from { opacity: 0.82; transform: translate3d(0, 4px, 0); }
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
@@ -23,17 +23,10 @@ html.shub-preview-v2 .bottom-nav {
   z-index: 120 !important;
 }
 
-html.shub-preview-v2 .preview-v2-ai-backdrop {
-  display: none !important;
-  pointer-events: none !important;
-}
-
-html.shub-preview-v2 .unified-school-sheet.preview-v2-ai-page {
+html.shub-preview-v2 .unified-school-page.preview-v2-ai-page {
   position: fixed !important;
-  z-index: 70 !important;
+  z-index: 90 !important;
   inset: 0 !important;
-  left: 0 !important;
-  bottom: 0 !important;
   width: 100% !important;
   height: 100dvh !important;
   max-width: none !important;
@@ -50,16 +43,10 @@ html.shub-preview-v2 .unified-school-sheet.preview-v2-ai-page {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   transform: none !important;
-  transition: opacity 190ms ease, visibility 190ms ease !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-html.shub-preview-v2.shub-preview-ai-active .unified-school-sheet.preview-v2-ai-page {
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
+  transition: none !important;
 }
 
 html.shub-preview-v2 .preview-v2-ai-page .unified-sheet-head {
@@ -108,6 +95,64 @@ html.shub-preview-v2 .preview-v2-ai-page .s-hub-ai-content {
   padding-bottom: 18px !important;
 }
 
+html.shub-preview-v2 .preview-v2-segment {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+html.shub-preview-v2 .preview-v2-segment::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 12px) / 2);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 0.5px var(--border);
+  transform: translate3d(var(--segment-x, 0px), 0, 0);
+  transition: transform 470ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+html.shub-preview-v2 .preview-v2-segment > button {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.preview-v2-chrome-bridge {
+  position: fixed;
+  z-index: 115;
+  pointer-events: none;
+  background: var(--bg);
+  opacity: 1;
+  transition: opacity 130ms ease;
+}
+
+.preview-v2-chrome-bridge.is-leaving {
+  opacity: 0;
+}
+
+.preview-v2-chrome-bridge .preview-v2-page-header {
+  padding-top: 10px;
+}
+
+.preview-v2-chrome-bridge .preview-v2-segment {
+  margin-bottom: 0;
+}
+
+html.shub-preview-v2 .preview-v2-persistent-header {
+  padding-bottom: 22px;
+}
+
+html.shub-preview-v2 .preview-v2-context {
+  margin-top: 0;
+}
+
 html.shub-preview-v2 .preview-v2-empty {
   min-height: 156px;
   display: grid;
@@ -118,6 +163,16 @@ html.shub-preview-v2 .preview-v2-study-list:has(.preview-v2-inline-empty) {
   min-height: 108px;
   display: grid;
   align-items: center;
+}
+
+html.shub-preview-v2 .preview-v2-study-hero {
+  transition: opacity 260ms ease, transform 420ms cubic-bezier(0.16, 1, 0.3, 1), background-color 420ms ease;
+}
+
+html.shub-preview-v2 .preview-v2-study-hero.is-study-transitioning {
+  opacity: 0.58;
+  transform: translate3d(0, 3px, 0) scale(0.993);
+  pointer-events: none;
 }
 
 html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) {
@@ -140,6 +195,26 @@ html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) .preview-v2-primary 
   min-width: 104px;
   width: auto;
   white-space: nowrap;
+}
+
+html.shub-preview-v2 .preview-v2-live-time,
+html.shub-preview-v2 .preview-v2-study-elapsed,
+html.shub-preview-v2 .preview-v2-ranking-time {
+  font-variant-numeric: tabular-nums;
+  will-change: transform, opacity;
+}
+
+html.shub-preview-v2 .preview-v2-ranking-segment {
+  margin: 0 0 12px;
+}
+
+html.shub-preview-v2 .preview-v2-ranking-row {
+  animation: preview-v2-rank-row-in 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes preview-v2-rank-row-in {
+  from { opacity: 0; transform: translate3d(0, 5px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 html.shub-preview-v2 .week-legend {
@@ -171,7 +246,9 @@ html.shub-preview-v2 .preview-v2-status {
 
 @media (prefers-reduced-motion: reduce) {
   html.shub-preview-v2 .preview-v2-layer,
-  html.shub-preview-v2 .unified-school-sheet.preview-v2-ai-page {
+  html.shub-preview-v2 .preview-v2-segment::before,
+  html.shub-preview-v2 .preview-v2-study-hero,
+  .preview-v2-chrome-bridge {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
