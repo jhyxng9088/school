@@ -1,2 +1,2 @@
 S-Hub preview deployment trigger.
-Redeploy scroll reset, class-scoped section management, section-to-general migration, polite-copy audit, shared backend route within the 12-function limit, preserved roster repair regression guard, and S-Hub AI photo reminder summary enrichment.
+Redeploy scroll reset, class-scoped section management, section-to-general migration, polite-copy audit, guarded shared backend route within the 12-function limit, preserved roster repair regression guard, S-Hub AI photo reminder summary enrichment, and Node-compatible preview regression tests.
