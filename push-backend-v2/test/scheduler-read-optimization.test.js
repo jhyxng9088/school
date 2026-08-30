@@ -4,15 +4,17 @@ import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('../api/reminder-scheduled.js', import.meta.url), 'utf8')
 
-test('scheduled reminders query candidate dates before loading class data', () => {
-  assert.match(source, /collectionGroup\(collectionName\)\.where\(fieldName, '==', cleanValues\[0\]\)/)
-  assert.match(source, /queryCollectionGroupByValues\(db, 'todos', 'dueDate', todoDates\)/)
-  assert.match(source, /queryCollectionGroupByValues\(db, 'academicEvents', 'startDate', academicDates\)/)
+test('scheduled reminders query only candidate dates inside subscribed classes', () => {
+  assert.match(source, /queryCollectionByValues\(classRef\.collection\('todos'\), 'dueDate', todoDates\)/)
+  assert.match(source, /queryCollectionByValues\(classRef\.collection\('academicEvents'\), 'startDate', academicDates\)/)
+  assert.doesNotMatch(source, /classRef\.collection\('todos'\)\.get\(\)/)
+  assert.doesNotMatch(source, /classRef\.collection\('academicEvents'\)\.get\(\)/)
 })
 
-test('scheduled reminders no longer scan every push subscription globally', () => {
-  assert.doesNotMatch(source, /collectionGroup\(['"]pushSubscriptions['"]\)\.get\(\)/)
-  assert.match(source, /collection\('classes'\)\.doc\(classId\)\.collection\('pushSubscriptions'\)\.get\(\)/)
+test('scheduled reminders keep the existing subscription discovery without adding collection-group indexes', () => {
+  assert.match(source, /collectionGroup\('pushSubscriptions'\)\.get\(\)/)
+  assert.doesNotMatch(source, /collectionGroup\('todos'\)\.where/)
+  assert.doesNotMatch(source, /collectionGroup\('academicEvents'\)\.where/)
 })
 
 test('scheduled reminders only request todoState documents for candidate todo ids', () => {
