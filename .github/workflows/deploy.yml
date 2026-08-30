@@ -28,7 +28,7 @@ jobs:
       - name: Test preview app
         run: npm test
 
-      - name: Patch preview hosting path only for the build
+      - name: Patch preview hosting path and UX layer for the build
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -36,8 +36,11 @@ jobs:
           source = path.read_text()
           old_path = "const PREVIEW_PATH = '/preview/'"
           old_api = "const API_URL = '/api/preview-v2'"
+          hotfix_import = "import './preview-v2-hotfix.js'\n"
           assert source.count(old_path) == 1, 'preview path marker changed unexpectedly'
           assert source.count(old_api) == 1, 'preview API marker changed unexpectedly'
+          assert hotfix_import not in source, 'preview UX hotfix import already exists unexpectedly'
+          source = hotfix_import + source
           source = source.replace(old_path, "const PREVIEW_PATH = '/school/preview-v2/'")
           source = source.replace(old_api, "const API_URL = 'https://school-reminder-backend.vercel.app/api/class-roster'")
           path.write_text(source)
