@@ -33,6 +33,10 @@
     {
       "source": "/api/class-roster-repair",
       "destination": "/api/class-roster?mode=repair"
+    },
+    {
+      "source": "/api/reminder-sections",
+      "destination": "/api/class-roster?mode=reminder-sections"
     }
   ]
 }
