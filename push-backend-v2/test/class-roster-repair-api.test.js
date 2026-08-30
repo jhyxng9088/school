@@ -1,27 +1,40 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 
-const source = readFileSync(new URL('../api/class-roster-repair.js', import.meta.url), 'utf8')
+const apiSource = readFileSync(new URL('../api/class-roster.js', import.meta.url), 'utf8')
+const serviceSource = readFileSync(new URL('../lib/class-roster-repair-service.js', import.meta.url), 'utf8')
+const vercel = readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')
 
-test('roster repair is authenticated and derives the class from the signed-in identity', () => {
-  assert.match(source, /req\.method !== 'POST'/)
-  assert.match(source, /verifyIdToken\(token\)/)
-  assert.match(source, /collection\('users'\)\.doc\(decoded\.uid\)\.get\(\)/)
-  assert.match(source, /const classId = String\(identity\.data\(\)\?\.classId/)
-  assert.doesNotMatch(source, /req\.query\?\.class/)
+test('roster repair keeps its public URL while sharing the authenticated roster function', () => {
+  assert.match(vercel, /"source": "\/api\/class-roster-repair"/)
+  assert.match(vercel, /"destination": "\/api\/class-roster\?mode=repair"/)
+  assert.match(apiSource, /const repairMode = String\(req\.query\?\.mode \|\| ''\)\.trim\(\) === 'repair'/)
+  assert.match(apiSource, /req\.method !== 'POST'/)
+  assert.match(apiSource, /verifyIdToken\(token\)/)
+  assert.match(apiSource, /collection\('users'\)\.doc\(decoded\.uid\)\.get\(\)/)
+  assert.match(apiSource, /const classId = String\(identity\.data\(\)\?\.classId/)
+  assert.match(apiSource, /repairClassRoster\(\{ db, classId \}\)/)
 })
 
 test('roster repair checks every remaining identity signal before archiving', () => {
-  assert.match(source, /collection\('pushSubscriptions'\)\.get\(\)/)
-  assert.match(source, /collection\('todoState'\)/)
-  assert.match(source, /recoverClassRosterUsers\(\{/)
-  assert.match(source, /classifyRosterOrphans\(\{/)
+  assert.match(serviceSource, /collection\('pushSubscriptions'\)\.get\(\)/)
+  assert.match(serviceSource, /collection\('todoState'\)/)
+  assert.match(serviceSource, /recoverClassRosterUsers\(\{/)
+  assert.match(serviceSource, /classifyRosterOrphans\(\{/)
 })
 
 test('roster repair archives before deleting an unresolved active member record', () => {
-  assert.match(source, /collection\('rosterArchive'\)\.doc\(item\.studentKey\)/)
-  assert.match(source, /reason: 'unresolved_legacy_member'/)
-  assert.match(source, /batch\.delete\(classRef\.collection\('members'\)\.doc\(item\.studentKey\)\)/)
-  assert.match(source, /await batch\.commit\(\)/)
+  assert.match(serviceSource, /collection\('rosterArchive'\)\.doc\(item\.studentKey\)/)
+  assert.match(serviceSource, /reason: 'unresolved_legacy_member'/)
+  assert.match(serviceSource, /batch\.delete\(classRef\.collection\('members'\)\.doc\(item\.studentKey\)\)/)
+  assert.match(serviceSource, /await batch\.commit\(\)/)
+})
+
+test('Vercel stays within the Hobby twelve-function limit without removing the repair route', () => {
+  const apiDirectory = resolve(process.cwd(), 'api')
+  const functionFiles = readdirSync(apiDirectory).filter((name) => name.endsWith('.js'))
+  assert.equal(functionFiles.length, 12)
+  assert.equal(existsSync(resolve(apiDirectory, 'class-roster-repair.js')), false)
 })
