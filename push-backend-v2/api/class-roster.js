@@ -44,10 +44,9 @@ export default async function handler(req, res) {
       })
     }
 
-    const identityData = identity.data() || {}
-    const classId = String(identityData.classId || '').trim()
-    const studentKey = String(identityData.studentKey || '').trim()
-    const name = String(identityData.name || '').trim().slice(0, 20)
+    const classId = String(identity.data()?.classId || '').trim()
+    const studentKey = String(identity.data()?.studentKey || '').trim()
+    const name = String(identity.data()?.name || '').trim().slice(0, 20)
     const classNumber = classNumberFromId(classId)
     if (!classNumber || !studentKey || !name) {
       return res.status(403).json({
