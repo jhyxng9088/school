@@ -256,10 +256,10 @@ function handleSegmentClick(event) {
   if (indicator) moveSpringIndicator(segment, indicator, button, { immediate: false, radius: 12 })
 
   const kind = segmentKind(segment)
-  if (kind === 'class' || kind === 'schedule') createTransitionChrome(segment, button)
 
   const delay = reducedMotion() ? 0 : SEGMENT_ROUTE_DELAY_MS
   window.setTimeout(() => {
+    if (kind === 'class' || kind === 'schedule') createTransitionChrome(segment, button)
     replayClicks.add(button)
     button.click()
     replayClicks.delete(button)
