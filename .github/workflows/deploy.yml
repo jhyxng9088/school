@@ -5,7 +5,7 @@ name: Deploy School PWA
 
 on:
   push:
-    branches: [main]
+    branches: [main, release/s-hub-v2-promotion]
   workflow_dispatch:
 
 permissions:
