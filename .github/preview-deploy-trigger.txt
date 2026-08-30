@@ -1,2 +1,2 @@
 S-Hub preview deployment trigger.
-Redeploy scroll reset, class-scoped section management, section-to-general migration, polite-copy audit, and shared backend route within the 12-function limit.
+Redeploy scroll reset, class-scoped section management, section-to-general migration, polite-copy audit, shared backend route within the 12-function limit, and preserved roster repair regression guard.
