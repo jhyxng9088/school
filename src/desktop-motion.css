@@ -1,16 +1,19 @@
 /* Laptop browsers can add/remove a real vertical scrollbar when moving between
    long Home/Academic pages and shorter tabs. Reserve that track permanently so
-   the fixed bottom navigation keeps the same viewport center. The dedicated
-   school-desktop-laptop class excludes iPhone, iPad and Android/Samsung paths. */
-@media (min-width: 700px) and (hover: hover) and (pointer: fine) {
+   the fixed bottom navigation keeps the same viewport center. Do not gate this
+   by viewport width: a desktop window can be resized to phone-like widths while
+   still using a real scrollbar. The dedicated school-desktop-laptop class and
+   fine-pointer/hover query keep iPhone, iPad and Android/Samsung paths excluded. */
+@media (hover: hover) and (pointer: fine) {
   html:not(.school-mobile-compat).school-desktop-laptop {
     scrollbar-gutter: stable both-edges;
     overflow-y: scroll;
   }
 }
 
-/* Keep the explicit fallback contract for older desktop engines. */
-@media (min-width: 700px) and (hover: hover) and (pointer: fine) {
+/* Keep the explicit fallback contract for older desktop engines, including
+   narrow desktop windows where scrollbar-gutter is unavailable. */
+@media (hover: hover) and (pointer: fine) {
   @supports not (scrollbar-gutter: stable) {
     html:not(.school-mobile-compat).school-desktop-laptop {
       overflow-y: scroll;
