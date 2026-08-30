@@ -13,12 +13,12 @@ import {
   reminderTypeOptions,
   usedReminderCategoryColors,
 } from '../src/reminder-categories.js'
-import { TODO_TYPES } from '../src/todo.jsx'
 import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
 
+const BUILTIN_REMINDER_TYPE_COUNT = 4
 const custom = {
   id: 'custom-a1b2c3',
   label: '동아리',
@@ -101,7 +101,7 @@ test('class-scoped section overrides use the production endpoint with a hard pre
   assert.match(sync, /export function listenClassReminderCategories/)
   assert.match(todo, /school\.reminderCategories\.\$\{REMINDER_CATEGORIES_CACHE_VERSION\}\.\$\{classKey\}/)
   assert.equal(new Set(REMINDER_CATEGORY_COLORS.map((item) => item.id)).size, REMINDER_CATEGORY_COLORS.length)
-  assert.equal(usedReminderCategoryColors([]).size, TODO_TYPES.length)
+  assert.equal(usedReminderCategoryColors([]).size, BUILTIN_REMINDER_TYPE_COUNT)
 
   // The already-published Firestore rules still validate direct custom additions only.
   assert.match(rules, /categoryId\.matches\('\^custom-\[0-9a-f\]\{6\}\$'\)/)
