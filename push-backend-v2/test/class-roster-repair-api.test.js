@@ -18,7 +18,7 @@ test('roster repair keeps its public URL while sharing the authenticated roster 
   assert.match(apiSource, /repairClassRoster\(\{ db, classId \}\)/)
 })
 
-test('preview reminder-section route stays preview-only and preserves restore provenance', () => {
+test('preview reminder-section route stays preview-only and preserves retry-safe restore provenance', () => {
   assert.match(vercel, /"source": "\/api\/reminder-sections"/)
   assert.match(vercel, /"destination": "\/api\/class-roster\?mode=reminder-sections"/)
   assert.match(apiSource, /const reminderSectionMode = String\(req\.query\?\.mode \|\| ''\)\.trim\(\) === 'reminder-sections'/)
@@ -29,6 +29,7 @@ test('preview reminder-section route stays preview-only and preserves restore pr
   assert.match(apiSource, /todoIds/)
   assert.match(apiSource, /action === 'restore'/)
   assert.match(apiSource, /restoreArchivedReminderSectionTodos/)
+  assert.match(apiSource, /action === 'restore'[\s\S]*?restoreArchivedReminderSectionTodos\(db, classRef, section\.id\)[\s\S]*?collection\('reminderCategories'\)\.doc\(section\.id\)\.set\(section\)[\s\S]*?restored\.archiveRef\.delete\(\)/)
 })
 
 test('roster repair checks every remaining identity signal before archiving', () => {
