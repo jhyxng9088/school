@@ -6,7 +6,7 @@ name: Deploy School PWA
 
 on:
   push:
-    branches: [main]
+    branches: [main, preview/s-hub-v2]
   workflow_dispatch:
 
 permissions:
@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout production main
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Node
         uses: actions/setup-node@v4
