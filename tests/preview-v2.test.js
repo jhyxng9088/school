@@ -36,15 +36,11 @@ test('Vercel preview remains backend-only without a thirteenth function or front
   assert.match(config, /"api\/class-roster\.js"/)
 })
 
-test('GitHub Pages composes the unchanged main root with an isolated preview-v2 path', () => {
+test('preview branch validates the GitHub Pages build but never publishes production Pages itself', () => {
   const workflow = text('.github/workflows/deploy.yml')
-  assert.match(workflow, /branches: \[main, preview\/s-hub-v2\]/)
+  assert.match(workflow, /branches: \[preview\/s-hub-v2\]/)
   assert.match(workflow, /Patch preview hosting path only for the build/)
   assert.match(workflow, /SHUB_PREVIEW_BASE=\/school\/preview-v2\/ npm run build/)
-  assert.match(workflow, /ref: main/)
-  assert.match(workflow, /path: \.production-source/)
-  assert.match(workflow, /cp -a \.production-source\/dist\/\. pages-site\//)
-  assert.match(workflow, /cp -a dist\/\. pages-site\/preview-v2\//)
-  assert.match(workflow, /path: \.\/pages-site/)
-  assert.match(workflow, /actions\/deploy-pages@v4/)
+  assert.doesNotMatch(workflow, /pages: write/)
+  assert.doesNotMatch(workflow, /actions\/deploy-pages@v4/)
 })
