@@ -112,8 +112,11 @@ async function restoreArchivedReminderSectionTodos(db, classRef, sectionId) {
   const archive = await archiveRef.get()
   const todoIds = archive.exists && Array.isArray(archive.data()?.todoIds) ? archive.data().todoIds : []
   const restored = await restoreSpecificReminderTodos(db, classRef, sectionId, todoIds)
-  if (archive.exists) await archiveRef.delete()
-  return restored
+  return {
+    ...restored,
+    archiveRef,
+    archiveExists: archive.exists,
+  }
 }
 
 async function handleReminderSectionRequest({ db, classId, body }) {
@@ -140,8 +143,18 @@ async function handleReminderSectionRequest({ db, classId, body }) {
       label: body?.label,
       color: body?.color,
     })
-    await classRef.collection('reminderCategories').doc(section.id).set(section)
+    // Restore the archived reminder IDs while the section remains hidden. If any batch
+    // fails, the archive and hidden section stay intact so the same restore can be retried.
     const restored = await restoreArchivedReminderSectionTodos(db, classRef, section.id)
+    await classRef.collection('reminderCategories').doc(section.id).set(section)
+    if (restored.archiveExists) {
+      await restored.archiveRef.delete().catch((error) => {
+        console.warn('reminder section restore archive cleanup failed', {
+          sectionId: section.id,
+          code: error?.code,
+        })
+      })
+    }
     return {
       section,
       restoredCount: restored.count,
