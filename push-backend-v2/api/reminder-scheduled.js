@@ -9,7 +9,6 @@ import {
 import {
   academicRelevantForCheckpoints,
   candidateDateKeys,
-  classDocumentFromSnapshot,
   todoRelevantForCheckpoints,
 } from '../lib/scheduled-candidates.js'
 import { sendPlan, vapidConfigurationState } from '../lib/push.js'
@@ -54,60 +53,24 @@ function subscriptionFromSnapshot(snapshot) {
   }
 }
 
-async function queryCollectionGroupByValues(db, collectionName, fieldName, values) {
+async function queryCollectionByValues(collectionRef, fieldName, values) {
   const cleanValues = [...new Set((values || []).map((value) => String(value || '')).filter(Boolean))]
   if (!cleanValues.length) return []
 
   const query = cleanValues.length === 1
-    ? db.collectionGroup(collectionName).where(fieldName, '==', cleanValues[0])
-    : db.collectionGroup(collectionName).where(fieldName, 'in', cleanValues)
+    ? collectionRef.where(fieldName, '==', cleanValues[0])
+    : collectionRef.where(fieldName, 'in', cleanValues)
   const snapshot = await query.get()
   return snapshot.docs
 }
 
-function pushGrouped(map, classId, value) {
-  if (!classId || !value) return
-  if (!map.has(classId)) map.set(classId, [])
-  map.get(classId).push(value)
-}
-
-async function candidateClassData(db, checkpoints) {
-  const { todoDates, academicDates } = candidateDateKeys(checkpoints)
-  const [todoDocs, academicDocs] = await Promise.all([
-    queryCollectionGroupByValues(db, 'todos', 'dueDate', todoDates),
-    queryCollectionGroupByValues(db, 'academicEvents', 'startDate', academicDates),
-  ])
-
-  const todosByClass = new Map()
-  const academicByClass = new Map()
-
-  for (const snapshot of todoDocs) {
-    const scoped = classDocumentFromSnapshot(snapshot, 'todos')
-    if (!scoped || !todoRelevantForCheckpoints(scoped.value, checkpoints)) continue
-    pushGrouped(todosByClass, scoped.classId, scoped.value)
+function groupSubscriptionsByClass(subscriptions) {
+  const byClass = new Map()
+  for (const subscription of subscriptions || []) {
+    if (!byClass.has(subscription.classId)) byClass.set(subscription.classId, [])
+    byClass.get(subscription.classId).push(subscription)
   }
-
-  for (const snapshot of academicDocs) {
-    const scoped = classDocumentFromSnapshot(snapshot, 'academicEvents')
-    if (!scoped || !academicRelevantForCheckpoints(scoped.value, checkpoints)) continue
-    pushGrouped(academicByClass, scoped.classId, scoped.value)
-  }
-
-  const classIds = [...new Set([...todosByClass.keys(), ...academicByClass.keys()])]
-  return {
-    classIds,
-    todosByClass,
-    academicByClass,
-    queriedTodoDates: todoDates,
-    queriedAcademicDates: academicDates,
-    candidateTodos: [...todosByClass.values()].reduce((sum, items) => sum + items.length, 0),
-    candidateAcademicEvents: [...academicByClass.values()].reduce((sum, items) => sum + items.length, 0),
-  }
-}
-
-async function subscriptionsForClass(db, classId) {
-  const snapshot = await db.collection('classes').doc(classId).collection('pushSubscriptions').get()
-  return snapshot.docs.map(subscriptionFromSnapshot).filter(Boolean)
+  return byClass
 }
 
 async function stateMapsForCandidates(db, subscriptions, todos) {
@@ -157,28 +120,45 @@ export default async function handler(req, res) {
     const lastSuccessMs = Number(runtimeSnapshot.exists ? runtimeSnapshot.data()?.lastSuccessMs : 0)
     const lookbackMs = scheduleLookbackMs(lastSuccessMs, nowMs)
     const checkpoints = recentScheduleCheckpoints(nowMs, lookbackMs)
-    const candidateData = await candidateClassData(db, checkpoints)
+    const { todoDates, academicDates } = candidateDateKeys(checkpoints)
+
+    const subscriptionSnapshot = await db.collectionGroup('pushSubscriptions').get()
+    const subscriptions = subscriptionSnapshot.docs.map(subscriptionFromSnapshot).filter(Boolean)
+    const subscriptionsByClass = groupSubscriptionsByClass(subscriptions)
 
     const planned = []
-    let subscriptionCount = 0
+    let candidateClasses = 0
+    let candidateTodos = 0
+    let candidateAcademicEvents = 0
     let stateDocumentsRequested = 0
-    let activeClasses = 0
 
-    for (const classId of candidateData.classIds) {
-      const subscriptions = await subscriptionsForClass(db, classId)
-      if (!subscriptions.length) continue
-      activeClasses += 1
-      subscriptionCount += subscriptions.length
+    for (const [classId, classSubscriptions] of subscriptionsByClass) {
+      const classRef = db.collection('classes').doc(classId)
+      const [todoDocs, academicDocs] = await Promise.all([
+        queryCollectionByValues(classRef.collection('todos'), 'dueDate', todoDates),
+        queryCollectionByValues(classRef.collection('academicEvents'), 'startDate', academicDates),
+      ])
 
-      const todos = candidateData.todosByClass.get(classId) || []
-      const academicEvents = candidateData.academicByClass.get(classId) || []
-      const stateResult = await stateMapsForCandidates(db, subscriptions, todos)
+      const todos = todoDocs
+        .map((snapshot) => ({ id: snapshot.id, ...(snapshot.data() || {}) }))
+        .filter((todo) => todoRelevantForCheckpoints(todo, checkpoints))
+      const academicEvents = academicDocs
+        .map((snapshot) => ({ id: snapshot.id, ...(snapshot.data() || {}) }))
+        .filter((event) => academicRelevantForCheckpoints(event, checkpoints))
+
+      if (!todos.length && !academicEvents.length) continue
+
+      candidateClasses += 1
+      candidateTodos += todos.length
+      candidateAcademicEvents += academicEvents.length
+
+      const stateResult = await stateMapsForCandidates(db, classSubscriptions, todos)
       stateDocumentsRequested += stateResult.requested
 
       for (const plannerNowMs of checkpoints) {
         planned.push(...planClassNotifications({
           classId,
-          subscriptions,
+          subscriptions: classSubscriptions,
           todos,
           statesByStudent: stateResult.statesByStudent,
           academicEvents,
@@ -196,11 +176,11 @@ export default async function handler(req, res) {
         dryRun: true,
         pushConfigured: pushState.configured,
         vapidKeyPairMatches: pushState.keyPairMatches,
-        subscriptions: subscriptionCount,
-        classes: activeClasses,
-        candidateClasses: candidateData.classIds.length,
-        candidateTodos: candidateData.candidateTodos,
-        candidateAcademicEvents: candidateData.candidateAcademicEvents,
+        subscriptions: subscriptions.length,
+        classes: subscriptionsByClass.size,
+        candidateClasses,
+        candidateTodos,
+        candidateAcademicEvents,
         stateDocumentsRequested,
         checkedWindows: checkpoints.length,
         lookbackMinutes: Math.round(lookbackMs / 60_000),
@@ -250,11 +230,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      subscriptions: subscriptionCount,
-      classes: activeClasses,
-      candidateClasses: candidateData.classIds.length,
-      candidateTodos: candidateData.candidateTodos,
-      candidateAcademicEvents: candidateData.candidateAcademicEvents,
+      subscriptions: subscriptions.length,
+      classes: subscriptionsByClass.size,
+      candidateClasses,
+      candidateTodos,
+      candidateAcademicEvents,
       stateDocumentsRequested,
       checkedWindows: checkpoints.length,
       lookbackMinutes: Math.round(lookbackMs / 60_000),
