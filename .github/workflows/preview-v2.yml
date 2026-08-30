@@ -1,0 +1,43 @@
+name: S-Hub v2 Preview Validation
+
+on:
+  push:
+    branches:
+      - 'preview/s-hub-v2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend regression tests
+        run: npm test
+
+      - name: Build production-base frontend
+        run: npm run build
+
+      - name: Build isolated preview-base frontend
+        run: SHUB_PREVIEW_BASE=/preview/ npm run build
+
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Run backend tests
+        working-directory: push-backend-v2
+        run: npm test
