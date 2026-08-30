@@ -4,6 +4,7 @@ import {
   classNumberFromId,
   recoverClassRosterUsers,
 } from '../lib/class-roster.js'
+import { repairClassRoster } from '../lib/class-roster-repair-service.js'
 import { handlePreviewV2, isPreviewV2Resource } from '../lib/preview-v2-service.js'
 
 function setCors(res) {
@@ -21,7 +22,10 @@ function bearerToken(req) {
 export default async function handler(req, res) {
   setCors(res)
   if (req.method === 'OPTIONS') return res.status(204).end()
-  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ ok: false, error: 'method_not_allowed' })
+
+  const repairMode = String(req.query?.mode || '').trim() === 'repair'
+  if (repairMode && req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' })
+  if (!repairMode && !['GET', 'POST'].includes(req.method)) return res.status(405).json({ ok: false, error: 'method_not_allowed' })
 
   const token = bearerToken(req)
   if (!token) {
@@ -45,10 +49,24 @@ export default async function handler(req, res) {
     }
 
     const classId = String(identity.data()?.classId || '').trim()
+    const classNumber = classNumberFromId(classId)
+    if (!classNumber) {
+      return res.status(403).json({
+        ok: false,
+        error: 'invalid_class',
+        message: '반 정보를 확인하지 못했어요.',
+      })
+    }
+
+    if (repairMode) {
+      const result = await repairClassRoster({ db, classId })
+      console.info('class-roster repair completed', { classId, ...result })
+      return res.status(200).json({ ok: true, ...result })
+    }
+
     const studentKey = String(identity.data()?.studentKey || '').trim()
     const name = String(identity.data()?.name || '').trim().slice(0, 20)
-    const classNumber = classNumberFromId(classId)
-    if (!classNumber || !studentKey || !name) {
+    if (!studentKey || !name) {
       return res.status(403).json({
         ok: false,
         error: 'invalid_class',
@@ -130,6 +148,14 @@ export default async function handler(req, res) {
         ok: false,
         error: 'invalid_auth',
         message: '로그인 정보가 만료됐어요. 앱을 다시 열어 주세요.',
+      })
+    }
+    if (repairMode) {
+      console.error('class-roster repair failed', { code, message: error?.message })
+      return res.status(502).json({
+        ok: false,
+        error: code || 'class_roster_repair_failed',
+        message: '반 명단 정리를 완료하지 못했어요.',
       })
     }
     const requestedStatus = Number(error?.status || 0)
