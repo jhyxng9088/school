@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 const root = process.cwd()
 const text = (path) => readFileSync(resolve(root, path), 'utf8')
 
-test('S-Hub v2 preview is isolated to the preview path and keeps exactly five grouped tabs', () => {
+test('S-Hub v2 preview source stays isolated and keeps exactly five grouped tabs', () => {
   const preview = text('src/preview-v2.js')
   assert.match(preview, /const PREVIEW_PATH = '\/preview\/'/)
   assert.match(preview, /\['home', '홈'\]/)
@@ -28,17 +28,23 @@ test('preview board and study data stay in isolated class collections behind aut
   assert.equal(existsSync(resolve(root, 'push-backend-v2/api/preview-v2.js')), false)
 })
 
-test('Vercel preview serves the isolated frontend without adding a thirteenth serverless function', () => {
+test('Vercel preview remains backend-only without a thirteenth function or frontend build', () => {
   const config = text('push-backend-v2/vercel.json')
-  assert.match(config, /SHUB_PREVIEW_BASE=\/preview\//)
-  assert.match(config, /"source": "\/api\/preview-v2"/)
-  assert.match(config, /"destination": "\/api\/class-roster"/)
+  assert.doesNotMatch(config, /buildCommand/)
+  assert.doesNotMatch(config, /public\/preview/)
   assert.doesNotMatch(config, /"api\/preview-v2\.js"/)
+  assert.match(config, /"api\/class-roster\.js"/)
 })
 
-test('preview branch validation can run without deploying preview code to GitHub Pages', () => {
+test('GitHub Pages composes the unchanged main root with an isolated preview-v2 path', () => {
   const workflow = text('.github/workflows/deploy.yml')
   assert.match(workflow, /branches: \[main, preview\/s-hub-v2\]/)
-  assert.match(workflow, /if: github\.ref == 'refs\/heads\/main'/)
-  assert.match(workflow, /SHUB_PREVIEW_BASE=\/preview\/ npm run build/)
+  assert.match(workflow, /Patch preview hosting path only for the build/)
+  assert.match(workflow, /SHUB_PREVIEW_BASE=\/school\/preview-v2\/ npm run build/)
+  assert.match(workflow, /ref: main/)
+  assert.match(workflow, /path: \.production-source/)
+  assert.match(workflow, /cp -a \.production-source\/dist\/\. pages-site\//)
+  assert.match(workflow, /cp -a dist\/\. pages-site\/preview-v2\//)
+  assert.match(workflow, /path: \.\/pages-site/)
+  assert.match(workflow, /actions\/deploy-pages@v4/)
 })

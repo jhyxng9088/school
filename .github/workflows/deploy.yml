@@ -35,6 +35,22 @@ jobs:
         if: github.ref == 'refs/heads/preview/s-hub-v2'
         run: npm test
 
+      - name: Patch preview hosting path only for the build
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/preview-v2.js')
+          source = path.read_text()
+          old_path = "const PREVIEW_PATH = '/preview/'"
+          old_api = "const API_URL = '/api/preview-v2'"
+          assert source.count(old_path) == 1, 'preview path marker changed unexpectedly'
+          assert source.count(old_api) == 1, 'preview API marker changed unexpectedly'
+          source = source.replace(old_path, "const PREVIEW_PATH = '/school/preview-v2/'")
+          source = source.replace(old_api, "const API_URL = 'https://school-reminder-backend.vercel.app/api/class-roster'")
+          path.write_text(source)
+          PY
+
       - name: Build isolated preview app
         if: github.ref == 'refs/heads/preview/s-hub-v2'
         run: SHUB_PREVIEW_BASE=/school/preview-v2/ npm run build
