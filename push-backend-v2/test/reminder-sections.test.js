@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   ReminderSectionError,
   prepareReminderSectionDelete,
+  prepareReminderSectionRestore,
   prepareReminderSectionUpdate,
   resolveReminderSections,
 } from '../lib/reminder-sections.js'
@@ -41,6 +42,46 @@ test('section updates reject duplicate names and colors inside the same class', 
     color: '#d68a45',
     now: 20,
   }), (error) => error instanceof ReminderSectionError && error.code === 'reminder-section/duplicate-color')
+})
+
+test('a hidden built-in section can be restored with its stable built-in id', () => {
+  const hidden = {
+    id: 'performance',
+    label: '수행평가',
+    color: '#7c83ff',
+    hidden: true,
+    createdAt: 10,
+    updatedAt: 20,
+  }
+  const restored = prepareReminderSectionRestore({
+    documents: [hidden],
+    sectionId: 'performance',
+    label: '수행평가',
+    color: '#7c83ff',
+    now: 30,
+  })
+  assert.equal(restored.id, 'performance')
+  assert.equal(restored.hidden, false)
+  assert.equal(restored.label, '수행평가')
+  assert.equal(restored.createdAt, 10)
+  assert.equal(restored.updatedAt, 30)
+})
+
+test('restore still rejects names or colors used by another visible section', () => {
+  const hidden = {
+    id: 'performance',
+    label: '수행평가',
+    color: '#7c83ff',
+    hidden: true,
+    createdAt: 10,
+    updatedAt: 20,
+  }
+  assert.throws(() => prepareReminderSectionRestore({
+    documents: [hidden, custom],
+    sectionId: 'performance',
+    label: '동아리',
+    color: '#7c83ff',
+  }), (error) => error instanceof ReminderSectionError && error.code === 'reminder-section/duplicate-label')
 })
 
 test('deleting a typed section moves its reminders to general before hiding it', () => {
