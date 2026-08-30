@@ -1,5 +1,6 @@
 // Moving-class personal timetable storage is isolated to the authenticated student.
 import { adminAuth, adminDb } from '../lib/firebase-admin.js'
+import { classNumberFromId } from '../lib/class-roster.js'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -54,7 +55,7 @@ async function requireStudent(req) {
     if (!snapshot.exists) return { error: { status: 403, body: { ok: false, error: 'student_identity_required' } } }
     const identity = snapshot.data() || {}
     const classId = String(identity.classId || '')
-    const classNumber = Number(classId.replace(/^class-/, ''))
+    const classNumber = classNumberFromId(classId)
     const studentKey = String(identity.studentKey || '')
     if (!Number.isInteger(classNumber) || classNumber < 7 || classNumber > 15 || !studentKey) {
       return { error: { status: 403, body: { ok: false, error: 'personal_timetable_not_available' } } }
