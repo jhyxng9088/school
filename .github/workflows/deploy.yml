@@ -1,7 +1,6 @@
 # GitHub Pages production deployment plus an isolated preview path.
 # The production root is built from main. The preview path is built from the
-# preview branch with only the Vite base path changed, so it can mirror main
-# exactly before new preview-only work starts.
+# preview branch, whose build isolates auth, data paths, browser storage, and caches.
 name: Deploy School PWA
 
 on:
@@ -78,6 +77,10 @@ jobs:
       - name: Build isolated preview app
         working-directory: .preview-source
         run: npm run build
+
+      - name: Verify isolated preview data paths
+        working-directory: .preview-source
+        run: node scripts/verify-preview-isolation.mjs dist
 
       - name: Install preview backend dependencies
         working-directory: .preview-source/push-backend-v2
