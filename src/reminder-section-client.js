@@ -78,6 +78,25 @@ export async function saveReminderSectionChange({
     return requestSectionChange({ action: 'delete', sectionId: current.id })
   }
 
+  if (action === 'restore') {
+    if (!current.hidden || !['all', 'task', 'performance', 'exam', 'material'].includes(current.id)) {
+      throw sectionError('reminder-section/not-restorable', 'Reminder section cannot be restored')
+    }
+    const nextLabel = normalizedLabel(label || current.label)
+    const nextColor = String(color || current.color || '').trim().toLowerCase()
+    if (!nextLabel) throw sectionError('reminder-section/invalid-label', 'Reminder section label required')
+    if (current.id !== 'all' && !nextColor) {
+      throw sectionError('reminder-section/invalid-color', 'Reminder section color required')
+    }
+    validateUniqueSection(current.id, nextLabel, nextColor, categories)
+    return requestSectionChange({
+      action: 'restore',
+      sectionId: current.id,
+      label: nextLabel,
+      color: nextColor,
+    })
+  }
+
   if (action !== 'update') throw sectionError('reminder-section/invalid-action', 'Invalid reminder section action')
   const nextLabel = normalizedLabel(label)
   const nextColor = String(color || '').trim().toLowerCase()
