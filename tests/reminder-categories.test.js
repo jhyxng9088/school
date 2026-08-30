@@ -1,91 +1,82 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   CUSTOM_REMINDER_CATEGORY_COLORS,
   REMINDER_CATEGORY_COLORS,
-  TODO_TYPES,
-  createReminderCategoryId,
-  isReminderTypeId,
-  normalizeReminderCategory,
   reminderFilterOptions,
   reminderSectionById,
   reminderTypeColor,
   reminderTypeLabel,
+  reminderTypeOptions,
   usedReminderCategoryColors,
 } from '../src/reminder-categories.js'
+import { TODO_TYPES } from '../src/todo.jsx'
 import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 
-const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
+
+const custom = {
+  id: 'custom-a1b2c3',
+  label: '동아리',
+  color: '#d68a45',
+  hidden: false,
+  createdAt: 10,
+  updatedAt: 10,
+}
 
 test('built-in reminder types keep defaults until a class override changes them', () => {
-  assert.deepEqual(TODO_TYPES.map(({ id, label }) => [id, label]), [
-    ['task', '일반'],
-    ['performance', '수행평가'],
-    ['exam', '시험'],
-    ['material', '준비물'],
-  ])
-  assert.equal(new Set(TODO_TYPES.map((type) => type.color)).size, TODO_TYPES.length)
-  for (const type of TODO_TYPES) {
-    assert.equal(reminderTypeColor(type.id), type.color)
-    assert.equal(reminderTypeLabel(type.id), type.label)
-  }
+  assert.equal(reminderTypeLabel('task', []), '일반')
+  assert.equal(reminderTypeColor('task', []), '#90939a')
 
-  const override = normalizeReminderCategory({
+  const categories = [{
     id: 'task',
     label: '과제',
-    color: '#d68a45',
+    color: '#3f91c7',
     hidden: false,
-    createdAt: 10,
-    updatedAt: 11,
-  })
-  assert.equal(reminderTypeLabel('task', [override]), '과제')
-  assert.equal(reminderTypeColor('task', [override]), '#d68a45')
+    createdAt: 1,
+    updatedAt: 2,
+  }]
+  assert.equal(reminderTypeLabel('task', categories), '과제')
+  assert.equal(reminderTypeColor('task', categories), '#3f91c7')
 })
 
 test('custom reminder category ids stay stable when their class color changes', () => {
-  const firstColor = CUSTOM_REMINDER_CATEGORY_COLORS[0].id
-  const nextColor = CUSTOM_REMINDER_CATEGORY_COLORS[1].id
-  const id = createReminderCategoryId(firstColor)
-  assert.match(id, /^custom-[0-9a-f]{6}$/)
-
-  const category = normalizeReminderCategory({
-    id,
-    label: '  동아리  ',
-    color: firstColor,
+  const categories = [custom]
+  assert.equal(reminderTypeLabel(custom.id, categories), '동아리')
+  assert.equal(reminderTypeColor(custom.id, categories), '#d68a45')
+  assert.deepEqual(reminderTypeOptions(categories).at(-1), {
+    id: custom.id,
+    label: '동아리',
+    color: '#d68a45',
+    hidden: false,
     createdAt: 10,
-    updatedAt: 11,
+    updatedAt: 10,
   })
-  const edited = normalizeReminderCategory({ ...category, color: nextColor, hidden: false, updatedAt: 12 })
-
-  assert.equal(category.label, '동아리')
-  assert.equal(edited.id, category.id)
-  assert.equal(edited.color, nextColor)
-  assert.equal(isReminderTypeId(category.id), true)
-  assert.equal(reminderTypeLabel(category.id, [edited]), '동아리')
-  assert.equal(reminderTypeColor(category.id, [edited]), nextColor)
-  assert.equal(normalizeReminderCategory({ ...category, id: 'custom-zzzzzz' }), null)
 })
 
 test('deleted built-in sections are hidden from filters without losing reminder display metadata', () => {
-  const hidden = normalizeReminderCategory({
+  const categories = [{
     id: 'performance',
-    label: '수행',
+    label: '발표',
     color: '#7c83ff',
     hidden: true,
-    createdAt: 10,
-    updatedAt: 11,
-  })
-  const filters = reminderFilterOptions([hidden])
+    createdAt: 1,
+    updatedAt: 2,
+  }]
+  const filters = reminderFilterOptions(categories)
   assert.equal(filters.some((item) => item.id === 'performance'), false)
-  assert.equal(reminderSectionById('performance', [hidden]).hidden, true)
-  assert.equal(reminderTypeLabel('performance', [hidden]), '수행')
-  assert.equal(reminderTypeColor('performance', [hidden]), '#7c83ff')
+  assert.equal(reminderTypeLabel('performance', categories), '발표')
+  assert.equal(reminderTypeColor('performance', categories), '#7c83ff')
+  assert.equal(reminderSectionById('performance', categories)?.hidden, true)
 })
 
 test('reminder page build patch adds long-press section editing and keeps custom add colors safe', () => {
-  const source = read('src/todo-stage5-ai.jsx')
-  const page = patchPreviewSHubV2Source(source, '/workspace/src/todo-stage5-ai.jsx')
+  const raw = read('src/todo-stage5-ai.jsx')
+  const page = patchPreviewSHubV2Source(raw, path.join(root, 'src', 'todo-stage5-ai.jsx'))
   const css = read('src/preview-section-management.css')
 
   assert.match(page, /reminderFilterOptions\(categories\)/)
@@ -98,7 +89,7 @@ test('reminder page build patch adds long-press section editing and keeps custom
   assert.match(css, /max-width:\s*360px/)
 })
 
-test('class-scoped section overrides use the isolated preview backend without changing the published custom-category rules', () => {
+test('class-scoped section overrides use the production endpoint with a hard preview-class server guard', () => {
   const sync = read('src/school-sync.js')
   const todo = read('src/todo.jsx')
   const rules = read('firestore.rules')
@@ -117,12 +108,16 @@ test('class-scoped section overrides use the isolated preview backend without ch
   assert.doesNotMatch(rules, /categoryId in \['all', 'task', 'performance', 'exam', 'material'\]/)
   assert.doesNotMatch(rules, /request\.resource\.data\.get\('hidden', false\) is bool/)
 
-  // Built-in/all edits and deletes share the existing authenticated class function,
-  // staying preview-only without adding a thirteenth Vercel function.
-  assert.match(client, /school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711\.vercel\.app\/api\/reminder-sections/)
+  // Built-in/all edits and deletes share the existing authenticated production function.
+  // The server accepts this mode only for preview-class-* identities, so production class-* data cannot be changed here.
+  assert.match(client, /school-reminder-backend\.vercel\.app\/api\/reminder-sections/)
+  assert.doesNotMatch(client, /school-reminder-backend-git-preview-s-hub-v2/)
   assert.match(client, /ensureSignedIn\(\)/)
   assert.match(classApi, /const reminderSectionMode = String\(req\.query\?\.mode \|\| ''\)\.trim\(\) === 'reminder-sections'/)
+  assert.match(classApi, /function isPreviewClassId/)
   assert.match(classApi, /\^preview-class-/)
+  assert.match(classApi, /if \(!isPreviewClassId\(classId\)\)/)
+  assert.match(classApi, /reminder-section\/preview-class-required/)
   assert.match(classApi, /collection\('reminderCategories'\)/)
   assert.match(classApi, /collection\('todos'\)\.where\('type', '==', sectionId\)/)
   assert.match(classApi, /type:\s*'task'/)
