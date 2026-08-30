@@ -22,6 +22,20 @@ function studyDailyCollection(student) {
   return student.db.collection('classes').doc(student.classId).collection('previewV2StudyDaily')
 }
 
+function studyGlobalDailyCollection(student) {
+  return student.db.collection('previewV2StudyGlobalDaily')
+}
+
+function globalStudyDocId(student, date, studentKey = student.studentKey) {
+  const classPart = String(student.classId || '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80)
+  const studentPart = String(studentKey || '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120)
+  return `${date}_${classPart}_${studentPart}`
+}
+
+function globalStudyRef(student, date, studentKey = student.studentKey) {
+  return studyGlobalDailyCollection(student).doc(globalStudyDocId(student, date, studentKey))
+}
+
 function publicComment(value = {}) {
   return {
     id: String(value.id || ''),
@@ -120,12 +134,28 @@ async function resolveQuestion(student, body) {
   return { ok: true, post: publicPost(await ref.get()) }
 }
 
+function publicStudyTotal(value = {}) {
+  return {
+    studentKey: String(value.studentKey || ''),
+    name: String(value.name || '').slice(0, 20),
+    totalMs: Math.max(0, Number(value.totalMs || 0)),
+  }
+}
+
+function publicGlobalStudyTotal(value = {}) {
+  return {
+    ...publicStudyTotal(value),
+    classNumber: Number(value.classNumber || 0),
+  }
+}
+
 async function getStudy(student) {
   const now = Date.now()
   const date = koreaDateKey(now)
-  const [activeSnapshot, dailySnapshot] = await Promise.all([
+  const [activeSnapshot, dailySnapshot, globalSnapshot] = await Promise.all([
     studyActiveCollection(student).get(),
     studyDailyCollection(student).where('date', '==', date).get(),
+    studyGlobalDailyCollection(student).where('date', '==', date).get(),
   ])
 
   const active = activeSnapshot.docs
@@ -142,12 +172,45 @@ async function getStudy(student) {
 
   const totals = dailySnapshot.docs
     .map((snapshot) => ({ studentKey: String(snapshot.data()?.studentKey || snapshot.id), ...(snapshot.data() || {}) }))
-    .map((value) => ({
-      studentKey: String(value.studentKey || ''),
-      name: String(value.name || '').slice(0, 20),
-      totalMs: Math.max(0, Number(value.totalMs || 0)),
-    }))
+    .map(publicStudyTotal)
     .sort((a, b) => b.totalMs - a.totalMs)
+
+  const globalMap = new Map(
+    globalSnapshot.docs.map((snapshot) => {
+      const value = snapshot.data() || {}
+      return [snapshot.id, publicGlobalStudyTotal(value)]
+    }),
+  )
+
+  const backfill = student.db.batch()
+  let backfillCount = 0
+  dailySnapshot.docs.forEach((snapshot) => {
+    const value = snapshot.data() || {}
+    const studentKey = String(value.studentKey || snapshot.id)
+    const ref = globalStudyRef(student, date, studentKey)
+    const publicValue = publicGlobalStudyTotal({
+      studentKey,
+      name: value.name,
+      totalMs: value.totalMs,
+      classNumber: student.classNumber,
+    })
+    if (!globalMap.has(ref.id)) {
+      backfill.set(ref, {
+        date,
+        classId: student.classId,
+        classNumber: student.classNumber,
+        ...publicValue,
+        updatedAt: Number(value.updatedAt || now),
+      }, { merge: true })
+      backfillCount += 1
+    }
+    globalMap.set(ref.id, publicValue)
+  })
+  if (backfillCount) await backfill.commit()
+
+  const globalTotals = [...globalMap.values()]
+    .sort((a, b) => b.totalMs - a.totalMs || a.name.localeCompare(b.name))
+    .slice(0, 120)
 
   return {
     ok: true,
@@ -156,6 +219,7 @@ async function getStudy(student) {
     me: student.studentKey,
     active,
     totals,
+    globalTotals,
     generatedAt: now,
   }
 }
@@ -166,6 +230,7 @@ async function startStudy(student, body) {
   const subject = normalizeStudySubject(body.subject)
   const date = koreaDateKey(now)
   const dailyRef = studyDailyCollection(student).doc(`${date}_${student.studentKey}`)
+  const globalRef = globalStudyRef(student, date)
   let existingActive = null
 
   await student.db.runTransaction(async (transaction) => {
@@ -184,13 +249,19 @@ async function startStudy(student, body) {
       totalMs += safeStudyDurationMs(stale.startedAt, now, stale.heartbeatAt)
     }
     if (activeSnapshot.exists || dailySnapshot.exists) {
-      transaction.set(dailyRef, {
+      const dailyValue = {
         date,
         studentKey: student.studentKey,
         name: student.name,
         totalMs,
         updatedAt: now,
-      })
+      }
+      transaction.set(dailyRef, dailyValue)
+      transaction.set(globalRef, {
+        ...dailyValue,
+        classId: student.classId,
+        classNumber: student.classNumber,
+      }, { merge: true })
     }
     transaction.set(activeRef, {
       name: student.name,
@@ -223,6 +294,7 @@ async function stopStudy(student) {
   const now = Date.now()
   const date = koreaDateKey(now)
   const dailyRef = studyDailyCollection(student).doc(`${date}_${student.studentKey}`)
+  const globalRef = globalStudyRef(student, date)
   let addedMs = 0
 
   await student.db.runTransaction(async (transaction) => {
@@ -234,13 +306,20 @@ async function stopStudy(student) {
     const active = activeSnapshot.data() || {}
     addedMs = safeStudyDurationMs(active.startedAt, now, active.heartbeatAt)
     const previous = dailySnapshot.exists ? Number(dailySnapshot.data()?.totalMs || 0) : 0
-    transaction.set(dailyRef, {
+    const totalMs = Math.max(0, previous) + addedMs
+    const dailyValue = {
       date,
       studentKey: student.studentKey,
       name: student.name,
-      totalMs: Math.max(0, previous) + addedMs,
+      totalMs,
       updatedAt: now,
-    })
+    }
+    transaction.set(dailyRef, dailyValue)
+    transaction.set(globalRef, {
+      ...dailyValue,
+      classId: student.classId,
+      classNumber: student.classNumber,
+    }, { merge: true })
     transaction.delete(activeRef)
   })
 
