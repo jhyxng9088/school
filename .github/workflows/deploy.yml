@@ -12,14 +12,14 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout requested branch
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -27,39 +27,96 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install app dependencies
+      - name: Install preview dependencies
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
         run: npm ci
 
-      - name: Test app
+      - name: Test preview app
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
         run: npm test
-
-      - name: Build app
-        run: npm run build
 
       - name: Build isolated preview app
         if: github.ref == 'refs/heads/preview/s-hub-v2'
-        run: SHUB_PREVIEW_BASE=/preview/ npm run build
+        run: SHUB_PREVIEW_BASE=/school/preview-v2/ npm run build
+
+      - name: Test preview backend
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
+        working-directory: push-backend-v2
+        run: npm ci && npm test
+
+      - name: Checkout production main for preview-safe root
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .production-source
+
+      - name: Install production dependencies
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
+        working-directory: .production-source
+        run: npm ci
+
+      - name: Test production app before composing preview site
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
+        working-directory: .production-source
+        run: npm test
+
+      - name: Build production root from main
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
+        working-directory: .production-source
+        run: npm run build
+
+      - name: Test production backend before composing preview site
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
+        working-directory: .production-source/push-backend-v2
+        run: npm ci && npm test
+
+      - name: Compose production root with isolated preview path
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
+        run: |
+          rm -rf pages-site
+          mkdir -p pages-site/preview-v2
+          cp -a .production-source/dist/. pages-site/
+          cp -a dist/. pages-site/preview-v2/
+
+      - name: Install app dependencies
+        if: github.ref == 'refs/heads/main'
+        run: npm ci
+
+      - name: Test app
+        if: github.ref == 'refs/heads/main'
+        run: npm test
+
+      - name: Build app
+        if: github.ref == 'refs/heads/main'
+        run: npm run build
 
       - name: Install reminder backend dependencies
+        if: github.ref == 'refs/heads/main'
         working-directory: push-backend-v2
         run: npm ci
 
       - name: Test reminder backend
+        if: github.ref == 'refs/heads/main'
         working-directory: push-backend-v2
         run: npm test
 
       - name: Configure Pages
-        if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Upload preview-safe Pages artifact
+        if: github.ref == 'refs/heads/preview/s-hub-v2'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./pages-site
+
+      - name: Upload production Pages artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
 
   deploy:
-    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
