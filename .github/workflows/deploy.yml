@@ -1,4 +1,6 @@
-# GitHub Pages deployment and regression gate
+# GitHub Pages production deployment plus an isolated S-Hub v2 preview path.
+# The production root is always built from main. Preview code is only copied
+# under /preview-v2/ after its own tests and build succeed.
 name: Deploy School PWA
 
 on:
@@ -19,7 +21,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout production main
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -27,30 +29,79 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install app dependencies
+      - name: Install production app dependencies
         run: npm ci
 
-      - name: Test app
+      - name: Test production app
         run: npm test
 
-      - name: Build app
+      - name: Build production app
         run: npm run build
 
-      - name: Install reminder backend dependencies
+      - name: Install production backend dependencies
         working-directory: push-backend-v2
         run: npm ci
 
-      - name: Test reminder backend
+      - name: Test production backend
         working-directory: push-backend-v2
         run: npm test
+
+      - name: Checkout isolated preview branch
+        uses: actions/checkout@v4
+        with:
+          ref: preview/s-hub-v2
+          path: .preview-source
+
+      - name: Install preview dependencies
+        working-directory: .preview-source
+        run: npm ci
+
+      - name: Test preview app
+        working-directory: .preview-source
+        run: npm test
+
+      - name: Patch preview hosting path only for the build
+        working-directory: .preview-source
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/preview-v2.js')
+          source = path.read_text()
+          old_path = "const PREVIEW_PATH = '/preview/'"
+          old_api = "const API_URL = '/api/preview-v2'"
+          assert source.count(old_path) == 1, 'preview path marker changed unexpectedly'
+          assert source.count(old_api) == 1, 'preview API marker changed unexpectedly'
+          source = source.replace(old_path, "const PREVIEW_PATH = '/school/preview-v2/'")
+          source = source.replace(old_api, "const API_URL = 'https://school-reminder-backend.vercel.app/api/class-roster'")
+          path.write_text(source)
+          PY
+
+      - name: Build isolated preview app
+        working-directory: .preview-source
+        run: SHUB_PREVIEW_BASE=/school/preview-v2/ npm run build
+
+      - name: Install preview backend dependencies
+        working-directory: .preview-source/push-backend-v2
+        run: npm ci
+
+      - name: Test preview backend
+        working-directory: .preview-source/push-backend-v2
+        run: npm test
+
+      - name: Compose production root with isolated preview path
+        run: |
+          rm -rf pages-site
+          mkdir -p pages-site/preview-v2
+          cp -a dist/. pages-site/
+          cp -a .preview-source/dist/. pages-site/preview-v2/
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: ./pages-site
 
   deploy:
     environment:
