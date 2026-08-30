@@ -5,7 +5,7 @@ import {
   reminderSectionById,
 } from './reminder-categories.js'
 
-const REMINDER_SECTION_API_URL = 'https://school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711.vercel.app/api/reminder-sections'
+const REMINDER_SECTION_API_URL = 'https://school-reminder-backend.vercel.app/api/reminder-sections'
 
 function sectionError(code, message) {
   const error = new Error(message)
