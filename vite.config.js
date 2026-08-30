@@ -7,7 +7,9 @@ import {
   POLITE_COPY_REPLACEMENTS,
   POLITE_SOURCE_FRAGMENTS,
 } from './src/polite-copy-runtime.js'
+import { PREVIEW_POLITE_COPY_REPLACEMENTS } from './src/preview-polite-copy-additions.js'
 import { patchPreviewNavSpringSource } from './src/preview-nav-spring-patch.js'
+import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'
 
 const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
@@ -18,6 +20,7 @@ const AI_PROMPT_MARKERS = [
 
 const BUILD_COPY_REPLACEMENTS = [
   ...POLITE_COPY_REPLACEMENTS.filter(([from]) => from !== '등록된 급식이 없어'),
+  ...PREVIEW_POLITE_COPY_REPLACEMENTS,
   ['같은 학사일정이 이미 있어.', '같은 학사일정이 이미 있어요.'],
 ]
 
@@ -69,6 +72,7 @@ function replacePreviewSource(source, id) {
   }
 
   next = patchPreviewNavSpringSource(next, cleanId)
+  next = patchPreviewSHubV2Source(next, cleanId)
   return next
 }
 
@@ -82,6 +86,7 @@ function patchPreviewPublicBuildFiles(directory) {
 
     if (entry.name === 'sw.js') {
       next = next
+        .split("'school-shell-v154'").join("'school-shell-v155'")
         .split("'school-shell-").join("'school-preview-shell-")
         .split("'school-notification-profile-").join("'school-preview-notification-profile-")
       const cleanupMarker = ".filter((key) => ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))"
@@ -125,7 +130,12 @@ function politeCopyPlugin() {
     enforce: 'pre',
     transform(code, id) {
       const cleanId = id.split('?')[0]
-      if (!cleanId.includes('/src/') || cleanId.endsWith('/polite-copy-runtime.js')) return null
+      if (
+        !cleanId.includes('/src/')
+        || cleanId.endsWith('/polite-copy-runtime.js')
+        || cleanId.endsWith('/preview-polite-copy-additions.js')
+        || cleanId.endsWith('/preview-s-hub-v2-patch.js')
+      ) return null
 
       const next = replaceCopy(code)
       return next === code ? null : { code: next, map: null }
