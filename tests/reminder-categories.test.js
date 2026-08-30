@@ -108,7 +108,7 @@ test('adding the name of a hidden built-in section restores it instead of creati
   assert.match(client, /current\.hidden/)
 })
 
-test('class-scoped section overrides use the production endpoint with an authenticated class guard', () => {
+test('class-scoped section overrides use authenticated production access with a rate-limit fallback', () => {
   const sync = read('src/school-sync.js')
   const todo = read('src/todo.jsx')
   const rules = read('firestore.rules')
@@ -127,11 +127,16 @@ test('class-scoped section overrides use the production endpoint with an authent
   assert.doesNotMatch(rules, /categoryId in \['all', 'task', 'performance', 'exam', 'material'\]/)
   assert.doesNotMatch(rules, /request\.resource\.data\.get\('hidden', false\) is bool/)
 
-  // Built-in/all edits, deletes, and restores share the authenticated production function.
-  // The server derives classId only from the verified user identity, so a student can edit only their own class.
+  // Primary traffic stays on the stable production endpoint. While Vercel's main build is
+  // rate-limited, only the old preview-only 403 is retried against the immutable READY build.
   assert.match(client, /school-reminder-backend\.vercel\.app\/api\/reminder-sections/)
-  assert.doesNotMatch(client, /school-reminder-backend-git-preview-s-hub-v2/)
+  assert.match(client, /school-reminder-backend-mm1t9pzs6-jhyxng9088-7711\.vercel\.app\/api\/reminder-sections/)
+  assert.match(client, /result\.response\?\.status === 403/)
+  assert.match(client, /reminder-section\/preview-class-required/)
+  assert.match(client, /postSectionChange\(REMINDER_SECTION_FALLBACK_API_URL/)
   assert.match(client, /ensureSignedIn\(\)/)
+
+  // The server derives classId only from the verified user identity, so a student can edit only their own class.
   assert.match(classApi, /const reminderSectionMode = String\(req\.query\?\.mode \|\| ''\)\.trim\(\) === 'reminder-sections'/)
   assert.match(classApi, /function isReminderSectionClassId/)
   assert.match(classApi, /\^\(\?:preview-\)\?class-/)
