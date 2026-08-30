@@ -103,7 +103,8 @@ test('class-scoped section overrides use the isolated preview backend without ch
   const todo = read('src/todo.jsx')
   const rules = read('firestore.rules')
   const client = read('src/reminder-section-client.js')
-  const api = read('push-backend-v2/api/reminder-sections.js')
+  const classApi = read('push-backend-v2/api/class-roster.js')
+  const vercel = read('push-backend-v2/vercel.json')
 
   assert.match(sync, /collection\(db, 'classes', classKeyFor\(profile\), 'reminderCategories'\)/)
   assert.match(sync, /export function listenClassReminderCategories/)
@@ -116,11 +117,14 @@ test('class-scoped section overrides use the isolated preview backend without ch
   assert.doesNotMatch(rules, /categoryId in \['all', 'task', 'performance', 'exam', 'material'\]/)
   assert.doesNotMatch(rules, /request\.resource\.data\.get\('hidden', false\) is bool/)
 
-  // Built-in/all edits and deletes go through an authenticated preview-only Admin endpoint.
+  // Built-in/all edits and deletes share the existing authenticated class function,
+  // staying preview-only without adding a thirteenth Vercel function.
   assert.match(client, /school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711\.vercel\.app\/api\/reminder-sections/)
   assert.match(client, /ensureSignedIn\(\)/)
-  assert.match(api, /\^preview-class-/)
-  assert.match(api, /collection\('reminderCategories'\)/)
-  assert.match(api, /collection\('todos'\)\.where\('type', '==', sectionId\)/)
-  assert.match(api, /type:\s*'task'/)
+  assert.match(classApi, /mode === 'reminder-sections'/)
+  assert.match(classApi, /\^preview-class-/)
+  assert.match(classApi, /collection\('reminderCategories'\)/)
+  assert.match(classApi, /collection\('todos'\)\.where\('type', '==', sectionId\)/)
+  assert.match(classApi, /type:\s*'task'/)
+  assert.match(vercel, /"source": "\/api\/reminder-sections"[\s\S]*?"destination": "\/api\/class-roster\?mode=reminder-sections"/)
 })
