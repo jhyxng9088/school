@@ -1,8 +1,8 @@
 import { ensureSignedIn, readStudentProfile } from './school-sync.js'
 import './preview-v2.css'
 
-const PREVIEW_PATH = '/preview-v2/'
-const API_URL = String(import.meta.env.VITE_SHUB_PREVIEW_API_URL || 'https://school-reminder-backend.vercel.app/api/class-roster').trim()
+const PREVIEW_PATH = '/preview/'
+const API_URL = '/api/preview-v2'
 const ROUTE_REFRESH_MS = 12_000
 const STUDY_HEARTBEAT_MS = 20_000
 
@@ -32,7 +32,7 @@ let aiObserver = null
 let routeGeneration = 0
 
 function inPreviewMode() {
-  return window.location.pathname.includes(PREVIEW_PATH)
+  return window.location.pathname.startsWith(PREVIEW_PATH)
 }
 
 function el(tag, className = '', text = '') {
@@ -59,7 +59,7 @@ function liveDuration(startedAt) {
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   const seconds = totalSeconds % 60
   if (hours) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-  return `${minutes}:${String(seconds).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`.replace(/^0:/, '')
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
 function relativeTime(value) {
@@ -79,551 +79,764 @@ async function api(resource, { method = 'GET', body = null } = {}) {
   const response = await fetch(url, {
     method,
     headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
-    body: method === 'GET' ? undefined : JSON.stringify({ resource, ...(body || {}) }),
-    cache: 'no-store',
+    ...(body ? { body: JSON.stringify({ resource, ...body }) } : {}),
   })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok || payload?.ok === false) {
-    const error = new Error(payload?.message || '테스트 기능을 불러오지 못했어요.')
-    error.status = response.status
-    throw error
+  let payload = null
+  try { payload = await response.json() } catch { payload = null }
+  if (!response.ok || !payload?.ok) {
+    throw new Error(String(payload?.message || '테스트 기능을 불러오지 못했어요.'))
   }
   return payload
 }
 
-function iconSvg(type) {
-  const paths = {
-    home: '<path d="M3.5 10.7 12 3.8l8.5 6.9"/><path d="M5.5 9.8v10h13v-10"/><path d="M9.2 19.8v-6.2h5.6v6.2"/>',
-    class: '<path d="M5 19v-9.5L12 5l7 4.5V19"/><path d="M8.5 19v-5h7v5"/><path d="M7.5 8V5h3"/>',
-    study: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 2"/>',
-    schedule: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v3"/><path d="M16.5 3.5v3"/><path d="M3.5 9h17"/><path d="M8 13h3"/><path d="M8 16.5h8"/>',
-  }
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[type] || ''}</svg>`
+function clearRouteTimers() {
+  if (refreshTimer) window.clearInterval(refreshTimer)
+  if (heartbeatTimer) window.clearInterval(heartbeatTimer)
+  if (secondTimer) window.clearInterval(secondTimer)
+  refreshTimer = 0
+  heartbeatTimer = 0
+  secondTimer = 0
 }
 
-function makeTabButton(id, label, index) {
-  const button = el('button', `preview-v2-nav-button${routeState.tab === id ? ' active' : ''}`)
-  button.type = 'button'
-  button.dataset.previewTab = id
-  button.setAttribute('aria-label', label)
-  if (id === 'ai') {
-    const orb = el('span', 'preview-v2-ai-orb')
-    orb.innerHTML = '<i></i><i></i><i></i><i></i><i></i><i></i><i></i>'
-    button.append(orb, el('span', 'preview-v2-nav-label', label))
-  } else {
-    const icon = el('span', 'preview-v2-nav-icon')
-    icon.innerHTML = iconSvg(id)
-    button.append(icon, el('span', 'preview-v2-nav-label', label))
-  }
-  button.addEventListener('click', () => navigate(id, index))
-  return button
+function removeLayer() {
+  routeLayer?.remove()
+  routeLayer = null
+  const appContent = document.querySelector('.app-shell > .app-content')
+  appContent?.classList.remove('preview-v2-underlay-hidden')
 }
 
-function installNavigation() {
-  const native = document.querySelector('.bottom-nav')
-  if (!native || native.dataset.previewV2Ready === 'true') return false
-  native.dataset.previewV2Ready = 'true'
-  native.classList.add('preview-v2-nav-host')
-  native.innerHTML = ''
+function nativeNav(index) {
+  const button = navButtons[index]
+  if (!button) return
+  allowNativeNav = true
+  button.click()
+  allowNativeNav = false
+}
 
-  const indicator = el('span', 'preview-v2-nav-indicator')
-  native.appendChild(indicator)
-  const tabs = [
+function waitFrames(callback, count = 2) {
+  if (count <= 0) {
+    callback()
+    return
+  }
+  window.requestAnimationFrame(() => waitFrames(callback, count - 1))
+}
+
+function setPreviewActive(index) {
+  if (!nav) return
+  nav.style.setProperty('--preview-index', String(index))
+  navButtons.forEach((button, buttonIndex) => {
+    button.dataset.previewActive = buttonIndex === index ? 'true' : 'false'
+  })
+}
+
+function syncUnreadProjection() {
+  if (navButtons.length < 5) return
+  const sourceUnread = navButtons.map((button) => Boolean(button.querySelector('.school-unread-dot')))
+  navButtons[0].dataset.previewUnread = sourceUnread[3] ? 'true' : 'false'
+  navButtons[1].dataset.previewUnread = sourceUnread[2] ? 'true' : 'false'
+  navButtons[2].dataset.previewUnread = 'false'
+  navButtons[3].dataset.previewUnread = 'false'
+  navButtons[4].dataset.previewUnread = sourceUnread[1] || sourceUnread[4] ? 'true' : 'false'
+}
+
+function navIconMarkup(kind) {
+  if (kind === 'home') return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 10.6 12 3.8l8.2 6.8v8.7a1 1 0 0 1-1 1h-5.1v-6.2H9.9v6.2H4.8a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>'
+  if (kind === 'class') return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V6.2c0-.8.6-1.4 1.4-1.4h13.2c.8 0 1.4.6 1.4 1.4v13.3M7.3 8.2h9.4M7.3 11.7h9.4M8 19.5v-4.2h8v4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  if (kind === 'study') return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 13V8.7M9.2 3.5h5.6M17.2 6.4l1.5-1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  if (kind === 'schedule') return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.8" y="5.6" width="16.4" height="14.2" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7.7 3.8v3.6M16.3 3.8v3.6M3.8 9.3h16.4M8 13h3M8 16h5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  return ''
+}
+
+function startPreviewOrb(canvas) {
+  if (!canvas || canvas.dataset.previewOrbReady === 'true') return
+  canvas.dataset.previewOrbReady = 'true'
+  const size = 25
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  canvas.width = Math.round(size * dpr)
+  canvas.height = Math.round(size * dpr)
+  canvas.style.width = `${size}px`
+  canvas.style.height = `${size}px`
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  const points = Array.from({ length: 54 }, (_, index) => {
+    const y = 1 - ((index + 0.5) / 54) * 2
+    const radius = Math.sqrt(Math.max(0, 1 - y * y))
+    const theta = index * Math.PI * (3 - Math.sqrt(5))
+    return { x: Math.cos(theta) * radius, y, z: Math.sin(theta) * radius }
+  })
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  let frame = 0
+  let lastDraw = 0
+  function draw(time) {
+    if (!canvas.isConnected) return
+    if (time - lastDraw < 32) {
+      frame = window.requestAnimationFrame(draw)
+      return
+    }
+    lastDraw = time
+    const angle = reduced ? 0.35 : time * 0.00042
+    const cosine = Math.cos(angle)
+    const sine = Math.sin(angle)
+    const color = getComputedStyle(canvas).color || '#8e8e93'
+    ctx.clearRect(0, 0, size, size)
+    const projected = points.map((point) => {
+      const x = point.x * cosine - point.z * sine
+      const z = point.x * sine + point.z * cosine
+      return { x, y: point.y, z }
+    }).sort((a, b) => a.z - b.z)
+    for (const point of projected) {
+      const depth = (point.z + 1) / 2
+      const x = size / 2 + point.x * 8.7
+      const y = size / 2 + point.y * 8.7
+      ctx.globalAlpha = 0.24 + depth * 0.72
+      ctx.fillStyle = color
+      ctx.beginPath()
+      ctx.arc(x, y, 0.75 + depth * 0.45, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.globalAlpha = 1
+    frame = window.requestAnimationFrame(draw)
+  }
+  frame = window.requestAnimationFrame(draw)
+  window.addEventListener('pagehide', () => window.cancelAnimationFrame(frame), { once: true })
+}
+
+function syncNavPresentation() {
+  nav = document.querySelector('.bottom-nav')
+  if (!nav) return false
+  navButtons = Array.from(nav.querySelectorAll('.nav-button'))
+  if (navButtons.length !== 5) return false
+
+  const definitions = [
     ['home', '홈'],
     ['class', '우리 반'],
     ['ai', 'AI'],
     ['study', '공부'],
     ['schedule', '일정'],
   ]
-  navButtons = tabs.map(([id, label], index) => {
-    const button = makeTabButton(id, label, index)
-    native.appendChild(button)
-    return button
-  })
-  nav = native
-  updateNavIndicator(true)
-  return true
-}
 
-function updateNavIndicator(immediate = false) {
-  if (!nav) return
-  const indicator = nav.querySelector('.preview-v2-nav-indicator')
-  const activeIndex = Math.max(0, navButtons.findIndex((button) => button.dataset.previewTab === routeState.tab))
-  const button = navButtons[activeIndex]
-  if (!indicator || !button) return
-  navButtons.forEach((item) => item.classList.toggle('active', item === button))
-  const navRect = nav.getBoundingClientRect()
-  const buttonRect = button.getBoundingClientRect()
-  if (immediate) indicator.style.transition = 'none'
-  indicator.style.width = `${buttonRect.width}px`
-  indicator.style.transform = `translate3d(${buttonRect.left - navRect.left}px,0,0)`
-  if (immediate) requestAnimationFrame(() => { indicator.style.transition = '' })
-}
-
-function clickNativeTab(tabId) {
-  const button = document.querySelector(`.bottom-nav [data-tab="${tabId}"]`)
-  if (!button) return false
-  allowNativeNav = true
-  button.click()
-  allowNativeNav = false
-  return true
-}
-
-function hideRouteLayer() {
-  if (!routeLayer) return
-  routeLayer.classList.remove('visible')
-  routeLayer.setAttribute('aria-hidden', 'true')
-}
-
-function showRouteLayer() {
-  if (!routeLayer) return
-  routeLayer.classList.add('visible')
-  routeLayer.setAttribute('aria-hidden', 'false')
-}
-
-function navigate(id, index = -1) {
-  if (!inPreviewMode()) return
-  if (routeState.tab === id && id !== 'ai') return
-  const oldIndex = Math.max(0, navButtons.findIndex((button) => button.dataset.previewTab === routeState.tab))
-  const newIndex = index >= 0 ? index : Math.max(0, navButtons.findIndex((button) => button.dataset.previewTab === id))
-  document.documentElement.style.setProperty('--preview-route-direction', newIndex >= oldIndex ? '1' : '-1')
-  routeState.tab = id
-  updateNavIndicator()
-
-  if (id === 'home') {
-    hideRouteLayer()
-    clickNativeTab('home')
-    return
-  }
-  if (id === 'ai') {
-    hideRouteLayer()
-    clickNativeTab('home')
-    openAI()
-    return
-  }
-  if (id === 'class') {
-    showRouteLayer()
-    renderClassRoute()
-    refreshBoard()
-    return
-  }
-  if (id === 'study') {
-    showRouteLayer()
-    renderStudyRoute()
-    refreshStudy()
-    return
-  }
-  if (id === 'schedule') {
-    showRouteLayer()
-    renderScheduleRoute()
-  }
-}
-
-function openAI() {
-  const trigger = document.querySelector('[data-s-hub-ai-trigger], .school-ai-trigger, .home-ai-trigger')
-  if (trigger) {
-    aiReturnRoute = routeState.tab
-    trigger.click()
-  }
-}
-
-function pageShell(title, subtitle = '') {
-  const page = el('section', 'preview-v2-page')
-  const head = el('header', 'preview-v2-page-head')
-  const copy = el('div')
-  copy.append(el('p', 'preview-v2-kicker', 'S-Hub Preview'), el('h1', '', title))
-  if (subtitle) copy.append(el('p', 'preview-v2-page-copy', subtitle))
-  head.append(copy)
-  page.append(head)
-  return page
-}
-
-function renderClassRoute() {
-  if (!routeLayer) return
-  const page = pageShell('우리 반', '반 시간표와 친구들의 질문·투표를 한곳에서 확인해요.')
-  const segmented = el('div', 'preview-v2-segmented')
-  ;[['board', '게시판'], ['timetable', '시간표']].forEach(([id, label]) => {
-    const button = el('button', routeState.classView === id ? 'active' : '', label)
-    button.type = 'button'
-    button.addEventListener('click', () => {
-      routeState.classView = id
-      renderClassRoute()
-    })
-    segmented.append(button)
-  })
-  page.append(segmented)
-
-  if (routeState.classView === 'timetable') {
-    const card = el('div', 'preview-v2-card preview-v2-forward-card')
-    card.append(el('strong', '', '반 시간표'), el('p', '', '기존 S-Hub 시간표를 그대로 사용해요.'))
-    const button = el('button', 'preview-v2-primary', '시간표 열기')
-    button.type = 'button'
-    button.addEventListener('click', () => {
-      hideRouteLayer()
-      clickNativeTab('timetable')
-    })
-    card.append(button)
-    page.append(card)
-    routeLayer.replaceChildren(page)
-    return
+  let indicator = nav.querySelector('.preview-v2-indicator')
+  if (!indicator) {
+    indicator = el('span', 'preview-v2-indicator')
+    indicator.setAttribute('aria-hidden', 'true')
+    nav.appendChild(indicator)
   }
 
-  const actions = el('div', 'preview-v2-board-actions')
-  const general = el('button', 'preview-v2-secondary', '글 쓰기')
-  const question = el('button', 'preview-v2-primary', '질문하기')
-  general.type = 'button'
-  question.type = 'button'
-  general.addEventListener('click', () => openComposer('general'))
-  question.addEventListener('click', () => openComposer('question'))
-  actions.append(general, question)
-  page.append(actions)
-
-  const list = el('div', 'preview-v2-post-list')
-  if (!boardLoaded) list.append(el('div', 'preview-v2-empty', '게시판을 불러오는 중이에요.'))
-  else if (!boardPosts.length) list.append(el('div', 'preview-v2-empty', '아직 게시물이 없어요. 첫 글을 남겨 보세요.'))
-  else boardPosts.forEach((post) => list.append(renderPost(post)))
-  page.append(list)
-  routeLayer.replaceChildren(page)
-}
-
-function renderPost(post) {
-  const card = el('article', 'preview-v2-card preview-v2-post')
-  const meta = el('div', 'preview-v2-post-meta')
-  meta.append(
-    el('span', `preview-v2-kind ${post.kind === 'question' ? 'question' : ''}`, post.kind === 'question' ? '질문' : '일반'),
-    el('span', '', `${post.authorName || '학생'} · ${relativeTime(post.createdAt)}`),
-  )
-  if (post.kind === 'question' && post.resolved) meta.append(el('span', 'preview-v2-resolved', '해결됨'))
-  card.append(meta, el('h2', '', post.title || '제목 없음'), el('p', 'preview-v2-post-body', post.body || ''))
-
-  const replies = el('div', 'preview-v2-replies')
-  ;(post.replies || []).forEach((reply) => {
-    const item = el('div', 'preview-v2-reply')
-    item.append(el('strong', '', reply.authorName || '학생'), el('span', '', reply.body || ''))
-    replies.append(item)
-  })
-  card.append(replies)
-
-  const replyForm = el('form', 'preview-v2-reply-form')
-  const input = document.createElement('input')
-  input.placeholder = post.kind === 'question' ? '답변 남기기' : '댓글 남기기'
-  input.maxLength = 500
-  const submit = el('button', '', '등록')
-  submit.type = 'submit'
-  replyForm.append(input, submit)
-  replyForm.addEventListener('submit', async (event) => {
-    event.preventDefault()
-    const body = input.value.trim()
-    if (!body) return
-    submit.disabled = true
-    try {
-      await api('board-reply', { method: 'POST', body: { postId: post.id, body } })
-      input.value = ''
-      await refreshBoard(true)
-    } catch (error) {
-      alert(error.message)
-    } finally {
-      submit.disabled = false
+  navButtons.forEach((button, index) => {
+    const [kind, label] = definitions[index]
+    button.dataset.previewTab = kind
+    button.dataset.previewLabel = label
+    button.setAttribute('aria-label', label)
+    let icon = button.querySelector('.preview-v2-nav-icon')
+    if (!icon) {
+      icon = el('span', 'preview-v2-nav-icon')
+      button.insertBefore(icon, button.firstChild)
     }
-  })
-  card.append(replyForm)
-
-  if (post.kind === 'question' && post.canResolve && !post.resolved) {
-    const resolveButton = el('button', 'preview-v2-resolve', '해결됨으로 표시')
-    resolveButton.type = 'button'
-    resolveButton.addEventListener('click', async () => {
-      resolveButton.disabled = true
-      try {
-        await api('board-resolve', { method: 'POST', body: { postId: post.id } })
-        await refreshBoard(true)
-      } catch (error) {
-        alert(error.message)
-      } finally {
-        resolveButton.disabled = false
+    if (kind === 'ai') {
+      if (!icon.querySelector('canvas')) {
+        icon.replaceChildren()
+        const canvas = document.createElement('canvas')
+        canvas.className = 'preview-v2-ai-canvas'
+        icon.appendChild(canvas)
+        startPreviewOrb(canvas)
       }
-    })
-    card.append(resolveButton)
-  }
-  return card
-}
-
-function openComposer(kind) {
-  if (boardComposeOpen) return
-  boardComposeOpen = true
-  boardComposeKind = kind
-  const layer = el('div', 'preview-v2-compose-layer')
-  const sheet = el('form', 'preview-v2-compose-sheet')
-  const handle = el('span', 'preview-v2-sheet-handle')
-  const title = el('h2', '', kind === 'question' ? '질문하기' : '글 쓰기')
-  const titleInput = document.createElement('input')
-  titleInput.placeholder = kind === 'question' ? '무엇이 궁금한가요?' : '제목'
-  titleInput.maxLength = 80
-  const bodyInput = document.createElement('textarea')
-  bodyInput.placeholder = kind === 'question' ? '친구들이 이해하기 쉽게 적어 주세요.' : '내용'
-  bodyInput.maxLength = 1500
-  bodyInput.rows = 6
-  const actions = el('div', 'preview-v2-compose-actions')
-  const cancel = el('button', '', '취소')
-  const submit = el('button', 'preview-v2-primary', '등록')
-  cancel.type = 'button'
-  submit.type = 'submit'
-  actions.append(cancel, submit)
-  sheet.append(handle, title, titleInput, bodyInput, actions)
-  layer.append(sheet)
-  document.body.append(layer)
-  requestAnimationFrame(() => layer.classList.add('open'))
-  window.setTimeout(() => titleInput.focus(), 260)
-
-  const close = () => {
-    layer.classList.remove('open')
-    window.setTimeout(() => layer.remove(), 360)
-    boardComposeOpen = false
-  }
-  cancel.addEventListener('click', close)
-  layer.addEventListener('click', (event) => {
-    if (event.target === layer) close()
-  })
-  sheet.addEventListener('submit', async (event) => {
-    event.preventDefault()
-    const postTitle = titleInput.value.trim()
-    const postBody = bodyInput.value.trim()
-    if (!postTitle || !postBody) return
-    submit.disabled = true
-    try {
-      await api('board-create', { method: 'POST', body: { kind: boardComposeKind, title: postTitle, body: postBody } })
-      close()
-      await refreshBoard(true)
-    } catch (error) {
-      alert(error.message)
-      submit.disabled = false
+    } else if (icon.dataset.kind !== kind) {
+      icon.dataset.kind = kind
+      icon.innerHTML = navIconMarkup(kind)
     }
   })
+  syncUnreadProjection()
+  return true
 }
 
-async function refreshBoard(forceRender = false) {
-  if (!inPreviewMode()) return
+function showLayer() {
+  removeLayer()
+  const shell = document.querySelector('.app-shell')
+  const appContent = shell?.querySelector(':scope > .app-content')
+  if (!shell || !appContent) return null
+  appContent.classList.add('preview-v2-underlay-hidden')
+  routeLayer = el('main', 'preview-v2-layer')
+  shell.insertBefore(routeLayer, nav)
+  return routeLayer
+}
+
+function buildSegment(items, selected, onSelect) {
+  const segment = el('div', 'preview-v2-segment')
+  items.forEach(([id, label]) => {
+    const button = el('button', id === selected ? 'is-selected' : '', label)
+    button.type = 'button'
+    button.addEventListener('click', () => onSelect(id))
+    segment.appendChild(button)
+  })
+  return segment
+}
+
+function injectContextSegment(kind, selected) {
+  const generation = routeGeneration
+  waitFrames(() => {
+    if (generation !== routeGeneration) return
+    removeLayer()
+    const content = document.querySelector('.app-shell > .app-content')
+    const section = content?.firstElementChild
+    if (!content || !section) return
+    content.classList.remove('preview-v2-underlay-hidden')
+    section.querySelector(':scope > .preview-v2-context')?.remove()
+    const context = el('div', 'preview-v2-context')
+    if (kind === 'class') {
+      context.appendChild(buildSegment([
+        ['board', '게시판'],
+        ['timetable', '시간표'],
+      ], selected, (value) => openClass(value)))
+    } else if (kind === 'schedule') {
+      context.appendChild(buildSegment([
+        ['todo', '리마인더'],
+        ['academic', '학사일정'],
+      ], selected, (value) => openSchedule(value)))
+    } else if (kind === 'meal') {
+      const back = el('button', 'preview-v2-back', '‹ 홈')
+      back.type = 'button'
+      back.addEventListener('click', openHome)
+      context.appendChild(back)
+    }
+    section.prepend(context)
+    syncNavPresentation()
+    syncPreviewActive()
+  }, 2)
+}
+
+function syncPreviewActive() {
+  const index = routeState.tab === 'home' ? 0
+    : routeState.tab === 'class' ? 1
+      : routeState.tab === 'ai' ? 2
+        : routeState.tab === 'study' ? 3
+          : routeState.tab === 'schedule' ? 4
+            : 0
+  setPreviewActive(index)
+}
+
+function pageHeader(eyebrow, title) {
+  const header = el('header', 'preview-v2-page-header')
+  header.appendChild(el('p', 'date-label', eyebrow))
+  header.appendChild(el('h1', '', title))
+  return header
+}
+
+function setLayerStatus(message, error = false) {
+  if (!routeLayer) return
+  let status = routeLayer.querySelector('.preview-v2-status')
+  if (!status) {
+    status = el('p', 'preview-v2-status')
+    routeLayer.appendChild(status)
+  }
+  status.classList.toggle('is-error', error)
+  status.textContent = message
+}
+
+async function refreshBoard({ quiet = false } = {}) {
+  const generation = routeGeneration
   try {
-    const payload = await api('board-list')
+    const payload = await api('board')
+    if (generation !== routeGeneration || routeState.tab !== 'class' || routeState.classView !== 'board') return
     boardPosts = Array.isArray(payload.posts) ? payload.posts : []
     boardLoaded = true
-    if (routeState.tab === 'class' && (forceRender || routeState.classView === 'board')) renderClassRoute()
+    renderBoard()
   } catch (error) {
-    boardLoaded = true
-    if (routeState.tab === 'class') {
-      renderClassRoute()
-      const empty = routeLayer?.querySelector('.preview-v2-empty')
-      if (empty) empty.textContent = error.message
-    }
+    if (generation !== routeGeneration || routeState.tab !== 'class') return
+    if (!quiet || !boardLoaded) setLayerStatus(error.message, true)
   }
 }
 
-function renderStudyRoute() {
-  if (!routeLayer) return
-  const page = pageShell('공부', '혼자 시작해도 기록되고, 친구가 공부 중이면 바로 보여요.')
-  const mine = studyData?.me || null
-  const active = Array.isArray(studyData?.active) ? studyData.active : []
-  const today = studyData?.today || { durationMs: 0 }
+function renderBoardPosts(container) {
+  container.replaceChildren()
+  if (!boardPosts.length) {
+    const empty = el('div', 'preview-v2-empty')
+    empty.appendChild(el('strong', '', '아직 글이 없어'))
+    empty.appendChild(el('p', '', '첫 질문이나 반 소식을 올려봐.'))
+    container.appendChild(empty)
+    return
+  }
 
-  const hero = el('div', `preview-v2-study-hero${mine ? ' active' : ''}`)
-  if (mine) {
-    hero.append(el('p', 'preview-v2-kicker', '공부 중'), el('strong', 'preview-v2-live-time', liveDuration(mine.startedAt)), el('span', '', mine.subject || '공부'))
-    const stop = el('button', 'preview-v2-study-stop', '공부 종료')
-    stop.type = 'button'
-    stop.addEventListener('click', stopStudy)
-    hero.append(stop)
-  } else {
-    hero.append(el('p', 'preview-v2-kicker', '오늘 공부'), el('strong', '', formatDuration(today.durationMs)), el('span', '', '타이머를 시작하면 친구들에게 공부 중으로 보여요.'))
-    const form = el('form', 'preview-v2-study-start')
+  const me = readStudentProfile()
+  boardPosts.forEach((post) => {
+    const article = el('article', `preview-v2-post ${post.kind === 'question' ? 'is-question' : ''}`)
+    const meta = el('div', 'preview-v2-post-meta')
+    const type = el('span', 'preview-v2-post-kind', post.kind === 'question' ? (post.resolved ? '해결됨' : '질문') : '일반')
+    meta.append(type, el('span', '', `${post.authorName || '학생'} · ${relativeTime(post.createdAt)}`))
+    article.appendChild(meta)
+    article.appendChild(el('h2', '', post.title || '제목 없음'))
+    article.appendChild(el('p', 'preview-v2-post-body', post.body || ''))
+
+    const comments = el('div', 'preview-v2-comments')
+    for (const comment of post.comments || []) {
+      const row = el('div', 'preview-v2-comment')
+      row.appendChild(el('strong', '', comment.authorName || '학생'))
+      row.appendChild(el('span', '', comment.body || ''))
+      comments.appendChild(row)
+    }
+    article.appendChild(comments)
+
+    const commentForm = el('form', 'preview-v2-comment-form')
     const input = document.createElement('input')
-    input.placeholder = '과목 (예: 수학)'
-    input.maxLength = 30
-    const start = el('button', 'preview-v2-primary', '공부 시작')
-    start.type = 'submit'
-    form.append(input, start)
+    input.type = 'text'
+    input.maxLength = 500
+    input.placeholder = post.kind === 'question' ? '답변 쓰기' : '댓글 쓰기'
+    const submit = el('button', '', '등록')
+    submit.type = 'submit'
+    commentForm.append(input, submit)
+    commentForm.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      const body = input.value.trim()
+      if (!body) return
+      submit.disabled = true
+      try {
+        await api('board', { method: 'POST', body: { action: 'comment', postId: post.id, body } })
+        input.value = ''
+        await refreshBoard({ quiet: true })
+      } catch (error) {
+        window.alert(error.message)
+      } finally {
+        submit.disabled = false
+      }
+    })
+    article.appendChild(commentForm)
+
+    if (post.kind === 'question' && !post.resolved && me?.name === post.authorName) {
+      const resolve = el('button', 'preview-v2-resolve', '해결됨으로 표시')
+      resolve.type = 'button'
+      resolve.addEventListener('click', async () => {
+        resolve.disabled = true
+        try {
+          await api('board', { method: 'POST', body: { action: 'resolve', postId: post.id } })
+          await refreshBoard({ quiet: true })
+        } catch (error) {
+          window.alert(error.message)
+          resolve.disabled = false
+        }
+      })
+      article.appendChild(resolve)
+    }
+    container.appendChild(article)
+  })
+}
+
+function renderBoard() {
+  if (routeState.tab !== 'class' || routeState.classView !== 'board') return
+  const layer = showLayer()
+  if (!layer) return
+  const profile = readStudentProfile()
+  layer.appendChild(pageHeader(`${profile?.classNumber || ''}반`, '우리 반'))
+  layer.appendChild(buildSegment([
+    ['board', '게시판'],
+    ['timetable', '시간표'],
+  ], 'board', (value) => openClass(value)))
+
+  const actions = el('div', 'preview-v2-board-actions')
+  const heading = el('div', '')
+  heading.appendChild(el('strong', '', '반 게시판'))
+  heading.appendChild(el('span', '', boardPosts.length ? `${boardPosts.length}개 글` : '질문과 소식을 한곳에'))
+  const composeToggle = el('button', '', boardComposeOpen ? '닫기' : '글쓰기')
+  composeToggle.type = 'button'
+  composeToggle.addEventListener('click', () => {
+    boardComposeOpen = !boardComposeOpen
+    renderBoard()
+  })
+  actions.append(heading, composeToggle)
+  layer.appendChild(actions)
+
+  if (boardComposeOpen) {
+    const form = el('form', 'preview-v2-compose')
+    form.appendChild(buildSegment([
+      ['general', '일반'],
+      ['question', '질문'],
+    ], boardComposeKind, (value) => {
+      boardComposeKind = value
+      renderBoard()
+    }))
+    const title = document.createElement('input')
+    title.type = 'text'
+    title.maxLength = 70
+    title.placeholder = boardComposeKind === 'question' ? '무엇이 궁금해?' : '제목'
+    const body = document.createElement('textarea')
+    body.maxLength = 1200
+    body.rows = 4
+    body.placeholder = boardComposeKind === 'question' ? '문제나 궁금한 점을 적어줘.' : '반 친구들에게 공유할 내용을 적어줘.'
+    const submit = el('button', 'preview-v2-primary', '올리기')
+    submit.type = 'submit'
+    form.append(title, body, submit)
     form.addEventListener('submit', async (event) => {
       event.preventDefault()
-      const subject = input.value.trim()
-      if (!subject) return
+      submit.disabled = true
+      try {
+        await api('board', {
+          method: 'POST',
+          body: { action: 'create', kind: boardComposeKind, title: title.value, body: body.value },
+        })
+        boardComposeOpen = false
+        await refreshBoard({ quiet: true })
+      } catch (error) {
+        window.alert(error.message)
+        submit.disabled = false
+      }
+    })
+    layer.appendChild(form)
+  }
+
+  const list = el('div', 'preview-v2-post-list')
+  layer.appendChild(list)
+  if (boardLoaded) renderBoardPosts(list)
+  else setLayerStatus('게시판을 불러오는 중이에요.')
+  syncPreviewActive()
+}
+
+function currentStudySession() {
+  if (!studyData?.me) return null
+  return (studyData.active || []).find((session) => session.studentKey === studyData.me) || null
+}
+
+async function refreshStudy({ quiet = false } = {}) {
+  const generation = routeGeneration
+  try {
+    const payload = await api('study')
+    if (generation !== routeGeneration || routeState.tab !== 'study') return
+    studyData = payload
+    studyLoaded = true
+    renderStudy()
+    syncStudyTimers()
+  } catch (error) {
+    if (generation !== routeGeneration || routeState.tab !== 'study') return
+    if (!quiet || !studyLoaded) setLayerStatus(error.message, true)
+  }
+}
+
+function syncStudyTimers() {
+  if (secondTimer) window.clearInterval(secondTimer)
+  if (heartbeatTimer) window.clearInterval(heartbeatTimer)
+  secondTimer = 0
+  heartbeatTimer = 0
+  const session = currentStudySession()
+  if (!session || routeState.tab !== 'study') return
+  secondTimer = window.setInterval(() => {
+    const value = document.querySelector('.preview-v2-live-time')
+    if (value && routeState.tab === 'study') value.textContent = liveDuration(session.startedAt)
+  }, 1000)
+  heartbeatTimer = window.setInterval(() => {
+    if (routeState.tab !== 'study') return
+    api('study', { method: 'POST', body: { action: 'heartbeat' } }).catch(() => {})
+  }, STUDY_HEARTBEAT_MS)
+}
+
+function renderStudy() {
+  if (routeState.tab !== 'study') return
+  const layer = showLayer()
+  if (!layer) return
+  const profile = readStudentProfile()
+  layer.appendChild(pageHeader('집중 기록', '공부'))
+
+  const session = currentStudySession()
+  const hero = el('section', `preview-v2-study-hero ${session ? 'is-active' : ''}`)
+  if (session) {
+    hero.appendChild(el('span', 'preview-v2-study-state', `${session.subject} 공부 중`))
+    hero.appendChild(el('strong', 'preview-v2-live-time', liveDuration(session.startedAt)))
+    const stop = el('button', 'preview-v2-primary', '공부 끝내기')
+    stop.type = 'button'
+    stop.addEventListener('click', async () => {
+      stop.disabled = true
+      try {
+        await api('study', { method: 'POST', body: { action: 'stop' } })
+        await refreshStudy({ quiet: true })
+      } catch (error) {
+        window.alert(error.message)
+        stop.disabled = false
+      }
+    })
+    hero.appendChild(stop)
+  } else {
+    hero.appendChild(el('span', 'preview-v2-study-state', '지금부터 집중할 과목'))
+    const subject = document.createElement('input')
+    subject.className = 'preview-v2-subject-input'
+    subject.maxLength = 24
+    subject.placeholder = '예: 수학'
+    const start = el('button', 'preview-v2-primary', '공부 시작')
+    start.type = 'button'
+    start.addEventListener('click', async () => {
       start.disabled = true
       try {
-        await api('study-start', { method: 'POST', body: { subject } })
-        await refreshStudy(true)
+        await api('study', { method: 'POST', body: { action: 'start', subject: subject.value } })
+        await refreshStudy({ quiet: true })
       } catch (error) {
-        alert(error.message)
-      } finally {
+        window.alert(error.message)
         start.disabled = false
       }
     })
-    hero.append(form)
+    hero.append(subject, start)
   }
-  page.append(hero)
+  layer.appendChild(hero)
 
-  const section = el('section', 'preview-v2-study-section')
-  const head = el('div', 'preview-v2-section-head')
-  head.append(el('h2', '', `지금 공부 중 ${active.length}명`), el('span', '', '20초마다 상태 확인'))
-  section.append(head)
-  const list = el('div', 'preview-v2-study-list')
-  if (!studyLoaded) list.append(el('div', 'preview-v2-empty', '공부 상태를 불러오는 중이에요.'))
-  else if (!active.length) list.append(el('div', 'preview-v2-empty', '지금 공부 중인 친구가 없어요. 먼저 시작해 보세요.'))
-  else active.forEach((item) => {
-    const row = el('div', 'preview-v2-study-row')
-    const copy = el('div')
-    copy.append(el('strong', '', item.name || '학생'), el('span', '', item.subject || '공부'))
-    row.append(el('i', 'preview-v2-live-dot'), copy, el('time', '', liveDuration(item.startedAt)))
-    list.append(row)
-  })
-  section.append(list)
-  page.append(section)
-  routeLayer.replaceChildren(page)
-}
-
-async function refreshStudy(forceRender = false) {
-  if (!inPreviewMode()) return
-  try {
-    const payload = await api('study-status')
-    studyData = payload
-    studyLoaded = true
-    if (routeState.tab === 'study' || forceRender) renderStudyRoute()
-  } catch (error) {
-    studyLoaded = true
-    if (routeState.tab === 'study') {
-      renderStudyRoute()
-      const empty = routeLayer?.querySelector('.preview-v2-empty')
-      if (empty) empty.textContent = error.message
-    }
-  }
-}
-
-async function stopStudy() {
-  try {
-    await api('study-stop', { method: 'POST' })
-    await refreshStudy(true)
-  } catch (error) {
-    alert(error.message)
-  }
-}
-
-async function studyHeartbeat() {
-  if (!studyData?.me || document.hidden || !inPreviewMode()) return
-  try {
-    await api('study-heartbeat', { method: 'POST' })
-  } catch {
-    // A later status refresh will reconcile a stale session.
-  }
-}
-
-function renderScheduleRoute() {
-  if (!routeLayer) return
-  const page = pageShell('일정', '리마인더와 학사일정을 한곳에서 이동해 확인해요.')
-  const segmented = el('div', 'preview-v2-segmented')
-  ;[['todo', '리마인더'], ['academic', '학사일정']].forEach(([id, label]) => {
-    const button = el('button', routeState.scheduleView === id ? 'active' : '', label)
-    button.type = 'button'
-    button.addEventListener('click', () => {
-      routeState.scheduleView = id
-      renderScheduleRoute()
+  const activeSection = el('section', 'preview-v2-study-section')
+  const activeHead = el('div', 'preview-v2-section-head')
+  const active = studyData?.active || []
+  activeHead.append(el('h2', '', '지금 공부 중'), el('span', '', `${active.length}명`))
+  activeSection.appendChild(activeHead)
+  const activeList = el('div', 'preview-v2-study-list')
+  if (!active.length) {
+    activeList.appendChild(el('p', 'preview-v2-inline-empty', '지금 공부 중인 친구가 없어요.'))
+  } else {
+    active.forEach((item) => {
+      const row = el('div', 'preview-v2-study-row')
+      const copy = el('div', '')
+      copy.append(el('strong', '', item.name || '학생'), el('span', '', item.subject || '공부'))
+      row.append(copy, el('span', 'preview-v2-study-elapsed', liveDuration(item.startedAt)))
+      activeList.appendChild(row)
     })
-    segmented.append(button)
-  })
-  page.append(segmented)
+  }
+  activeSection.appendChild(activeList)
+  layer.appendChild(activeSection)
 
-  const destination = routeState.scheduleView === 'todo' ? 'todo' : 'academic'
-  const card = el('div', 'preview-v2-card preview-v2-forward-card')
-  card.append(
-    el('strong', '', destination === 'todo' ? '리마인더' : '학사일정'),
-    el('p', '', destination === 'todo'
-      ? '기존 실시간 리마인더 화면을 그대로 사용해요.'
-      : '기존 반 학사일정 화면을 그대로 사용해요.'),
-  )
-  const button = el('button', 'preview-v2-primary', destination === 'todo' ? '리마인더 열기' : '학사일정 열기')
-  button.type = 'button'
-  button.addEventListener('click', () => {
-    hideRouteLayer()
-    clickNativeTab(destination)
-  })
-  card.append(button)
-  page.append(card)
-  routeLayer.replaceChildren(page)
+  const ranking = el('section', 'preview-v2-study-section')
+  const rankHead = el('div', 'preview-v2-section-head')
+  rankHead.append(el('h2', '', '오늘 공부'), el('span', '', '누적 시간'))
+  ranking.appendChild(rankHead)
+  const rankList = el('div', 'preview-v2-study-list')
+  const totals = studyData?.totals || []
+  if (!totals.length) {
+    rankList.appendChild(el('p', 'preview-v2-inline-empty', '오늘 기록된 공부 시간이 없어요.'))
+  } else {
+    totals.slice(0, 12).forEach((item, index) => {
+      const row = el('div', 'preview-v2-study-row')
+      const copy = el('div', '')
+      copy.append(el('strong', '', `${index + 1}. ${item.name || '학생'}`), el('span', '', item.studentKey === studyData.me ? '나' : ''))
+      row.append(copy, el('span', '', formatDuration(item.totalMs)))
+      rankList.appendChild(row)
+    })
+  }
+  ranking.appendChild(rankList)
+  layer.appendChild(ranking)
+  if (!studyLoaded) setLayerStatus('공부 현황을 불러오는 중이에요.')
+  syncPreviewActive()
 }
 
-function installRouteLayer() {
-  if (routeLayer?.isConnected) return true
-  const appShell = document.querySelector('.app-shell')
-  const content = appShell?.querySelector('.app-content')
-  if (!content) return false
-  routeLayer = el('div', 'preview-v2-route-layer')
-  routeLayer.setAttribute('aria-hidden', 'true')
-  content.append(routeLayer)
-  return true
+function openHome() {
+  routeGeneration += 1
+  clearRouteTimers()
+  routeState.tab = 'home'
+  removeLayer()
+  nativeNav(0)
+  waitFrames(() => {
+    document.querySelector('.app-shell > .app-content')?.classList.remove('preview-v2-underlay-hidden')
+    syncNavPresentation()
+    syncPreviewActive()
+  })
 }
 
-function interceptNativeNavigation() {
-  document.addEventListener('click', (event) => {
-    if (!inPreviewMode() || allowNativeNav) return
-    const target = event.target.closest?.('.bottom-nav button')
-    if (!target || target.dataset.previewTab) return
-    event.preventDefault()
-    event.stopImmediatePropagation()
-  }, true)
+function openClass(view = 'board') {
+  routeGeneration += 1
+  clearRouteTimers()
+  routeState.tab = 'class'
+  routeState.classView = view === 'timetable' ? 'timetable' : 'board'
+  if (routeState.classView === 'timetable') {
+    removeLayer()
+    nativeNav(2)
+    injectContextSegment('class', 'timetable')
+  } else {
+    nativeNav(0)
+    waitFrames(() => {
+      renderBoard()
+      refreshBoard()
+      refreshTimer = window.setInterval(() => refreshBoard({ quiet: true }), ROUTE_REFRESH_MS)
+    })
+  }
+  syncPreviewActive()
+}
+
+function openStudy() {
+  routeGeneration += 1
+  clearRouteTimers()
+  routeState.tab = 'study'
+  nativeNav(0)
+  waitFrames(() => {
+    renderStudy()
+    refreshStudy()
+    refreshTimer = window.setInterval(() => refreshStudy({ quiet: true }), ROUTE_REFRESH_MS)
+  })
+  syncPreviewActive()
+}
+
+function openSchedule(view = 'todo') {
+  routeGeneration += 1
+  clearRouteTimers()
+  routeState.tab = 'schedule'
+  routeState.scheduleView = view === 'academic' ? 'academic' : 'todo'
+  removeLayer()
+  nativeNav(routeState.scheduleView === 'academic' ? 4 : 1)
+  injectContextSegment('schedule', routeState.scheduleView)
+  syncPreviewActive()
+}
+
+function openMeal() {
+  routeGeneration += 1
+  clearRouteTimers()
+  routeState.tab = 'home'
+  removeLayer()
+  nativeNav(3)
+  injectContextSegment('meal', 'meal')
+  setPreviewActive(0)
+}
+
+function restoreRoute(state) {
+  if (!state) return openHome()
+  if (state.tab === 'class') return openClass(state.classView)
+  if (state.tab === 'study') return openStudy()
+  if (state.tab === 'schedule') return openSchedule(state.scheduleView)
+  return openHome()
+}
+
+function openAI() {
+  const previous = { ...routeState }
+  aiReturnRoute = previous.tab === 'ai' ? { tab: 'home' } : previous
+  routeGeneration += 1
+  clearRouteTimers()
+  routeState.tab = 'ai'
+  removeLayer()
+  nativeNav(0)
+  syncPreviewActive()
+  waitFrames(() => {
+    const trigger = document.querySelector('.home-ai-trigger')
+    if (!trigger) {
+      restoreRoute(aiReturnRoute)
+      return
+    }
+    aiWasOpen = false
+    trigger.click()
+  }, 2)
+}
+
+function routeNavIndex(index) {
+  if (index === 0) return openHome()
+  if (index === 1) return openClass('board')
+  if (index === 2) return openAI()
+  if (index === 3) return openStudy()
+  if (index === 4) return openSchedule('todo')
+}
+
+function handleNavPointer(event) {
+  if (allowNativeNav) return
+  const button = event.target.closest?.('.nav-button')
+  if (!button || !nav?.contains(button)) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+}
+
+function handleNavClick(event) {
+  if (allowNativeNav) return
+  const button = event.target.closest?.('.nav-button')
+  if (!button || !nav?.contains(button)) return
+  const index = navButtons.indexOf(button)
+  if (index < 0) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  routeNavIndex(index)
+}
+
+function homeCardRoute(index) {
+  if (index === 0 || index === 2) return openClass('timetable')
+  if (index === 1) return openSchedule('todo')
+  if (index === 3) return openSchedule('academic')
+  if (index === 4) return openMeal()
+}
+
+function handleHomeCardClick(event) {
+  if (routeState.tab !== 'home') return
+  const card = event.target.closest?.('.home-stack > *')
+  if (!card || event.target.closest?.('button, a, input, textarea, select')) return
+  const stack = card.parentElement
+  const index = Array.from(stack?.children || []).indexOf(card)
+  if (index < 0 || index > 4) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  homeCardRoute(index)
+}
+
+function handleHomeCardKey(event) {
+  if (routeState.tab !== 'home' || !['Enter', ' '].includes(event.key)) return
+  const card = event.target.closest?.('.home-stack > *')
+  if (!card) return
+  const index = Array.from(card.parentElement?.children || []).indexOf(card)
+  if (index < 0 || index > 4) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  homeCardRoute(index)
+}
+
+function routeLegacyTab(tab) {
+  if (tab === 'todo') return openSchedule('todo')
+  if (tab === 'timetable') return openClass('timetable')
+  if (tab === 'academic') return openSchedule('academic')
+  if (tab === 'meal') return openMeal()
+  return openHome()
 }
 
 function watchAI() {
   aiObserver?.disconnect()
   aiObserver = new MutationObserver(() => {
-    const open = Boolean(document.querySelector('.school-ai-sheet, .s-hub-ai-sheet, [data-s-hub-ai-sheet]'))
-    if (aiWasOpen && !open && aiReturnRoute === 'ai') {
-      routeState.tab = 'home'
-      updateNavIndicator()
-      aiReturnRoute = null
+    if (routeState.tab !== 'ai') return
+    const sheet = document.querySelector('.s-hub-ai-sheet')
+    if (sheet) {
+      aiWasOpen = true
+      return
     }
-    aiWasOpen = open
+    if (aiWasOpen) {
+      aiWasOpen = false
+      const target = aiReturnRoute
+      aiReturnRoute = null
+      restoreRoute(target)
+    }
   })
   aiObserver.observe(document.body, { childList: true, subtree: true })
 }
 
-function installTimers() {
-  if (!refreshTimer) {
-    refreshTimer = window.setInterval(() => {
-      if (document.hidden || !inPreviewMode()) return
-      if (routeState.tab === 'class') refreshBoard()
-      if (routeState.tab === 'study') refreshStudy()
-    }, ROUTE_REFRESH_MS)
+function installRouter() {
+  if (!syncNavPresentation()) return false
+  document.documentElement.classList.add('shub-preview-v2')
+  nav.addEventListener('pointerdown', handleNavPointer, true)
+  nav.addEventListener('click', handleNavClick, true)
+  document.addEventListener('click', handleHomeCardClick, true)
+  document.addEventListener('keydown', handleHomeCardKey, true)
+  navObserver = new MutationObserver(() => {
+    syncNavPresentation()
+    syncPreviewActive()
+  })
+  navObserver.observe(nav, { childList: true, subtree: true })
+  watchAI()
+  window.__shubPreviewV2 = {
+    openHome,
+    openClass,
+    openAI,
+    openStudy,
+    openSchedule,
+    openMeal,
+    routeLegacyTab,
   }
-  if (!heartbeatTimer) heartbeatTimer = window.setInterval(studyHeartbeat, STUDY_HEARTBEAT_MS)
-  if (!secondTimer) {
-    secondTimer = window.setInterval(() => {
-      if (routeState.tab !== 'study' || !studyData?.me) return
-      routeLayer?.querySelectorAll('.preview-v2-live-time, .preview-v2-study-row time').forEach((node, index) => {
-        const source = index === 0 ? studyData.me : studyData.active?.[index - 1]
-        if (source?.startedAt) node.textContent = liveDuration(source.startedAt)
-      })
-    }, 1000)
-  }
+  openHome()
+  window.addEventListener('pagehide', () => {
+    clearRouteTimers()
+    navObserver?.disconnect()
+    aiObserver?.disconnect()
+  }, { once: true })
+  return true
 }
 
 function waitForApp() {
-  const ready = () => Boolean(document.querySelector('.app-shell') && document.querySelector('.bottom-nav'))
-  const install = () => {
-    if (!ready()) return false
-    installNavigation()
-    installRouteLayer()
-    interceptNativeNavigation()
-    watchAI()
-    installTimers()
-    document.documentElement.classList.add('preview-v2-active')
-    document.body.classList.add('preview-v2-active')
-    return true
-  }
-  if (install()) return
-  navObserver?.disconnect()
-  navObserver = new MutationObserver(() => {
-    if (!install()) return
-    navObserver.disconnect()
+  if (installRouter()) return
+  const observer = new MutationObserver(() => {
+    if (!installRouter()) return
+    observer.disconnect()
   })
-  navObserver.observe(document.documentElement, { childList: true, subtree: true })
+  observer.observe(document.documentElement, { childList: true, subtree: true })
+  window.addEventListener('pagehide', () => observer.disconnect(), { once: true })
 }
 
 if (inPreviewMode()) waitForApp()
