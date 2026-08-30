@@ -6,6 +6,11 @@ import {
 } from '../lib/class-roster.js'
 import { repairClassRoster } from '../lib/class-roster-repair-service.js'
 import { handlePreviewV2, isPreviewV2Resource } from '../lib/preview-v2-service.js'
+import {
+  ReminderSectionError,
+  prepareReminderSectionDelete,
+  prepareReminderSectionUpdate,
+} from '../lib/reminder-sections.js'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -19,13 +24,86 @@ function bearerToken(req) {
   return /^Bearer\s+/i.test(header) ? header.replace(/^Bearer\s+/i, '').trim() : ''
 }
 
+function isPreviewClassId(value) {
+  return /^preview-class-(?:[1-9]|[12][0-9]|30)$/.test(String(value || '').trim())
+}
+
+async function readReminderSectionDocuments(classRef) {
+  const snapshot = await classRef.collection('reminderCategories').get()
+  return snapshot.docs.map((document) => ({ id: document.id, ...(document.data() || {}) }))
+}
+
+async function migrateReminderSectionTodosToGeneral(db, classRef, sectionId) {
+  if (!sectionId || sectionId === 'all' || sectionId === 'task') return 0
+  const snapshot = await classRef.collection('todos').where('type', '==', sectionId).get()
+  if (snapshot.empty) return 0
+
+  const documents = snapshot.docs
+  const chunkSize = 400
+  let migrated = 0
+  for (let start = 0; start < documents.length; start += chunkSize) {
+    const batch = db.batch()
+    const now = Date.now()
+    documents.slice(start, start + chunkSize).forEach((document) => {
+      batch.update(document.ref, {
+        type: 'task',
+        updatedAt: now,
+      })
+      migrated += 1
+    })
+    await batch.commit()
+  }
+  return migrated
+}
+
+async function handleReminderSectionRequest({ db, classId, body }) {
+  const action = String(body?.action || '').trim()
+  const sectionId = String(body?.sectionId || '').trim().toLowerCase()
+  const classRef = db.collection('classes').doc(classId)
+  const documents = await readReminderSectionDocuments(classRef)
+
+  if (action === 'update') {
+    const section = prepareReminderSectionUpdate({
+      documents,
+      sectionId,
+      label: body?.label,
+      color: body?.color,
+    })
+    await classRef.collection('reminderCategories').doc(section.id).set(section)
+    return { section }
+  }
+
+  if (action === 'delete') {
+    const plan = prepareReminderSectionDelete({ documents, sectionId })
+    const migratedCount = plan.migrateToGeneral
+      ? await migrateReminderSectionTodosToGeneral(db, classRef, plan.current.id)
+      : 0
+    const sectionRef = classRef.collection('reminderCategories').doc(plan.current.id)
+    if (plan.deleteDocument) await sectionRef.delete()
+    else await sectionRef.set(plan.document)
+    return {
+      section: plan.document,
+      deleted: plan.deleteDocument,
+      migratedCount,
+      migratedTo: plan.migrateToGeneral ? 'task' : null,
+    }
+  }
+
+  throw new ReminderSectionError('reminder-section/invalid-action', 'Invalid reminder section action')
+}
+
 export default async function handler(req, res) {
   setCors(res)
   if (req.method === 'OPTIONS') return res.status(204).end()
 
   const repairMode = String(req.query?.mode || '').trim() === 'repair'
-  if (repairMode && req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' })
-  if (!repairMode && !['GET', 'POST'].includes(req.method)) return res.status(405).json({ ok: false, error: 'method_not_allowed' })
+  const reminderSectionMode = String(req.query?.mode || '').trim() === 'reminder-sections'
+  if ((repairMode || reminderSectionMode) && req.method !== 'POST') {
+    return res.status(405).json({ ok: false, error: 'method_not_allowed' })
+  }
+  if (!repairMode && !reminderSectionMode && !['GET', 'POST'].includes(req.method)) {
+    return res.status(405).json({ ok: false, error: 'method_not_allowed' })
+  }
 
   const token = bearerToken(req)
   if (!token) {
@@ -56,6 +134,29 @@ export default async function handler(req, res) {
         error: 'invalid_class',
         message: '반 정보를 확인하지 못했어요.',
       })
+    }
+
+    if (reminderSectionMode) {
+      if (!isPreviewClassId(classId)) {
+        return res.status(403).json({
+          ok: false,
+          error: 'reminder-section/preview-class-required',
+          message: '프리뷰 반에서만 섹션 설정을 변경할 수 있어요.',
+        })
+      }
+      try {
+        const data = await handleReminderSectionRequest({ db, classId, body: req.body || {} })
+        return res.status(200).json({ ok: true, data })
+      } catch (error) {
+        if (error instanceof ReminderSectionError) {
+          return res.status(400).json({
+            ok: false,
+            error: error.code,
+            message: error.message,
+          })
+        }
+        throw error
+      }
     }
 
     if (repairMode) {
@@ -156,6 +257,14 @@ export default async function handler(req, res) {
         ok: false,
         error: code || 'class_roster_repair_failed',
         message: '반 명단 정리를 완료하지 못했어요.',
+      })
+    }
+    if (reminderSectionMode) {
+      console.error('reminder section save failed', { code, message: error?.message })
+      return res.status(502).json({
+        ok: false,
+        error: code || 'reminder-section/server',
+        message: '섹션 설정을 저장하지 못했어요.',
       })
     }
     const requestedStatus = Number(error?.status || 0)
