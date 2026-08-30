@@ -7,6 +7,11 @@ import {
   POLITE_COPY_REPLACEMENTS,
   POLITE_SOURCE_FRAGMENTS,
 } from './src/polite-copy-runtime.js'
+import { PREVIEW_POLITE_COPY_REPLACEMENTS } from './src/preview-polite-copy-additions.js'
+import { patchPreviewAIReminderSummarySource } from './src/preview-ai-reminder-summary-patch.js'
+import { patchPreviewNavSpringSource } from './src/preview-nav-spring-patch.js'
+import { patchPreviewReminderPolishSource } from './src/preview-reminder-polish-patch.js'
+import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'
 
 const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
@@ -17,6 +22,7 @@ const AI_PROMPT_MARKERS = [
 
 const BUILD_COPY_REPLACEMENTS = [
   ...POLITE_COPY_REPLACEMENTS.filter(([from]) => from !== '등록된 급식이 없어'),
+  ...PREVIEW_POLITE_COPY_REPLACEMENTS,
   ['같은 학사일정이 이미 있어.', '같은 학사일정이 이미 있어요.'],
 ]
 
@@ -42,6 +48,18 @@ function replaceCopy(source) {
   return next
 }
 
+function replaceV2Source(source, id) {
+  const cleanId = String(id || '').split('?')[0]
+  if (!cleanId.includes('/src/')) return String(source || '')
+
+  let next = String(source || '')
+  next = patchPreviewNavSpringSource(next, cleanId)
+  next = patchPreviewSHubV2Source(next, cleanId)
+  next = patchPreviewAIReminderSummarySource(next, cleanId)
+  next = patchPreviewReminderPolishSource(next, cleanId)
+  return next
+}
+
 function patchPublicBuildFiles(directory) {
   if (!fs.existsSync(directory)) return
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -53,13 +71,32 @@ function patchPublicBuildFiles(directory) {
   }
 }
 
+function sHubV2FeaturePlugin() {
+  return {
+    name: 'school-s-hub-v2-features',
+    enforce: 'pre',
+    transform(code, id) {
+      const next = replaceV2Source(code, id)
+      return next === code ? null : { code: next, map: null }
+    },
+  }
+}
+
 function politeCopyPlugin() {
   return {
     name: 'school-polite-copy',
     enforce: 'pre',
     transform(code, id) {
       const cleanId = id.split('?')[0]
-      if (!cleanId.includes('/src/') || cleanId.endsWith('/polite-copy-runtime.js')) return null
+      if (
+        !cleanId.includes('/src/')
+        || cleanId.endsWith('/polite-copy-runtime.js')
+        || cleanId.endsWith('/preview-polite-copy-additions.js')
+        || cleanId.endsWith('/preview-s-hub-v2-patch.js')
+        || cleanId.endsWith('/preview-ai-reminder-summary-patch.js')
+        || cleanId.endsWith('/preview-reminder-polish-patch.js')
+        || cleanId.endsWith('/preview-nav-spring-patch.js')
+      ) return null
 
       const next = replaceCopy(code)
       return next === code ? null : { code: next, map: null }
@@ -71,6 +108,6 @@ function politeCopyPlugin() {
 }
 
 export default defineConfig({
-  plugins: [politeCopyPlugin(), react()],
+  plugins: [sHubV2FeaturePlugin(), politeCopyPlugin(), react()],
   base: '/school/',
 })

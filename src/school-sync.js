@@ -26,6 +26,7 @@ import {
   saveOverrides,
   saveWeeklySchedule,
 } from './timetable'
+import { isReminderTypeId, normalizeReminderCategory, normalizeReminderCategories } from './reminder-categories.js'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0',
@@ -296,6 +297,14 @@ function classTodoRef(profile, todoId) {
   return doc(db, 'classes', classKeyFor(profile), 'todos', String(todoId))
 }
 
+function classReminderCategoriesCollection(profile) {
+  return collection(db, 'classes', classKeyFor(profile), 'reminderCategories')
+}
+
+function classReminderCategoryRef(profile, categoryId) {
+  return doc(db, 'classes', classKeyFor(profile), 'reminderCategories', String(categoryId))
+}
+
 function personalTodoStateCollection(profile) {
   return collection(db, 'students', studentKeyFor(profile), 'todoState')
 }
@@ -520,7 +529,7 @@ function safeSharedTodo(todo) {
   const title = String(todo.title || '').trim().slice(0, 80)
   const dueDate = String(todo.dueDate || '')
   if (!id || !title || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return null
-  const type = ['task', 'performance', 'exam', 'material'].includes(todo.type) ? todo.type : 'task'
+  const type = isReminderTypeId(todo.type) ? todo.type : 'task'
   const dueTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(todo.dueTime || '')) ? String(todo.dueTime) : ''
   const summary = safeSummary(todo.summary)
   const attachment = safeAttachment(todo.attachment)
@@ -570,6 +579,44 @@ export function listenClassTodos(profile, onValue, onError = () => {}) {
     .then(() => {
       if (stopped) return
       unsubscribe = onSnapshot(classTodosCollection(profile), applySnapshot, onError)
+      removeRevalidation = installServerRevalidation(refreshFromServer)
+    })
+    .catch(onError)
+
+  return () => {
+    stopped = true
+    unsubscribe()
+    removeRevalidation()
+  }
+}
+
+export function listenClassReminderCategories(profile, onValue, onError = () => {}) {
+  let stopped = false
+  let unsubscribe = () => {}
+  let removeRevalidation = () => {}
+  let generation = 0
+
+  const applySnapshot = (snapshot) => {
+    if (stopped || snapshot.metadata?.fromCache) return
+    generation += 1
+    onValue(normalizeReminderCategories(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))))
+  }
+
+  const refreshFromServer = async () => {
+    const startedAtGeneration = generation
+    try {
+      const snapshot = await getDocsFromServer(classReminderCategoriesCollection(profile))
+      if (stopped || generation !== startedAtGeneration) return
+      applySnapshot(snapshot)
+    } catch (error) {
+      if (!stopped) onError(error)
+    }
+  }
+
+  ensureSignedIn()
+    .then(() => {
+      if (stopped) return
+      unsubscribe = onSnapshot(classReminderCategoriesCollection(profile), applySnapshot, onError)
       removeRevalidation = installServerRevalidation(refreshFromServer)
     })
     .catch(onError)
@@ -720,6 +767,14 @@ export async function writeSharedTodo(profile, todo) {
   if (!normalized) throw new Error('Invalid shared reminder')
   await ensureSignedIn()
   await setDoc(classTodoRef(profile, normalized.id), normalized, { merge: true })
+}
+
+export async function writeClassReminderCategory(profile, value) {
+  const category = normalizeReminderCategory(value)
+  if (!category) throw new Error('Invalid reminder category')
+  await ensureSignedIn()
+  await setDoc(classReminderCategoryRef(profile, category.id), category)
+  return category
 }
 
 

@@ -13,7 +13,7 @@
  * on iOS Safari. Compensate for a centered, narrower containing block so the
  * original-file viewer still occupies the real visual viewport.
  */
-.reminder-original-viewer {
+html.school-mobile-compat .reminder-original-viewer {
   box-sizing: border-box;
   left: calc((100% - 100vw) / 2) !important;
   right: auto !important;
@@ -21,14 +21,14 @@
   max-width: none !important;
 }
 
-.reminder-original-panel {
+html.school-mobile-compat .reminder-original-panel {
   box-sizing: border-box;
   max-width: calc(100vw - 28px);
   min-width: 0;
 }
 
-.reminder-original-panel > header,
-.reminder-original-image-wrap,
-.reminder-original-save {
+html.school-mobile-compat .reminder-original-panel > header,
+html.school-mobile-compat .reminder-original-image-wrap,
+html.school-mobile-compat .reminder-original-save {
   min-width: 0;
 }

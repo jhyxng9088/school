@@ -453,7 +453,7 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
 
       <div className="home-stack">
         <CurrentClassPreview schoolState={schoolState} now={now} />
-        <TodoHomePreview todos={todoData.todos} now={now} />
+        <TodoHomePreview todos={todoData.todos} categories={todoData.categories} now={now} />
         <TimetablePreview
           schedule={timetablePreviewSchedule}
           now={now}
