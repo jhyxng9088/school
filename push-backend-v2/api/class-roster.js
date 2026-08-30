@@ -96,9 +96,8 @@ export default async function handler(req, res) {
   setCors(res)
   if (req.method === 'OPTIONS') return res.status(204).end()
 
-  const mode = String(req.query?.mode || '').trim()
-  const repairMode = mode === 'repair'
-  const reminderSectionMode = mode === 'reminder-sections'
+  const repairMode = String(req.query?.mode || '').trim() === 'repair'
+  const reminderSectionMode = String(req.query?.mode || '').trim() === 'reminder-sections'
   if ((repairMode || reminderSectionMode) && req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'method_not_allowed' })
   }
