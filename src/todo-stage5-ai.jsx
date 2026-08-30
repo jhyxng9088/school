@@ -191,6 +191,19 @@ function ReminderRow({ todo, categories, now, completed = false, motion = '', on
       <div className="todo-row-actions">
         {meta ? <AnimatedText as="span" className="todo-meta-text" value={meta} delay={90} /> : null}
         <span className="todo-date-text">{dateLabel}</span>
+        {readableSummary ? (
+          <button
+            className="reminder-summary-handle"
+            type="button"
+            aria-label={`${todo.title} 요약 열기`}
+            onClick={() => onOpenSummary(todo)}
+          >
+            <span className="reminder-summary-handle-icon" aria-hidden="true">
+              <span className="reminder-summary-handle-grip" />
+              <span className="reminder-summary-handle-sheet" />
+            </span>
+          </button>
+        ) : null}
         {completed ? (
           <button
             className="todo-permanent-delete"
