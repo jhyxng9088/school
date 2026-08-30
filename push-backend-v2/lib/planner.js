@@ -1,6 +1,8 @@
 import {
   academicTomorrowBody,
   activeForStudent,
+  addDays,
+  dueEpochKst,
   isImportantAcademic,
   isNightPreviewWindow,
   isReminderHourDue,
@@ -19,6 +21,12 @@ function groupSubscriptionsByStudent(subscriptions) {
     map.get(studentKey).push(subscription)
   }
   return map
+}
+
+function endOfKstDate(dateKey) {
+  const nextDate = addDays(dateKey, 1)
+  if (!nextDate) return NaN
+  return Date.parse(`${nextDate}T00:00:00+09:00`) - 1
 }
 
 export function planClassNotifications({
@@ -46,6 +54,7 @@ export function planClassNotifications({
         key: `reminder-hour|${classId}|${studentKey}|${todoId}|${todo.dueDate}|${todo.dueTime}`,
         type: 'reminder-hour',
         studentKey,
+        expiresAt: dueEpochKst(todo.dueDate, todo.dueTime),
         recipients: studentSubscriptions,
         payload: {
           title: 'S-Hub',
@@ -60,6 +69,7 @@ export function planClassNotifications({
   if (!isNightPreviewWindow(nowMs)) return plans
 
   const tomorrow = tomorrowDateKey(nowMs)
+  const tomorrowExpiresAt = endOfKstDate(tomorrow)
   const tomorrowTodos = (todos || []).filter((todo) => (
     String(todo?.dueDate || '') === tomorrow
     && !validTime(todo?.dueTime)
@@ -76,6 +86,7 @@ export function planClassNotifications({
       key: `reminder-tomorrow|${classId}|${studentKey}|${tomorrow}`,
       type: 'reminder-tomorrow',
       studentKey,
+      expiresAt: tomorrowExpiresAt,
       recipients: studentSubscriptions,
       payload: {
         title: 'S-Hub',
@@ -96,6 +107,7 @@ export function planClassNotifications({
         key: `academic-tomorrow|${classId}|${studentKey}|${tomorrow}`,
         type: 'academic-tomorrow',
         studentKey,
+        expiresAt: tomorrowExpiresAt,
         recipients: studentSubscriptions,
         payload: {
           title: 'S-Hub',
