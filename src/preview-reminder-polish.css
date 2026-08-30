@@ -1,7 +1,6 @@
 .todo-stage5 .reminder-summary-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   height: 18px;
   margin-left: 2px;
   padding: 0 6px;
@@ -15,14 +14,6 @@
   letter-spacing: -0.01em;
   opacity: 0.82;
   pointer-events: none;
-}
-
-.todo-stage5 .reminder-summary-badge-mark {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.72;
 }
 
 .todo-stage5 .todo-item-main.has-summary:active .reminder-summary-badge {
