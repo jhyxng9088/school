@@ -49,7 +49,7 @@ test('preview AI uses page presentation and core routing waits for the real trig
   assert.match(sheet, /role="region"/)
   assert.match(sheet, /aria-modal="false"/)
   assert.match(preview, /AI_TRIGGER_TIMEOUT_MS = 1600/)
-  assert.match(preview, /function waitForTrigger/)
+  assert.match(preview, /const waitForTrigger = \(\) =>/)
   assert.match(preview, /requestAnimationFrame\(waitForTrigger\)/)
   assert.match(preview, /\.home-ai-trigger/)
   assert.doesNotMatch(preview, /waitFrames\(\(\) => \{[\s\S]{0,250}\.home-ai-trigger[\s\S]{0,250}\}, 2\)/)
