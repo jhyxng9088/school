@@ -66,7 +66,8 @@ test('preview AI context contains student-visible app data and explicitly exclud
   assert.match(context, /scope: 'student-visible-only'/)
   assert.match(context, /adminFeaturesIncluded: false/)
   assert.match(context, /superAdminFeaturesIncluded: false/)
-  assert.doesNotMatch(context, /admin-api|superadmin|super-admin/i)
+  assert.match(context, /api\/class-roster/)
+  assert.doesNotMatch(context, /\/api\/(?:admin|super(?:-?admin)?)(?:[/'"`?]|$)/i)
   assert.match(ai, /enrichPreviewAIContext/)
 })
 
