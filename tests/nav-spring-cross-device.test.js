@@ -16,6 +16,7 @@ test('preview build keeps the production source intact and opens the existing na
   const patched = patchPreviewNavSpringSource(mainSource, '/workspace/src/main.jsx')
   assert.doesNotMatch(patched, /const compatibilityMotion = MOBILE_BROWSER_COMPAT/)
   assert.match(patched, /indicator\.dataset\.springMotion = 'true'/)
+  assert.match(patched, /nav\.dataset\.elasticShell = 'true'/)
   assert.match(patched, /setProperty\('left', '0px', 'important'\)/)
   assert.match(patched, /setProperty\('transition', 'none', 'important'\)/)
   assert.match(patched, /setProperty\('transform',[\s\S]*'important'\)/)
@@ -33,10 +34,33 @@ test('preview nav spring is only slightly faster than the proven iPad physics', 
   assert.match(patched, /const mass = 1/)
 })
 
-test('mobile compositor protections stay enabled while the indicator uses the same spring', () => {
+test('elastic shell expands only when the stretched indicator consumes the edge padding', () => {
+  const patched = patchPreviewNavSpringSource(mainSource, '/workspace/src/main.jsx')
+  assert.match(patched, /const navPadding = Number\.parseFloat\(window\.getComputedStyle\(nav\)\.getPropertyValue\('--nav-padding'\)\) \|\| 5/)
+  assert.match(patched, /const leftShellStretch = Math\.max\(0, navPadding - visualX\)/)
+  assert.match(patched, /const rightShellStretch = Math\.max\(0, visualRight - \(nav\.clientWidth - navPadding\)\)/)
+  assert.match(patched, /const shellScaleX = \(nav\.clientWidth \+ leftShellStretch \+ rightShellStretch\) \/ nav\.clientWidth/)
+  assert.match(patched, /const shellShiftX = \(rightShellStretch - leftShellStretch\) \/ 2/)
+  assert.match(patched, /--nav-shell-scale-x/)
+  assert.match(patched, /--nav-shell-shift-x/)
+})
+
+test('elastic shell is visual-only so button spacing and nav layout do not reflow', () => {
+  assert.doesNotMatch(styleSource, /data-elastic-shell="true"/)
+  const patchedStyles = patchPreviewNavSpringSource(styleSource, '/workspace/src/styles.css')
+  assert.match(patchedStyles, /\.bottom-nav\[data-elastic-shell="true"\] \{[\s\S]*overflow: visible;[\s\S]*contain: layout;/)
+  assert.match(patchedStyles, /\.bottom-nav\[data-elastic-shell="true"\]::before \{[\s\S]*scaleX\(var\(--nav-shell-scale-x, 1\)\)/)
+  assert.match(patchedStyles, /translate3d\(var\(--nav-shell-shift-x, 0px\), 0, 0\)/)
+  assert.match(patchedStyles, /\.bottom-nav\[data-elastic-shell="true"\] \.nav-button \{\s*z-index: 2;/)
+})
+
+test('mobile compositor protections stay enabled while the indicator and shell use the same spring frame', () => {
   assert.match(styleSource, /html\.school-samsung \.bottom-nav \{[\s\S]*backdrop-filter: none;/)
   assert.match(styleSource, /html\.school-samsung \.app-content \{[\s\S]*transform: none !important;/)
   assert.match(styleSource, /html\.school-mobile-compat:not\(\.school-samsung\) \.app-content\.tab-academic \{[\s\S]*transform: none !important;/)
+
+  const patchedStyles = patchPreviewNavSpringSource(styleSource, '/workspace/src/styles.css')
+  assert.match(patchedStyles, /html\.school-samsung \.bottom-nav\[data-elastic-shell="true"\]::before \{[\s\S]*backdrop-filter: none;/)
 })
 
 test('preview Vite transform actually applies the guarded nav spring patch', () => {
