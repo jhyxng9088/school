@@ -26,6 +26,11 @@ function needsFixedBodyScrollLock() {
   )
 }
 
+function previewAIPagePresentation(className) {
+  return String(className || '').split(/\s+/).includes('s-hub-ai-sheet') &&
+    document.documentElement.classList.contains('shub-preview-v2')
+}
+
 export function UnifiedBottomSheet({
   open,
   onClose,
@@ -36,6 +41,7 @@ export function UnifiedBottomSheet({
   ariaLabel,
   closeDisabled = false,
 }) {
+  const pagePresentation = previewAIPagePresentation(className)
   const [rendered, setRendered] = useState(Boolean(open))
   const [visualOpen, setVisualOpen] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -106,6 +112,14 @@ export function UnifiedBottomSheet({
     cancelOpenFramesRef.current()
     clearCloseTimer()
 
+    if (pagePresentation) {
+      clearDrag({ paint: false })
+      setRendered(Boolean(open))
+      setClosing(false)
+      setVisualOpen(Boolean(open))
+      return undefined
+    }
+
     if (open) {
       clearDrag()
       setRendered(true)
@@ -127,10 +141,10 @@ export function UnifiedBottomSheet({
     }
 
     return undefined
-  }, [open])
+  }, [open, pagePresentation])
 
   useEffect(() => {
-    if (!rendered) return undefined
+    if (!rendered || pagePresentation) return undefined
     const body = document.body
     const root = document.documentElement
     const fixedBodyScrollLock = needsFixedBodyScrollLock()
@@ -172,7 +186,7 @@ export function UnifiedBottomSheet({
       root.style.overflow = previous.rootOverflow
       if (fixedBodyScrollLock) window.scrollTo(0, scrollY)
     }
-  }, [rendered])
+  }, [rendered, pagePresentation])
 
   useEffect(() => () => {
     clearCloseTimer()
@@ -186,7 +200,7 @@ export function UnifiedBottomSheet({
   }
 
   function onPointerDown(event) {
-    if (closeDisabled || closing || event.button > 0) return
+    if (pagePresentation || closeDisabled || closing || event.button > 0) return
     if (event.target.closest('button, input, select, textarea, a')) return
     const sheet = sheetRef.current
     if (!sheet) return
@@ -205,6 +219,7 @@ export function UnifiedBottomSheet({
   }
 
   function onPointerMove(event) {
+    if (pagePresentation) return
     const drag = dragRef.current
     if (!drag.active || event.pointerId !== drag.pointerId) return
     if (event.cancelable) event.preventDefault()
@@ -219,6 +234,7 @@ export function UnifiedBottomSheet({
   }
 
   function finishPointer(event, cancelled = false) {
+    if (pagePresentation) return
     const drag = dragRef.current
     if (!drag.active || event.pointerId !== drag.pointerId) return
     event.currentTarget.releasePointerCapture?.(event.pointerId)
@@ -243,6 +259,36 @@ export function UnifiedBottomSheet({
   }
 
   if (!rendered) return null
+
+  if (pagePresentation) {
+    return createPortal(
+      <section
+        ref={sheetRef}
+        className={`unified-school-sheet unified-school-page is-open ${className}`.trim()}
+        role="region"
+        aria-modal="false"
+        aria-label={ariaLabel || title}
+      >
+        <div className="unified-sheet-head">
+          <div className="unified-sheet-title-copy">
+            <h2>{title}</h2>
+            {subtitle ? <p>{subtitle}</p> : null}
+          </div>
+          <button
+            className="unified-sheet-close"
+            type="button"
+            onClick={requestClose}
+            disabled={closeDisabled}
+            aria-label="닫기"
+          >
+            ×
+          </button>
+        </div>
+        <div className="unified-sheet-scroll">{children}</div>
+      </section>,
+      document.body,
+    )
+  }
 
   const stateClass = closing ? 'is-closing' : visualOpen ? 'is-open' : 'is-opening'
   return createPortal(
