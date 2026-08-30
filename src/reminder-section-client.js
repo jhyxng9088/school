@@ -6,6 +6,7 @@ import {
 } from './reminder-categories.js'
 
 const REMINDER_SECTION_API_URL = 'https://school-reminder-backend.vercel.app/api/reminder-sections'
+const REMINDER_SECTION_FALLBACK_API_URL = 'https://school-reminder-backend-mm1t9pzs6-jhyxng9088-7711.vercel.app/api/reminder-sections'
 
 function sectionError(code, message) {
   const error = new Error(message)
@@ -32,14 +33,10 @@ function validateUniqueSection(sectionId, label, color, categories) {
   }
 }
 
-async function requestSectionChange(payload) {
-  const user = await ensureSignedIn()
-  const idToken = String(await user.getIdToken()).trim()
-  if (!idToken) throw sectionError('reminder-section/auth-required', 'Authentication required')
-
+async function postSectionChange(url, payload, idToken) {
   let response
   try {
-    response = await fetch(REMINDER_SECTION_API_URL, {
+    response = await fetch(url, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${idToken}`,
@@ -48,17 +45,43 @@ async function requestSectionChange(payload) {
       body: JSON.stringify(payload),
     })
   } catch {
-    throw sectionError('reminder-section/network', 'Reminder section server unavailable')
+    return {
+      response: null,
+      body: {},
+      networkError: true,
+    }
   }
 
   const body = await response.json().catch(() => ({}))
-  if (!response.ok || body?.ok !== true) {
+  return { response, body, networkError: false }
+}
+
+async function requestSectionChange(payload) {
+  const user = await ensureSignedIn()
+  const idToken = String(await user.getIdToken()).trim()
+  if (!idToken) throw sectionError('reminder-section/auth-required', 'Authentication required')
+
+  let result = await postSectionChange(REMINDER_SECTION_API_URL, payload, idToken)
+  const primaryNeedsFallback = (
+    result.response?.status === 403
+    && String(result.body?.error || '') === 'reminder-section/preview-class-required'
+  )
+
+  if (primaryNeedsFallback) {
+    result = await postSectionChange(REMINDER_SECTION_FALLBACK_API_URL, payload, idToken)
+  }
+
+  if (result.networkError || !result.response) {
+    throw sectionError('reminder-section/network', 'Reminder section server unavailable')
+  }
+
+  if (!result.response.ok || result.body?.ok !== true) {
     throw sectionError(
-      String(body?.error || 'reminder-section/server'),
-      String(body?.message || 'Reminder section save failed'),
+      String(result.body?.error || 'reminder-section/server'),
+      String(result.body?.message || 'Reminder section save failed'),
     )
   }
-  return body.data || {}
+  return result.body.data || {}
 }
 
 export async function saveReminderSectionChange({
