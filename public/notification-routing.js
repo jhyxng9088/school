@@ -9,6 +9,10 @@
 
   let activeRequest = 0
 
+  function isPreviewV2() {
+    return window.location.pathname.startsWith('/preview/')
+  }
+
   function cleanRoute() {
     const url = new URL(window.location.href)
     url.searchParams.delete('tab')
@@ -19,11 +23,42 @@
     const aliases = labels[tab]
     if (!aliases?.length) return null
     return Array.from(document.querySelectorAll('.bottom-nav .nav-button'))
-      .find((button) => aliases.includes(button.querySelector('span')?.textContent?.trim() || '')) || null
+      .find((button) => aliases.includes(button.querySelector('span:not(.preview-v2-nav-icon)')?.textContent?.trim() || '')) || null
+  }
+
+  function routePreview(tab, { cleanUrl = false } = {}) {
+    const requestId = activeRequest + 1
+    activeRequest = requestId
+    let observer = null
+    let timer = null
+
+    const finish = () => {
+      if (requestId !== activeRequest) return true
+      const router = window.__shubPreviewV2
+      if (!router?.routeLegacyTab) return false
+      router.routeLegacyTab(tab)
+      if (cleanUrl) cleanRoute()
+      observer?.disconnect()
+      if (timer) window.clearTimeout(timer)
+      return true
+    }
+
+    if (finish()) return
+    observer = new MutationObserver(finish)
+    observer.observe(document.documentElement, { childList: true, subtree: true })
+    timer = window.setTimeout(() => {
+      observer?.disconnect()
+      if (cleanUrl && requestId === activeRequest) cleanRoute()
+    }, 10000)
   }
 
   function routeToTab(tab, { cleanUrl = false } = {}) {
     if (!labels[tab]) return
+    if (isPreviewV2()) {
+      routePreview(tab, { cleanUrl })
+      return
+    }
+
     const requestId = activeRequest + 1
     activeRequest = requestId
     let observer = null
