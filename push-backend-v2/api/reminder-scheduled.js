@@ -1,6 +1,7 @@
 import { adminDb } from '../lib/firebase-admin.js'
 import { planClassNotifications } from '../lib/planner.js'
 import { acquireClaim, markClaimSent, releaseClaim } from '../lib/claims.js'
+import { recentScheduleCheckpoints, uniqueScheduledPlans } from '../lib/schedule-backfill.js'
 import { sendPlan, vapidConfigurationState } from '../lib/push.js'
 
 function setCors(res) {
@@ -67,6 +68,7 @@ export default async function handler(req, res) {
 
   const dryRun = String(req.query?.dryRun || '') === '1'
   const nowMs = Date.now()
+  const checkpoints = recentScheduleCheckpoints(nowMs)
 
   try {
     const db = adminDb()
@@ -81,15 +83,18 @@ export default async function handler(req, res) {
     const planned = []
     for (const [classId, classSubscriptions] of byClass) {
       const data = await classData(db, classId, classSubscriptions)
-      planned.push(...planClassNotifications({
-        classId,
-        subscriptions: classSubscriptions,
-        todos: data.todos,
-        statesByStudent: data.statesByStudent,
-        academicEvents: data.academicEvents,
-        nowMs,
-      }))
+      for (const plannerNowMs of checkpoints) {
+        planned.push(...planClassNotifications({
+          classId,
+          subscriptions: classSubscriptions,
+          todos: data.todos,
+          statesByStudent: data.statesByStudent,
+          academicEvents: data.academicEvents,
+          nowMs: plannerNowMs,
+        }))
+      }
     }
+    const uniquePlans = uniqueScheduledPlans(planned)
 
     if (dryRun) {
       const pushState = vapidConfigurationState()
@@ -100,8 +105,9 @@ export default async function handler(req, res) {
         vapidKeyPairMatches: pushState.keyPairMatches,
         subscriptions: subscriptions.length,
         classes: byClass.size,
-        planned: planned.length,
-        types: planned.reduce((acc, plan) => {
+        checkedWindows: checkpoints.length,
+        planned: uniquePlans.length,
+        types: uniquePlans.reduce((acc, plan) => {
           acc[plan.type] = (acc[plan.type] || 0) + 1
           return acc
         }, {}),
@@ -109,7 +115,7 @@ export default async function handler(req, res) {
     }
 
     const totals = {
-      planned: planned.length,
+      planned: uniquePlans.length,
       claimed: 0,
       attempted: 0,
       sent: 0,
@@ -117,7 +123,7 @@ export default async function handler(req, res) {
       transientFailures: 0,
     }
 
-    for (const plan of planned) {
+    for (const plan of uniquePlans) {
       const { acquired, ref } = await acquireClaim(db, plan.key, {
         type: plan.type,
         studentKey: String(plan.studentKey || ''),
@@ -142,6 +148,7 @@ export default async function handler(req, res) {
       ok: true,
       subscriptions: subscriptions.length,
       classes: byClass.size,
+      checkedWindows: checkpoints.length,
       ...totals,
     })
   } catch (error) {
