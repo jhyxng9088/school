@@ -6,15 +6,29 @@ import { resolve } from 'node:path'
 const root = process.cwd()
 const text = (path) => readFileSync(resolve(root, path), 'utf8')
 
-test('grouped class and schedule navigation keeps persistent chrome with a sliding selector', () => {
+test('grouped class and schedule navigation uses one shared spring indicator without the old glitch bridge', () => {
   const hotfix = text('src/preview-v2-hotfix.js')
   const css = text('src/preview-v2-hotfix.css')
-  assert.match(hotfix, /preview-v2-persistent-header/)
-  assert.match(hotfix, /preview-v2-chrome-bridge/)
+  assert.match(hotfix, /function moveSpringIndicator/)
+  assert.match(hotfix, /requestAnimationFrame\(animate\)/)
+  assert.match(hotfix, /preview-v2-segment-indicator/)
+  assert.match(hotfix, /preview-v2-transition-chrome/)
   assert.match(hotfix, /labels === '게시판\|시간표'/)
   assert.match(hotfix, /labels === '리마인더\|학사일정'/)
-  assert.match(css, /preview-v2-segment:has\(> button:nth-of-type\(2\)\.is-selected\)::before/)
-  assert.match(css, /cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
+  assert.match(hotfix, /existing\.shift\(\)/)
+  assert.match(hotfix, /existing\.forEach\(\(node\) => node\.remove\(\)\)/)
+  assert.doesNotMatch(hotfix, /preview-v2-chrome-bridge/)
+  assert.match(css, /preview-v2-segment-indicator/)
+  assert.doesNotMatch(css, /preview-v2-segment:has\(> button:nth-of-type\(2\)\.is-selected\)::before/)
+})
+
+test('preview nav spring is device-independent instead of disabling iPhone or Samsung motion', () => {
+  const hotfix = text('src/preview-v2-hotfix.js')
+  assert.match(hotfix, /syncNavSpring/)
+  assert.match(hotfix, /moveSpringIndicator\(nav, indicator, selected/)
+  assert.doesNotMatch(hotfix, /SamsungBrowser/)
+  assert.doesNotMatch(hotfix, /MOBILE_BROWSER_COMPAT/)
+  assert.doesNotMatch(hotfix, /iPhone\|iPod\|Android/)
 })
 
 test('preview board copy is normalized to polite Korean', () => {
@@ -25,25 +39,39 @@ test('preview board copy is normalized to polite Korean', () => {
   assert.match(hotfix, /적어 주세요\./)
 })
 
-test('preview AI uses page presentation and does not apply modal body scroll locking', () => {
+test('preview AI uses page presentation and core routing waits for the real trigger', () => {
   const sheet = text('src/unified-sheet.jsx')
+  const preview = text('src/preview-v2.js')
   const css = text('src/preview-v2-hotfix.css')
   assert.match(sheet, /previewAIPagePresentation/)
   assert.match(sheet, /unified-school-page/)
   assert.match(sheet, /if \(!rendered \|\| pagePresentation\) return undefined/)
   assert.match(sheet, /role="region"/)
   assert.match(sheet, /aria-modal="false"/)
+  assert.match(preview, /AI_TRIGGER_TIMEOUT_MS = 1600/)
+  assert.match(preview, /function waitForTrigger/)
+  assert.match(preview, /requestAnimationFrame\(waitForTrigger\)/)
+  assert.match(preview, /\.home-ai-trigger/)
+  assert.doesNotMatch(preview, /waitFrames\(\(\) => \{[\s\S]{0,250}\.home-ai-trigger[\s\S]{0,250}\}, 2\)/)
   assert.match(css, /unified-school-page\.preview-v2-ai-page/)
 })
 
-test('study preview has a book icon, animated state changes and class/global ranking selector', () => {
+test('study preview keeps one page shell and updates its hero and lists in place', () => {
+  const preview = text('src/preview-v2.js')
   const hotfix = text('src/preview-v2-hotfix.js')
   const css = text('src/preview-v2-hotfix.css')
+  assert.match(preview, /function ensureStudyLayer/)
+  assert.match(preview, /routeLayer\.dataset\.previewPage === 'study'/)
+  assert.match(preview, /function renderStudyHero/)
+  assert.match(preview, /function renderStudyActiveList/)
+  assert.match(preview, /function renderStudyRanking/)
+  assert.match(preview, /data-study-started-at/)
+  assert.match(preview, /hero\.dataset\.studyMode === nextMode/)
   assert.match(hotfix, /previewBookIcon/)
   assert.match(hotfix, /우리 반 랭킹/)
   assert.match(hotfix, /전체 랭킹/)
   assert.match(hotfix, /globalTotals/)
-  assert.match(hotfix, /animateChangedNumber/)
+  assert.match(hotfix, /animateNumber/)
   assert.match(css, /is-study-transitioning/)
   assert.match(css, /preview-v2-ranking-row/)
 })
@@ -53,7 +81,7 @@ test('academic list receives staggered preview entrance motion', () => {
   assert.match(hotfix, /animateAcademicList/)
   assert.match(hotfix, /academic-focus-card/)
   assert.match(hotfix, /academic-list-item/)
-  assert.match(hotfix, /delay: Math\.min\(index \* 42, 210\)/)
+  assert.match(hotfix, /delay: Math\.min\(index \* 38, 190\)/)
 })
 
 test('preview AI context contains student-visible app data and explicitly excludes admin scopes', () => {
