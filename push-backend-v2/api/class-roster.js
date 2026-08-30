@@ -9,6 +9,7 @@ import { handlePreviewV2, isPreviewV2Resource } from '../lib/preview-v2-service.
 import {
   ReminderSectionError,
   prepareReminderSectionDelete,
+  prepareReminderSectionRestore,
   prepareReminderSectionUpdate,
 } from '../lib/reminder-sections.js'
 
@@ -33,12 +34,17 @@ async function readReminderSectionDocuments(classRef) {
   return snapshot.docs.map((document) => ({ id: document.id, ...(document.data() || {}) }))
 }
 
+function reminderSectionArchiveRef(classRef, sectionId) {
+  return classRef.collection('reminderSectionArchives').doc(sectionId)
+}
+
 async function migrateReminderSectionTodosToGeneral(db, classRef, sectionId) {
-  if (!sectionId || sectionId === 'all' || sectionId === 'task') return 0
+  if (!sectionId || sectionId === 'all' || sectionId === 'task') return { count: 0, todoIds: [] }
   const snapshot = await classRef.collection('todos').where('type', '==', sectionId).get()
-  if (snapshot.empty) return 0
+  if (snapshot.empty) return { count: 0, todoIds: [] }
 
   const documents = snapshot.docs
+  const todoIds = documents.map((document) => document.id)
   const chunkSize = 400
   let migrated = 0
   for (let start = 0; start < documents.length; start += chunkSize) {
@@ -53,7 +59,61 @@ async function migrateReminderSectionTodosToGeneral(db, classRef, sectionId) {
     })
     await batch.commit()
   }
-  return migrated
+  return { count: migrated, todoIds }
+}
+
+async function restoreSpecificReminderTodos(db, classRef, sectionId, todoIds = []) {
+  const ids = [...new Set((Array.isArray(todoIds) ? todoIds : [])
+    .map((id) => String(id || '').trim())
+    .filter(Boolean))]
+  if (!ids.length) return { count: 0, todoIds: [] }
+
+  const chunkSize = 300
+  const restoredIds = []
+  for (let start = 0; start < ids.length; start += chunkSize) {
+    const refs = ids.slice(start, start + chunkSize).map((id) => classRef.collection('todos').doc(id))
+    const snapshots = await db.getAll(...refs)
+    const batch = db.batch()
+    const now = Date.now()
+    let writes = 0
+    snapshots.forEach((snapshot) => {
+      if (!snapshot.exists) return
+      if (String(snapshot.data()?.type || '') !== 'task') return
+      batch.update(snapshot.ref, {
+        type: sectionId,
+        updatedAt: now,
+      })
+      restoredIds.push(snapshot.id)
+      writes += 1
+    })
+    if (writes) await batch.commit()
+  }
+  return { count: restoredIds.length, todoIds: restoredIds }
+}
+
+async function rememberReminderSectionMigration(classRef, sectionId, todoIds = []) {
+  const ids = [...new Set((Array.isArray(todoIds) ? todoIds : [])
+    .map((id) => String(id || '').trim())
+    .filter(Boolean))]
+  const archiveRef = reminderSectionArchiveRef(classRef, sectionId)
+  if (!ids.length) {
+    await archiveRef.delete().catch(() => {})
+    return
+  }
+  await archiveRef.set({
+    sectionId,
+    todoIds: ids,
+    updatedAt: Date.now(),
+  })
+}
+
+async function restoreArchivedReminderSectionTodos(db, classRef, sectionId) {
+  const archiveRef = reminderSectionArchiveRef(classRef, sectionId)
+  const archive = await archiveRef.get()
+  const todoIds = archive.exists && Array.isArray(archive.data()?.todoIds) ? archive.data().todoIds : []
+  const restored = await restoreSpecificReminderTodos(db, classRef, sectionId, todoIds)
+  if (archive.exists) await archiveRef.delete()
+  return restored
 }
 
 async function handleReminderSectionRequest({ db, classId, body }) {
@@ -73,18 +133,49 @@ async function handleReminderSectionRequest({ db, classId, body }) {
     return { section }
   }
 
+  if (action === 'restore') {
+    const section = prepareReminderSectionRestore({
+      documents,
+      sectionId,
+      label: body?.label,
+      color: body?.color,
+    })
+    await classRef.collection('reminderCategories').doc(section.id).set(section)
+    const restored = await restoreArchivedReminderSectionTodos(db, classRef, section.id)
+    return {
+      section,
+      restoredCount: restored.count,
+      restoredFrom: 'task',
+    }
+  }
+
   if (action === 'delete') {
     const plan = prepareReminderSectionDelete({ documents, sectionId })
-    const migratedCount = plan.migrateToGeneral
+    const migration = plan.migrateToGeneral
       ? await migrateReminderSectionTodosToGeneral(db, classRef, plan.current.id)
-      : 0
+      : { count: 0, todoIds: [] }
     const sectionRef = classRef.collection('reminderCategories').doc(plan.current.id)
-    if (plan.deleteDocument) await sectionRef.delete()
-    else await sectionRef.set(plan.document)
+
+    try {
+      if (plan.migrateToGeneral && !plan.deleteDocument) {
+        await rememberReminderSectionMigration(classRef, plan.current.id, migration.todoIds)
+      }
+      if (plan.deleteDocument) await sectionRef.delete()
+      else await sectionRef.set(plan.document)
+    } catch (error) {
+      if (migration.todoIds.length) {
+        await restoreSpecificReminderTodos(db, classRef, plan.current.id, migration.todoIds).catch(() => {})
+      }
+      if (!plan.deleteDocument) {
+        await reminderSectionArchiveRef(classRef, plan.current.id).delete().catch(() => {})
+      }
+      throw error
+    }
+
     return {
       section: plan.document,
       deleted: plan.deleteDocument,
-      migratedCount,
+      migratedCount: migration.count,
       migratedTo: plan.migrateToGeneral ? 'task' : null,
     }
   }
