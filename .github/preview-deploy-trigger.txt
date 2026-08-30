@@ -1,2 +1,2 @@
 S-Hub preview deployment trigger.
-Deploy scroll reset, class-scoped section management, section-to-general migration, and polite-copy audit fixes.
+Redeploy scroll reset, class-scoped section management, section-to-general migration, and completed polite-copy audit fixes.
