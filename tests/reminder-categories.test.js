@@ -121,7 +121,7 @@ test('class-scoped section overrides use the isolated preview backend without ch
   // staying preview-only without adding a thirteenth Vercel function.
   assert.match(client, /school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711\.vercel\.app\/api\/reminder-sections/)
   assert.match(client, /ensureSignedIn\(\)/)
-  assert.match(classApi, /mode === 'reminder-sections'/)
+  assert.match(classApi, /const reminderSectionMode = String\(req\.query\?\.mode \|\| ''\)\.trim\(\) === 'reminder-sections'/)
   assert.match(classApi, /\^preview-class-/)
   assert.match(classApi, /collection\('reminderCategories'\)/)
   assert.match(classApi, /collection\('todos'\)\.where\('type', '==', sectionId\)/)
