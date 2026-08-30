@@ -27,6 +27,10 @@ export function isCustomReminderSectionId(value) {
   return CUSTOM_ID_PATTERN.test(String(value || '').trim().toLowerCase())
 }
 
+export function isBuiltinReminderSectionId(value) {
+  return BUILTIN_IDS.has(String(value || '').trim().toLowerCase())
+}
+
 export function isReminderSectionId(value) {
   const id = String(value || '').trim().toLowerCase()
   return BUILTIN_IDS.has(id) || CUSTOM_ID_PATTERN.test(id)
@@ -99,6 +103,17 @@ function ensureColor(sectionId, color) {
   }
 }
 
+function validateVisibleUniqueness({ documents, sectionId, label, color }) {
+  const visible = resolveReminderSections(documents).filter((section) => section.id !== sectionId)
+  const comparable = label.toLocaleLowerCase('ko')
+  if (visible.some((section) => section.label.toLocaleLowerCase('ko') === comparable)) {
+    throw new ReminderSectionError('reminder-section/duplicate-label', 'Duplicate reminder section label')
+  }
+  if (color && visible.some((section) => section.color === color)) {
+    throw new ReminderSectionError('reminder-section/duplicate-color', 'Duplicate reminder section color')
+  }
+}
+
 export function prepareReminderSectionUpdate({
   documents = [],
   sectionId,
@@ -114,15 +129,34 @@ export function prepareReminderSectionUpdate({
   const nextColor = normalizedColor(color)
   if (!nextLabel) throw new ReminderSectionError('reminder-section/invalid-label', 'Reminder section label required')
   ensureColor(current.id, nextColor)
+  validateVisibleUniqueness({ documents, sectionId: current.id, label: nextLabel, color: nextColor })
 
-  const visible = resolveReminderSections(documents).filter((section) => section.id !== current.id)
-  const comparable = nextLabel.toLocaleLowerCase('ko')
-  if (visible.some((section) => section.label.toLocaleLowerCase('ko') === comparable)) {
-    throw new ReminderSectionError('reminder-section/duplicate-label', 'Duplicate reminder section label')
+  return {
+    id: current.id,
+    label: nextLabel,
+    color: nextColor,
+    hidden: false,
+    createdAt: Number(current.createdAt || now),
+    updatedAt: Number(now),
   }
-  if (nextColor && visible.some((section) => section.color === nextColor)) {
-    throw new ReminderSectionError('reminder-section/duplicate-color', 'Duplicate reminder section color')
+}
+
+export function prepareReminderSectionRestore({
+  documents = [],
+  sectionId,
+  label,
+  color = '',
+  now = Date.now(),
+}) {
+  const current = currentSection(sectionId, documents, true)
+  if (!current || !current.hidden || !isBuiltinReminderSectionId(current.id)) {
+    throw new ReminderSectionError('reminder-section/not-restorable', 'Reminder section cannot be restored')
   }
+  const nextLabel = normalizedLabel(label || current.label)
+  const nextColor = normalizedColor(color || current.color)
+  if (!nextLabel) throw new ReminderSectionError('reminder-section/invalid-label', 'Reminder section label required')
+  ensureColor(current.id, nextColor)
+  validateVisibleUniqueness({ documents, sectionId: current.id, label: nextLabel, color: nextColor })
 
   return {
     id: current.id,
