@@ -1,9 +1,11 @@
-import { readStudentProfile, writeClassReminderCategory } from './school-sync.js'
+import { ensureSignedIn } from './school-sync.js'
 import {
   normalizeReminderCategory,
   reminderFilterOptions,
   reminderSectionById,
 } from './reminder-categories.js'
+
+const REMINDER_SECTION_API_URL = 'https://school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711.vercel.app/api/reminder-sections'
 
 function sectionError(code, message) {
   const error = new Error(message)
@@ -30,6 +32,35 @@ function validateUniqueSection(sectionId, label, color, categories) {
   }
 }
 
+async function requestSectionChange(payload) {
+  const user = await ensureSignedIn()
+  const idToken = String(await user.getIdToken()).trim()
+  if (!idToken) throw sectionError('reminder-section/auth-required', 'Authentication required')
+
+  let response
+  try {
+    response = await fetch(REMINDER_SECTION_API_URL, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${idToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    throw sectionError('reminder-section/network', 'Reminder section server unavailable')
+  }
+
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body?.ok !== true) {
+    throw sectionError(
+      String(body?.error || 'reminder-section/server'),
+      String(body?.message || 'Reminder section save failed'),
+    )
+  }
+  return body.data || {}
+}
+
 export async function saveReminderSectionChange({
   action,
   sectionId,
@@ -37,28 +68,14 @@ export async function saveReminderSectionChange({
   color = '',
   categories = [],
 }) {
-  const profile = readStudentProfile()
-  if (!profile) throw sectionError('reminder-section/profile-required', 'Student profile required')
-
   const current = reminderSectionById(sectionId, categories)
   if (!current) throw sectionError('reminder-section/not-found', 'Reminder section not found')
-  const now = Date.now()
 
   if (action === 'delete') {
     if (visibleSections(categories).length <= 1) {
       throw sectionError('reminder-section/last-visible', 'Cannot hide the last reminder section')
     }
-    const next = normalizeReminderCategory({
-      id: current.id,
-      label: current.label,
-      color: current.color || '',
-      hidden: true,
-      createdAt: Number(current.createdAt || now),
-      updatedAt: now,
-    })
-    if (!next) throw sectionError('reminder-section/invalid', 'Invalid reminder section')
-    await writeClassReminderCategory(profile, next)
-    return next
+    return requestSectionChange({ action: 'delete', sectionId: current.id })
   }
 
   if (action !== 'update') throw sectionError('reminder-section/invalid-action', 'Invalid reminder section action')
@@ -70,15 +87,20 @@ export async function saveReminderSectionChange({
   }
   validateUniqueSection(current.id, nextLabel, nextColor, categories)
 
-  const next = normalizeReminderCategory({
+  const optimistic = normalizeReminderCategory({
     id: current.id,
     label: nextLabel,
     color: nextColor,
     hidden: false,
-    createdAt: Number(current.createdAt || now),
-    updatedAt: now,
+    createdAt: Number(current.createdAt || Date.now()),
+    updatedAt: Date.now(),
   })
-  if (!next) throw sectionError('reminder-section/invalid', 'Invalid reminder section')
-  await writeClassReminderCategory(profile, next)
-  return next
+  if (!optimistic) throw sectionError('reminder-section/invalid', 'Invalid reminder section')
+
+  return requestSectionChange({
+    action: 'update',
+    sectionId: current.id,
+    label: nextLabel,
+    color: nextColor,
+  })
 }

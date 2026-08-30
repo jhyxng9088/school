@@ -67,7 +67,7 @@ test('custom reminder category ids stay stable when their class color changes', 
   assert.equal(normalizeReminderCategory({ ...category, id: 'custom-zzzzzz' }), null)
 })
 
-test('deleted sections are hidden from filters without losing reminder display metadata', () => {
+test('deleted built-in sections are hidden from filters without losing reminder display metadata', () => {
   const hidden = normalizeReminderCategory({
     id: 'performance',
     label: '수행',
@@ -98,19 +98,29 @@ test('reminder page build patch adds long-press section editing and keeps custom
   assert.match(css, /max-width:\s*360px/)
 })
 
-test('class-scoped category storage and Firestore rules cover built-in, all, custom, and hidden state', () => {
+test('class-scoped section overrides use the isolated preview backend without changing the published custom-category rules', () => {
   const sync = read('src/school-sync.js')
   const todo = read('src/todo.jsx')
   const rules = read('firestore.rules')
+  const client = read('src/reminder-section-client.js')
+  const api = read('push-backend-v2/api/reminder-sections.js')
 
   assert.match(sync, /collection\(db, 'classes', classKeyFor\(profile\), 'reminderCategories'\)/)
   assert.match(sync, /export function listenClassReminderCategories/)
-  assert.match(sync, /export async function writeClassReminderCategory/)
   assert.match(todo, /school\.reminderCategories\.\$\{REMINDER_CATEGORIES_CACHE_VERSION\}\.\$\{classKey\}/)
   assert.equal(new Set(REMINDER_CATEGORY_COLORS.map((item) => item.id)).size, REMINDER_CATEGORY_COLORS.length)
   assert.equal(usedReminderCategoryColors([]).size, TODO_TYPES.length)
-  assert.match(rules, /categoryId in \['all', 'task', 'performance', 'exam', 'material'\]/)
+
+  // The already-published Firestore rules still validate direct custom additions only.
   assert.match(rules, /categoryId\.matches\('\^custom-\[0-9a-f\]\{6\}\$'\)/)
-  assert.match(rules, /request\.resource\.data\.get\('hidden', false\) is bool/)
-  assert.match(rules, /match \/classes\/\{classId\}\/reminderCategories\/\{categoryId\}/)
+  assert.doesNotMatch(rules, /categoryId in \['all', 'task', 'performance', 'exam', 'material'\]/)
+  assert.doesNotMatch(rules, /request\.resource\.data\.get\('hidden', false\) is bool/)
+
+  // Built-in/all edits and deletes go through an authenticated preview-only Admin endpoint.
+  assert.match(client, /school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711\.vercel\.app\/api\/reminder-sections/)
+  assert.match(client, /ensureSignedIn\(\)/)
+  assert.match(api, /\^preview-class-/)
+  assert.match(api, /collection\('reminderCategories'\)/)
+  assert.match(api, /collection\('todos'\)\.where\('type', '==', sectionId\)/)
+  assert.match(api, /type:\s*'task'/)
 })
