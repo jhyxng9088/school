@@ -12,11 +12,12 @@ function builtReminderPage() {
   return patchPreviewReminderPolishSource(withSections, '/workspace/src/todo-stage5-ai.jsx')
 }
 
-test('readable summaries use a compact badge beside the reminder type instead of the right action rail', () => {
+test('readable summaries use a compact text badge beside the reminder type instead of the right action rail', () => {
   const page = builtReminderPage()
 
   assert.match(page, /const readableSummary = Boolean\(todo\.summary && !summaryPending\)/)
   assert.match(page, /className="todo-kind"[\s\S]*?className="reminder-summary-badge"[\s\S]*?<span>요약<\/span>/)
+  assert.doesNotMatch(page, /reminder-summary-badge-mark/)
   assert.doesNotMatch(page, /className="reminder-summary-handle"/)
   assert.match(page, /className="todo-item-main has-summary"[\s\S]*?onClick=\{\(\) => onOpenSummary\(todo\)\}/)
 })
@@ -26,7 +27,7 @@ test('summary badge stays visually small and does not occupy date or edit-button
   const page = builtReminderPage()
 
   assert.match(css, /\.reminder-summary-badge\s*\{[\s\S]*?height:\s*18px;[\s\S]*?padding:\s*0 6px;/)
-  assert.match(css, /\.reminder-summary-badge-mark\s*\{[\s\S]*?width:\s*4px;[\s\S]*?height:\s*4px;/)
+  assert.doesNotMatch(css, /\.reminder-summary-badge-mark\s*\{/)
   const actionRail = page.match(/<div className="todo-row-actions">([\s\S]*?)<\/div>/)?.[1] || ''
   assert.doesNotMatch(actionRail, /reminder-summary-badge|reminder-summary-handle/)
 })
