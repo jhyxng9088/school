@@ -7,6 +7,7 @@ import {
   reminderHourBody,
   reminderTomorrowBody,
   tomorrowDateKey,
+  validTime,
 } from './schedule-logic.js'
 
 function groupSubscriptionsByStudent(subscriptions) {
@@ -61,6 +62,7 @@ export function planClassNotifications({
   const tomorrow = tomorrowDateKey(nowMs)
   const tomorrowTodos = (todos || []).filter((todo) => (
     String(todo?.dueDate || '') === tomorrow
+    && !validTime(todo?.dueTime)
     && !hourlyTodoIds.has(String(todo?.id || ''))
   ))
 
