@@ -48,59 +48,16 @@ function replaceCopy(source) {
   return next
 }
 
-function previewLocalStorageText(source) {
-  return String(source || '')
-    .split("'school.").join("'school.preview.")
-    .split('"school.').join('"school.preview.')
-    .split('`school.').join('`school.preview.')
-}
-
-function replacePreviewSource(source, id) {
+function replaceV2Source(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (!cleanId.includes('/src/')) return String(source || '')
 
-  let next = previewLocalStorageText(source)
-  next = next
-    .split("'school-sync'").join("'school-sync-preview'")
-    .split('"school-sync"').join('"school-sync-preview"')
-
-  if (cleanId.endsWith('/school-sync.js')) {
-    const classMarker = "return normalized ? `class-${normalized.classNumber}` : ''"
-    const identityMarker = 'return `${normalized.classNumber}|${normalized.studentNumber}|${compactName}`'
-    if (!next.includes(classMarker)) throw new Error('Preview class identity marker changed unexpectedly')
-    if (!next.includes(identityMarker)) throw new Error('Preview student identity marker changed unexpectedly')
-    next = next.replace(classMarker, "return normalized ? `preview-class-${normalized.classNumber}` : ''")
-    next = next.replace(identityMarker, 'return `preview|${normalized.classNumber}|${normalized.studentNumber}|${compactName}`')
-  }
-
+  let next = String(source || '')
   next = patchPreviewNavSpringSource(next, cleanId)
   next = patchPreviewSHubV2Source(next, cleanId)
   next = patchPreviewAIReminderSummarySource(next, cleanId)
   next = patchPreviewReminderPolishSource(next, cleanId)
   return next
-}
-
-function patchPreviewPublicBuildFiles(directory) {
-  if (!fs.existsSync(directory)) return
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    if (!entry.isFile() || !['.js', '.html'].some((extension) => entry.name.endsWith(extension))) continue
-    const filePath = path.join(directory, entry.name)
-    const current = fs.readFileSync(filePath, 'utf8')
-    let next = previewLocalStorageText(current)
-
-    if (entry.name === 'sw.js') {
-      next = next
-        .split("'school-shell-v154'").join("'school-shell-v155'")
-        .split("'school-shell-").join("'school-preview-shell-")
-        .split("'school-notification-profile-").join("'school-preview-notification-profile-")
-      const cleanupMarker = ".filter((key) => ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))"
-      const isolatedCleanup = ".filter((key) => key.startsWith('school-preview-') && ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))"
-      if (!next.includes(cleanupMarker)) throw new Error('Preview service worker cache cleanup marker changed unexpectedly')
-      next = next.replace(cleanupMarker, isolatedCleanup)
-    }
-
-    if (next !== current) fs.writeFileSync(filePath, next)
-  }
 }
 
 function patchPublicBuildFiles(directory) {
@@ -114,16 +71,13 @@ function patchPublicBuildFiles(directory) {
   }
 }
 
-function previewIsolationPlugin() {
+function sHubV2FeaturePlugin() {
   return {
-    name: 'school-preview-isolation',
+    name: 'school-s-hub-v2-features',
     enforce: 'pre',
     transform(code, id) {
-      const next = replacePreviewSource(code, id)
+      const next = replaceV2Source(code, id)
       return next === code ? null : { code: next, map: null }
-    },
-    closeBundle() {
-      patchPreviewPublicBuildFiles(path.resolve('dist'))
     },
   }
 }
@@ -141,6 +95,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-s-hub-v2-patch.js')
         || cleanId.endsWith('/preview-ai-reminder-summary-patch.js')
         || cleanId.endsWith('/preview-reminder-polish-patch.js')
+        || cleanId.endsWith('/preview-nav-spring-patch.js')
       ) return null
 
       const next = replaceCopy(code)
@@ -153,6 +108,6 @@ function politeCopyPlugin() {
 }
 
 export default defineConfig({
-  plugins: [previewIsolationPlugin(), politeCopyPlugin(), react()],
+  plugins: [sHubV2FeaturePlugin(), politeCopyPlugin(), react()],
   base: '/school/',
 })
