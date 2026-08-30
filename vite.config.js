@@ -7,6 +7,7 @@ import {
   POLITE_COPY_REPLACEMENTS,
   POLITE_SOURCE_FRAGMENTS,
 } from './src/polite-copy-runtime.js'
+import { patchPreviewNavSpringSource } from './src/preview-nav-spring-patch.js'
 
 const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
@@ -67,6 +68,7 @@ function replacePreviewSource(source, id) {
     next = next.replace(identityMarker, 'return `preview|${normalized.classNumber}|${normalized.studentNumber}|${compactName}`')
   }
 
+  next = patchPreviewNavSpringSource(next, cleanId)
   return next
 }
 
