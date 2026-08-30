@@ -70,7 +70,9 @@ function politeCopyPlugin() {
   }
 }
 
+const appBase = String(process.env.SHUB_PREVIEW_BASE || '/school/').trim() || '/school/'
+
 export default defineConfig({
   plugins: [politeCopyPlugin(), react()],
-  base: '/school/',
+  base: appBase,
 })
