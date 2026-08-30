@@ -26,6 +26,8 @@ const ACCEPTED_FILES = [
   '.xml',
 ].join(',')
 
+const DOWNLOAD_GESTURE_LOCK_MS = 700
+
 function fileSizeLabel(size) {
   const bytes = Number(size || 0)
   if (!bytes) return ''
@@ -158,20 +160,46 @@ function base64ToBlob(dataBase64, mimeType) {
   return new Blob([bytes], { type: mimeType || 'application/octet-stream' })
 }
 
+function isAppleTouchDevice() {
+  const userAgent = navigator.userAgent
+  return /iPhone|iPad|iPod/i.test(userAgent) || (
+    /Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1
+  )
+}
+
+function downloadOriginal(original) {
+  const anchor = document.createElement('a')
+  anchor.href = original.url
+  anchor.download = original.name || '원본-파일'
+  anchor.rel = 'noopener'
+  anchor.hidden = true
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+}
+
 function OriginalImageViewer({ original, onClose }) {
   const [saving, setSaving] = useState(false)
   const [closing, setClosing] = useState(false)
   const closeTimerRef = useRef(null)
+  const downloadLockTimerRef = useRef(null)
+  const savingRef = useRef(false)
 
   useEffect(() => {
+    savingRef.current = false
     setSaving(false)
     setClosing(false)
     if (closeTimerRef.current) {
       window.clearTimeout(closeTimerRef.current)
       closeTimerRef.current = null
     }
+    if (downloadLockTimerRef.current) {
+      window.clearTimeout(downloadLockTimerRef.current)
+      downloadLockTimerRef.current = null
+    }
     return () => {
       if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+      if (downloadLockTimerRef.current) window.clearTimeout(downloadLockTimerRef.current)
     }
   }, [original?.url])
 
@@ -182,24 +210,33 @@ function OriginalImageViewer({ original, onClose }) {
   }
 
   async function saveOriginal() {
-    if (!original?.blob || saving) return
+    if (!original?.blob || savingRef.current) return
+    savingRef.current = true
     setSaving(true)
+    let downloadedDirectly = false
     try {
-      const file = new File([original.blob], original.name || '원본 사진', { type: original.blob.type || 'image/jpeg' })
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: original.name || '원본 사진' })
-        return
+      if (isAppleTouchDevice()) {
+        const file = new File([original.blob], original.name || '원본 사진', { type: original.blob.type || 'image/jpeg' })
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: original.name || '원본 사진' })
+          return
+        }
       }
-      const anchor = document.createElement('a')
-      anchor.href = original.url
-      anchor.download = original.name || '원본-사진'
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
+      downloadOriginal(original)
+      downloadedDirectly = true
     } catch (error) {
       if (error?.name !== 'AbortError') console.error('Original image save failed:', error)
     } finally {
-      setSaving(false)
+      if (downloadedDirectly) {
+        downloadLockTimerRef.current = window.setTimeout(() => {
+          downloadLockTimerRef.current = null
+          savingRef.current = false
+          setSaving(false)
+        }, DOWNLOAD_GESTURE_LOCK_MS)
+      } else {
+        savingRef.current = false
+        setSaving(false)
+      }
     }
   }
 
@@ -216,7 +253,7 @@ function OriginalImageViewer({ original, onClose }) {
         </header>
         {isImage ? (
           <div className="reminder-original-image-wrap">
-            <img src={original.url} alt={original.name || '원본 사진'} />
+            <img src={original.url} alt={original.name || '원본 사진'} draggable="false" />
           </div>
         ) : (
           <div className="reminder-original-file-info">

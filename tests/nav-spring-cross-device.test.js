@@ -23,6 +23,15 @@ test('preview build keeps the production source intact and opens the existing na
   assert.match(patched, /setProperty\('border-radius',[\s\S]*'important'\)/)
 })
 
+test('preview nav transform accepts Windows checkouts without changing the production source file', () => {
+  const windowsSource = mainSource.replace(/\r\n?/g, '\n').replace(/\n/g, '\r\n')
+  const patched = patchPreviewNavSpringSource(windowsSource, 'C:/workspace/src/main.jsx')
+
+  assert.match(patched, /indicator\.dataset\.springMotion = 'true'/)
+  assert.match(patched, /const stiffness = 56/)
+  assert.match(patched, /\r\n/)
+})
+
 test('preview nav spring is only slightly faster than the proven iPad physics', () => {
   assert.equal(PREVIEW_NAV_SPRING.stiffness, 56)
   assert.equal(PREVIEW_NAV_SPRING.damping, 10.5)

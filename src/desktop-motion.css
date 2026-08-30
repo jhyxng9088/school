@@ -7,7 +7,16 @@
 @media (hover: hover) and (pointer: fine) {
   html:not(.school-mobile-compat).school-desktop-laptop {
     scrollbar-gutter: stable both-edges;
+    overflow-x: clip;
     overflow-y: scroll;
+    overscroll-behavior-x: none;
+  }
+
+  html:not(.school-mobile-compat).school-desktop-laptop body {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
   }
 }
 

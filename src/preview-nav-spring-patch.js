@@ -74,6 +74,7 @@ export function patchPreviewNavSpringSource(source, id = '') {
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
 
   let next = String(source || '')
+  const lineBreak = next.includes('\r\n') ? '\r\n' : '\n'
 
   const mobileGuard = [
     '    const compatibilityMotion = MOBILE_BROWSER_COMPAT',
@@ -81,7 +82,7 @@ export function patchPreviewNavSpringSource(source, id = '') {
     '      stopInlineIndicatorStyles(indicator)',
     '      return undefined',
     '    }',
-  ].join('\n')
+  ].join(lineBreak)
   const universalSpringSetup = [
     "    indicator.dataset.springMotion = 'true'",
     "    nav.dataset.elasticShell = 'true'",
@@ -90,13 +91,13 @@ export function patchPreviewNavSpringSource(source, id = '') {
     "    const navPadding = Number.parseFloat(window.getComputedStyle(nav).getPropertyValue('--nav-padding')) || 5",
     "    indicator.style.setProperty('left', '0px', 'important')",
     "    indicator.style.setProperty('transition', 'none', 'important')",
-  ].join('\n')
+  ].join(lineBreak)
   next = replaceRequired(next, mobileGuard, universalSpringSetup, 'mobile guard')
 
   const visualMarker = [
     '      const visualWidth = physics.baseWidth + stretch',
     '      const compression = Math.min(speed / 18000, 0.028)',
-  ].join('\n')
+  ].join(lineBreak)
   const elasticVisuals = [
     '      const visualWidth = physics.baseWidth + stretch',
     '      const compression = Math.min(speed / 18000, 0.028)',
@@ -107,7 +108,7 @@ export function patchPreviewNavSpringSource(source, id = '') {
     '      const shellShiftX = (rightShellStretch - leftShellStretch) / 2',
     "      nav.style.setProperty('--nav-shell-scale-x', shellScaleX.toFixed(5))",
     "      nav.style.setProperty('--nav-shell-shift-x', `${shellShiftX}px`)",
-  ].join('\n')
+  ].join(lineBreak)
   next = replaceRequired(next, visualMarker, elasticVisuals, 'elastic shell geometry')
 
   next = replaceRequired(
@@ -127,12 +128,12 @@ export function patchPreviewNavSpringSource(source, id = '') {
     '      const stiffness = 50',
     '      const damping = 10',
     '      const mass = 1',
-  ].join('\n')
+  ].join(lineBreak)
   const previewPhysics = [
     `      const stiffness = ${PREVIEW_NAV_SPRING.stiffness}`,
     `      const damping = ${PREVIEW_NAV_SPRING.damping}`,
     `      const mass = ${PREVIEW_NAV_SPRING.mass}`,
-  ].join('\n')
+  ].join(lineBreak)
   next = replaceRequired(next, physicsMarker, previewPhysics, 'physics')
 
   return next
