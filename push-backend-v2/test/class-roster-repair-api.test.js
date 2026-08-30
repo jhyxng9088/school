@@ -18,13 +18,17 @@ test('roster repair keeps its public URL while sharing the authenticated roster 
   assert.match(apiSource, /repairClassRoster\(\{ db, classId \}\)/)
 })
 
-test('preview reminder-section route stays preview-only and preserves retry-safe restore provenance', () => {
+test('reminder-section route accepts authenticated production and preview classes and preserves retry-safe restore provenance', () => {
   assert.match(vercel, /"source": "\/api\/reminder-sections"/)
   assert.match(vercel, /"destination": "\/api\/class-roster\?mode=reminder-sections"/)
   assert.match(apiSource, /const reminderSectionMode = String\(req\.query\?\.mode \|\| ''\)\.trim\(\) === 'reminder-sections'/)
-  assert.match(apiSource, /function isPreviewClassId/)
-  assert.match(apiSource, /if \(!isPreviewClassId\(classId\)\)/)
-  assert.match(apiSource, /reminder-section\/preview-class-required/)
+  assert.match(apiSource, /function isReminderSectionClassId/)
+  assert.match(apiSource, /\^\(\?:preview-\)\?class-/)
+  assert.match(apiSource, /if \(!isReminderSectionClassId\(classId\)\)/)
+  assert.doesNotMatch(apiSource, /preview-class-required/)
+  assert.match(apiSource, /verifyIdToken\(token\)/)
+  assert.match(apiSource, /const classId = String\(identity\.data\(\)\?\.classId/)
+  assert.doesNotMatch(apiSource, /body\?\.classId/)
   assert.match(apiSource, /collection\('reminderSectionArchives'\)/)
   assert.match(apiSource, /todoIds/)
   assert.match(apiSource, /action === 'restore'/)
