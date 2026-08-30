@@ -3,8 +3,8 @@ import { planClassNotifications } from '../lib/planner.js'
 import { acquireClaim, markClaimSent, releaseClaim } from '../lib/claims.js'
 import {
   recentScheduleCheckpoints,
+  recoverableScheduledPlans,
   scheduleLookbackMs,
-  uniqueScheduledPlans,
 } from '../lib/schedule-backfill.js'
 import {
   academicRelevantForCheckpoints,
@@ -167,7 +167,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const uniquePlans = uniqueScheduledPlans(planned)
+    const uniquePlans = recoverableScheduledPlans(planned, nowMs)
 
     if (dryRun) {
       const pushState = vapidConfigurationState()
