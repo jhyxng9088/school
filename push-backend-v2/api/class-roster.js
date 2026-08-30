@@ -25,8 +25,8 @@ function bearerToken(req) {
   return /^Bearer\s+/i.test(header) ? header.replace(/^Bearer\s+/i, '').trim() : ''
 }
 
-function isPreviewClassId(value) {
-  return /^preview-class-(?:[1-9]|[12][0-9]|30)$/.test(String(value || '').trim())
+function isReminderSectionClassId(value) {
+  return /^(?:preview-)?class-(?:[1-9]|[12][0-9]|30)$/.test(String(value || '').trim())
 }
 
 async function readReminderSectionDocuments(classRef) {
@@ -241,11 +241,11 @@ export default async function handler(req, res) {
     }
 
     if (reminderSectionMode) {
-      if (!isPreviewClassId(classId)) {
+      if (!isReminderSectionClassId(classId)) {
         return res.status(403).json({
           ok: false,
-          error: 'reminder-section/preview-class-required',
-          message: '프리뷰 반에서만 섹션 설정을 변경할 수 있어요.',
+          error: 'reminder-section/invalid-class',
+          message: '반 정보를 확인하지 못했어요.',
         })
       }
       try {
