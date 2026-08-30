@@ -16,7 +16,7 @@ function patchTodoStage5Source(source) {
   next = replaceRequired(
     next,
     `        <AnimatedText as="span" className="todo-kind" value={reminderTypeLabel(todo.type, categories)} delay={0} />\n      </span>`,
-    `        <AnimatedText as="span" className="todo-kind" value={reminderTypeLabel(todo.type, categories)} delay={0} />\n        {readableSummary ? (\n          <span className="reminder-summary-badge" aria-hidden="true">\n            <span className="reminder-summary-badge-mark" />\n            <span>요약</span>\n          </span>\n        ) : null}\n      </span>`,
+    `        <AnimatedText as="span" className="todo-kind" value={reminderTypeLabel(todo.type, categories)} delay={0} />\n        {readableSummary ? (\n          <span className="reminder-summary-badge" aria-hidden="true">\n            <span>요약</span>\n          </span>\n        ) : null}\n      </span>`,
     'summary badge placement',
   )
 
