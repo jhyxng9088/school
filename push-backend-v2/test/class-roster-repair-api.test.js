@@ -18,6 +18,19 @@ test('roster repair keeps its public URL while sharing the authenticated roster 
   assert.match(apiSource, /repairClassRoster\(\{ db, classId \}\)/)
 })
 
+test('preview reminder-section route stays preview-only and preserves restore provenance', () => {
+  assert.match(vercel, /"source": "\/api\/reminder-sections"/)
+  assert.match(vercel, /"destination": "\/api\/class-roster\?mode=reminder-sections"/)
+  assert.match(apiSource, /const reminderSectionMode = String\(req\.query\?\.mode \|\| ''\)\.trim\(\) === 'reminder-sections'/)
+  assert.match(apiSource, /function isPreviewClassId/)
+  assert.match(apiSource, /if \(!isPreviewClassId\(classId\)\)/)
+  assert.match(apiSource, /reminder-section\/preview-class-required/)
+  assert.match(apiSource, /collection\('reminderSectionArchives'\)/)
+  assert.match(apiSource, /todoIds/)
+  assert.match(apiSource, /action === 'restore'/)
+  assert.match(apiSource, /restoreArchivedReminderSectionTodos/)
+})
+
 test('roster repair checks every remaining identity signal before archiving', () => {
   assert.match(serviceSource, /collection\('pushSubscriptions'\)\.get\(\)/)
   assert.match(serviceSource, /collection\('todoState'\)/)
@@ -32,9 +45,10 @@ test('roster repair archives before deleting an unresolved active member record'
   assert.match(serviceSource, /await batch\.commit\(\)/)
 })
 
-test('Vercel stays within the Hobby twelve-function limit without removing the repair route', () => {
+test('Vercel stays within the Hobby twelve-function limit without removing shared routes', () => {
   const apiDirectory = resolve(process.cwd(), 'api')
   const functionFiles = readdirSync(apiDirectory).filter((name) => name.endsWith('.js'))
   assert.equal(functionFiles.length, 12)
   assert.equal(existsSync(resolve(apiDirectory, 'class-roster-repair.js')), false)
+  assert.equal(existsSync(resolve(apiDirectory, 'reminder-sections.js')), false)
 })
