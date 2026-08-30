@@ -5,7 +5,7 @@ name: Deploy School PWA
 
 on:
   push:
-    branches: [main, release/s-hub-v2-promotion]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -106,7 +106,6 @@ jobs:
           path: ./pages-site
 
   deploy:
-    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
