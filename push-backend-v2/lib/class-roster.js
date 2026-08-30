@@ -19,11 +19,15 @@ function hash32(value, seed) {
 }
 
 export function classNumberFromId(classId) {
-  const match = /^class-([1-9]|[12][0-9]|30)$/.exec(String(classId || '').trim())
+  const match = /^(?:preview-)?class-([1-9]|[12][0-9]|30)$/.exec(String(classId || '').trim())
   return match ? Number(match[1]) : 0
 }
 
-export function studentKeyForRosterIdentity({ classNumber, studentNumber, name } = {}) {
+function previewIdentityFromClassId(classId) {
+  return /^preview-class-/.test(String(classId || '').trim())
+}
+
+export function studentKeyForRosterIdentity({ classNumber, studentNumber, name, preview = false } = {}) {
   const safeClass = Number(classNumber)
   const safeStudent = Number(studentNumber)
   const safeName = normalizeName(name)
@@ -31,7 +35,7 @@ export function studentKeyForRosterIdentity({ classNumber, studentNumber, name }
   if (!Number.isInteger(safeStudent) || safeStudent < 1 || safeStudent > MAX_STUDENT_NUMBER) return ''
   if (!safeName) return ''
   const compactName = safeName.toLowerCase().replace(/\s+/g, '')
-  const identity = `${safeClass}|${safeStudent}|${compactName}`
+  const identity = `${preview ? 'preview|' : ''}${safeClass}|${safeStudent}|${compactName}`
   return `student-${hash32(identity, 2166136261)}${hash32(identity, 2246822519)}`
 }
 
@@ -41,8 +45,9 @@ export function inferStudentNumber({ classId, studentKey, name } = {}) {
   const safeName = normalizeName(name)
   if (!classNumber || !safeKey || !safeName) return 0
 
+  const preview = previewIdentityFromClassId(classId)
   for (let studentNumber = 1; studentNumber <= MAX_STUDENT_NUMBER; studentNumber += 1) {
-    if (studentKeyForRosterIdentity({ classNumber, studentNumber, name: safeName }) === safeKey) {
+    if (studentKeyForRosterIdentity({ classNumber, studentNumber, name: safeName, preview }) === safeKey) {
       return studentNumber
     }
   }
