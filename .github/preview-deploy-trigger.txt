@@ -1,2 +1,2 @@
 S-Hub preview deployment trigger.
-2026-08-30T23:24+09:00
+Deploy preview section management, scroll reset, and polite copy fixes.
