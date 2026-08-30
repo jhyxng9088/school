@@ -96,8 +96,11 @@ test('adding the name of a hidden built-in section restores it instead of creati
   const page = patchPreviewReminderPolishSource(sectionPatched, path.join(root, 'src', 'todo-stage5-ai.jsx'))
   const client = read('src/reminder-section-client.js')
 
+  assert.match(page, /const hiddenBuiltinSections = useMemo/)
   assert.match(page, /const categoryRestoreTarget = useMemo/)
-  assert.match(page, /\['task', 'performance', 'exam', 'material'\]\.includes\(section\.id\)/)
+  assert.match(page, /canonicalLabels = \{ task: '일반', performance: '수행평가', exam: '시험', material: '준비물' \}/)
+  assert.match(page, /setCategoryColor\(categoryRestoreTarget\.color\)/)
+  assert.match(page, /disabled=\{!availableCategoryColors\.length && !hasRestorableHiddenBuiltin\}/)
   assert.match(page, /action: 'restore'/)
   assert.match(page, /숨겨진 \{categoryRestoreTarget\.label\} 섹션을 다시 사용합니다/)
   assert.match(page, /categoryRestoreTarget \? '복원' : '추가'/)
