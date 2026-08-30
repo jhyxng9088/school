@@ -1,17 +1,9 @@
-/* Preview-only UX repairs. Production styles are untouched. */
+/* Preview-only motion repair: keep production untouched. */
 
 html.shub-preview-v2 .app-content,
-html.shub-preview-v2 .home-stack > * {
-  animation: none !important;
-}
-
+html.shub-preview-v2 .home-stack > *,
 html.shub-preview-v2 .preview-v2-layer {
-  animation: preview-v2-reveal 260ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
-}
-
-@keyframes preview-v2-reveal {
-  from { opacity: 0.82; transform: translate3d(0, 4px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+  animation: none !important;
 }
 
 html.shub-preview-v2.shub-preview-ai-active .app-shell > .app-content,
@@ -21,6 +13,19 @@ html.shub-preview-v2.shub-preview-ai-active .preview-v2-layer {
 
 html.shub-preview-v2 .bottom-nav {
   z-index: 120 !important;
+}
+
+html.shub-preview-v2 .preview-v2-indicator {
+  left: 0 !important;
+  width: 1px;
+  transform: translate3d(0, 0, 0);
+  transition: none !important;
+  will-change: transform, width, border-radius;
+  background: var(--nav-indicator-surface, var(--surface)) !important;
+  box-shadow:
+    inset 0 1px 0 var(--specular-edge, rgba(255,255,255,.08)),
+    inset 0 0 0 .75px var(--nav-indicator-edge, var(--border)),
+    var(--nav-indicator-shadow, none) !important;
 }
 
 html.shub-preview-v2 .unified-school-page.preview-v2-ai-page {
@@ -101,24 +106,19 @@ html.shub-preview-v2 .preview-v2-segment {
   overflow: hidden;
 }
 
-html.shub-preview-v2 .preview-v2-segment::before {
-  content: "";
+html.shub-preview-v2 .preview-v2-segment-indicator {
   position: absolute;
   z-index: 0;
   top: 4px;
   bottom: 4px;
-  left: 4px;
-  width: calc((100% - 12px) / 2);
+  left: 0;
+  width: 1px;
   border-radius: 12px;
   background: var(--surface);
-  box-shadow: inset 0 0 0 0.5px var(--border);
+  box-shadow: inset 0 0 0 .5px var(--border);
   transform: translate3d(0, 0, 0);
-  transition: transform 470ms cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
-}
-
-html.shub-preview-v2 .preview-v2-segment:has(> button:nth-of-type(2).is-selected)::before {
-  transform: translate3d(calc(100% + 4px), 0, 0);
+  will-change: transform, width, border-radius;
 }
 
 html.shub-preview-v2 .preview-v2-segment > button {
@@ -126,35 +126,50 @@ html.shub-preview-v2 .preview-v2-segment > button {
   z-index: 1;
   background: transparent !important;
   box-shadow: none !important;
+  transition: color 360ms cubic-bezier(0.16, 1, 0.3, 1), transform 180ms ease !important;
 }
 
-.preview-v2-chrome-bridge {
-  position: fixed;
-  z-index: 115;
-  pointer-events: none;
-  background: var(--bg);
-  opacity: 1;
-  transition: opacity 130ms ease;
+html.shub-preview-v2 .preview-v2-segment > button.is-selected {
+  background: transparent !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
 }
 
-.preview-v2-chrome-bridge.is-leaving {
-  opacity: 0;
-}
-
-.preview-v2-chrome-bridge .preview-v2-page-header {
-  padding-top: 10px;
-}
-
-.preview-v2-chrome-bridge .preview-v2-segment {
-  margin-bottom: 0;
+html.shub-preview-v2 .preview-v2-segment > button:active {
+  transform: scale(.975);
 }
 
 html.shub-preview-v2 .preview-v2-persistent-header {
-  padding-bottom: 22px;
+  padding: 10px 2px 22px;
 }
 
 html.shub-preview-v2 .preview-v2-context {
   margin-top: 0;
+}
+
+.preview-v2-transition-chrome {
+  position: fixed;
+  z-index: 119;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+  opacity: 1;
+  transform: translateZ(0);
+  transition: opacity 135ms ease;
+}
+
+.preview-v2-transition-chrome.is-leaving {
+  opacity: 0;
+}
+
+.preview-v2-transition-chrome .preview-v2-page-header {
+  margin: 0;
+  padding: 10px 2px 22px;
+}
+
+.preview-v2-transition-chrome .preview-v2-segment {
+  margin-bottom: 0;
 }
 
 html.shub-preview-v2 .preview-v2-empty {
@@ -170,13 +185,18 @@ html.shub-preview-v2 .preview-v2-study-list:has(.preview-v2-inline-empty) {
 }
 
 html.shub-preview-v2 .preview-v2-study-hero {
-  transition: opacity 260ms ease, transform 420ms cubic-bezier(0.16, 1, 0.3, 1), background-color 420ms ease;
+  transform-origin: 50% 50%;
+  transition:
+    opacity 260ms ease,
+    transform 430ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 430ms ease,
+    border-color 430ms ease !important;
+  contain: layout paint;
 }
 
 html.shub-preview-v2 .preview-v2-study-hero.is-study-transitioning {
-  opacity: 0.58;
-  transform: translate3d(0, 3px, 0) scale(0.993);
-  pointer-events: none;
+  opacity: .62;
+  transform: translate3d(0, 3px, 0) scale(.994);
 }
 
 html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) {
@@ -213,7 +233,7 @@ html.shub-preview-v2 .preview-v2-ranking-segment {
 }
 
 html.shub-preview-v2 .preview-v2-ranking-row {
-  animation: preview-v2-rank-row-in 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: preview-v2-rank-row-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes preview-v2-rank-row-in {
@@ -228,7 +248,7 @@ html.shub-preview-v2 .week-legend {
 
 html.shub-preview-v2 .week-cell-attribution {
   font-size: clamp(8px, 1.8vw, 9.5px);
-  opacity: 0.78;
+  opacity: .78;
 }
 
 html.shub-preview-v2 .preview-v2-status {
@@ -249,11 +269,10 @@ html.shub-preview-v2 .preview-v2-status {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.shub-preview-v2 .preview-v2-layer,
-  html.shub-preview-v2 .preview-v2-segment::before,
   html.shub-preview-v2 .preview-v2-study-hero,
-  .preview-v2-chrome-bridge {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+  html.shub-preview-v2 .preview-v2-segment > button,
+  .preview-v2-transition-chrome {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
   }
 }
