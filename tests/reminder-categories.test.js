@@ -13,6 +13,7 @@ import {
   reminderTypeOptions,
   usedReminderCategoryColors,
 } from '../src/reminder-categories.js'
+import { patchPreviewReminderPolishSource } from '../src/preview-reminder-polish-patch.js'
 import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -89,6 +90,21 @@ test('reminder page build patch adds long-press section editing and keeps custom
   assert.match(css, /max-width:\s*360px/)
 })
 
+test('adding the name of a hidden built-in section restores it instead of creating a duplicate custom section', () => {
+  const raw = read('src/todo-stage5-ai.jsx')
+  const sectionPatched = patchPreviewSHubV2Source(raw, path.join(root, 'src', 'todo-stage5-ai.jsx'))
+  const page = patchPreviewReminderPolishSource(sectionPatched, path.join(root, 'src', 'todo-stage5-ai.jsx'))
+  const client = read('src/reminder-section-client.js')
+
+  assert.match(page, /const categoryRestoreTarget = useMemo/)
+  assert.match(page, /\['task', 'performance', 'exam', 'material'\]\.includes\(section\.id\)/)
+  assert.match(page, /action: 'restore'/)
+  assert.match(page, /숨겨진 \{categoryRestoreTarget\.label\} 섹션을 다시 사용합니다/)
+  assert.match(page, /categoryRestoreTarget \? '복원' : '추가'/)
+  assert.match(client, /if \(action === 'restore'\)/)
+  assert.match(client, /current\.hidden/)
+})
+
 test('class-scoped section overrides use the production endpoint with a hard preview-class server guard', () => {
   const sync = read('src/school-sync.js')
   const todo = read('src/todo.jsx')
@@ -108,7 +124,7 @@ test('class-scoped section overrides use the production endpoint with a hard pre
   assert.doesNotMatch(rules, /categoryId in \['all', 'task', 'performance', 'exam', 'material'\]/)
   assert.doesNotMatch(rules, /request\.resource\.data\.get\('hidden', false\) is bool/)
 
-  // Built-in/all edits and deletes share the existing authenticated production function.
+  // Built-in/all edits, deletes, and restores share the existing authenticated production function.
   // The server accepts this mode only for preview-class-* identities, so production class-* data cannot be changed here.
   assert.match(client, /school-reminder-backend\.vercel\.app\/api\/reminder-sections/)
   assert.doesNotMatch(client, /school-reminder-backend-git-preview-s-hub-v2/)
@@ -120,6 +136,9 @@ test('class-scoped section overrides use the production endpoint with a hard pre
   assert.match(classApi, /reminder-section\/preview-class-required/)
   assert.match(classApi, /collection\('reminderCategories'\)/)
   assert.match(classApi, /collection\('todos'\)\.where\('type', '==', sectionId\)/)
+  assert.match(classApi, /collection\('reminderSectionArchives'\)/)
+  assert.match(classApi, /action === 'restore'/)
+  assert.match(classApi, /restoreArchivedReminderSectionTodos/)
   assert.match(classApi, /type:\s*'task'/)
   assert.match(vercel, /"source": "\/api\/reminder-sections"[\s\S]*?"destination": "\/api\/class-roster\?mode=reminder-sections"/)
 })
