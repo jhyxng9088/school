@@ -30,8 +30,22 @@ function patchTodoStage5Source(source) {
   next = replaceRequired(
     next,
     `  const active = sorted.filter((todo) => !todo.completed)`,
-    `  const categoryRestoreTarget = useMemo(() => {\n    const comparable = categoryName.normalize('NFKC').trim().replace(/\\s+/g, ' ').toLocaleLowerCase('ko')\n    if (!comparable) return null\n    return reminderFilterOptions(categories, { includeHidden: true }).find((section) => (\n      Boolean(section.hidden)\n      && ['task', 'performance', 'exam', 'material'].includes(section.id)\n      && String(section.label || '').toLocaleLowerCase('ko') === comparable\n    )) || null\n  }, [categories, categoryName])\n  const active = sorted.filter((todo) => !todo.completed)`,
+    `  const hiddenBuiltinSections = useMemo(() => reminderFilterOptions(categories, { includeHidden: true }).filter((section) => (\n    Boolean(section.hidden) && ['task', 'performance', 'exam', 'material'].includes(section.id)\n  )), [categories])\n  const categoryRestoreTarget = useMemo(() => {\n    const comparable = categoryName.normalize('NFKC').trim().replace(/\\s+/g, ' ').toLocaleLowerCase('ko')\n    if (!comparable) return null\n    const canonicalLabels = { task: '일반', performance: '수행평가', exam: '시험', material: '준비물' }\n    return hiddenBuiltinSections.find((section) => [\n      String(section.label || ''),\n      String(canonicalLabels[section.id] || ''),\n    ].some((label) => label.toLocaleLowerCase('ko') === comparable)) || null\n  }, [categoryName, hiddenBuiltinSections])\n  const hasRestorableHiddenBuiltin = hiddenBuiltinSections.length > 0\n  const active = sorted.filter((todo) => !todo.completed)`,
     'hidden built-in restore target',
+  )
+
+  next = replaceRequired(
+    next,
+    `  useEffect(() => {\n    if (filters.some((item) => item.id === filter)) return\n    setFilter(filters[0]?.id || 'all')\n  }, [filter, filters])`,
+    `  useEffect(() => {\n    if (filters.some((item) => item.id === filter)) return\n    setFilter(filters[0]?.id || 'all')\n  }, [filter, filters])\n\n  useEffect(() => {\n    if (!categoryRestoreTarget?.color) return\n    const colorUsedElsewhere = reminderFilterOptions(categories).some((section) => (\n      section.id !== categoryRestoreTarget.id && section.color === categoryRestoreTarget.color\n    ))\n    if (!colorUsedElsewhere) setCategoryColor(categoryRestoreTarget.color)\n  }, [categoryRestoreTarget?.id])`,
+    'restore original color selection',
+  )
+
+  next = replaceRequired(
+    next,
+    `  function openCategoryCreate() {\n    if (!requireOnline('리마인더 섹션을 추가')) return\n    setCategoryName('')\n    setCategoryColor(availableCategoryColors[0]?.id || '')`,
+    `  function openCategoryCreate() {\n    if (!requireOnline('리마인더 섹션을 추가')) return\n    setCategoryName('')\n    const restorableColor = hiddenBuiltinSections.find((section) => (\n      section.color && !usedCategoryColors.has(section.color)\n    ))?.color || ''\n    setCategoryColor(availableCategoryColors[0]?.id || restorableColor)`,
+    'restore-capable category opener',
   )
 
   next = replaceRequired(
@@ -43,8 +57,15 @@ function patchTodoStage5Source(source) {
 
   next = replaceRequired(
     next,
+    `              disabled={!availableCategoryColors.length}\n              onClick={openCategoryCreate}`,
+    `              disabled={!availableCategoryColors.length && !hasRestorableHiddenBuiltin}\n              onClick={openCategoryCreate}`,
+    'allow restore even when custom colors are exhausted',
+  )
+
+  next = replaceRequired(
+    next,
     `          {categorySaveError ? <p className="change-warning">{categorySaveError}</p> : null}\n          {!availableCategoryColors.length ? <p className="change-warning">사용할 수 있는 색을 모두 썼어.</p> : null}`,
-    `          {categoryRestoreTarget ? (\n            <p className="reminder-category-restore-hint">숨겨진 {categoryRestoreTarget.label} 섹션을 다시 사용합니다.</p>\n          ) : null}\n          {categorySaveError ? <p className="change-warning">{categorySaveError}</p> : null}\n          {!availableCategoryColors.length ? <p className="change-warning">사용할 수 있는 색을 모두 썼어.</p> : null}`,
+    `          {categoryRestoreTarget ? (\n            <p className="reminder-category-restore-hint">숨겨진 {categoryRestoreTarget.label} 섹션을 다시 사용합니다.</p>\n          ) : null}\n          {categorySaveError ? <p className="change-warning">{categorySaveError}</p> : null}\n          {!availableCategoryColors.length && !categoryRestoreTarget ? <p className="change-warning">사용할 수 있는 색을 모두 썼어.</p> : null}`,
     'restore hint',
   )
 
