@@ -58,3 +58,5 @@ Keep the existing cron-job for `/api/push-scheduled`. After this backend is depl
 ## Deployment note
 
 After adding or changing Vercel environment variables, create a fresh production deployment so the new values are available to the function runtime.
+
+The Hobby deployment is intentionally kept at 12 serverless functions. The legacy `/api/class-roster-repair` path is rewritten to the consolidated `class-roster` function so the public endpoint remains compatible without adding a thirteenth function.
