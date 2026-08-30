@@ -1,6 +1,7 @@
-# GitHub Pages production deployment plus an isolated S-Hub v2 preview path.
-# The production root is always built from main. Preview code is only copied
-# under /preview-v2/ after its own tests and build succeed.
+# GitHub Pages production deployment plus an isolated preview path.
+# The production root is built from main. The preview path is built from the
+# preview branch with only the Vite base path changed, so it can mirror main
+# exactly before new preview-only work starts.
 name: Deploy School PWA
 
 on:
@@ -60,30 +61,23 @@ jobs:
         working-directory: .preview-source
         run: npm test
 
-      - name: Patch preview hosting path only for the build
+      - name: Patch preview base path only for the build
         working-directory: .preview-source
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('src/preview-v2.js')
+          path = Path('vite.config.js')
           source = path.read_text()
-          old_path = "const PREVIEW_PATH = '/preview/'"
-          old_api = "const API_URL = '/api/preview-v2'"
-          stability_import = "import './preview-v2-stability.js'\n"
-          hotfix_import = "import './preview-v2-hotfix.js'\n"
-          assert source.count(old_path) == 1, 'preview path marker changed unexpectedly'
-          assert source.count(old_api) == 1, 'preview API marker changed unexpectedly'
-          assert stability_import not in source, 'preview stability import already exists unexpectedly'
-          assert hotfix_import not in source, 'legacy preview hotfix import must stay out of the source'
-          source = stability_import + source
-          source = source.replace(old_path, "const PREVIEW_PATH = '/school/preview-v2/'")
-          source = source.replace(old_api, "const API_URL = 'https://school-reminder-backend.vercel.app/api/class-roster'")
+          old = "base: '/school/',"
+          new = "base: '/school/preview-v2/',"
+          assert source.count(old) == 1, 'production Vite base marker changed unexpectedly'
+          source = source.replace(old, new)
           path.write_text(source)
           PY
 
       - name: Build isolated preview app
         working-directory: .preview-source
-        run: SHUB_PREVIEW_BASE=/school/preview-v2/ npm run build
+        run: npm run build
 
       - name: Install preview backend dependencies
         working-directory: .preview-source/push-backend-v2
