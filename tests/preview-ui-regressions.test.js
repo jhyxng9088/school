@@ -20,7 +20,7 @@ test('tab changes reset the shared document scroll position before the new page 
   assert.match(patched, /document\.scrollingElement/)
 })
 
-test('reported Safari and reminder-section copy is polite after the preview build transform', () => {
+test('reported Safari and reminder-section copy is polite after the V2 build transform', () => {
   const main = patchPreviewSHubV2Source(read('src/main.jsx'), '/workspace/src/main.jsx')
   const todo = patchPreviewSHubV2Source(read('src/todo-stage5-ai.jsx'), '/workspace/src/todo-stage5-ai.jsx')
   const replacements = [
@@ -53,8 +53,18 @@ test('the seven question examples remain deliberately informal', () => {
   preserved.forEach((text) => assert.equal(sources.includes(text), false))
 })
 
-test('preview service worker cache is bumped so the fixed UI replaces stale PWA shell files', () => {
+test('production service worker cache is bumped so V2 replaces stale PWA shell files', () => {
+  const sw = read('public/sw.js')
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v155'/)
+  assert.doesNotMatch(sw, /school-preview-shell-/)
+})
+
+test('production V2 config applies feature patches without preview identity rewrites', () => {
   const config = read('vite.config.js')
-  assert.match(config, /school-shell-v154'[\s\S]*?school-shell-v155'/)
-  assert.match(config, /school-preview-shell-/)
+  assert.match(config, /school-s-hub-v2-features/)
+  assert.match(config, /patchPreviewSHubV2Source/)
+  assert.match(config, /patchPreviewAIReminderSummarySource/)
+  assert.doesNotMatch(config, /previewLocalStorageText/)
+  assert.doesNotMatch(config, /school-sync-preview/)
+  assert.doesNotMatch(config, /preview-class-\$\{normalized\.classNumber\}/)
 })
