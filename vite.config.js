@@ -8,6 +8,7 @@ import {
   POLITE_SOURCE_FRAGMENTS,
 } from './src/polite-copy-runtime.js'
 import { PREVIEW_POLITE_COPY_REPLACEMENTS } from './src/preview-polite-copy-additions.js'
+import { patchPreviewAIReminderSummarySource } from './src/preview-ai-reminder-summary-patch.js'
 import { patchPreviewNavSpringSource } from './src/preview-nav-spring-patch.js'
 import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'
 
@@ -73,6 +74,7 @@ function replacePreviewSource(source, id) {
 
   next = patchPreviewNavSpringSource(next, cleanId)
   next = patchPreviewSHubV2Source(next, cleanId)
+  next = patchPreviewAIReminderSummarySource(next, cleanId)
   return next
 }
 
@@ -135,6 +137,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/polite-copy-runtime.js')
         || cleanId.endsWith('/preview-polite-copy-additions.js')
         || cleanId.endsWith('/preview-s-hub-v2-patch.js')
+        || cleanId.endsWith('/preview-ai-reminder-summary-patch.js')
       ) return null
 
       const next = replaceCopy(code)
