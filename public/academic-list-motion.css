@@ -1,0 +1,17 @@
+/* Academic schedule list surface enters with the same calm motion as Reminder's todo list section. */
+.academic-page > .academic-list {
+  animation: school-page-piece-in 1040ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 275ms;
+}
+
+/* Match the Reminder page timing on iPhone / Android / Samsung Internet. */
+html.school-mobile-compat .academic-page > .academic-list {
+  animation-duration: 760ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .academic-page > .academic-list {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+}
