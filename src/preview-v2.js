@@ -5,6 +5,7 @@ const PREVIEW_PATH = '/preview/'
 const API_URL = '/api/preview-v2'
 const ROUTE_REFRESH_MS = 12_000
 const STUDY_HEARTBEAT_MS = 20_000
+const AI_TRIGGER_TIMEOUT_MS = 1600
 
 const routeState = {
   tab: 'home',
@@ -517,30 +518,78 @@ function syncStudyTimers() {
   if (heartbeatTimer) window.clearInterval(heartbeatTimer)
   secondTimer = 0
   heartbeatTimer = 0
+  if (routeState.tab !== 'study') return
+
+  const tick = () => {
+    if (routeState.tab !== 'study') return
+    document.querySelectorAll('[data-study-started-at]').forEach((node) => {
+      node.textContent = liveDuration(Number(node.dataset.studyStartedAt || 0))
+    })
+  }
+  tick()
+  secondTimer = window.setInterval(tick, 1000)
+
   const session = currentStudySession()
-  if (!session || routeState.tab !== 'study') return
-  secondTimer = window.setInterval(() => {
-    const value = document.querySelector('.preview-v2-live-time')
-    if (value && routeState.tab === 'study') value.textContent = liveDuration(session.startedAt)
-  }, 1000)
+  if (!session) return
   heartbeatTimer = window.setInterval(() => {
     if (routeState.tab !== 'study') return
     api('study', { method: 'POST', body: { action: 'heartbeat' } }).catch(() => {})
   }, STUDY_HEARTBEAT_MS)
 }
 
-function renderStudy() {
-  if (routeState.tab !== 'study') return
+function ensureStudyLayer() {
+  if (routeLayer?.isConnected && routeLayer.dataset.previewPage === 'study') return routeLayer
   const layer = showLayer()
-  if (!layer) return
-  const profile = readStudentProfile()
+  if (!layer) return null
+  layer.dataset.previewPage = 'study'
   layer.appendChild(pageHeader('집중 기록', '공부'))
 
-  const session = currentStudySession()
-  const hero = el('section', `preview-v2-study-hero ${session ? 'is-active' : ''}`)
+  const hero = el('section', 'preview-v2-study-hero')
+  hero.dataset.studyMode = ''
+  layer.appendChild(hero)
+
+  const activeSection = el('section', 'preview-v2-study-section')
+  activeSection.dataset.studySection = 'active'
+  const activeHead = el('div', 'preview-v2-section-head')
+  activeHead.append(el('h2', '', '지금 공부 중'), el('span', '', '0명'))
+  activeSection.append(activeHead, el('div', 'preview-v2-study-list'))
+  layer.appendChild(activeSection)
+
+  const ranking = el('section', 'preview-v2-study-section')
+  ranking.dataset.studySection = 'ranking'
+  const rankHead = el('div', 'preview-v2-section-head')
+  rankHead.append(el('h2', '', '오늘 공부'), el('span', '', '누적 시간'))
+  ranking.append(rankHead, el('div', 'preview-v2-study-list'))
+  layer.appendChild(ranking)
+
+  return layer
+}
+
+function renderStudyHero(hero, session) {
+  const nextMode = session ? 'active' : 'idle'
+  if (hero.dataset.studyMode === nextMode) {
+    if (session) {
+      const state = hero.querySelector('.preview-v2-study-state')
+      const time = hero.querySelector('.preview-v2-live-time')
+      if (state) state.textContent = `${session.subject} 공부 중`
+      if (time) {
+        time.dataset.studyStartedAt = String(session.startedAt)
+        time.textContent = liveDuration(session.startedAt)
+      }
+    }
+    return
+  }
+
+  const previousHeight = hero.getBoundingClientRect().height
+  hero.dataset.studyMode = nextMode
+  hero.className = `preview-v2-study-hero ${session ? 'is-active' : ''}`.trim()
+  hero.replaceChildren()
+
   if (session) {
     hero.appendChild(el('span', 'preview-v2-study-state', `${session.subject} 공부 중`))
-    hero.appendChild(el('strong', 'preview-v2-live-time', liveDuration(session.startedAt)))
+    const time = el('strong', 'preview-v2-live-time', liveDuration(session.startedAt))
+    time.dataset.studyStartedAt = String(session.startedAt)
+    hero.appendChild(time)
     const stop = el('button', 'preview-v2-primary', '공부 끝내기')
     stop.type = 'button'
     stop.addEventListener('click', async () => {
@@ -574,48 +623,75 @@ function renderStudy() {
     })
     hero.append(subject, start)
   }
-  layer.appendChild(hero)
 
-  const activeSection = el('section', 'preview-v2-study-section')
-  const activeHead = el('div', 'preview-v2-section-head')
-  const active = studyData?.active || []
-  activeHead.append(el('h2', '', '지금 공부 중'), el('span', '', `${active.length}명`))
-  activeSection.appendChild(activeHead)
-  const activeList = el('div', 'preview-v2-study-list')
-  if (!active.length) {
-    activeList.appendChild(el('p', 'preview-v2-inline-empty', '지금 공부 중인 친구가 없어요.'))
-  } else {
-    active.forEach((item) => {
-      const row = el('div', 'preview-v2-study-row')
-      const copy = el('div', '')
-      copy.append(el('strong', '', item.name || '학생'), el('span', '', item.subject || '공부'))
-      row.append(copy, el('span', 'preview-v2-study-elapsed', liveDuration(item.startedAt)))
-      activeList.appendChild(row)
+  if (previousHeight > 0 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && typeof hero.animate === 'function') {
+    const nextHeight = hero.getBoundingClientRect().height
+    hero.animate([
+      { height: `${previousHeight}px`, opacity: 0.72, transform: 'translate3d(0, 3px, 0) scale(0.995)' },
+      { height: `${nextHeight}px`, opacity: 1, transform: 'translate3d(0, 0, 0) scale(1)' },
+    ], {
+      duration: 460,
+      easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
     })
   }
-  activeSection.appendChild(activeList)
-  layer.appendChild(activeSection)
+}
 
-  const ranking = el('section', 'preview-v2-study-section')
-  const rankHead = el('div', 'preview-v2-section-head')
-  rankHead.append(el('h2', '', '오늘 공부'), el('span', '', '누적 시간'))
-  ranking.appendChild(rankHead)
-  const rankList = el('div', 'preview-v2-study-list')
+function renderStudyActiveList(section) {
+  const active = studyData?.active || []
+  const count = section.querySelector('.preview-v2-section-head span')
+  const list = section.querySelector('.preview-v2-study-list')
+  if (count) count.textContent = `${active.length}명`
+  if (!list) return
+  list.replaceChildren()
+  if (!active.length) {
+    list.appendChild(el('p', 'preview-v2-inline-empty', '지금 공부 중인 친구가 없어요.'))
+    return
+  }
+  active.forEach((item) => {
+    const row = el('div', 'preview-v2-study-row')
+    const copy = el('div', '')
+    copy.append(el('strong', '', item.name || '학생'), el('span', '', item.subject || '공부'))
+    const elapsed = el('span', 'preview-v2-study-elapsed', liveDuration(item.startedAt))
+    elapsed.dataset.studyStartedAt = String(item.startedAt)
+    row.append(copy, elapsed)
+    list.appendChild(row)
+  })
+}
+
+function renderStudyRanking(section) {
+  const list = section.querySelector('.preview-v2-study-list')
+  if (!list) return
+  list.replaceChildren()
   const totals = studyData?.totals || []
   if (!totals.length) {
-    rankList.appendChild(el('p', 'preview-v2-inline-empty', '오늘 기록된 공부 시간이 없어요.'))
-  } else {
-    totals.slice(0, 12).forEach((item, index) => {
-      const row = el('div', 'preview-v2-study-row')
-      const copy = el('div', '')
-      copy.append(el('strong', '', `${index + 1}. ${item.name || '학생'}`), el('span', '', item.studentKey === studyData.me ? '나' : ''))
-      row.append(copy, el('span', '', formatDuration(item.totalMs)))
-      rankList.appendChild(row)
-    })
+    list.appendChild(el('p', 'preview-v2-inline-empty', '오늘 기록된 공부 시간이 없어요.'))
+    return
   }
-  ranking.appendChild(rankList)
-  layer.appendChild(ranking)
+  totals.slice(0, 12).forEach((item, index) => {
+    const row = el('div', 'preview-v2-study-row')
+    const copy = el('div', '')
+    copy.append(el('strong', '', `${index + 1}. ${item.name || '학생'}`), el('span', '', item.studentKey === studyData.me ? '나' : ''))
+    row.append(copy, el('span', 'preview-v2-ranking-time', formatDuration(item.totalMs)))
+    list.appendChild(row)
+  })
+}
+
+function renderStudy() {
+  if (routeState.tab !== 'study') return
+  const layer = ensureStudyLayer()
+  if (!layer) return
+  const hero = layer.querySelector('.preview-v2-study-hero')
+  const activeSection = layer.querySelector('[data-study-section="active"]')
+  const ranking = layer.querySelector('[data-study-section="ranking"]')
+  if (!hero || !activeSection || !ranking) return
+
+  renderStudyHero(hero, currentStudySession())
+  renderStudyActiveList(activeSection)
+  renderStudyRanking(ranking)
+
+  const status = layer.querySelector(':scope > .preview-v2-status')
   if (!studyLoaded) setLayerStatus('공부 현황을 불러오는 중이에요.')
+  else status?.remove()
   syncPreviewActive()
 }
 
@@ -698,20 +774,31 @@ function openAI() {
   const previous = { ...routeState }
   aiReturnRoute = previous.tab === 'ai' ? { tab: 'home' } : previous
   routeGeneration += 1
+  const generation = routeGeneration
   clearRouteTimers()
   routeState.tab = 'ai'
   removeLayer()
   nativeNav(0)
   syncPreviewActive()
-  waitFrames(() => {
+  aiWasOpen = false
+
+  const startedAt = performance.now()
+  const waitForTrigger = () => {
+    if (generation !== routeGeneration || routeState.tab !== 'ai') return
     const trigger = document.querySelector('.home-ai-trigger')
-    if (!trigger) {
-      restoreRoute(aiReturnRoute)
+    if (trigger) {
+      trigger.click()
       return
     }
-    aiWasOpen = false
-    trigger.click()
-  }, 2)
+    if (performance.now() - startedAt >= AI_TRIGGER_TIMEOUT_MS) {
+      const target = aiReturnRoute
+      aiReturnRoute = null
+      restoreRoute(target)
+      return
+    }
+    window.requestAnimationFrame(waitForTrigger)
+  }
+  window.requestAnimationFrame(waitForTrigger)
 }
 
 function routeNavIndex(index) {
