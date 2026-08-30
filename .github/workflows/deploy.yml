@@ -60,7 +60,7 @@ jobs:
         working-directory: .preview-source
         run: npm test
 
-      - name: Patch preview hosting path and UX layer for the build
+      - name: Patch preview hosting path only for the build
         working-directory: .preview-source
         run: |
           python - <<'PY'
