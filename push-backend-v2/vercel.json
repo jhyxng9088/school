@@ -16,9 +16,6 @@
     "api/class-roster.js": {
       "maxDuration": 30
     },
-    "api/class-roster-repair.js": {
-      "maxDuration": 30
-    },
     "api/admin-bootstrap.js": {
       "maxDuration": 30
     },
@@ -31,5 +28,11 @@
     "api/personal-timetable.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/class-roster-repair",
+      "destination": "/api/class-roster?mode=repair"
+    }
+  ]
 }
