@@ -1,0 +1,178 @@
+/* Preview-only UX repairs. Production styles are untouched. */
+
+html.shub-preview-v2 .app-content,
+html.shub-preview-v2 .home-stack > * {
+  animation: none !important;
+}
+
+html.shub-preview-v2 .preview-v2-layer {
+  animation: preview-v2-reveal 260ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+@keyframes preview-v2-reveal {
+  from { opacity: 0.76; transform: translate3d(0, 4px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+html.shub-preview-v2.shub-preview-ai-active .app-shell > .app-content,
+html.shub-preview-v2.shub-preview-ai-active .preview-v2-layer {
+  visibility: hidden !important;
+}
+
+html.shub-preview-v2 .bottom-nav {
+  z-index: 120 !important;
+}
+
+html.shub-preview-v2 .preview-v2-ai-backdrop {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+html.shub-preview-v2 .unified-school-sheet.preview-v2-ai-page {
+  position: fixed !important;
+  z-index: 70 !important;
+  inset: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 0 calc(104px + env(safe-area-inset-bottom)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--bg) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+  transition: opacity 190ms ease, visibility 190ms ease !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+html.shub-preview-v2.shub-preview-ai-active .unified-school-sheet.preview-v2-ai-page {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+html.shub-preview-v2 .preview-v2-ai-page .unified-sheet-head {
+  flex: none !important;
+  width: min(100%, 720px) !important;
+  margin: 0 auto !important;
+  padding: max(42px, calc(env(safe-area-inset-top) + 18px)) var(--page-x) 18px !important;
+  border: 0 !important;
+  background: var(--bg) !important;
+  cursor: default !important;
+  touch-action: auto !important;
+}
+
+html.shub-preview-v2 .preview-v2-ai-page .unified-sheet-title-copy h2 {
+  margin: 0 !important;
+  font-size: 36px !important;
+  line-height: 1.05 !important;
+  font-weight: 740 !important;
+  letter-spacing: -0.045em !important;
+}
+
+html.shub-preview-v2 .preview-v2-ai-page .unified-sheet-title-copy p {
+  margin-top: 7px !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+html.shub-preview-v2 .preview-v2-ai-page .unified-sheet-close {
+  display: none !important;
+}
+
+html.shub-preview-v2 .preview-v2-ai-page .unified-sheet-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: min(100%, 720px) !important;
+  max-height: none !important;
+  margin: 0 auto !important;
+  padding: 0 var(--page-x) 34px !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+html.shub-preview-v2 .preview-v2-ai-page .s-hub-ai-content {
+  min-height: 100% !important;
+  padding-bottom: 18px !important;
+}
+
+html.shub-preview-v2 .preview-v2-empty {
+  min-height: 156px;
+  display: grid;
+  align-content: center;
+}
+
+html.shub-preview-v2 .preview-v2-study-list:has(.preview-v2-inline-empty) {
+  min-height: 108px;
+  display: grid;
+  align-items: center;
+}
+
+html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 18px;
+}
+
+html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) .preview-v2-study-state {
+  grid-column: 1 / -1;
+}
+
+html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) .preview-v2-subject-input {
+  min-width: 0;
+  background: var(--surface-soft);
+}
+
+html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) .preview-v2-primary {
+  min-width: 104px;
+  width: auto;
+  white-space: nowrap;
+}
+
+html.shub-preview-v2 .week-legend {
+  font-size: 11px;
+  gap: 9px;
+}
+
+html.shub-preview-v2 .week-cell-attribution {
+  font-size: clamp(8px, 1.8vw, 9.5px);
+  opacity: 0.78;
+}
+
+html.shub-preview-v2 .preview-v2-status {
+  min-height: 20px;
+}
+
+@media (max-width: 390px) {
+  html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) {
+    grid-template-columns: 1fr;
+  }
+
+  html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) .preview-v2-study-state,
+  html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) .preview-v2-subject-input,
+  html.shub-preview-v2 .preview-v2-study-hero:not(.is-active) .preview-v2-primary {
+    grid-column: 1;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.shub-preview-v2 .preview-v2-layer,
+  html.shub-preview-v2 .unified-school-sheet.preview-v2-ai-page {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
