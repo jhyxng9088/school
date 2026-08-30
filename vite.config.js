@@ -10,6 +10,7 @@ import {
 import { PREVIEW_POLITE_COPY_REPLACEMENTS } from './src/preview-polite-copy-additions.js'
 import { patchPreviewAIReminderSummarySource } from './src/preview-ai-reminder-summary-patch.js'
 import { patchPreviewNavSpringSource } from './src/preview-nav-spring-patch.js'
+import { patchPreviewReminderPolishSource } from './src/preview-reminder-polish-patch.js'
 import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'
 
 const AI_PROMPT_MARKERS = [
@@ -75,6 +76,7 @@ function replacePreviewSource(source, id) {
   next = patchPreviewNavSpringSource(next, cleanId)
   next = patchPreviewSHubV2Source(next, cleanId)
   next = patchPreviewAIReminderSummarySource(next, cleanId)
+  next = patchPreviewReminderPolishSource(next, cleanId)
   return next
 }
 
@@ -138,6 +140,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-polite-copy-additions.js')
         || cleanId.endsWith('/preview-s-hub-v2-patch.js')
         || cleanId.endsWith('/preview-ai-reminder-summary-patch.js')
+        || cleanId.endsWith('/preview-reminder-polish-patch.js')
       ) return null
 
       const next = replaceCopy(code)
