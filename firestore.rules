@@ -237,17 +237,21 @@ service cloud.firestore {
     }
 
     function validReminderCategory(categoryId) {
-      return request.resource.data.keys().hasOnly(['id', 'label', 'color', 'createdAt', 'updatedAt'])
+      return request.resource.data.keys().hasOnly(['id', 'label', 'color', 'hidden', 'createdAt', 'updatedAt'])
         && request.resource.data.keys().hasAll(['id', 'label', 'color', 'createdAt', 'updatedAt'])
         && request.resource.data.id == categoryId
-        && categoryId.matches('^custom-[0-9a-f]{6}$')
+        && (categoryId in ['all', 'task', 'performance', 'exam', 'material']
+          || categoryId.matches('^custom-[0-9a-f]{6}$'))
         && request.resource.data.label is string
         && request.resource.data.label.size() > 0
         && request.resource.data.label.size() <= 16
-        && request.resource.data.color in [
-          '#d68a45', '#3f91c7', '#9b6fd0', '#d85b91',
-          '#38a6a6', '#a77851', '#78a947', '#b8615c'
-        ]
+        && ((categoryId == 'all' && request.resource.data.color == '')
+          || request.resource.data.color in [
+            '#90939a', '#7c83ff', '#ef6b66', '#56a781',
+            '#d68a45', '#3f91c7', '#9b6fd0', '#d85b91',
+            '#38a6a6', '#a77851', '#78a947', '#b8615c'
+          ])
+        && request.resource.data.get('hidden', false) is bool
         && request.resource.data.createdAt is int
         && request.resource.data.updatedAt is int;
     }
