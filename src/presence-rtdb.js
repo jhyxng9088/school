@@ -18,12 +18,18 @@ function safePathPart(value) {
   return String(value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 120)
 }
 
-export function startRealtimePresence({ app, classId, uid, studentKey, onOnlineCount, onError = () => {} }) {
+export function startRealtimePresence({
+  app,
+  classId,
+  uid,
+  onOnlineCount,
+  onError = () => {},
+  onUnavailable = () => {},
+}) {
   if (!realtimePresenceConfigured() || !app) return null
   const safeClassId = safePathPart(classId)
   const safeUid = safePathPart(uid)
-  const safeStudentKey = safePathPart(studentKey)
-  if (!safeClassId || !safeUid || !safeStudentKey) return null
+  if (!safeClassId || !safeUid) return null
 
   let database
   try {
@@ -38,6 +44,16 @@ export function startRealtimePresence({ app, classId, uid, studentKey, onOnlineC
   const connected = ref(database, '.info/connected')
   let stopped = false
   let connectedNow = false
+  let unavailableReported = false
+
+  function reportUnavailable(error) {
+    onError(error)
+    if (stopped || unavailableReported) return
+    unavailableReported = true
+    queueMicrotask(() => {
+      if (!stopped) onUnavailable(error)
+    })
+  }
 
   async function enter() {
     if (stopped || !connectedNow) return false
@@ -45,12 +61,11 @@ export function startRealtimePresence({ app, classId, uid, studentKey, onOnlineC
       const disconnect = onDisconnect(ownPresence)
       await disconnect.remove()
       await set(ownPresence, {
-        studentKey: safeStudentKey,
         connectedAt: serverTimestamp(),
       })
       return true
     } catch (error) {
-      onError(error)
+      reportUnavailable(error)
       return false
     }
   }
@@ -70,22 +85,22 @@ export function startRealtimePresence({ app, classId, uid, studentKey, onOnlineC
     let online = 0
     snapshot.forEach(() => { online += 1 })
     onOnlineCount(Number(online || 0))
-  }, onError)
+  }, reportUnavailable)
 
   const stopConnection = onValue(connected, (snapshot) => {
     connectedNow = snapshot.val() === true
     if (connectedNow && !document.hidden) void enter()
-  }, onError)
+  }, reportUnavailable)
 
   return {
     enter,
     leave,
     stop() {
       if (stopped) return
-      void remove(ownPresence).catch(() => {})
       stopped = true
       stopClass()
       stopConnection()
+      void remove(ownPresence).catch(() => {})
     },
   }
 }
