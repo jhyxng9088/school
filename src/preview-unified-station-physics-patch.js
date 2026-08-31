@@ -119,8 +119,15 @@ function patchMainSource(source) {
     next,
     'Math.abs(physics.progress - physics.target) < 0.0008 && Math.abs(physics.velocity) < 0.0008',
     'Math.abs(physics.progress - physics.target) < S_HUB_STATION_PHYSICS.settleDistanceNormalized && Math.abs(physics.velocity) < S_HUB_STATION_PHYSICS.settleVelocityNormalized',
-    2,
-    'shared normalized settle threshold',
+    1,
+    'shared normalized layout settle threshold',
+  )
+  next = replaceAllRequired(
+    next,
+    'Math.abs(physics.x - physics.target) < 0.0008 && Math.abs(physics.velocity) < 0.0008',
+    'Math.abs(physics.x - physics.target) < S_HUB_STATION_PHYSICS.settleDistanceNormalized && Math.abs(physics.velocity) < S_HUB_STATION_PHYSICS.settleVelocityNormalized',
+    1,
+    'shared normalized reaction settle threshold',
   )
 
   return next
