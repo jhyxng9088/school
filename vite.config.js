@@ -12,6 +12,8 @@ import { patchPreviewAIReminderSummarySource } from './src/preview-ai-reminder-s
 import { patchPreviewNavSpringSource } from './src/preview-nav-spring-patch.js'
 import { patchPreviewReminderPolishSource } from './src/preview-reminder-polish-patch.js'
 import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'
+import { patchDataSplitV1Source } from './src/data-split-v1-patch.js'
+import { patchPresenceSplitSource } from './src/presence-split-patch.js'
 
 const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
@@ -57,6 +59,8 @@ function replaceV2Source(source, id) {
   next = patchPreviewSHubV2Source(next, cleanId)
   next = patchPreviewAIReminderSummarySource(next, cleanId)
   next = patchPreviewReminderPolishSource(next, cleanId)
+  next = patchDataSplitV1Source(next, cleanId)
+  next = patchPresenceSplitSource(next, cleanId)
   return next
 }
 
@@ -96,6 +100,8 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-ai-reminder-summary-patch.js')
         || cleanId.endsWith('/preview-reminder-polish-patch.js')
         || cleanId.endsWith('/preview-nav-spring-patch.js')
+        || cleanId.endsWith('/data-split-v1-patch.js')
+        || cleanId.endsWith('/presence-split-patch.js')
       ) return null
 
       const next = replaceCopy(code)
