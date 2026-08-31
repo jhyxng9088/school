@@ -1,0 +1,102 @@
+name: Deploy Updated Preview
+
+on:
+  push:
+    branches: [preview/s-hub-v2]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout production main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: production-source
+
+      - name: Checkout preview branch
+        uses: actions/checkout@v4
+        with:
+          ref: preview/s-hub-v2
+          path: preview-source
+
+      - name: Remove temporary workflow from preview test workspace
+        run: rm -f preview-source/.github/workflows/preview-pages-deploy.yml
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install production dependencies
+        working-directory: production-source
+        run: npm ci
+
+      - name: Test production app
+        working-directory: production-source
+        run: npm test
+
+      - name: Build production app
+        working-directory: production-source
+        run: npm run build
+
+      - name: Install preview dependencies
+        working-directory: preview-source
+        run: npm ci
+
+      - name: Test preview app
+        working-directory: preview-source
+        run: npm test
+
+      - name: Patch preview base path
+        working-directory: preview-source
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('vite.config.js')
+          source = path.read_text()
+          old = "base: '/school/',"
+          new = "base: '/school/preview-v2/',"
+          assert source.count(old) == 1
+          path.write_text(source.replace(old, new))
+          PY
+
+      - name: Build preview app
+        working-directory: preview-source
+        run: npm run build
+
+      - name: Verify preview data isolation
+        working-directory: preview-source
+        run: node scripts/verify-preview-isolation.mjs dist
+
+      - name: Compose site
+        run: |
+          rm -rf pages-site
+          mkdir -p pages-site/preview-v2
+          cp -a production-source/dist/. pages-site/
+          cp -a preview-source/dist/. pages-site/preview-v2/
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./pages-site
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
