@@ -22,12 +22,13 @@ test('nested selection physically pushes outer capsule and nearby station icons'
   assert.match(patch, /--class-schedule-react-x/)
 })
 
-test('collapse stays visible until the outer capsule actually reaches one station slot', () => {
+test('collapse guard remains geometry-based while final physical layer owns exit timing', () => {
   assert.match(patch, /useClassCollapseSettledGuard/)
   assert.match(patch, /--station-class-current/)
   assert.match(patch, /--station-side-current/)
   assert.match(patch, /gap < 0\.42 && delta < 0\.035/)
-  assert.match(patch, /\}, 1800\)/)
+  assert.match(patch, /final physical-coupling layer owns exit timing/)
+  assert.doesNotMatch(patch, /\}, 1800\)/)
 })
 
 test('active nested label changes immediately without delayed color transition', () => {
