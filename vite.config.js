@@ -19,6 +19,7 @@ import { patchPreviewNestedStationReactionSource } from './src/preview-nested-st
 import { patchPreviewUnifiedStationPhysicsSource } from './src/preview-unified-station-physics-patch.js'
 import { patchPreviewPhysicalClassCouplingSource } from './src/preview-physical-class-coupling-patch.js'
 import { patchPreviewNestedGeometryCouplingSource } from './src/preview-nested-geometry-coupling-patch.js'
+import { patchPreviewNavResponsivenessSource } from './src/preview-nav-responsiveness-patch.js'
 
 const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
@@ -91,6 +92,7 @@ function replacePreviewSource(source, id) {
   next = patchPreviewUnifiedStationPhysicsSource(next, cleanId)
   next = patchPreviewPhysicalClassCouplingSource(next, cleanId)
   next = patchPreviewNestedGeometryCouplingSource(next, cleanId)
+  next = patchPreviewNavResponsivenessSource(next, cleanId)
   return next
 }
 
@@ -162,6 +164,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-unified-station-physics-patch.js')
         || cleanId.endsWith('/preview-physical-class-coupling-patch.js')
         || cleanId.endsWith('/preview-nested-geometry-coupling-patch.js')
+        || cleanId.endsWith('/preview-nav-responsiveness-patch.js')
       ) return null
 
       const next = replaceCopy(code)
