@@ -7,7 +7,6 @@ import {
 } from './reminder-categories.js'
 
 const REMINDER_SECTION_API_URL = 'https://school-reminder-backend.vercel.app/api/reminder-sections'
-const REMINDER_SECTION_FALLBACK_API_URL = 'https://school-reminder-backend-mm1t9pzs6-jhyxng9088-7711.vercel.app/api/reminder-sections'
 const REMINDER_CATEGORIES_CACHE_VERSION = 'v1'
 const PENDING_SECTION_QUEUE_VERSION = 'v1'
 const PENDING_SECTION_RETRY_MS = 30 * 60 * 1000
@@ -154,9 +153,6 @@ function queueableUpdateError(error) {
     code === '8'
     || code === 'RESOURCE_EXHAUSTED'
     || code === 'reminder-section/quota-exhausted'
-    || code === 'reminder-section/preview-class-required'
-    || code === 'reminder-section/preview-backend-pending'
-    || code === 'reminder-section/network'
     || /resource[_ -]?exhausted|quota exceeded/i.test(`${code} ${message}`)
   )
 }
@@ -189,31 +185,7 @@ async function requestSectionChange(payload) {
   const idToken = String(await user.getIdToken()).trim()
   if (!idToken) throw sectionError('reminder-section/auth-required', 'Authentication required')
 
-  let result = await postSectionChange(REMINDER_SECTION_API_URL, payload, idToken)
-  const primaryNeedsFallback = (
-    result.response?.status === 403
-    && String(result.body?.error || '') === 'reminder-section/preview-class-required'
-  )
-
-  if (primaryNeedsFallback) {
-    const fallback = await postSectionChange(REMINDER_SECTION_FALLBACK_API_URL, payload, idToken)
-    const fallbackBlocked = (
-      fallback.networkError
-      || !fallback.response
-      || (
-        [401, 403].includes(fallback.response.status)
-        && !String(fallback.body?.error || '').startsWith('reminder-section/')
-      )
-    )
-    if (fallbackBlocked) {
-      throw sectionError(
-        'reminder-section/preview-backend-pending',
-        'Production reminder section backend is waiting for deployment',
-      )
-    }
-    result = fallback
-  }
-
+  const result = await postSectionChange(REMINDER_SECTION_API_URL, payload, idToken)
   if (result.networkError || !result.response) {
     throw sectionError('reminder-section/network', 'Reminder section server unavailable')
   }
@@ -349,9 +321,6 @@ export async function saveReminderSectionChange({
   } catch (error) {
     if (!queueableUpdateError(error) || !queuePendingSectionUpdate(payload, optimistic)) throw error
 
-    if (typeof window !== 'undefined') {
-      window.setTimeout(() => window.location.reload(), 160)
-    }
     return {
       section: optimistic,
       pendingSync: true,
