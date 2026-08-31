@@ -14,7 +14,7 @@ function transformedSchoolSync() {
   return patchPresenceSplitSource(patchDataSplitV1Source(raw, path), path)
 }
 
-test('presence prefers Realtime Database but preserves an idempotent Firestore fallback', () => {
+test('presence prefers Realtime Database when explicitly configured but preserves an idempotent Firestore fallback', () => {
   const source = transformedSchoolSync()
   assert.match(source, /realtimePresenceConfigured\(\)/)
   assert.match(source, /startRealtimePresence\(\{/)
@@ -28,7 +28,7 @@ test('presence prefers Realtime Database but preserves an idempotent Firestore f
   assert.match(source, /30 \* 1000/)
 })
 
-test('member total is cached and cannot block independent RTDB online presence', () => {
+test('member total is cached and cannot block the active presence transport', () => {
   const source = transformedSchoolSync()
   assert.match(source, /MEMBER_COUNT_CACHE_MS = 30 \* 60 \* 1000/)
   assert.match(source, /readCachedMemberCount\(\{ allowStale: true \}\)/)
@@ -39,10 +39,10 @@ test('member total is cached and cannot block independent RTDB online presence',
   assert.doesNotMatch(source, /Promise\.all\(\[\s*getCountFromServer\(classMembersCollection/)
 })
 
-test('RTDB presence uses the production database URL with an environment override', () => {
+test('RTDB presence is explicit opt-in so unverified database rules cannot disable online presence', () => {
   const source = read('../src/presence-rtdb.js')
-  assert.match(source, /https:\/\/school-adeda-default-rtdb\.asia-southeast1\.firebasedatabase\.app\//)
-  assert.match(source, /VITE_FIREBASE_DATABASE_URL \|\| DEFAULT_DATABASE_URL/)
+  assert.match(source, /VITE_FIREBASE_DATABASE_URL \|\| ''/)
+  assert.doesNotMatch(source, /-default-rtdb\.asia-southeast1\.firebasedatabase\.app/)
 })
 
 test('RTDB presence uses connection state, onDisconnect cleanup, and reports runtime permission failures', () => {
@@ -72,7 +72,7 @@ test('RTDB remains safe when unavailable because Firestore fallback is preserved
   assert.match(school, /onUnavailable: activateFallback/)
 })
 
-test('firebase config registers the locked RTDB rules file for deployment', () => {
+test('firebase config retains the locked RTDB rules file for a later verified deployment', () => {
   const config = JSON.parse(read('../firebase.json'))
   assert.equal(config.database?.rules, 'database.rules.json')
 })
