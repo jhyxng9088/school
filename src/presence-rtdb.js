@@ -8,7 +8,8 @@ import {
   set,
 } from 'firebase/database'
 
-const DATABASE_URL = String(import.meta.env.VITE_FIREBASE_DATABASE_URL || '').trim()
+const DEFAULT_DATABASE_URL = 'https://school-adeda-default-rtdb.asia-southeast1.firebasedatabase.app/'
+const DATABASE_URL = String(import.meta.env.VITE_FIREBASE_DATABASE_URL || DEFAULT_DATABASE_URL).trim()
 
 export function realtimePresenceConfigured() {
   return /^https:\/\/[a-z0-9-]+(?:-default-rtdb)?(?:\.[a-z0-9-]+)?\.(?:firebaseio\.com|firebasedatabase\.app)\/?$/i.test(DATABASE_URL)
