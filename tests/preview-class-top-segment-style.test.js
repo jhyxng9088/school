@@ -12,11 +12,13 @@ test('class top segment is centered and slightly thinner', () => {
   assert.match(source, /min-height: 34px !important/)
 })
 
-test('class top segment pill uses the same opaque surface token as bottom nav indicator', () => {
+test('class top segment pill uses the exact bottom nav indicator material tokens', () => {
   const source = patchPreviewClassTopSegmentStyleSource('', '/workspace/src/styles.css')
-  assert.match(source, /\.class-top-segment-pill \{[\s\S]*background: var\(--surface\) !important/)
+  assert.match(source, /\.class-top-segment-pill \{[\s\S]*background: var\(--nav-indicator-surface\) !important/)
   assert.match(source, /opacity: 1 !important/)
-  assert.match(source, /box-shadow: inset 0 0 0 0\.5px var\(--border\) !important/)
+  assert.match(source, /inset 0 1px 0 var\(--specular-edge\)/)
+  assert.match(source, /inset 0 0 0 0\.75px var\(--nav-indicator-edge\)/)
+  assert.match(source, /var\(--nav-indicator-shadow\) !important/)
 })
 
 test('vite applies style refinement after the class top segment structure patch', () => {
