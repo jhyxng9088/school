@@ -59,8 +59,10 @@ test('neighboring top-level stations are not independently pushed by the nested 
 test('nested controls are generated only as the middle class pill physically opens', () => {
   const source = buildFinalMain()
   const css = patchPreviewPhysicalClassCouplingSource(read('src/styles.css'), '/workspace/src/styles.css')
-  assert.match(source, /--class-progress/)
-  assert.match(css, /opacity: clamp\(0, calc\(\(var\(--class-progress, 0\) - \.34\) \* 2\.2\), 1\)/)
+  assert.match(source, /const classProgress = Math\.max\(0, Math\.min\(1, physics\.progress\)\)/)
+  assert.match(source, /const overlayOpacity = Math\.max\(0, Math\.min\(1, \(classProgress - 0\.34\) \/ 0\.45\)\)/)
+  assert.match(source, /--class-overlay-opacity/)
+  assert.match(css, /opacity: var\(--class-overlay-opacity, 0\) !important/)
 })
 
 test('nested pill returns the middle pill skin to neutral at physical settle', () => {
