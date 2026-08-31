@@ -40,7 +40,7 @@ test('small pill pressure changes real class grid geometry instead of a decorati
   const source = buildFinalMain()
   const finalCss = patchPreviewNestedGeometryCouplingSource(read('src/styles.css'), '/workspace/src/styles.css')
   assert.match(source, /leftExtension = Math\.max\(0, inset - visualX\)/)
-  assert.match(source, /rightExtension = Math\.max\(0, visualRight - \(capsuleWidth - inset\)\)/)
+  assert.match(source, /rightExtension = Math\.max\(0, visualRight - \(baseClassWidth - inset\)\)/)
   assert.match(source, /actualClassWidth = baseClassWidth \+ leftExtension \+ rightExtension/)
   assert.match(source, /actualLeftWidth = Math\.max\(0, baseSideWidth - leftExtension\)/)
   assert.match(source, /actualRightWidth = Math\.max\(0, baseSideWidth - rightExtension \/ 3\)/)
@@ -56,13 +56,24 @@ test('nested target geometry stays baseline while only the visible class shell t
   assert.match(finalCss, /overflow: visible !important/)
 })
 
-test('outer class pill follows actual geometry directly while coupled so nested and outer pills cannot lag into overlap', () => {
+test('nested geometry uses cached inline station values and never recursively dispatches stationlayout', () => {
+  const patch = read('src/preview-nested-geometry-coupling-patch.js')
+  assert.match(patch, /nav\.style\.getPropertyValue\('--station-class-current'\)/)
+  assert.match(patch, /nav\.style\.getPropertyValue\('--station-side-current'\)/)
+  assert.doesNotMatch(patch, /window\.getComputedStyle\(nav\)/)
+  assert.doesNotMatch(patch, /capsule\.clientWidth/)
+  assert.doesNotMatch(patch, /scheduleLayoutSync/)
+  assert.doesNotMatch(patch, /nav\.dispatchEvent\(new Event\('stationlayout'\)\)/)
+})
+
+test('outer class pill follows actual geometry directly only while class owns the indicator', () => {
   const source = buildFinalMain()
-  assert.match(source, /nav\.dataset\.nestedGeometryFollow === 'true' && activeIndex === 1/)
-  assert.match(source, /physics\.x = physics\.targetX/)
-  assert.match(source, /physics\.velocity = 0/)
-  assert.match(source, /syncOuterIndicatorNow/)
-  assert.match(source, /buttonRect\.width \+ 'px'/)
+  assert.match(source, /useNestedGeometryCoupling\(navRef, classNavExpanded \|\| classNavCollapsing, activeTab === 'class'\)/)
+  assert.match(source, /function syncOuterIndicatorNow\(actualLeftWidth, actualClassWidth\)/)
+  assert.match(source, /if \(!ownsIndicator\) return/)
+  assert.match(source, /const x = inset \+ actualLeftWidth/)
+  assert.match(source, /physics\.targetX = 5 \+ leftWidth/)
+  assert.match(source, /physics\.baseWidth = classWidth/)
 })
 
 test('old decorative middle-shell transform is neutralized in the final geometry layer', () => {
