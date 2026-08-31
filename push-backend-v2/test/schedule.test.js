@@ -59,8 +59,15 @@ test('알림 문구 형식', () => {
   assert.equal(reminderHourBody('수학 과제'), '수학 과제 했나요?')
   assert.equal(reminderTomorrowBody([{ title: '수학 과제' }]), '내일 수학 과제 있어요. 확인해 주세요.')
   assert.equal(reminderTomorrowBody([{ title: '수학 과제' }, { title: '영어 단어' }]), '내일 수학 과제 외 1개의 할 일이 있어요. 확인해 주세요.')
-  assert.equal(academicTomorrowBody([{ title: '체육대회' }]), '내일 체육대회가 있어요.')
+  assert.equal(academicTomorrowBody([{ title: '체육대회' }]), '내일 체육대회 예정이에요.')
   assert.equal(academicTomorrowBody([{ title: '체육대회' }, { title: '동아리 발표' }]), '내일 체육대회 외 1개의 중요 일정이 있어요.')
+})
+
+test('알림 제목 앞 목록 기호는 제거하고 제목 내부 하이픈은 유지한다', () => {
+  assert.equal(reminderHourBody('-수학 과제'), '수학 과제 했나요?')
+  assert.equal(reminderTomorrowBody([{ title: '— 실행' }]), '내일 실행 있어요. 확인해 주세요.')
+  assert.equal(academicTomorrowBody([{ title: '-실행' }]), '내일 실행 예정이에요.')
+  assert.equal(academicTomorrowBody([{ title: 'AI-반도체 발표' }]), '내일 AI-반도체 발표 예정이에요.')
 })
 
 const subs = [
@@ -154,7 +161,7 @@ test('학사일정은 중요 토글 prefix가 있는 일정만 전날 23시에 �
   })
   const academic = plans.filter((plan) => plan.type === 'academic-tomorrow')
   assert.equal(academic.length, 2)
-  assert.equal(academic.every((plan) => plan.payload.body === '내일 체육대회가 있어요.'), true)
+  assert.equal(academic.every((plan) => plan.payload.body === '내일 체육대회 예정이에요.'), true)
   assert.deepEqual(academic.find((plan) => plan.studentKey === 'student-a').recipients.map((item) => item.id), ['a1', 'a2'])
   assert.deepEqual(academic.find((plan) => plan.studentKey === 'student-b').recipients.map((item) => item.id), ['b1'])
   assert.notEqual(academic[0].key, academic[1].key)

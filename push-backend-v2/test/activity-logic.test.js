@@ -1,4 +1,3 @@
-
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { reminderActivityBody, reminderActivityRecipientEligible } from '../lib/activity-logic.js'
@@ -35,5 +34,16 @@ test('reminder activity push uses honorific actor name', () => {
   assert.equal(
     reminderActivityBody({ actorName: '홍길동', action: 'edited', title: '수학 과제' }),
     '홍길동님이 수학 과제 리마인더를 수정했어요.',
+  )
+})
+
+test('reminder activity push strips leading list markers only', () => {
+  assert.equal(
+    reminderActivityBody({ actorName: '홍길동', action: 'added', title: '-수학 과제' }),
+    '홍길동님이 수학 과제 리마인더를 추가했어요.',
+  )
+  assert.equal(
+    reminderActivityBody({ actorName: '홍길동', action: 'edited', title: 'AI-반도체 발표' }),
+    '홍길동님이 AI-반도체 발표 리마인더를 수정했어요.',
   )
 })
