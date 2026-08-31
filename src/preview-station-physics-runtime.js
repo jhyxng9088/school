@@ -219,8 +219,12 @@ export function useElasticPillSpring(activeIndex, {
       physics.lastTime = 0
       measure({ snap: true })
     }
+    const resizeObserver = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(() => handleGeometry())
+      : null
 
     if (geometryEvent) container.addEventListener(geometryEvent, handleGeometry)
+    resizeObserver?.observe(container)
     window.addEventListener('resize', handleViewport)
     window.addEventListener('orientationchange', handleViewport)
     window.visualViewport?.addEventListener('resize', handleViewport)
@@ -228,6 +232,7 @@ export function useElasticPillSpring(activeIndex, {
     return () => {
       stopAnimation()
       if (geometryEvent) container.removeEventListener(geometryEvent, handleGeometry)
+      resizeObserver?.disconnect()
       window.removeEventListener('resize', handleViewport)
       window.removeEventListener('orientationchange', handleViewport)
       window.visualViewport?.removeEventListener('resize', handleViewport)
@@ -294,7 +299,7 @@ export function useClassStationWidthSpring(navRef, requestedOpen) {
       nav.style.setProperty('--class-progress', progress.toFixed(5))
       nav.style.setProperty('--class-overlay-opacity', Math.max(0, Math.min(1, progress * 1.22)).toFixed(5))
       nav.style.setProperty('--class-button-opacity', Math.max(0, 1 - progress * 1.35).toFixed(5))
-      nav.dataset.classEngaged = physics.engaged ? 'true' : 'false'
+      nav.dataset.classEngaged = physics.engaged || progress > 0.02 ? 'true' : 'false'
       nav.dataset.classInteractive = requestedOpen && progress > 0.93 ? 'true' : 'false'
       nav.dispatchEvent(new Event('stationgeometry'))
     }
