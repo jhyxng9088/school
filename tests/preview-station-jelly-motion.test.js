@@ -8,7 +8,9 @@ const vite = fs.readFileSync(new URL('../vite.config.js', import.meta.url), 'utf
 test('top-level station tap is dispatched only once after layout motion', () => {
   assert.match(patch, /single top-level tap dispatch/)
   assert.match(patch, /onClick=\{\(\) => changeTab\(tab\.id\)\}/)
-  assert.doesNotMatch(patch, /if \(event\.pointerType !== 'mouse'\) changeTab\(tab\.id\)/)
+  assert.match(patch, /onPointerDown=\{\(event\) => \{\\n\s+if \(event\.pointerType !== 'mouse'\) changeTab\(tab\.id\)/)
+  const replacementCount = (patch.match(/`\s+onClick=\{\(\) => changeTab\(tab\.id\)\}`/g) || []).length
+  assert.equal(replacementCount, 1)
 })
 
 test('class exit overlaps collapse with destination motion', () => {
