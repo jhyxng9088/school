@@ -6,9 +6,12 @@ const CLASS_TOP_SEGMENT_STYLE_CSS = `
 }
 
 .class-top-segment-pill {
-  background: var(--surface) !important;
+  background: var(--nav-indicator-surface) !important;
   opacity: 1 !important;
-  box-shadow: inset 0 0 0 0.5px var(--border) !important;
+  box-shadow:
+    inset 0 1px 0 var(--specular-edge),
+    inset 0 0 0 0.75px var(--nav-indicator-edge),
+    var(--nav-indicator-shadow) !important;
 }
 
 .class-top-segment-button {
