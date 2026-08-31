@@ -1,0 +1,29 @@
+name: Preview Station Refine Check
+
+on:
+  push:
+    branches: [work/preview-station-motion-refine]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Remove temporary validation workflow from test workspace
+        run: rm -f .github/workflows/preview-station-refine-check.yml
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Verify preview isolation
+        run: node scripts/verify-preview-isolation.mjs dist
+      - run: npm ci
+        working-directory: push-backend-v2
+      - run: npm test
+        working-directory: push-backend-v2
