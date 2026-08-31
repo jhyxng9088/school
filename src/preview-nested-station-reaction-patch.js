@@ -246,12 +246,8 @@ function patchMainSource(source) {
     'nested spring hookups',
   )
 
-  next = replaceRequired(
-    next,
-    `        classExitReleaseTimerRef.current = window.setTimeout(() => {\n          classExitReleaseTimerRef.current = 0\n          setClassNavCollapsing(false)\n        }, 500)`,
-    `        classExitReleaseTimerRef.current = window.setTimeout(() => {\n          classExitReleaseTimerRef.current = 0\n          setClassNavCollapsing(false)\n        }, 1800)`,
-    'collapse visibility fallback',
-  )
+  /* The final physical-coupling layer owns exit timing now. Keep this legacy layer
+     from stretching the old 500ms release into a second independent 1800ms delay. */
 
   return next
 }
