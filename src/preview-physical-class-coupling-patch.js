@@ -38,7 +38,7 @@ const PHYSICAL_CLASS_COUPLING_CSS = `
   border: 0 !important;
   box-shadow: none !important;
   transform: translate3d(-50%, 0, 0) !important;
-  opacity: clamp(0, calc((var(--class-progress, 0) - .34) * 2.2), 1) !important;
+  opacity: var(--class-overlay-opacity, 0) !important;
 }
 
 .bottom-nav[data-class-layout-spring="true"] .class-nav-mini-pill {
@@ -75,10 +75,19 @@ function replaceRequired(source, marker, replacement, label) {
   return source.replace(marker, replacement)
 }
 
+function replaceBlockRequired(source, startMarker, endMarker, transform, label) {
+  const start = source.indexOf(startMarker)
+  const end = source.indexOf(endMarker, start + startMarker.length)
+  if (start < 0 || end < 0) throw new Error(`Physical class coupling range missing: ${label}`)
+  const current = source.slice(start, end)
+  const next = transform(current)
+  return `${source.slice(0, start)}${next}${source.slice(end)}`
+}
+
 function patchMainSource(source) {
   let next = String(source || '')
 
-  /* The old nested spring made a separate fake shell reaction. Keep its helpers harmless,
+  /* The old nested spring made a separate fake shell reaction. Keep its helper inert,
      but remove the hook so only real nested-pill frames drive the outer middle pill. */
   next = replaceRequired(
     next,
@@ -87,26 +96,43 @@ function patchMainSource(source) {
     'remove imitation reaction hook',
   )
 
-  next = replaceRequired(
+  /* Scope the coupling strictly to the smallest pill. The main top-level spring must never
+     receive these nested-only force calculations. */
+  next = replaceBlockRequired(
     next,
-    `      indicator.dataset.direction = movingRight ? 'right' : movingLeft ? 'left' : 'still'\n    }`,
-    `      indicator.dataset.direction = movingRight ? 'right' : movingLeft ? 'left' : 'still'\n\n      const containerWidth = container.clientWidth || 1\n      const visualCenter = visualX + visualWidth / 2\n      const normalizedCenter = Math.max(-1, Math.min(1, ((visualCenter / containerWidth) - 0.5) * 2))\n      const leadingEnergy = Math.min(stretch, 18)\n      const physicalShift = (movingRight ? 1 : movingLeft ? -1 : 0) * Math.min(3.2, leadingEnergy * 0.18)\n      const physicalScaleX = 1 + Math.min(0.024, leadingEnergy / 750)\n      const physicalScaleY = 1 - Math.min(0.010, leadingEnergy / 1800)\n      const host = container.closest('.bottom-nav')\n      if (host) {\n        host.style.setProperty('--class-physical-shift-x', physicalShift.toFixed(3) + 'px')\n        host.style.setProperty('--class-physical-scale-x', physicalScaleX.toFixed(5))\n        host.style.setProperty('--class-physical-scale-y', physicalScaleY.toFixed(5))\n        host.style.setProperty('--class-physical-origin-x', movingRight ? '0%' : movingLeft ? '100%' : '50%')\n        host.dispatchEvent(new CustomEvent('classminiphysics', {\n          detail: {\n            x: physics.x,\n            targetX: physics.targetX,\n            velocity: physics.velocity,\n            stretch,\n            visualX,\n            visualWidth,\n            normalizedCenter,\n            shiftX: physicalShift,\n            scaleX: physicalScaleX,\n            scaleY: physicalScaleY,\n          },\n        }))\n      }\n    }`,
-    'nested pill frame coupling',
+    'function useStationLikePillSpring(activeIndex, enabled) {',
+    'function useClassStationLayoutSpring(navRef, expanded) {',
+    (block) => {
+      let nested = block
+      nested = replaceRequired(
+        nested,
+        `      indicator.dataset.direction = movingRight ? 'right' : movingLeft ? 'left' : 'still'\n    }`,
+        `      indicator.dataset.direction = movingRight ? 'right' : movingLeft ? 'left' : 'still'\n\n      const containerWidth = container.clientWidth || 1\n      const visualCenter = visualX + visualWidth / 2\n      const normalizedCenter = Math.max(-1, Math.min(1, ((visualCenter / containerWidth) - 0.5) * 2))\n      const leadingEnergy = Math.min(stretch, S_HUB_STATION_PHYSICS.maxStretch)\n      const physicalShift = (movingRight ? 1 : movingLeft ? -1 : 0) * Math.min(3.2, leadingEnergy * 0.18)\n      const physicalScaleX = 1 + Math.min(0.024, leadingEnergy / 750)\n      const physicalScaleY = 1 - Math.min(0.010, leadingEnergy / 1800)\n      const host = container.closest('.bottom-nav')\n      if (host) {\n        host.style.setProperty('--class-physical-shift-x', physicalShift.toFixed(3) + 'px')\n        host.style.setProperty('--class-physical-scale-x', physicalScaleX.toFixed(5))\n        host.style.setProperty('--class-physical-scale-y', physicalScaleY.toFixed(5))\n        host.style.setProperty('--class-physical-origin-x', movingRight ? '0%' : movingLeft ? '100%' : '50%')\n        host.dispatchEvent(new CustomEvent('classminiphysics', {\n          detail: {\n            x: physics.x,\n            targetX: physics.targetX,\n            velocity: physics.velocity,\n            stretch,\n            visualX,\n            visualWidth,\n            normalizedCenter,\n            shiftX: physicalShift,\n            scaleX: physicalScaleX,\n            scaleY: physicalScaleY,\n          },\n        }))\n      }\n    }`,
+        'nested pill frame coupling',
+      )
+
+      nested = replaceRequired(
+        nested,
+        `        physics.frame = null\n        paint()\n        return\n      }\n\n      physics.frame = requestAnimationFrame(animate)`,
+        `        physics.frame = null\n        paint()\n        const settledHost = container.closest('.bottom-nav')\n        if (settledHost) {\n          settledHost.style.setProperty('--class-physical-shift-x', '0px')\n          settledHost.style.setProperty('--class-physical-scale-x', '1')\n          settledHost.style.setProperty('--class-physical-scale-y', '1')\n          settledHost.style.setProperty('--class-physical-origin-x', '50%')\n        }\n        return\n      }\n\n      physics.frame = requestAnimationFrame(animate)`,
+        'nested pill physical rest',
+      )
+      return nested
+    },
+    'smallest pill spring',
   )
 
-  next = replaceRequired(
+  next = replaceBlockRequired(
     next,
-    `      nav.style.setProperty('--station-item-scale-y', (1 - compression).toFixed(5))\n      nav.dispatchEvent(new Event('stationlayout'))`,
-    `      nav.style.setProperty('--station-item-scale-y', (1 - compression).toFixed(5))\n      nav.style.setProperty('--class-progress', Math.max(0, Math.min(1, physics.progress)).toFixed(5))\n      nav.dispatchEvent(new Event('stationlayout'))`,
-    'class generation progress',
-  )
-
-  /* When nested motion settles, return the middle pill skin exactly to rest. */
-  next = replaceRequired(
-    next,
-    `        physics.frame = null\n        paint()\n        return\n      }\n\n      physics.frame = requestAnimationFrame(animate)`,
-    `        physics.frame = null\n        paint()\n        const settledHost = container.closest('.bottom-nav')\n        if (settledHost) {\n          settledHost.style.setProperty('--class-physical-shift-x', '0px')\n          settledHost.style.setProperty('--class-physical-scale-x', '1')\n          settledHost.style.setProperty('--class-physical-scale-y', '1')\n          settledHost.style.setProperty('--class-physical-origin-x', '50%')\n        }\n        return\n      }\n\n      physics.frame = requestAnimationFrame(animate)`,
-    'nested pill physical rest',
+    'function useClassStationLayoutSpring(navRef, expanded) {',
+    'function useClassNestedReactionSpring(navRef, section, enabled) {',
+    (block) => replaceRequired(
+      block,
+      `      nav.style.setProperty('--station-item-scale-y', (1 - compression).toFixed(5))\n      nav.dispatchEvent(new Event('stationlayout'))`,
+      `      nav.style.setProperty('--station-item-scale-y', (1 - compression).toFixed(5))\n      const classProgress = Math.max(0, Math.min(1, physics.progress))\n      const overlayOpacity = Math.max(0, Math.min(1, (classProgress - 0.34) / 0.45))\n      nav.style.setProperty('--class-progress', classProgress.toFixed(5))\n      nav.style.setProperty('--class-overlay-opacity', overlayOpacity.toFixed(5))\n      nav.dispatchEvent(new Event('stationlayout'))`,
+      'class generation progress',
+    ),
+    'class width spring',
   )
 
   return next
