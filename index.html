@@ -19,8 +19,12 @@
       (() => {
         const ua = navigator.userAgent
         const mobileBrowser = /iPhone|iPod|Android|SamsungBrowser/i.test(ua)
+        const samsungBrowser = /SamsungBrowser/i.test(ua)
         const iPadDesktopUA = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1
         const finePointer = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
+        if (samsungBrowser) {
+          document.documentElement.classList.add('school-samsung')
+        }
         if (!mobileBrowser && !iPadDesktopUA && finePointer) {
           document.documentElement.classList.add('school-desktop-laptop')
         }
@@ -35,7 +39,7 @@
     <link rel="stylesheet" href="./school-home-live.css" />
     <link rel="stylesheet" href="./first-run-notice.css" />
     <link rel="stylesheet" href="./feature-tour-sequences.css" />
-    <link rel="stylesheet" href="./samsung-nav-icon-fixes.css?v=4" />
+    <link rel="stylesheet" href="./samsung-nav-icon-fixes.css?v=5" />
     <link rel="stylesheet" href="./mobile-layout-fixes.css?v=2" />
     <style>
       html body .app-content:has(> .todo-page) {
