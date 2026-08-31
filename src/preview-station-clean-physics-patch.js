@@ -147,7 +147,7 @@ function patchMainSource(source) {
     next,
     `function useNavSpring(activeIndex) {`,
     `function PreviewBoardPage() {`,
-    `function useNavSpring(activeIndex) {\n  return useElasticPillSpring(activeIndex, {\n    elasticOuterShell: true,\n    frameEvent: 'mainpillframe',\n    geometryEvent: 'stationgeometry',\n    baseRadius: 20,\n    minRadius: 16,\n  })\n}\n\nfunction PreviewBoardPage() {`,
+    `function useNavSpring(activeIndex) {\n  return useElasticPillSpring(activeIndex, {\n    elasticOuterShell: true,\n    frameEvent: 'mainpillframe',\n    geometryEvent: 'stationgeometry',\n    baseRadius: 20,\n    minRadius: 16,\n  })\n}\n\n`,
     'replace original nav spring with shared runtime',
   )
 
