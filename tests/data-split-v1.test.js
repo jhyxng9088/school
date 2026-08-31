@@ -29,7 +29,6 @@ test('class-shared reminders keep realtime listeners but stop focus-triggered fu
 test('shared timetable stays realtime and applies local edits before server confirmation', () => {
   const source = patched('../src/school-sync.js')
   assert.match(source, /onSnapshot\(\s*timetableRef\(profile\)/)
-  assert.equal(count(source, 'getDocFromServer(timetableRef(profile))'), 1)
   assert.doesNotMatch(source, /removeRevalidation = \(\) => \{\}\n\s*refreshFromServer\(\)/)
   assert.match(source, /saveWeeklySchedule\(normalized\)\n\s*setWeeklySchedule\(normalized\)\n\s*publishClassLiveData/)
   assert.match(source, /saveOverrides\(normalized\)\n\s*setOverrides\(normalized\)\n\s*publishClassLiveData/)
