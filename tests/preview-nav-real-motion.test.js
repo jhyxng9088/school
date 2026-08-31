@@ -49,7 +49,8 @@ test('class destination no longer snaps the main pill directly to targetX', () =
 
 test('nested geometry cannot directly overwrite the main indicator transform', () => {
   const source = buildFinalMain()
-  assert.doesNotMatch(source, /syncOuterIndicatorNow\(actualLeftWidth, actualClassWidth\)/)
+  const references = source.match(/syncOuterIndicatorNow\(actualLeftWidth, actualClassWidth\)/g) || []
+  assert.equal(references.length, 1, 'only the inert helper declaration may remain; no runtime call may paint the indicator')
   assert.match(source, /Main indicator paint is owned exclusively by useNavSpring/)
 })
 
