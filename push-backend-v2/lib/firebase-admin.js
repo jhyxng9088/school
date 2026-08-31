@@ -1,8 +1,10 @@
-
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
 import { getAppCheck } from 'firebase-admin/app-check'
 import { getAuth } from 'firebase-admin/auth'
+import { getDatabase } from 'firebase-admin/database'
 import { getFirestore } from 'firebase-admin/firestore'
+
+const DEFAULT_DATABASE_URL = 'https://school-adeda-default-rtdb.asia-southeast1.firebasedatabase.app/'
 
 function parseServiceAccount() {
   const raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim()
@@ -20,12 +22,17 @@ function parseServiceAccount() {
   return parsed
 }
 
+function databaseUrl() {
+  return String(process.env.FIREBASE_DATABASE_URL || DEFAULT_DATABASE_URL).trim()
+}
+
 function adminApp() {
   if (!getApps().length) {
     const serviceAccount = parseServiceAccount()
     initializeApp({
       credential: cert(serviceAccount),
       projectId: serviceAccount.project_id,
+      databaseURL: databaseUrl(),
     })
   }
   return getApps()[0]
@@ -33,6 +40,10 @@ function adminApp() {
 
 export function adminDb() {
   return getFirestore(adminApp())
+}
+
+export function adminRealtimeDb() {
+  return getDatabase(adminApp(), databaseUrl())
 }
 
 export function adminAuth() {
