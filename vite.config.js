@@ -17,6 +17,7 @@ import { patchPreviewStationNavRefinementSource } from './src/preview-station-na
 import { patchPreviewStationJellyMotionSource } from './src/preview-station-jelly-motion-patch.js'
 import { patchPreviewNestedStationReactionSource } from './src/preview-nested-station-reaction-patch.js'
 import { patchPreviewUnifiedMotionPhysicsSource } from './src/preview-unified-motion-physics-patch.js'
+import { patchPreviewUnifiedMotionSyntaxFixSource } from './src/preview-unified-motion-syntax-fix-patch.js'
 
 const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
@@ -87,6 +88,7 @@ function replacePreviewSource(source, id) {
   next = patchPreviewStationJellyMotionSource(next, cleanId)
   next = patchPreviewNestedStationReactionSource(next, cleanId)
   next = patchPreviewUnifiedMotionPhysicsSource(next, cleanId)
+  next = patchPreviewUnifiedMotionSyntaxFixSource(next, cleanId)
   return next
 }
 
@@ -156,6 +158,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-station-jelly-motion-patch.js')
         || cleanId.endsWith('/preview-nested-station-reaction-patch.js')
         || cleanId.endsWith('/preview-unified-motion-physics-patch.js')
+        || cleanId.endsWith('/preview-unified-motion-syntax-fix-patch.js')
         || cleanId.endsWith('/s-hub-motion-physics.js')
       ) return null
 
