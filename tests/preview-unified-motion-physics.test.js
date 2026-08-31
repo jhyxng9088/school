@@ -10,6 +10,7 @@ import { patchPreviewStationNavRefinementSource } from '../src/preview-station-n
 import { patchPreviewStationJellyMotionSource } from '../src/preview-station-jelly-motion-patch.js'
 import { patchPreviewNestedStationReactionSource } from '../src/preview-nested-station-reaction-patch.js'
 import { patchPreviewUnifiedMotionPhysicsSource } from '../src/preview-unified-motion-physics-patch.js'
+import { patchPreviewUnifiedMotionSyntaxFixSource } from '../src/preview-unified-motion-syntax-fix-patch.js'
 
 const rawMain = fs.readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8')
 const physicsModule = fs.readFileSync(new URL('../src/s-hub-motion-physics.js', import.meta.url), 'utf8')
@@ -26,6 +27,7 @@ function buildPreviewMain() {
   source = patchPreviewStationJellyMotionSource(source, id)
   source = patchPreviewNestedStationReactionSource(source, id)
   source = patchPreviewUnifiedMotionPhysicsSource(source, id)
+  source = patchPreviewUnifiedMotionSyntaxFixSource(source, id)
   return source
 }
 
@@ -59,4 +61,9 @@ test('class expand and exit are triggered by real spring state instead of millis
   assert.match(transformed, /detail\.progress <= 0\.46/)
   assert.doesNotMatch(transformed, /setTimeout\(\(\) => setClassNavExpanded\(true\)/)
   assert.doesNotMatch(transformed, /classExitTimerRef\.current = window\.setTimeout/)
+})
+
+test('final transformed app has one AppShell boundary', () => {
+  const appShells = transformed.match(/function AppShell\(\{ profile \}\) \{/g) || []
+  assert.equal(appShells.length, 1)
 })
