@@ -24,17 +24,21 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
     let stopped = false
     let refreshTimer = null
     let realtimePresence = null
+    let fallbackActive = false
+    let stopActiveTransport = () => {}
     const classId = classKeyFor(profile)
     const studentKey = studentKeyFor(profile)
     const memberCountCacheKey = \`school.presenceMemberCount.v1.\${classId}\`
     const MEMBER_COUNT_CACHE_MS = 30 * 60 * 1000
 
-    function readCachedMemberCount() {
+    function readCachedMemberCount({ allowStale = false } = {}) {
       try {
         const cached = JSON.parse(localStorage.getItem(memberCountCacheKey) || 'null')
-        if (!cached || Date.now() - Number(cached.checkedAt || 0) > MEMBER_COUNT_CACHE_MS) return null
+        if (!cached) return null
         const total = Number(cached.total)
-        return Number.isInteger(total) && total >= 0 ? total : null
+        if (!Number.isInteger(total) || total < 0) return null
+        if (!allowStale && Date.now() - Number(cached.checkedAt || 0) > MEMBER_COUNT_CACHE_MS) return null
+        return total
       } catch {
         return null
       }
@@ -48,6 +52,9 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
       }
     }
 
+    const cachedTotal = readCachedMemberCount({ allowStale: true })
+    if (cachedTotal !== null) setCounts((current) => ({ ...current, total: cachedTotal }))
+
     const refreshMemberTotal = async ({ force = false } = {}) => {
       const cached = force ? null : readCachedMemberCount()
       if (cached !== null) {
@@ -59,6 +66,23 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
       cacheMemberCount(total)
       if (!stopped) setCounts((current) => ({ ...current, total }))
       return total
+    }
+
+    const ensureMemberBestEffort = async () => {
+      try {
+        const member = classMemberRef(profile)
+        const existing = await getDoc(member)
+        if (!existing.exists()) {
+          await setDoc(member, { joinedAt: Date.now() })
+          try { localStorage.removeItem(memberCountCacheKey) } catch { /* best effort */ }
+          await refreshMemberTotal({ force: true })
+        } else {
+          await refreshMemberTotal()
+        }
+      } catch (error) {
+        // A Firestore quota outage must not prevent the independent presence transport.
+        console.error('Class member count refresh failed:', error)
+      }
     }
 
     const startFirestoreFallback = () => {
@@ -88,7 +112,8 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
         if (stopped || document.hidden) return
         try {
           await heartbeat()
-          await Promise.all([refreshMemberTotal(), recountOnline()])
+          await recountOnline()
+          void refreshMemberTotal().catch((error) => console.error('Class member count refresh failed:', error))
         } catch (error) {
           console.error('Class presence refresh failed:', error)
         }
@@ -104,60 +129,72 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
       window.addEventListener('focus', refreshPresence)
 
       return () => {
-        if (refreshTimer) window.clearInterval(refreshTimer)
+        if (refreshTimer) {
+          window.clearInterval(refreshTimer)
+          refreshTimer = null
+        }
         document.removeEventListener('visibilitychange', handleVisibility)
         window.removeEventListener('focus', refreshPresence)
       }
     }
 
-    let stopFallback = () => {}
+    const activateFallback = (reason) => {
+      if (stopped || fallbackActive) return
+      fallbackActive = true
+      stopActiveTransport()
+      stopActiveTransport = () => {}
+      realtimePresence?.stop()
+      realtimePresence = null
+      if (reason) console.warn('Realtime presence unavailable; using Firestore fallback.', reason)
+      stopActiveTransport = startFirestoreFallback()
+    }
+
     ensureSignedIn()
-      .then(async (user) => {
+      .then((user) => {
         if (stopped) return
-        const member = classMemberRef(profile)
-        const existing = await getDoc(member)
-        if (!existing.exists()) {
-          await setDoc(member, { joinedAt: Date.now() })
-          try { localStorage.removeItem(memberCountCacheKey) } catch { /* best effort */ }
-        }
-        if (stopped) return
+
+        // Membership registration and total count are Firestore concerns. Run them in
+        // parallel so a Firestore quota outage cannot block RTDB online presence.
+        void ensureMemberBestEffort()
 
         if (realtimePresenceConfigured()) {
           realtimePresence = startRealtimePresence({
             app: syncApp,
             classId,
             uid: user.uid,
-            studentKey,
             onOnlineCount: (online) => {
-              if (!stopped) setCounts((current) => ({ ...current, online }))
+              if (!stopped && !fallbackActive) setCounts((current) => ({ ...current, online }))
             },
             onError: (error) => console.error('Realtime presence failed:', error),
+            onUnavailable: activateFallback,
           })
         }
 
-        if (realtimePresence) {
-          await refreshMemberTotal()
-          const handleVisibility = () => {
-            if (document.hidden) void realtimePresence?.leave()
-            else void realtimePresence?.enter()
-          }
-          document.addEventListener('visibilitychange', handleVisibility)
-          window.addEventListener('focus', handleVisibility)
-          stopFallback = () => {
-            document.removeEventListener('visibilitychange', handleVisibility)
-            window.removeEventListener('focus', handleVisibility)
-          }
+        if (!realtimePresence) {
+          activateFallback()
           return
         }
 
-        stopFallback = startFirestoreFallback()
+        const handleVisibility = () => {
+          if (document.hidden) void realtimePresence?.leave()
+          else void realtimePresence?.enter()
+        }
+        document.addEventListener('visibilitychange', handleVisibility)
+        window.addEventListener('focus', handleVisibility)
+        stopActiveTransport = () => {
+          document.removeEventListener('visibilitychange', handleVisibility)
+          window.removeEventListener('focus', handleVisibility)
+        }
       })
-      .catch((error) => console.error('Class presence connection failed:', error))
+      .catch((error) => {
+        console.error('Class presence connection failed:', error)
+        activateFallback(error)
+      })
 
     return () => {
       stopped = true
+      stopActiveTransport()
       realtimePresence?.stop()
-      stopFallback()
     }
   }, [signature])
 
