@@ -1,0 +1,28 @@
+name: Preview Unified Motion Check
+
+on:
+  push:
+    branches: [preview/s-hub-v2]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Remove temporary validation workflow from test workspace
+        run: rm -f .github/workflows/preview-unified-motion-check.yml
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Verify preview isolation
+        run: node scripts/verify-preview-isolation.mjs dist
+      - run: npm ci
+        working-directory: push-backend-v2
+      - run: npm test
+        working-directory: push-backend-v2
