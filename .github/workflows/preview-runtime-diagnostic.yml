@@ -1,0 +1,80 @@
+name: Preview Runtime Diagnostic
+
+on:
+  push:
+    branches: [work/preview-black-screen-fix]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Remove diagnostic workflow from test workspace
+        run: rm -f .github/workflows/preview-runtime-diagnostic.yml
+      - run: npm ci
+      - run: npm test
+      - name: Patch preview base path
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('vite.config.js')
+          source = path.read_text()
+          old = "base: '/school/',"
+          new = "base: '/school/preview-v2/',"
+          assert source.count(old) == 1
+          path.write_text(source.replace(old, new))
+          PY
+      - run: npm run build
+      - name: Assemble Pages path
+        run: |
+          mkdir -p runtime-site/school/preview-v2
+          cp -a dist/. runtime-site/school/preview-v2/
+      - name: Install browser runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run real browser check
+        run: |
+          python -m http.server 4173 --directory runtime-site >/tmp/s-hub-runtime-http.log 2>&1 &
+          cat > /tmp/runtime-check.mjs <<'EOF'
+          import { chromium } from 'playwright'
+          const browser = await chromium.launch({ headless: true })
+          const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
+          const failures = []
+          page.on('console', (message) => {
+            if (message.type() === 'error') failures.push(`console: ${message.text()}`)
+          })
+          page.on('pageerror', (error) => failures.push(`pageerror: ${error.stack || error.message}`))
+          page.on('requestfailed', (request) => failures.push(`requestfailed: ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`))
+          const response = await page.goto('http://127.0.0.1:4173/school/preview-v2/', { waitUntil: 'networkidle' })
+          await page.waitForTimeout(1500)
+          const state = await page.evaluate(() => ({
+            title: document.title,
+            bodyText: document.body?.innerText || '',
+            bodyHtmlLength: document.body?.innerHTML?.length || 0,
+            rootHtmlLength: document.querySelector('#root')?.innerHTML?.length || 0,
+            rootText: document.querySelector('#root')?.innerText || '',
+            background: getComputedStyle(document.body).backgroundColor,
+          }))
+          console.log('HTTP', response?.status())
+          console.log('STATE', JSON.stringify(state))
+          console.log('FAILURES', JSON.stringify(failures))
+          await page.screenshot({ path: 'runtime-preview.png', fullPage: true })
+          await browser.close()
+          if (!response?.ok()) throw new Error(`preview HTTP status ${response?.status()}`)
+          if (state.rootHtmlLength < 20) throw new Error('React root is effectively empty')
+          if (failures.length) throw new Error(failures.join('\n'))
+          EOF
+          NODE_PATH="$PWD/node_modules" node /tmp/runtime-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-runtime-diagnostic
+          path: runtime-preview.png
