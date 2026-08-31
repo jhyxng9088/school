@@ -21,6 +21,7 @@ import { patchPreviewPhysicalClassCouplingSource } from './src/preview-physical-
 import { patchPreviewNestedGeometryCouplingSource } from './src/preview-nested-geometry-coupling-patch.js'
 import { patchPreviewNavResponsivenessSource } from './src/preview-nav-responsiveness-patch.js'
 import { patchPreviewClassTopSegmentSource } from './src/preview-class-top-segment-patch.js'
+import { patchPreviewClassTopSegmentStyleSource } from './src/preview-class-top-segment-style-patch.js'
 
 const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
@@ -95,6 +96,7 @@ function replacePreviewSource(source, id) {
   next = patchPreviewNestedGeometryCouplingSource(next, cleanId)
   next = patchPreviewNavResponsivenessSource(next, cleanId)
   next = patchPreviewClassTopSegmentSource(next, cleanId)
+  next = patchPreviewClassTopSegmentStyleSource(next, cleanId)
   return next
 }
 
@@ -168,6 +170,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-nested-geometry-coupling-patch.js')
         || cleanId.endsWith('/preview-nav-responsiveness-patch.js')
         || cleanId.endsWith('/preview-class-top-segment-patch.js')
+        || cleanId.endsWith('/preview-class-top-segment-style-patch.js')
       ) return null
 
       const next = replaceCopy(code)
