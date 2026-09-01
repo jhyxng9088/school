@@ -4,8 +4,9 @@ import assert from 'node:assert/strict'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('social dispatch is preview scoped, server verified, deduplicated, and excludes actor', () => {
-  const source = read('push-backend-v2/api/social-dispatch.js')
+test('social dispatch shares activity endpoint but stays preview scoped and server verified', () => {
+  const source = read('push-backend-v2/api/activity-dispatch.js')
+  assert.match(source, /body\.kind === 'board-post' \|\| body\.kind === 'study-start'/)
   assert.match(source, /\^preview-class-/)
   assert.match(source, /verifyBoardPost/)
   assert.match(source, /authorStudentKey/)
@@ -14,6 +15,13 @@ test('social dispatch is preview scoped, server verified, deduplicated, and excl
   assert.match(source, /Math\.abs\(actualStartedAt - startedAt\) > 1500/)
   assert.match(source, /pushDispatchClaims/)
   assert.match(source, /subscription\.studentKey !== actorStudentKey/)
+  assert.match(source, /reminderActivityRecipientEligible/)
+})
+
+test('preview social client uses the stable preview branch endpoint, never production social route', () => {
+  const source = read('src/preview-social-push.js')
+  assert.match(source, /school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711\.vercel\.app\/api\/activity-dispatch/)
+  assert.doesNotMatch(source, /school-reminder-backend\.vercel\.app\/api\/social-dispatch/)
 })
 
 test('board sends push only for new post realtime mutation', () => {
@@ -44,7 +52,9 @@ test('notification click routing knows V2 nested board schedule and study destin
   assert.match(sw, /'board', 'study'/)
 })
 
-test('Vercel config includes the social dispatcher', () => {
+test('Vercel config keeps social push inside the existing activity function', () => {
   const config = JSON.parse(read('push-backend-v2/vercel.json'))
-  assert.equal(config.functions['api/social-dispatch.js']?.maxDuration, 30)
+  assert.equal(config.functions['api/activity-dispatch.js']?.maxDuration, 30)
+  assert.equal(config.functions['api/social-dispatch.js'], undefined)
+  assert.equal(fs.existsSync(new URL('../push-backend-v2/api/social-dispatch.js', import.meta.url)), false)
 })
