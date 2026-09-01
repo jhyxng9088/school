@@ -26,7 +26,7 @@ test('known conflict guard tolerates malformed context collections instead of cr
   assert.deepEqual(conflicts, {})
 })
 
-test('preview import is one model pass with local summaries and local duplicate filtering', () => {
+test('preview import is one model pass and filters existing S-Hub items locally', () => {
   const ai = readFileSync(new URL('../src/s-hub-ai.js', import.meta.url), 'utf8')
   const pagePatch = readFileSync(new URL('../src/preview-ai-page-patch.js', import.meta.url), 'utf8')
   const summaryPatch = readFileSync(new URL('../src/preview-ai-reminder-summary-patch.js', import.meta.url), 'utf8')
@@ -35,8 +35,11 @@ test('preview import is one model pass with local summaries and local duplicate 
   assert.doesNotMatch(ai, /generateSchoolStructured/)
   assert.doesNotMatch(ai, /engine\?\.reviewSchoolImportConflicts/)
   assert.match(ai, /previewSummaryFromAnalysis/)
-  assert.match(ai, /removeKnownDuplicates/)
-  assert.match(ai, /conflict\?\.relation !== 'duplicate'/)
+  assert.match(ai, /reminderDuplicateConflict/)
+  assert.match(ai, /removeKnownExistingItems/)
+  assert.match(ai, /conflict\.relation === 'duplicate'/)
+  assert.match(ai, /item\?\.kind === 'timetable_change'/)
+  assert.match(ai, /conflict\?\.existing\?\.isOverride/)
   assert.match(ai, /return localConflictMap\(items, context\)/)
   assert.match(pagePatch, /AI 요약/)
   assert.match(pagePatch, /s-hub-ai-item-summary/)
