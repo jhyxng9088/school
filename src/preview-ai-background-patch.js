@@ -4,6 +4,28 @@ const AI_BACKGROUND_CSS = `
   display: none !important;
 }
 
+/* The persistent wrapper became the direct app-content child, so it must own the old AI centering contract. */
+.app-content.tab-ai {
+  min-height: calc(100dvh - var(--nav-bottom) - 64px);
+  display: flex;
+  flex-direction: column;
+  padding-bottom: max(32px, env(safe-area-inset-top));
+}
+
+.app-content.tab-ai > .preview-ai-persistent-host.is-active {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.app-content.tab-ai > .preview-ai-persistent-host.is-active > .s-hub-ai-page {
+  width: 100%;
+  margin-block: auto;
+}
+
 .preview-ai-persistent-host.is-active,
 .preview-station-page-host {
   animation: s-hub-ai-background-page-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -31,15 +53,20 @@ const AI_BACKGROUND_CSS = `
   opacity: .76;
 }
 
-.bottom-nav .nav-button[data-tab="ai"].is-ai-working::after {
-  content: "";
+.bottom-nav .nav-button[data-tab="ai"] {
+  position: relative;
+}
+
+.bottom-nav .nav-button[data-tab="ai"] .s-hub-ai-nav-progress {
   position: absolute;
-  top: 8px;
+  z-index: 5;
+  top: 7px;
   left: calc(50% + 9px);
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: currentColor;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface) 72%, transparent);
   pointer-events: none;
   animation: s-hub-ai-nav-working 1.55s ease-in-out infinite;
 }
@@ -51,12 +78,12 @@ const AI_BACKGROUND_CSS = `
 
 @keyframes s-hub-ai-nav-working {
   0%, 100% {
-    opacity: .34;
-    transform: scale(.78);
+    opacity: .38;
+    transform: scale(.8);
   }
   50% {
-    opacity: .96;
-    transform: scale(1.08);
+    opacity: 1;
+    transform: scale(1.12);
   }
 }
 
@@ -70,10 +97,27 @@ html.school-mobile-compat .preview-station-page-host {
   animation-duration: 620ms;
 }
 
+@media (max-height: 760px) {
+  .app-content.tab-ai {
+    min-height: 100dvh;
+    display: block;
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .app-content.tab-ai > .preview-ai-persistent-host.is-active {
+    display: block;
+    min-height: 0;
+  }
+
+  .app-content.tab-ai > .preview-ai-persistent-host.is-active > .s-hub-ai-page {
+    margin-block: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .preview-ai-persistent-host.is-active,
   .preview-station-page-host,
-  .bottom-nav .nav-button[data-tab="ai"].is-ai-working::after,
+  .bottom-nav .nav-button[data-tab="ai"] .s-hub-ai-nav-progress,
   .bottom-nav .nav-button[data-tab="ai"].is-ai-working:not(.active) svg {
     animation-duration: .01ms !important;
     animation-delay: 0ms !important;
@@ -116,7 +160,7 @@ function patchAISheet(source) {
 
 function patchMain(source) {
   let next = String(source || '')
-  if (next.includes('preview-ai-persistent-host')) return next
+  if (next.includes('s-hub-ai-nav-progress')) return next
 
   next = replaceRequired(
     next,
@@ -163,6 +207,13 @@ function patchMain(source) {
     `            data-tab={tab.id}\n            className={\`nav-button ${'${activeTab === tab.id ? \'active\' : \'\'}'}\`}`,
     `            data-tab={tab.id}\n            className={[\n              'nav-button',\n              activeTab === tab.id ? 'active' : '',\n              tab.id === 'ai' && aiWorking ? 'is-ai-working' : '',\n            ].filter(Boolean).join(' ')}`,
     'AI nav working state',
+  )
+
+  next = replaceRequired(
+    next,
+    `            <Icon type={tab.id} />\n            <span>{tab.label}</span>`,
+    `            <Icon type={tab.id} />\n            <span>{tab.label}</span>\n            {tab.id === 'ai' && aiWorking ? <span className="s-hub-ai-nav-progress" aria-hidden="true" /> : null}`,
+    'AI nav progress node',
   )
 
   return next
