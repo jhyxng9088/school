@@ -1,6 +1,6 @@
 import { ensureSignedIn } from './school-sync.js'
 
-const SOCIAL_PUSH_URL = 'https://school-reminder-backend.vercel.app/api/social-dispatch'
+const SOCIAL_PUSH_URL = 'https://school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711.vercel.app/api/activity-dispatch'
 
 async function dispatch(payload) {
   try {
