@@ -70,8 +70,7 @@ jobs:
           if "base: '/school/preview-v2/'" not in text:
               if marker not in text:
                   raise SystemExit('vite config marker missing')
-              text = text.replace(marker, replacement, 1)
-              path.write_text(text)
+              path.write_text(text.replace(marker, replacement, 1))
           PY
 
       - name: Build preview app
@@ -112,9 +111,6 @@ jobs:
           path: ./site
 
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -128,7 +124,6 @@ jobs:
           PREVIEW_URL='https://jhyxng9088.github.io/school/preview-v2/'
           PREVIEW_SW_URL='https://jhyxng9088.github.io/school/preview-v2/sw.js'
           EXPECTED_SHA='${{ github.sha }}'
-
           for attempt in {1..45}; do
             html="$(curl -fsSL --retry 2 --retry-delay 1 "${PREVIEW_URL}?sha=${EXPECTED_SHA}&attempt=${attempt}" || true)"
             sw="$(curl -fsSL --retry 2 --retry-delay 1 "${PREVIEW_SW_URL}?sha=${EXPECTED_SHA}&attempt=${attempt}" || true)"
@@ -142,6 +137,5 @@ jobs:
             fi
             sleep 4
           done
-
           echo 'Preview smoke test failed after deployment.'
           exit 1
