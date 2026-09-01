@@ -1,0 +1,37 @@
+name: V2 Main Sync Diagnostic
+
+on:
+  push:
+    branches: [preview/s-hub-v2]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-main-sync-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  merge-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full preview history
+        uses: actions/checkout@v4
+        with:
+          ref: preview/s-hub-v2
+          fetch-depth: 0
+
+      - name: Diagnose merge with current main
+        run: |
+          git fetch origin main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          status=$?
+          echo "merge_status=$status"
+          echo '--- conflicted files ---'
+          git diff --name-only --diff-filter=U
+          echo '--- merge status ---'
+          git status --short
+          git merge --abort >/dev/null 2>&1 || true
+          exit $status
