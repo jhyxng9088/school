@@ -77,14 +77,17 @@ test('board UI covers writes, comments, resolve, offline and server limits', () 
   assert.match(source, /window\.addEventListener\('online', revalidate\)/)
 })
 
-test('board layout is centered and refresh control is visually bounded', () => {
+test('board layout is centered and refresh control is a clear compact pill', () => {
   const theme = read('src/preview-board-theme.css')
   assert.match(theme, /\.preview-board-page[\s\S]*width: min\(100%, 760px\)/)
+  assert.match(theme, /\.preview-board-page[\s\S]*max-width: 760px/)
   assert.match(theme, /\.preview-board-page[\s\S]*margin-inline: auto/)
-  assert.match(theme, /\.preview-board-refresh[\s\S]*width: 36px/)
+  assert.match(theme, /\.preview-board-refresh[\s\S]*width: auto/)
+  assert.match(theme, /\.preview-board-refresh[\s\S]*height: 36px/)
   assert.match(theme, /\.preview-board-refresh[\s\S]*border: 1px solid var\(--border\)/)
-  assert.match(theme, /\.preview-board-refresh[\s\S]*border-radius: 999px/)
-  assert.match(theme, /\.preview-board-refresh svg[\s\S]*width: 16px/)
+  assert.match(theme, /\.preview-board-refresh[\s\S]*border-radius: 12px/)
+  assert.match(theme, /\.preview-board-refresh::after[\s\S]*content: '새로고침'/)
+  assert.match(theme, /\.preview-board-refresh\.is-spinning::after[\s\S]*content: '불러오는 중'/)
 })
 
 test('board motion remains mobile and accessibility safe', () => {
