@@ -62,9 +62,29 @@ function patchTodoSectionSubmit(source) {
   return replaceExact(source, before, after, 'section submit pending-sync handling')
 }
 
+function patchStudyClassLabel(source) {
+  const before = `function classLabel(classId) {
+  const match = /^preview-class-(\\d+)$/.exec(String(classId || ''))
+  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
+}`
+  const after = `function classLabel(classId) {
+  const match = /^(?:preview-)?class-(\\d+)$/.exec(String(classId || ''))
+  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
+}`
+  return replaceExact(source, before, after, 'production study class label')
+}
+
+function patchSocialPushEndpoint(source) {
+  const before = "const SOCIAL_PUSH_URL = 'https://school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711.vercel.app/api/activity-dispatch'"
+  const after = "const SOCIAL_PUSH_URL = 'https://school-reminder-backend.vercel.app/api/activity-dispatch'"
+  return replaceExact(source, before, after, 'production social push endpoint')
+}
+
 export function patchProductionRecoverySource(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/main.jsx')) return patchMainPresence(source)
   if (cleanId.endsWith('/src/todo-stage5-ai.jsx')) return patchTodoSectionSubmit(source)
+  if (cleanId.endsWith('/src/preview-study.jsx')) return patchStudyClassLabel(source)
+  if (cleanId.endsWith('/src/preview-social-push.js')) return patchSocialPushEndpoint(source)
   return String(source || '')
 }
