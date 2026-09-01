@@ -18,6 +18,19 @@ function builtSheet() {
 
 function representativeMain() {
   return `
+function Home({ name, onOpenAI }) {
+  return (
+    <header className="home-topbar">
+      <div className="home-top-actions">
+        <span className="user-name">{name}</span>
+        <button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick={onOpenAI}>
+          <SHubAIOrb size={27} />
+        </button>
+      </div>
+    </header>
+  )
+}
+
 function PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline }) {
   return (
     <SchoolAISheet
@@ -98,9 +111,10 @@ test('AI working state is lifted to AppShell and the AI page stays mounted acros
   assert.match(source, /className="preview-station-page-host" key=\{activeTab\}/)
 })
 
-test('home AI launcher reuses the persistent station and background work has a real nav progress node', () => {
+test('home AI launcher is removed while the bottom AI station keeps background progress', () => {
   const source = patchPreviewAIBackgroundSource(representativeMain(), '/workspace/src/main.jsx')
-  assert.match(source, /onOpenAI=\{\(\) => changeTab\('ai'\)\}/)
+  assert.doesNotMatch(source, /className="home-ai-trigger"/)
+  assert.doesNotMatch(source, /aria-label="S-Hub AI 열기"/)
   assert.match(source, /tab\.id === 'ai' && aiWorking \? 'is-ai-working'/)
   assert.match(source, /tab\.id === 'ai' && aiWorking \? <span className="s-hub-ai-nav-progress"/)
 })
