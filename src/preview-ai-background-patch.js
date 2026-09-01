@@ -130,6 +130,20 @@ function replaceRequired(source, marker, replacement, label) {
   return source.replace(marker, replacement)
 }
 
+export function removeStalePreviewAIContentEntry(source) {
+  let next = String(source || '')
+  const staleEntry = `    ai: <PreviewAIPage onOpenAI={() => setAiOpen(true)} />,\n`
+  if (!next.includes(staleEntry)) return next
+
+  const hasEnhancedEntry = next.includes('onWorkingChange={setAiWorking}')
+    || (next.includes('context={aiContext}') && next.includes('onImportItems={importAIItems}'))
+  if (!hasEnhancedEntry) {
+    throw new Error('Preview AI background found the stale AI entry before the enhanced AI station was wired')
+  }
+
+  return next.replace(staleEntry, '')
+}
+
 function patchAISheet(source) {
   let next = String(source || '')
   if (next.includes('Preview-only background AI continuity callback.')) return next
@@ -166,7 +180,7 @@ function removeHomeAITrigger(source) {
 
 function patchMain(source) {
   let next = String(source || '')
-  if (next.includes('s-hub-ai-nav-progress')) return next
+  if (next.includes('s-hub-ai-nav-progress')) return removeStalePreviewAIContentEntry(next)
 
   next = replaceRequired(
     next,
@@ -235,7 +249,7 @@ function patchMain(source) {
     'AI nav progress node',
   )
 
-  return next
+  return removeStalePreviewAIContentEntry(next)
 }
 
 export function patchPreviewAIBackgroundSource(source, id = '') {
