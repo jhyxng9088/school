@@ -143,7 +143,10 @@ function BoardOriginalViewer({ original, onClose }) {
 export function BoardAttachmentPicker({ files, onChange, onError, disabled = false, maxFiles = BOARD_ATTACHMENT_LIMIT }) {
   const inputRef = useRef(null)
   const selected = Array.isArray(files) ? files : []
-  const safeLimit = Math.max(0, Math.min(BOARD_ATTACHMENT_LIMIT, Number(maxFiles || BOARD_ATTACHMENT_LIMIT)))
+  const safeLimit = Math.max(0, Math.min(
+    BOARD_ATTACHMENT_LIMIT,
+    Number(maxFiles == null ? BOARD_ATTACHMENT_LIMIT : maxFiles),
+  ))
 
   function chooseFiles(event) {
     const incoming = Array.from(event.currentTarget.files || [])
