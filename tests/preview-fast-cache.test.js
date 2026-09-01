@@ -43,7 +43,8 @@ test('board hydrates persistent cache before first visible state and quietly ref
   assert.match(client, /posts: Array\.isArray\(value\?\.posts\) \? value\.posts\.slice\(0, BOARD_PAGE_SIZE\)/)
   assert.match(client, /needsRevalidate: Boolean\(cached\.fromPersistent\) \|\| !isFresh/)
   assert.match(client, /isPlaceholder: true/)
-  assert.doesNotMatch(client, /attachmentUrlCache.*writePreviewPersistentCache/s)
+  const persistBlock = client.slice(client.indexOf('function persistBoardCache'), client.indexOf('function hydrateBoardCache'))
+  assert.doesNotMatch(persistBlock, /attachmentUrlCache|expiresAt|access\.url/)
 
   assert.match(page, /initialCache = useMemo\(\(\) => peekPreviewBoardCache\('general'\), \[\]\)/)
   assert.match(page, /useState\(\(\) => initialCache\?\.posts \|\| \[\]\)/)
