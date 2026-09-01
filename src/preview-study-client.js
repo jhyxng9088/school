@@ -3,6 +3,7 @@ import { dispatchPreviewStudyStartPush } from './preview-social-push.js'
 import './preview-study-ranking.css'
 
 const STUDY_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-study'
+const STUDY_EVENTS_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/study-events'
 
 function studyError(code, message) {
   const error = new Error(message)
@@ -49,6 +50,27 @@ async function requestStudy({ method = 'GET', payload = null, signal, scope = 'c
   } catch (error) {
     if (error?.name === 'AbortError') throw error
     throw studyError('study/network', '스터디 서버에 연결하지 못했습니다.')
+  }
+  return parseStudyResponse(response)
+}
+
+async function requestStudyEvents({ method = 'GET', payload = null, since = 0, signal } = {}) {
+  const cursor = Math.max(0, Math.floor(Number(since || 0)))
+  const url = method === 'GET'
+    ? `${STUDY_EVENTS_API_URL}?since=${encodeURIComponent(cursor)}`
+    : STUDY_EVENTS_API_URL
+  let response
+  try {
+    response = await fetch(url, {
+      method,
+      headers: await authHeaders(),
+      body: payload ? JSON.stringify(payload) : undefined,
+      cache: 'no-store',
+      signal,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    throw studyError('study-events/network', '스터디 알림 기록을 확인하지 못했습니다.')
   }
   return parseStudyResponse(response)
 }
@@ -125,11 +147,44 @@ export async function loadPreviewStudy({ signal, scope = 'class' } = {}) {
   return normalizePreviewStudySnapshot(await requestStudy({ signal, scope }))
 }
 
+export async function loadPreviewStudyEvents({ since = 0, signal } = {}) {
+  const body = await requestStudyEvents({ since, signal })
+  return {
+    events: (Array.isArray(body?.events) ? body.events : []).map((event) => ({
+      cursor: Math.max(0, Math.floor(Number(event?.cursor || 0))),
+      studentKey: String(event?.studentKey || ''),
+      name: String(event?.name || '').trim().slice(0, 20),
+      subject: String(event?.subject || '').trim().slice(0, 24),
+      startedAt: Math.max(0, Number(event?.startedAt || 0)),
+    })).filter((event) => event.cursor > 0 && event.studentKey && event.startedAt > 0),
+    cursor: Math.max(0, Math.floor(Number(body?.cursor || since || 0))),
+    latestCursor: Math.max(0, Math.floor(Number(body?.latestCursor || 0))),
+    hasMore: Boolean(body?.hasMore),
+  }
+}
+
+export async function recordPreviewStudyStartEvent(active) {
+  const subject = String(active?.subject || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, 24)
+  const startedAt = Number(active?.startedAt || 0)
+  if (!subject || !Number.isFinite(startedAt) || startedAt <= 0) return null
+  return requestStudyEvents({
+    method: 'POST',
+    payload: { action: 'record-start', subject, startedAt },
+  })
+}
+
 export async function startPreviewStudy(subject) {
   const cleanSubject = String(subject || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, 24)
   if (!cleanSubject) throw studyError('study/subject-required', '공부할 과목을 선택해 주세요.')
   const response = await requestStudy({ method: 'POST', payload: { action: 'start', subject: cleanSubject } })
-  if (response?.active) void dispatchPreviewStudyStartPush(response.active)
+  if (response?.active) {
+    try {
+      await recordPreviewStudyStartEvent(response.active)
+    } catch (error) {
+      console.warn('S-Hub study unread event record unavailable:', error)
+    }
+    void dispatchPreviewStudyStartPush(response.active)
+  }
   return response
 }
 
