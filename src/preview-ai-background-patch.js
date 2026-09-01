@@ -4,26 +4,34 @@ const AI_BACKGROUND_CSS = `
   display: none !important;
 }
 
-/* The persistent wrapper became the direct app-content child, so it must own the old AI centering contract. */
+/* The persistent wrapper is the direct app-content child. It must preserve the
+   original visual centering when AI is short, but grow with long compose content
+   so the fixed bottom nav never covers the real end of the page. */
 .app-content.tab-ai {
-  min-height: calc(100dvh - var(--nav-bottom) - 64px);
+  --s-hub-ai-top-inset: max(32px, env(safe-area-inset-top));
+  --s-hub-ai-nav-clearance: calc(64px + var(--nav-bottom) + 24px);
+  min-height: calc(100dvh + 24px - var(--s-hub-ai-top-inset));
   display: flex;
   flex-direction: column;
-  padding-bottom: max(32px, env(safe-area-inset-top));
+  padding-bottom: var(--s-hub-ai-nav-clearance);
 }
 
 .app-content.tab-ai > .preview-ai-persistent-host.is-active {
   width: 100%;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 1 0 auto;
+  min-height: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  overflow: visible;
 }
 
 .app-content.tab-ai > .preview-ai-persistent-host.is-active > .s-hub-ai-page {
   width: 100%;
   margin-block: auto;
+}
+
+.app-content.tab-ai .s-hub-ai-content {
+  scroll-margin-bottom: var(--s-hub-ai-nav-clearance);
 }
 
 .preview-ai-persistent-host.is-active,
