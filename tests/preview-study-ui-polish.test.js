@@ -6,7 +6,7 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 
 function cssBlock(source, selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const matches = [...source.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g'))]
+  const matches = [...source.matchAll(new RegExp(`(?:^|\\n)\\s*${escaped}\\s*\\{([^}]*)\\}`, 'g'))]
   assert.ok(matches.length, `missing CSS block: ${selector}`)
   return matches.at(-1)[1]
 }
