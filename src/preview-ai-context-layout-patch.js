@@ -1,14 +1,23 @@
 const AI_CONTEXT_LAYOUT_CSS = `
 /* Preview AI context layout: reference tools first, composer last. */
 .app-content:has(> .s-hub-ai-page) {
-  min-height: calc(100dvh - var(--nav-bottom) - 64px);
+  --s-hub-ai-top-inset: max(32px, env(safe-area-inset-top));
+  --s-hub-ai-nav-clearance: calc(64px + var(--nav-bottom) + 24px);
+  /* Keep the same visual center above the fixed nav while reserving real
+     scroll room after long AI content. Without this reserve, the composer can
+     slide underneath the fixed bottom nav on tall iPhone layouts. */
+  min-height: calc(100dvh + 24px - var(--s-hub-ai-top-inset));
   display: flex;
   flex-direction: column;
-  padding-bottom: max(32px, env(safe-area-inset-top));
+  padding-bottom: var(--s-hub-ai-nav-clearance);
 }
 
 .app-content:has(> .s-hub-ai-page) > .s-hub-ai-page {
   margin-block: auto;
+}
+
+.s-hub-ai-page .s-hub-ai-content {
+  scroll-margin-bottom: var(--s-hub-ai-nav-clearance);
 }
 
 .s-hub-ai-page-extra {
