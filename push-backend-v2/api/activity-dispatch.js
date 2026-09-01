@@ -101,9 +101,10 @@ async function dispatchSocial({ db, token, identity, body, res }) {
   const actorStudentKey = safeSocialText(identity.studentKey, 80)
   const actorName = safeSocialText(identity.name, 20)
 
-  // Social push remains preview-only until V2 is explicitly approved for production.
-  if (!/^preview-class-(?:[1-9]|[12][0-9]|30)$/.test(classId) || !actorStudentKey || !actorName) {
-    return res.status(403).json({ ok: false, error: 'preview_identity_required' })
+  // Preview and production remain separated by distinct class IDs, while both
+  // may use the same verified social dispatch route after the V2 promotion.
+  if (!/^(?:preview-)?class-(?:[1-9]|[12][0-9]|30)$/.test(classId) || !actorStudentKey || !actorName) {
+    return res.status(403).json({ ok: false, error: 'invalid_social_identity' })
   }
 
   const kind = safeSocialText(body.kind, 30)
