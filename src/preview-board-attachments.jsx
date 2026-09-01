@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   BOARD_ATTACHMENT_ACCEPT,
   BOARD_ATTACHMENT_LIMIT,
-  getPreviewBoardAttachmentUrls,
+  getPreviewBoardAttachmentUrl,
   validatePreviewBoardAttachment,
 } from './preview-board-client.js'
 import './preview-board-finish.css'
@@ -116,23 +116,30 @@ export function BoardAttachmentPicker({ files, onChange, onError, disabled = fal
 
 export function BoardAttachmentGallery({ post }) {
   const attachments = useMemo(() => Array.isArray(post?.attachments) ? post.attachments.slice(0, BOARD_ATTACHMENT_LIMIT) : [], [post])
-  const [urls, setUrls] = useState({})
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    let alive = true
-    setFailed(false)
-    if (!post?.id || !attachments.length) {
-      setUrls({})
-      return () => { alive = false }
-    }
-    getPreviewBoardAttachmentUrls(post.id, attachments)
-      .then((next) => { if (alive) setUrls(next) })
-      .catch(() => { if (alive) setFailed(true) })
-    return () => { alive = false }
-  }, [post?.id, attachments])
+  const [openingId, setOpeningId] = useState('')
+  const [error, setError] = useState('')
 
   if (!attachments.length) return null
+
+  async function openOriginal(attachment) {
+    if (!post?.id || !attachment?.id || openingId) return
+    const previewWindow = window.open('', '_blank')
+    if (previewWindow) {
+      try { previewWindow.opener = null } catch { /* ignore */ }
+    }
+    setOpeningId(attachment.id)
+    setError('')
+    try {
+      const url = await getPreviewBoardAttachmentUrl(post.id, attachment.id)
+      if (previewWindow && !previewWindow.closed) previewWindow.location.replace(url)
+      else window.location.assign(url)
+    } catch (requestError) {
+      if (previewWindow && !previewWindow.closed) previewWindow.close()
+      setError(String(requestError?.message || '원본 파일을 열지 못했어요.'))
+    } finally {
+      setOpeningId('')
+    }
+  }
 
   return (
     <section className="preview-board-attachment-gallery" aria-label={`첨부 파일 ${attachments.length}개`}>
@@ -142,37 +149,29 @@ export function BoardAttachmentGallery({ post }) {
       </div>
       <div className="preview-board-attachment-grid">
         {attachments.map((attachment) => {
-          const url = urls[attachment.id] || ''
           const image = Boolean(attachment.isImage || String(attachment.mimeType || '').startsWith('image/'))
+          const opening = openingId === attachment.id
           return (
-            <a
-              className={`preview-board-attachment-card ${image ? 'is-image' : 'is-file'} ${url ? 'is-ready' : 'is-loading'}`}
-              href={url || undefined}
-              target={url ? '_blank' : undefined}
-              rel="noreferrer"
-              aria-disabled={!url}
-              onClick={(event) => { if (!url) event.preventDefault() }}
+            <button
+              type="button"
+              className={`preview-board-attachment-card ${image ? 'is-image' : 'is-file'} ${opening ? 'is-loading' : 'is-ready'}`}
+              onClick={() => openOriginal(attachment)}
+              disabled={Boolean(openingId)}
               key={attachment.id}
             >
-              {image && url ? (
-                <span className="preview-board-attachment-thumb">
-                  <img src={url} alt="" loading="lazy" decoding="async" />
-                </span>
-              ) : (
-                <span className="preview-board-attachment-filemark" aria-hidden="true">
-                  {image ? <AttachmentIcon image /> : extensionOf(attachment.fileName)}
-                </span>
-              )}
+              <span className="preview-board-attachment-filemark" aria-hidden="true">
+                {image ? <AttachmentIcon image /> : extensionOf(attachment.fileName)}
+              </span>
               <span className="preview-board-attachment-copy">
                 <strong>{attachment.fileName}</strong>
-                <small>{formatFileSize(attachment.sizeBytes)} · {url ? '원본 보기' : '원본 준비 중'}</small>
+                <small>{formatFileSize(attachment.sizeBytes)} · {opening ? '원본 여는 중…' : '원본 보기'}</small>
               </span>
               <span className="preview-board-attachment-open" aria-hidden="true">↗</span>
-            </a>
+            </button>
           )
         })}
       </div>
-      {failed ? <p className="preview-board-attachment-error">원본 링크를 준비하지 못했어요. 잠시 후 다시 열어 주세요.</p> : null}
+      {error ? <p className="preview-board-attachment-error" role="alert">{error}</p> : null}
     </section>
   )
 }
