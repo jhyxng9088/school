@@ -29,6 +29,18 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
+      - name: Inspect release warnings
+        run: |
+          echo '--- main.jsx around duplicate AI warning ---'
+          sed -n '1788,1815p' src/main.jsx
+          echo '--- npm audit summary ---'
+          npm audit --json > /tmp/npm-audit.json || true
+          node - <<'NODE'
+          const fs = require('node:fs')
+          const audit = JSON.parse(fs.readFileSync('/tmp/npm-audit.json', 'utf8'))
+          console.log(JSON.stringify({ metadata: audit.metadata?.vulnerabilities || {}, vulnerabilities: audit.vulnerabilities || {} }, null, 2))
+          NODE
+
       - name: Install temporary Playwright runtime
         run: npm install --no-save --package-lock=false playwright
 
