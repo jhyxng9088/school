@@ -98,4 +98,30 @@ jobs:
     needs: build
     steps:
       - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Smoke test deployed preview
+        env:
+          PAGE_ROOT: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          PREVIEW_URL="${PAGE_ROOT%/}/preview-v2/"
+          echo "Checking ${PREVIEW_URL}"
+
+          HTML="$(curl --fail --silent --show-error --location \
+            --retry 12 --retry-delay 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            "${PREVIEW_URL}")"
+
+          printf '%s' "${HTML}" | grep -q '<div id="root"></div>'
+          ASSET_PATH="$(printf '%s' "${HTML}" | grep -oE '/school/preview-v2/assets/[^"[:space:]]+\.js' | head -n 1)"
+          test -n "${ASSET_PATH}"
+          ORIGIN="$(printf '%s' "${PAGE_ROOT}" | sed -E 's#^(https?://[^/]+).*$#\1#')"
+          curl --fail --silent --show-error --location \
+            --retry 4 --retry-delay 1 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            --output /dev/null \
+            "${ORIGIN}${ASSET_PATH}"
+
+          echo "Preview smoke test passed: ${PREVIEW_URL}"
