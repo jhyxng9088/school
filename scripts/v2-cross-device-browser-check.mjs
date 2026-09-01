@@ -76,14 +76,6 @@ for (const target of targets) {
   const browser = await target.browser.launch({ headless: true })
   try {
     const context = await browser.newContext(target.context)
-    await context.addInitScript(({ profile }) => {
-      if (!/^https?:$/.test(location.protocol)) return
-      localStorage.setItem('school.studentProfile.v1', profile)
-      localStorage.setItem('school.featureTour.v1', 'done')
-      localStorage.removeItem('school.v2UpdateTour.v1')
-      localStorage.removeItem('school.v2UpdateTourStep.v1')
-    }, { profile })
-
     const page = await context.newPage()
     const consoleErrors = []
     const pageErrors = []
@@ -92,7 +84,17 @@ for (const target of targets) {
     })
     page.on('pageerror', (error) => pageErrors.push(String(error?.message || error)))
 
-    await page.goto(baseUrl, { waitUntil: 'networkidle' })
+    // Establish this target's real origin first. Then seed the exact legacy-user
+    // state the V2 update tour expects and reload so audience detection runs from
+    // page boot with those persisted values.
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
+    await page.evaluate(({ profile }) => {
+      localStorage.setItem('school.studentProfile.v1', profile)
+      localStorage.setItem('school.featureTour.v1', 'done')
+      localStorage.removeItem('school.v2UpdateTour.v1')
+      localStorage.removeItem('school.v2UpdateTourStep.v1')
+    }, { profile })
+    await page.reload({ waitUntil: 'networkidle' })
     await page.waitForSelector('.v2-update-tour-layer.is-open', { state: 'visible', timeout: 15000 })
 
     const initial = await page.evaluate(() => {
