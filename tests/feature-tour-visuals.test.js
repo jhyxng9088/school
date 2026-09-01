@@ -58,8 +58,17 @@ test('feature tour organizer adds four reminders and completes exactly two with 
   const sw = read('public/sw.js')
 
   assert.equal((source.match(/class="feature-tour-reminder-row/g) || []).length, 4)
-  assert.equal((source.match(/is-done/g) || []).length, 2)
-  assert.match(css, /feature-tour-reminder-row/)
+  assert.equal((source.match(/feature-tour-reminder-row is-demo-complete/g) || []).length, 2)
+  assert.match(source, /--enter-delay: 260ms/)
+  assert.match(source, /--enter-delay: 1310ms/)
+  assert.match(source, /--check-delay: 2240ms/)
+  assert.match(source, /--check-delay: 2860ms/)
+
+  assert.match(css, /feature-tour-reminder-enter 620ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
+  assert.match(css, /feature-tour-reminder-check 520ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
+  assert.match(css, /feature-tour-reminder-copy-complete 520ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
+  assert.match(css, /@keyframes feature-tour-reminder-checkmark/)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
   assert.match(index, /feature-tour-sequences\.css/)
   assert.match(sw, /\.\/feature-tour-sequences\.css/)
 })
@@ -67,19 +76,51 @@ test('feature tour organizer adds four reminders and completes exactly two with 
 test('feature tour home card builds the four core home sections with the home entrance motion', () => {
   const source = read('public/first-run-notice.js')
   const css = read('public/feature-tour-sequences.css')
-  assert.match(source, /feature-tour-home-card/)
-  assert.match(source, /feature-tour-home-row/)
-  assert.match(css, /feature-tour-home-enter/)
+
+  assert.match(source, /class="feature-tour-home-demo"/)
+  assert.equal((source.match(/class="feature-tour-home-block/g) || []).length, 4)
+  assert.match(source, /feature-tour-home-block is-reminder/)
+  assert.match(source, /feature-tour-home-block is-meal/)
+  assert.match(source, /feature-tour-home-block is-timetable/)
+  assert.match(source, /feature-tour-home-block is-academic/)
+  assert.match(source, /--home-delay: 220ms/)
+  assert.match(source, /--home-delay: 1060ms/)
+
+  assert.match(css, /feature-tour-home-enter 700ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/)
+  assert.match(css, /@keyframes feature-tour-home-enter/)
+  assert.match(css, /translate3d\(0, 10px, 0\)/)
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*feature-tour-home-block/)
 })
 
 test('feature tour sharing card has seven nodes with light signals moving between them', () => {
   const source = read('public/first-run-notice.js')
   const css = read('public/feature-tour-sequences.css')
-  assert.equal((source.match(/feature-tour-sharing-node/g) || []).length, 7)
-  assert.match(css, /feature-tour-sharing-signal/)
+  const networkMarkup = source.match(/<div class="feature-tour-network"[\s\S]*?<\/svg>\n\s*<\/div>/)?.[0] || ''
+
+  assert.match(networkMarkup, /feature-tour-network-lines/)
+  assert.match(networkMarkup, /feature-tour-network-signals/)
+  assert.match(networkMarkup, /feature-tour-network-nodes/)
+  assert.equal((networkMarkup.match(/<circle/g) || []).length, 7)
+  assert.equal((networkMarkup.match(/class="is-signal/g) || []).length, 8)
+
+  assert.match(css, /stroke-dasharray: 9 84/)
+  assert.match(css, /feature-tour-network-flow 2\.65s linear infinite/)
+  assert.match(css, /@keyframes feature-tour-network-flow/)
+  assert.match(css, /stroke-dashoffset: -93/)
+  assert.match(css, /\.is-eight \{ animation-delay: -680ms; \}/)
+  assert.match(css, /feature-tour-network-node 3\.4s/)
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*feature-tour-network-signals/)
 })
 
 test('feature tour creator card renders the real S-Hub icon asset instead of the placeholder S', () => {
   const source = read('public/first-run-notice.js')
-  assert.match(source, /icon\.svg/)
+  const css = read('public/feature-tour-sequences.css')
+  const icon = read('public/icon.svg')
+
+  assert.match(source, /class="feature-tour-creator-mark"/)
+  assert.match(css, /background: #000 url\('\.\/icon\.svg'\) center \/ cover no-repeat/)
+  assert.match(css, /\.feature-tour-creator-mark span \{\s*display: none;/)
+  assert.match(css, /border-radius: 29px/)
+  assert.match(icon, /aria-label="S-Hub"/)
+  assert.match(icon, /fill="url\(#silver\)"/)
 })
