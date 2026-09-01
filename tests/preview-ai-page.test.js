@@ -2,8 +2,15 @@ import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
+import { PREVIEW_POLITE_COPY_REPLACEMENTS } from '../src/preview-polite-copy-additions.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+
+function applyPairs(source, pairs) {
+  let next = String(source || '')
+  for (const [from, to] of pairs) next = next.split(from).join(to)
+  return next
+}
 
 test('AI sheet gains an inline page mode without losing the existing modal workflow', () => {
   const source = patchPreviewAIPageSource(read('src/s-hub-ai-sheet.jsx'), '/workspace/src/s-hub-ai-sheet.jsx')
@@ -27,6 +34,19 @@ test('AI page exposes question, attachment analysis, and direct schedule import 
   assert.match(source, /공지·파일 분석/)
   assert.match(source, /일정으로 바로 추가/)
   assert.match(source, /최대 4개/)
+})
+
+test('AI page explanatory copy is polite after preview copy replacements', () => {
+  const patched = patchPreviewAIPageSource(read('src/s-hub-ai-sheet.jsx'), '/workspace/src/s-hub-ai-sheet.jsx')
+  const source = applyPairs(patched, PREVIEW_POLITE_COPY_REPLACEMENTS)
+  assert.match(source, /찾은 일정을 바로 S-Hub에 추가할 수 있어요\./)
+  assert.match(source, /시간표·시험·리마인더를 바로 물어볼 수 있어요\./)
+  assert.match(source, /사진, PDF와 파일을 최대 4개까지 확인할 수 있어요\./)
+  assert.match(source, /리마인더·시간표·학사일정에 저장할 수 있어요\./)
+  assert.doesNotMatch(source, /바로 S-Hub에 추가해\./)
+  assert.doesNotMatch(source, /바로 물어봐\./)
+  assert.doesNotMatch(source, /최대 4개까지 확인해\./)
+  assert.doesNotMatch(source, /학사일정에 저장해\./)
 })
 
 test('AI station renders the inline workflow and no longer opens the modal on tab selection', () => {
