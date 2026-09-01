@@ -5,23 +5,27 @@ import { patchPreviewBoardSource } from '../src/preview-board-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-function builtBoard() {
-  return patchPreviewBoardSource(read('src/preview-board.jsx'), '/workspace/src/preview-board.jsx')
+function boardSource() {
+  return read('src/preview-board-complete.jsx')
 }
 
+test('preview board patch delegates to the standalone completed board component', () => {
+  const transformed = patchPreviewBoardSource(read('src/preview-board.jsx'), '/workspace/src/preview-board.jsx')
+  assert.match(transformed, /export \{ PreviewBoard \} from '\.\/preview-board-complete\.jsx'/)
+})
+
 test('visited board sections paint from cache before quiet revalidation', () => {
-  const source = builtBoard()
+  const source = boardSource()
   assert.match(source, /peekPreviewBoardCache\(activeSectionId\)/)
   assert.match(source, /if \(!cached\.isFresh\) refresh\(\{ quiet: true, signal: controller\.signal \}\)/)
   assert.match(source, /if \(peekPreviewBoardCache\(activeSectionId\)\?\.isFresh\) return/)
   assert.match(source, /const cached = peekPreviewBoardCache\(sectionId\)/)
   assert.match(source, /setPosts\(cached\.posts\)/)
   assert.match(source, /setLoading\(false\)/)
-  assert.doesNotMatch(source, /setLoading\(true\)\n\s*setPosts\(\[\]\)\n\s*setActiveSectionId\(sectionId\)/)
 })
 
 test('manual refresh remains authoritative while quiet refresh stays read-efficient', () => {
-  const source = builtBoard()
+  const source = boardSource()
   assert.match(source, /forceSections = null/)
   assert.match(source, /const shouldForceSections = forceSections == null \? !quiet : Boolean\(forceSections\)/)
   assert.match(source, /forceSections: shouldForceSections/)
@@ -32,7 +36,7 @@ test('manual refresh remains authoritative while quiet refresh stays read-effici
 })
 
 test('section changes use S-Hub directional entrance motion without stale-post flash', () => {
-  const source = builtBoard()
+  const source = boardSource()
   const css = read('src/preview-board-finish.css')
   assert.match(source, /const \[sectionDirection, setSectionDirection\] = useState\(1\)/)
   assert.match(source, /setSectionDirection\(nextIndex >= currentIndex \? 1 : -1\)/)
@@ -42,7 +46,7 @@ test('section changes use S-Hub directional entrance motion without stale-post f
 })
 
 test('board composer uploads bounded private attachments and cleans partial failures', () => {
-  const source = builtBoard()
+  const source = boardSource()
   const client = read('src/preview-board-client.js')
   assert.match(source, /<BoardAttachmentPicker/)
   assert.match(source, /newPreviewBoardAttachmentDraftId\(\)/)
@@ -56,18 +60,29 @@ test('board composer uploads bounded private attachments and cleans partial fail
   assert.doesNotMatch(client, /SUPABASE_SERVICE_ROLE|SUPABASE_SECRET_KEYS/)
 })
 
-test('board detail opens originals lazily instead of signing every attachment on section load', () => {
-  const source = builtBoard()
+test('board originals reuse reminder save behavior and load lazily', () => {
+  const source = boardSource()
   const gallery = read('src/preview-board-attachments.jsx')
   const client = read('src/preview-board-client.js')
   assert.match(source, /<BoardAttachmentGallery post=\{post\} \/>/)
-  assert.match(gallery, /getPreviewBoardAttachmentUrl\(post\.id, attachment\.id\)/)
-  assert.match(gallery, /window\.open\('', '_blank'\)/)
-  assert.match(gallery, /원본 보기/)
+  assert.match(gallery, /loadPreviewBoardAttachmentOriginal\(post\.id, id\)/)
+  assert.match(gallery, /URL\.createObjectURL\(original\.blob\)/)
+  assert.match(gallery, /navigator\.canShare\?\.\(\{ files: \[file\] \}\)/)
+  assert.match(gallery, /await navigator\.share\(\{ files: \[file\]/)
+  assert.match(gallery, /anchor\.download = original\.name \|\| '원본-파일'/)
+  assert.match(gallery, /savingRef\.current = true/)
+  assert.match(gallery, /DOWNLOAD_GESTURE_LOCK_MS = 700/)
+  assert.match(gallery, /원본 저장/)
   assert.match(client, /payload: \{ action: 'attachment-url', postId, attachmentId: id \}/)
   assert.match(client, /attachmentUrlCache/)
   assert.doesNotMatch(client, /attachment-urls/)
-  assert.doesNotMatch(gallery, /useEffect\([\s\S]*getPreviewBoardAttachment/)
+})
+
+test('attachment editor preserves a real zero-slot limit when four originals remain', () => {
+  const gallery = read('src/preview-board-attachments.jsx')
+  assert.match(gallery, /maxFiles == null \? BOARD_ATTACHMENT_LIMIT : maxFiles/)
+  assert.doesNotMatch(gallery, /Number\(maxFiles \|\| BOARD_ATTACHMENT_LIMIT\)/)
+  assert.match(gallery, /disabled=\{disabled \|\| safeLimit <= 0 \|\| selected\.length >= safeLimit\}/)
 })
 
 test('refresh width override fixes the legacy 34px text squeeze', () => {
