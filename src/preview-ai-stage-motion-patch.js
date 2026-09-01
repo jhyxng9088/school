@@ -29,25 +29,25 @@ const AI_STAGE_MOTION_CSS = `
 .s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick,
 .s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item,
 .s-hub-ai-page-stage.is-compose > .s-hub-ai-content {
-  animation: s-hub-ai-piece-in 690ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: s-hub-ai-piece-in 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Reminder-style cadence, tightened only slightly: major groups ~75ms, siblings ~50ms. */
+/* Keep the Reminder-like cascade, but overlap adjacent pieces more visibly. */
 .s-hub-ai-page-hero { animation-delay: 30ms; }
-.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-capabilities > .s-hub-ai-page-capability:nth-child(1) { animation-delay: 105ms; }
-.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-capabilities > .s-hub-ai-page-capability:nth-child(2) { animation-delay: 155ms; }
-.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-capabilities > .s-hub-ai-page-capability:nth-child(3) { animation-delay: 205ms; }
-.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-extra > section:nth-child(1) > .s-hub-ai-page-extra-head { animation-delay: 280ms; }
-.s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick:nth-child(1) { animation-delay: 355ms; }
-.s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick:nth-child(2) { animation-delay: 405ms; }
-.s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick:nth-child(3) { animation-delay: 455ms; }
-.s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick:nth-child(4) { animation-delay: 505ms; }
-.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-extra > section:nth-child(2) > .s-hub-ai-page-extra-head { animation-delay: 580ms; }
-.s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item:nth-child(1) { animation-delay: 655ms; }
-.s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item:nth-child(2) { animation-delay: 705ms; }
-.s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item:nth-child(3) { animation-delay: 755ms; }
-.s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item:nth-child(4) { animation-delay: 805ms; }
-.s-hub-ai-page-stage.is-compose > .s-hub-ai-content { animation-delay: 880ms; }
+.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-capabilities > .s-hub-ai-page-capability:nth-child(1) { animation-delay: 90ms; }
+.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-capabilities > .s-hub-ai-page-capability:nth-child(2) { animation-delay: 130ms; }
+.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-capabilities > .s-hub-ai-page-capability:nth-child(3) { animation-delay: 170ms; }
+.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-extra > section:nth-child(1) > .s-hub-ai-page-extra-head { animation-delay: 230ms; }
+.s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick:nth-child(1) { animation-delay: 290ms; }
+.s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick:nth-child(2) { animation-delay: 330ms; }
+.s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick:nth-child(3) { animation-delay: 370ms; }
+.s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick:nth-child(4) { animation-delay: 410ms; }
+.s-hub-ai-page-stage.is-compose > .s-hub-ai-page-extra > section:nth-child(2) > .s-hub-ai-page-extra-head { animation-delay: 470ms; }
+.s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item:nth-child(1) { animation-delay: 530ms; }
+.s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item:nth-child(2) { animation-delay: 570ms; }
+.s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item:nth-child(3) { animation-delay: 610ms; }
+.s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item:nth-child(4) { animation-delay: 650ms; }
+.s-hub-ai-page-stage.is-compose > .s-hub-ai-content { animation-delay: 710ms; }
 
 /* State transitions own the result motion, so result blocks must not animate twice. */
 .s-hub-ai-page-stage .s-hub-ai-answer,
@@ -66,7 +66,7 @@ html.school-mobile-compat .s-hub-ai-page-stage.is-compose > .s-hub-ai-page-extra
 html.school-mobile-compat .s-hub-ai-page-stage.is-compose .s-hub-ai-page-quick,
 html.school-mobile-compat .s-hub-ai-page-stage.is-compose .s-hub-ai-page-context-item,
 html.school-mobile-compat .s-hub-ai-page-stage.is-compose > .s-hub-ai-content {
-  animation-duration: 600ms;
+  animation-duration: 620ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
