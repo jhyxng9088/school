@@ -21,6 +21,13 @@ test('class top segment pill uses the exact bottom nav indicator material tokens
   assert.match(source, /var\(--nav-indicator-shadow\) !important/)
 })
 
+test('home current-class description keeps Korean words intact and has enough width', () => {
+  const source = patchPreviewClassTopSegmentStyleSource('', '/workspace/src/styles.css')
+  assert.match(source, /\.current-class-copy > p:last-child \{[\s\S]*max-width: 440px !important/)
+  assert.match(source, /word-break: keep-all/)
+  assert.match(source, /overflow-wrap: break-word/)
+})
+
 test('class opens on board and the segment order is board then timetable', () => {
   const input = `  const [classSection, setClassSection] = useState('timetable')\nfunction ClassTopSegment({ section, onSectionChange }) {\n  const activeIndex = section === 'board' ? 1 : 0\n  const spring = useClassTopSegmentSpring(activeIndex)\n  const touchIntentRef = useRef({ key: '', at: 0 })\n  const items = [\n    { id: 'timetable', label: '시간표' },\n    { id: 'board', label: '게시판' },\n  ]`
   const source = patchPreviewClassTopSegmentStyleSource(input, '/workspace/src/main.jsx')
