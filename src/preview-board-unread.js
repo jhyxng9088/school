@@ -16,7 +16,7 @@ function storageKey(identityKey) {
 }
 
 function blankState() {
-  return { cursor: 0, initialized: false, unread: {}, revision: 0 }
+  return { cursor: 0, seenCursor: 0, initialized: false, unread: {}, revision: 0 }
 }
 
 function loadStored(identityKey) {
@@ -24,9 +24,14 @@ function loadStored(identityKey) {
   try {
     const parsed = JSON.parse(localStorage.getItem(storageKey(identityKey)) || '{}')
     const unread = parsed?.unread && typeof parsed.unread === 'object' ? parsed.unread : {}
+    const cursor = Math.max(0, Number(parsed?.cursor || 0))
+    const initialized = Boolean(parsed?.initialized)
     return {
-      cursor: Math.max(0, Number(parsed?.cursor || 0)),
-      initialized: Boolean(parsed?.initialized),
+      cursor,
+      // Older v2 state did not distinguish opening the board from opening each post.
+      // Treat an upgraded install as already having visited its current board cursor.
+      seenCursor: Math.max(0, Number(parsed?.seenCursor ?? (initialized ? cursor : 0))),
+      initialized,
       unread,
       revision: 0,
     }
@@ -40,6 +45,7 @@ function persist(controller) {
   try {
     localStorage.setItem(storageKey(controller.identityKey), JSON.stringify({
       cursor: controller.state.cursor,
+      seenCursor: controller.state.seenCursor,
       initialized: controller.state.initialized,
       unread: controller.state.unread,
     }))
@@ -51,9 +57,17 @@ function persist(controller) {
 function snapshot(controller) {
   const unreadByPost = { ...controller.state.unread }
   const unreadPostIds = Object.keys(unreadByPost)
+  const seenCursor = Math.max(0, Number(controller.state.seenCursor || 0))
+  const sectionUnreadCount = Object.values(unreadByPost)
+    .filter((entry) => Number(entry?.id || 0) > seenCursor)
+    .length
   return {
     hasUnread: unreadPostIds.length > 0,
     unreadCount: unreadPostIds.length,
+    hasSectionUnread: sectionUnreadCount > 0,
+    sectionUnreadCount,
+    cursor: Math.max(0, Number(controller.state.cursor || 0)),
+    seenCursor,
     unreadByPost,
     revision: controller.state.revision,
   }
@@ -106,7 +120,9 @@ async function syncController(controller) {
     try {
       if (!controller.state.initialized) {
         const baseline = await loadPreviewBoardEvents(null)
-        controller.state.cursor = Math.max(0, Number(baseline.cursor || 0))
+        const cursor = Math.max(0, Number(baseline.cursor || 0))
+        controller.state.cursor = cursor
+        controller.state.seenCursor = cursor
         controller.state.initialized = true
         persist(controller)
         notify(controller)
@@ -200,6 +216,27 @@ function markPostReadFor(controller, postId) {
   notify(controller)
 }
 
+function markSectionSeenFor(controller) {
+  const cursor = Math.max(0, Number(controller.state.cursor || 0))
+  if (!controller.state.initialized || cursor <= Number(controller.state.seenCursor || 0)) return
+  controller.state.seenCursor = cursor
+  persist(controller)
+  notify(controller)
+}
+
+export function subscribePreviewBoardUnread(profile, listener) {
+  if (typeof listener !== 'function') return () => {}
+  return subscribeController(controllerFor(safeIdentityKey(profile)), listener)
+}
+
+export function markPreviewBoardSectionSeen(profile) {
+  markSectionSeenFor(controllerFor(safeIdentityKey(profile)))
+}
+
+export function previewBoardUnreadSnapshot(profile) {
+  return snapshot(controllerFor(safeIdentityKey(profile)))
+}
+
 export function usePreviewBoardUnread(profile) {
   const identityKey = useMemo(() => safeIdentityKey(profile), [profile])
   const controller = useMemo(() => controllerFor(identityKey), [identityKey])
@@ -208,12 +245,14 @@ export function usePreviewBoardUnread(profile) {
   useEffect(() => subscribeController(controller, setState), [controller])
 
   const markPostRead = useCallback((postId) => markPostReadFor(controller, postId), [controller])
+  const markSectionSeen = useCallback(() => markSectionSeenFor(controller), [controller])
   const isPostUnread = useCallback((postId) => Boolean(state.unreadByPost[String(postId || '')]), [state.unreadByPost])
   const unreadKind = useCallback((postId) => String(state.unreadByPost[String(postId || '')]?.kind || ''), [state.unreadByPost])
 
   return {
     ...state,
     markPostRead,
+    markSectionSeen,
     isPostUnread,
     unreadKind,
     sync: () => syncController(controller),
