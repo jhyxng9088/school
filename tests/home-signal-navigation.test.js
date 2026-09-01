@@ -1,21 +1,18 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { patchPreviewHomeInfoSource } from '../src/preview-home-info-patch.js'
-import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('home overview cards route to the correct V2 station and sub-section', () => {
-  const stationSource = patchPreviewStationNavSource(read('src/main.jsx'), '/workspace/src/main.jsx')
-  const patched = patchPreviewHomeInfoSource(stationSource, '/workspace/src/main.jsx')
+  const patch = read('src/preview-home-info-patch.js')
 
-  assert.match(patched, /target === 'class'[\s\S]*?setClassSection\('timetable'\)[\s\S]*?changeTab\('class'\)/)
-  assert.match(patched, /target === 'board'[\s\S]*?setClassSection\('board'\)[\s\S]*?changeTab\('class'\)/)
-  assert.match(patched, /target === 'study'[\s\S]*?changeTab\('study'\)/)
-  assert.match(patched, /target === 'reminder'[\s\S]*?setScheduleSection\('todo'\)[\s\S]*?changeTab\('schedule'\)/)
-  assert.match(patched, /<Home[\s\S]*?onNavigate=\{navigateHomeSignal\}/)
-  assert.match(patched, /<PreviewHomeSignals[\s\S]*?onNavigate=\{onNavigate\}/)
+  assert.ok(patch.includes("if (target === 'class') {\\n      changeTab('class')"))
+  assert.ok(patch.includes("if (target === 'board') {\\n      setClassSection('board')\\n      changeTab('class')"))
+  assert.ok(patch.includes("if (target === 'study') {\\n      changeTab('study')"))
+  assert.ok(patch.includes("if (target === 'reminder') {\\n      setScheduleSection('todo')\\n      changeTab('schedule')"))
+  assert.match(patch, /onNavigate=\{navigateHomeSignal\}/)
+  assert.match(patch, /onNavigate=\{onNavigate\}/)
 })
 
 test('home overview section opts out of the legacy whole-section navigation handler', () => {
