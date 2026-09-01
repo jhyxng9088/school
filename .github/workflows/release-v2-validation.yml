@@ -1,0 +1,50 @@
+name: Validate S-Hub V2 Production Candidate
+
+on:
+  push:
+    branches: [release/s-hub-v2-production-20260902]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release candidate
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test production app
+        run: npm test
+
+      - name: Build production app
+        run: npm run build
+
+      - name: Verify production build is not preview-isolated
+        run: |
+          test -f dist/v2-update-notice.js
+          test -f dist/v2-update-audience.js
+          if grep -R -F "school.preview." dist; then
+            echo "preview browser-storage namespace leaked into production build"
+            exit 1
+          fi
+          if grep -R -F "preview-class-" dist; then
+            echo "preview class identity leaked into production build"
+            exit 1
+          fi
+
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test production backend
+        working-directory: push-backend-v2
+        run: npm test
