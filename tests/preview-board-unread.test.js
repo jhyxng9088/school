@@ -34,16 +34,28 @@ test('board realtime supports global unread and visible-board refresh listeners 
 
 test('board unread UI reaches class nav, board segment, and changed post cards', () => {
   const patch = read('src/preview-board-patch.js')
-  const css = read('src/preview-board-unread.css')
+  const boardCss = read('src/preview-board-unread.css')
+  const unified = read('src/unread-indicators-v2.js')
+  const unifiedCss = read('src/unread-indicators.css')
+
   assert.match(patch, /const boardUnread = usePreviewBoardUnread\(profile\)/)
   assert.match(patch, /hasBoardUnread=\{boardUnread\.hasUnread\}/)
   assert.match(patch, /tab\.id === 'class' && boardUnread\.hasUnread/)
   assert.match(patch, /boardUnread\.isPostUnread\(post\.id\)/)
   assert.match(patch, /boardUnread\.markPostRead\(post\.id\)/)
   assert.match(patch, /preview-board-unread-dot/)
-  assert.match(css, /nav-button\[data-tab="class"\]\.has-board-unread/)
-  assert.match(css, /class-top-segment-button\.has-board-unread/)
-  assert.match(css, /preview-board-card\.has-unread/)
+  assert.match(boardCss, /preview-board-card\.has-unread/)
+
+  assert.match(unified, /if \(tab === 'board'\) return state\.boardUnread/)
+  assert.match(unified, /if \(tab === 'class'\) return navUnread\('timetable'\) \|\| navUnread\('board'\)/)
+  assert.match(unified, /renderTopSegments\(\)/)
+  assert.match(unified, /renderNav\(\)/)
+  assert.match(unified, /addDot\(button, 'segment'\)/)
+  assert.match(unified, /addDot\(button, 'nav'\)/)
+  assert.match(unifiedCss, /\.bottom-nav \.nav-button/)
+  assert.match(unifiedCss, /\.class-top-segment-button\[data-unread-key\]/)
+  assert.match(unifiedCss, /\.school-unread-dot\.is-nav/)
+  assert.match(unifiedCss, /\.school-unread-dot\.is-segment/)
 })
 
 test('an already open post stays read when a realtime comment or edit arrives', () => {
