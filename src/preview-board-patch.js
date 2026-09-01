@@ -44,9 +44,21 @@ function patchCompletedBoardRealtime(source) {
 
   const oldEffect = `  useEffect(() => {\n    const updatedAt = Number(activitySignal?.updatedAt || 0)\n    if (!activityReadyRef.current) {\n      activityReadyRef.current = true\n      lastActivityAtRef.current = updatedAt\n      return undefined\n    }\n    if (!updatedAt || updatedAt <= lastActivityAtRef.current) return undefined\n    lastActivityAtRef.current = updatedAt\n    if (activitySignal?.actorStudentKey && activitySignal.actorStudentKey === meKey) return undefined\n    if (!navigator.onLine) return undefined\n    const timer = window.setTimeout(() => {\n      invalidatePreviewBoardSection(activeSectionId)\n      refresh({ quiet: true, forceSections: String(activitySignal?.entityId || '').startsWith('section:') })\n    }, 160)\n    return () => window.clearTimeout(timer)\n  }, [activitySignal?.updatedAt, activitySignal?.actorStudentKey, activitySignal?.entityId, activeSectionId, meKey, refresh])\n\n  function announceMutation(entityId, action = 'edited') {\n    if (!profile || !entityId) return\n    recordClassActivity(profile, 'board', entityId, action).catch((activityError) => console.error('Board realtime signal failed:', activityError))\n  }`
 
-  const realtimeEffect = `  useEffect(() => {\n    let disposed = false\n    let unsubscribe = () => {}\n    subscribePreviewBoardRealtime((event) => {\n      if (disposed || !navigator.onLine) return\n      const sectionHint = String(event?.sectionId || '')\n      if (sectionHint && sectionHint !== activeSectionId && event?.kind !== 'section') return\n      invalidatePreviewBoardSection(activeSectionId)\n      refresh({ quiet: true, forceSections: event?.kind === 'section' })\n    }).then((stop) => {\n      if (disposed) stop()\n      else unsubscribe = stop\n    }).catch((realtimeError) => {\n      console.warn('S-Hub board realtime subscription unavailable:', realtimeError)\n    })\n    return () => {\n      disposed = true\n      unsubscribe()\n    }\n  }, [activeSectionId, refresh])\n\n  function announceMutation(entityId, action = 'edited', sectionId = activeSectionId) {\n    if (!entityId) return\n    const kind = String(entityId).startsWith('section:') ? 'section' : action === 'added' ? 'post' : 'board'\n    void broadcastPreviewBoardRealtime({ kind, sectionId })\n  }`
+  const realtimeEffect = `  useEffect(() => {\n    let disposed = false\n    let unsubscribe = () => {}\n    subscribePreviewBoardRealtime((event) => {\n      if (disposed || !navigator.onLine) return\n      const sectionHints = Array.isArray(event?.sectionIds) ? event.sectionIds.map((value) => String(value || '')) : []\n      if (sectionHints.length && !sectionHints.includes(activeSectionId) && event?.kind !== 'section') return\n      invalidatePreviewBoardSection(activeSectionId)\n      refresh({ quiet: true, forceSections: event?.kind === 'section' })\n    }).then((stop) => {\n      if (disposed) stop()\n      else unsubscribe = stop\n    }).catch((realtimeError) => {\n      console.warn('S-Hub board realtime subscription unavailable:', realtimeError)\n    })\n    return () => {\n      disposed = true\n      unsubscribe()\n    }\n  }, [activeSectionId, refresh])\n\n  function announceMutation(entityId, action = 'edited', sectionIds = [activeSectionId]) {\n    if (!entityId) return\n    const kind = String(entityId).startsWith('section:') ? 'section' : action === 'added' ? 'post' : 'board'\n    void broadcastPreviewBoardRealtime({ kind, sectionIds })\n  }`
 
   next = replaceRequired(next, oldEffect, realtimeEffect, 'replace Firestore board realtime')
+  next = replaceRequired(
+    next,
+    `    announceMutation(post.id, 'added')`,
+    `    announceMutation(post.id, 'added', [post.sectionId])`,
+    'new post realtime section',
+  )
+  next = replaceRequired(
+    next,
+    `    announceMutation(updated.id, 'edited')`,
+    `    announceMutation(updated.id, 'edited', [activeSectionId, updated.sectionId])`,
+    'moved post realtime sections',
+  )
   return next
 }
 
