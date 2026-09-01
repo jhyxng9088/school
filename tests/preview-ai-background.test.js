@@ -98,16 +98,27 @@ test('AI working state is lifted to AppShell and the AI page stays mounted acros
   assert.match(source, /className="preview-station-page-host" key=\{activeTab\}/)
 })
 
-test('home AI launcher reuses the persistent station and background work is visible in nav', () => {
+test('home AI launcher reuses the persistent station and background work has a real nav progress node', () => {
   const source = patchPreviewAIBackgroundSource(representativeMain(), '/workspace/src/main.jsx')
   assert.match(source, /onOpenAI=\{\(\) => changeTab\('ai'\)\}/)
   assert.match(source, /tab\.id === 'ai' && aiWorking \? 'is-ai-working'/)
+  assert.match(source, /tab\.id === 'ai' && aiWorking \? <span className="s-hub-ai-nav-progress"/)
 })
 
-test('background AI CSS keeps hidden sessions mounted and motion accessible', () => {
+test('persistent AI wrapper restores viewport centering and keeps short screens scroll-safe', () => {
+  const css = patchPreviewAIBackgroundSource('', '/workspace/src/s-hub-ai.css')
+  assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*min-height:\s*calc\(100dvh - var\(--nav-bottom\) - 64px\)/)
+  assert.match(css, /\.preview-ai-persistent-host\.is-active\s*\{[\s\S]*justify-content:\s*center/)
+  assert.match(css, /\.preview-ai-persistent-host\.is-active > \.s-hub-ai-page\s*\{[\s\S]*margin-block:\s*auto/)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*padding-bottom:\s*calc\(104px \+ env\(safe-area-inset-bottom\)\)/)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*margin-block:\s*0/)
+})
+
+test('background AI CSS keeps hidden sessions mounted and progress visible as a layered node', () => {
   const css = patchPreviewAIBackgroundSource('', '/workspace/src/s-hub-ai.css')
   assert.match(css, /\.preview-ai-persistent-host\[hidden\]/)
-  assert.match(css, /\.nav-button\[data-tab="ai"\]\.is-ai-working::after/)
+  assert.match(css, /\.nav-button\[data-tab="ai"\] \.s-hub-ai-nav-progress/)
+  assert.match(css, /z-index:\s*5/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
