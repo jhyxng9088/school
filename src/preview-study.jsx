@@ -55,6 +55,43 @@ function studentTodaySeconds(student, nowMs) {
   return recorded + runningTodaySeconds(active.segmentStartedAt || active.startedAt, nowMs)
 }
 
+function studentIdentity(student) {
+  if (!student) return ''
+  return `${String(student.classId || '')}:${String(student.studentKey || '')}`
+}
+
+function classLabel(classId) {
+  const match = /^preview-class-(\d+)$/.exec(String(classId || ''))
+  return match ? `${Number(match[1])}반` : '반 정보 없음'
+}
+
+function studentSubjectTotals(student, nowMs) {
+  const totals = new Map()
+  for (const row of Array.isArray(student?.subjectTotals) ? student.subjectTotals : []) {
+    const subject = String(row?.subject || '').trim()
+    const seconds = Math.max(0, Math.floor(Number(row?.totalSeconds || 0)))
+    if (!subject || !seconds) continue
+    totals.set(subject, (totals.get(subject) || 0) + seconds)
+  }
+
+  const active = student?.active
+  if (active && !active.isPaused) {
+    const liveSeconds = runningTodaySeconds(active.segmentStartedAt || active.startedAt, nowMs)
+    if (liveSeconds > 0) totals.set(active.subject, (totals.get(active.subject) || 0) + liveSeconds)
+  }
+
+  return [...totals.entries()]
+    .map(([subject, totalSeconds]) => ({ subject, totalSeconds }))
+    .sort((a, b) => b.totalSeconds - a.totalSeconds || a.subject.localeCompare(b.subject, 'ko'))
+}
+
+function rankedStudents(students, nowMs) {
+  return [...(Array.isArray(students) ? students : [])]
+    .map((student) => ({ ...student, displaySeconds: studentTodaySeconds(student, nowMs) }))
+    .filter((student) => student.displaySeconds > 0 || student.active)
+    .sort((a, b) => b.displaySeconds - a.displaySeconds || a.name.localeCompare(b.name, 'ko'))
+}
+
 function StudyControlCard({
   active,
   todaySeconds,
@@ -181,7 +218,7 @@ function StudyControlCard({
   )
 }
 
-function ActiveClassmates({ students, meKey, nowMs }) {
+function ActiveClassmates({ students, meId, nowMs, onStudent }) {
   const active = students
     .filter((student) => student.active)
     .sort((a, b) => Number(a.active.isPaused) - Number(b.active.isPaused)
@@ -197,15 +234,21 @@ function ActiveClassmates({ students, meKey, nowMs }) {
         <div className="preview-study-live-list">
           {active.map((student) => {
             const elapsed = activeSessionSeconds(student.active, nowMs)
+            const id = studentIdentity(student)
             return (
-              <div className={`preview-study-live-person${student.active.isPaused ? ' is-paused' : ''}`} key={student.studentKey}>
+              <button
+                type="button"
+                className={`preview-study-live-person${student.active.isPaused ? ' is-paused' : ''}`}
+                key={id}
+                onClick={() => onStudent(student)}
+              >
                 <span className={`preview-study-live-dot${student.active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
-                <div>
-                  <strong>{student.name}{student.studentKey === meKey ? ' · 본인' : ''}</strong>
+                <span className="preview-study-person-copy">
+                  <strong>{student.name}{id === meId ? ' · 본인' : ''}</strong>
                   <span>{student.active.subject}{student.active.isPaused ? ' · 일시정지' : ' · 공부 중'}</span>
-                </div>
+                </span>
                 <time>{formatStudyDuration(elapsed)}</time>
-              </div>
+              </button>
             )
           })}
         </div>
@@ -216,58 +259,211 @@ function ActiveClassmates({ students, meKey, nowMs }) {
   )
 }
 
-function TodayStudyList({ students, meKey, nowMs }) {
-  const ranked = [...students]
-    .map((student) => ({ ...student, displaySeconds: studentTodaySeconds(student, nowMs) }))
-    .filter((student) => student.displaySeconds > 0 || student.active)
-    .sort((a, b) => b.displaySeconds - a.displaySeconds || a.name.localeCompare(b.name, 'ko'))
+function StudyRanking({
+  classSnapshot,
+  schoolSnapshot,
+  schoolLoading,
+  schoolError,
+  scope,
+  onScope,
+  onRetrySchool,
+  meId,
+  nowMs,
+  onStudent,
+}) {
+  const source = scope === 'school' ? schoolSnapshot : classSnapshot
+  const ranked = rankedStudents(source?.students, nowMs)
+  const waitingForSchool = scope === 'school' && schoolLoading && !schoolSnapshot
 
   return (
-    <section className="preview-study-section">
+    <section className="preview-study-section preview-study-ranking-section">
       <div className="preview-study-section-heading">
-        <h2>오늘 공부 시간</h2>
-        <span>{ranked.length}명 기록</span>
+        <h2>오늘 공부 랭킹</h2>
+        <span>{waitingForSchool ? '불러오는 중' : `${ranked.length}명 기록`}</span>
       </div>
-      {ranked.length ? (
-        <div className="preview-study-today-list">
-          {ranked.map((student, index) => (
-            <div className="preview-study-today-person" key={student.studentKey}>
-              <span className="preview-study-rank" aria-label={`${index + 1}위`}>{index + 1}</span>
-              <div>
-                <strong>{student.name}{student.studentKey === meKey ? ' · 본인' : ''}</strong>
-                {student.active ? (
-                  <span>{student.active.subject}{student.active.isPaused ? ' · 일시정지' : ' · 공부 중'}</span>
-                ) : <span>오늘 기록</span>}
-              </div>
-              <time>{formatStudyDuration(student.displaySeconds)}</time>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="preview-study-empty">오늘 기록된 공부 시간이 없습니다.</div>
-      )}
+
+      <div className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">
+        <button
+          type="button"
+          className={scope === 'class' ? 'is-selected' : ''}
+          aria-pressed={scope === 'class'}
+          onClick={() => onScope('class')}
+        >
+          우리반
+        </button>
+        <button
+          type="button"
+          className={scope === 'school' ? 'is-selected' : ''}
+          aria-pressed={scope === 'school'}
+          onClick={() => onScope('school')}
+        >
+          전교
+        </button>
+      </div>
+
+      <div className="preview-study-ranking-stage" key={scope}>
+        {waitingForSchool ? (
+          <div className="preview-study-empty preview-study-ranking-loading">전교 랭킹을 불러오는 중…</div>
+        ) : schoolError && scope === 'school' && !schoolSnapshot ? (
+          <div className="preview-study-load-error preview-study-ranking-error">
+            <p>{schoolError}</p>
+            <button type="button" onClick={onRetrySchool}>다시 불러오기</button>
+          </div>
+        ) : ranked.length ? (
+          <div className="preview-study-today-list">
+            {ranked.map((student, index) => {
+              const id = studentIdentity(student)
+              const detail = student.active
+                ? `${student.active.subject}${student.active.isPaused ? ' · 일시정지' : ' · 공부 중'}`
+                : '오늘 기록'
+              const subtitle = scope === 'school' ? `${classLabel(student.classId)} · ${detail}` : detail
+              return (
+                <button
+                  type="button"
+                  className="preview-study-today-person"
+                  key={id}
+                  onClick={() => onStudent(student)}
+                >
+                  <span className="preview-study-rank" aria-label={`${index + 1}위`}>{index + 1}</span>
+                  <span className="preview-study-person-copy">
+                    <strong>{student.name}{id === meId ? ' · 본인' : ''}</strong>
+                    <span>{subtitle}</span>
+                  </span>
+                  <time>{formatStudyDuration(student.displaySeconds)}</time>
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="preview-study-empty">오늘 기록된 공부 시간이 없습니다.</div>
+        )}
+      </div>
+
+      {scope === 'school' && schoolError && schoolSnapshot ? (
+        <p className="preview-study-inline-warning">전교 랭킹 실시간 갱신이 일시적으로 중단되었습니다. 마지막 기록을 표시합니다.</p>
+      ) : null}
     </section>
+  )
+}
+
+function StudyStudentSheet({ student, meId, nowMs, onClose }) {
+  const id = studentIdentity(student)
+  const totalSeconds = studentTodaySeconds(student, nowMs)
+  const subjects = studentSubjectTotals(student, nowMs)
+  const knownSubjectSeconds = subjects.reduce((sum, item) => sum + item.totalSeconds, 0)
+  const missingBreakdown = Math.max(0, totalSeconds - knownSubjectSeconds)
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      className="preview-study-sheet-backdrop"
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <section
+        className="preview-study-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${student.name} 공부 기록`}
+      >
+        <div className="preview-study-sheet-handle" aria-hidden="true" />
+        <header className="preview-study-sheet-header">
+          <div>
+            <span>{classLabel(student.classId)}</span>
+            <h2>{student.name}{id === meId ? ' · 본인' : ''}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="닫기">×</button>
+        </header>
+
+        <div className="preview-study-sheet-total">
+          <span>오늘 총 공부</span>
+          <strong>{formatStudyDuration(totalSeconds)}</strong>
+        </div>
+
+        {student.active ? (
+          <div className="preview-study-sheet-live">
+            <span className={`preview-study-live-dot${student.active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
+            <span>{student.active.subject} · {student.active.isPaused ? '일시정지' : '공부 중'}</span>
+          </div>
+        ) : null}
+
+        <div className="preview-study-sheet-subject-heading">
+          <h3>과목별 공부 시간</h3>
+          <span>{subjects.length}개 과목</span>
+        </div>
+
+        {subjects.length ? (
+          <div className="preview-study-subject-breakdown">
+            {subjects.map((item) => (
+              <div key={item.subject}>
+                <span>{item.subject}</span>
+                <strong>{formatStudyDuration(item.totalSeconds)}</strong>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="preview-study-sheet-empty">아직 과목별 공부 기록이 없습니다.</div>
+        )}
+
+        {missingBreakdown > 2 ? (
+          <p className="preview-study-sheet-note">
+            업데이트 이전에 기록된 {formatStudyDuration(missingBreakdown)}은 과목별로 분리되지 않습니다.
+          </p>
+        ) : null}
+      </section>
+    </div>
   )
 }
 
 export function PreviewStudyPage({ requireOnline = () => true }) {
   const [snapshot, setSnapshot] = useState(null)
+  const [schoolSnapshot, setSchoolSnapshot] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [schoolLoading, setSchoolLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [schoolError, setSchoolError] = useState('')
   const [actionError, setActionError] = useState('')
   const [saving, setSaving] = useState(false)
   const [actionKind, setActionKind] = useState('')
   const [selectedSubject, setSelectedSubject] = useState('')
   const [customSubject, setCustomSubject] = useState('')
+  const [rankingScope, setRankingScope] = useState('class')
+  const [selectedStudentId, setSelectedStudentId] = useState('')
   const [nowMs, setNowMs] = useState(() => Date.now())
   const requestIdRef = useRef(0)
+  const schoolRequestIdRef = useRef(0)
   const realtimeRefreshRef = useRef(0)
+  const schoolRealtimeRefreshRef = useRef(0)
+  const schoolSnapshotRef = useRef(null)
+  const rankingScopeRef = useRef('class')
+
+  useEffect(() => {
+    schoolSnapshotRef.current = schoolSnapshot
+  }, [schoolSnapshot])
+
+  useEffect(() => {
+    rankingScopeRef.current = rankingScope
+  }, [rankingScope])
 
   const load = useCallback(async ({ silent = false } = {}) => {
     const requestId = ++requestIdRef.current
     if (!silent) setLoading(true)
     try {
-      const next = await loadPreviewStudy()
+      const next = await loadPreviewStudy({ scope: 'class' })
       if (requestId !== requestIdRef.current) return
       setSnapshot(next)
       setLoadError('')
@@ -279,9 +475,30 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     }
   }, [])
 
+  const loadSchool = useCallback(async ({ silent = false } = {}) => {
+    const requestId = ++schoolRequestIdRef.current
+    if (!silent) setSchoolLoading(true)
+    try {
+      const next = await loadPreviewStudy({ scope: 'school' })
+      if (requestId !== schoolRequestIdRef.current) return
+      setSchoolSnapshot(next)
+      setSchoolError('')
+    } catch (error) {
+      if (requestId !== schoolRequestIdRef.current) return
+      setSchoolError(error?.message || '전교 랭킹을 불러오지 못했습니다.')
+    } finally {
+      if (requestId === schoolRequestIdRef.current && !silent) setSchoolLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (rankingScope !== 'school' || schoolSnapshot || schoolLoading) return
+    loadSchool()
+  }, [rankingScope, schoolSnapshot, schoolLoading, loadSchool])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
@@ -291,14 +508,24 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   useEffect(() => {
     let stopped = false
     let unsubscribe = () => {}
-    subscribePreviewStudyRealtime(() => {
-      if (stopped) return
-      if (realtimeRefreshRef.current) window.clearTimeout(realtimeRefreshRef.current)
-      realtimeRefreshRef.current = window.setTimeout(() => {
-        realtimeRefreshRef.current = 0
-        load({ silent: true })
-      }, 160)
-    }).then((cleanup) => {
+    subscribePreviewStudyRealtime(
+      () => {
+        if (stopped) return
+        if (realtimeRefreshRef.current) window.clearTimeout(realtimeRefreshRef.current)
+        realtimeRefreshRef.current = window.setTimeout(() => {
+          realtimeRefreshRef.current = 0
+          load({ silent: true })
+        }, 160)
+      },
+      () => {
+        if (stopped || (!schoolSnapshotRef.current && rankingScopeRef.current !== 'school')) return
+        if (schoolRealtimeRefreshRef.current) window.clearTimeout(schoolRealtimeRefreshRef.current)
+        schoolRealtimeRefreshRef.current = window.setTimeout(() => {
+          schoolRealtimeRefreshRef.current = 0
+          loadSchool({ silent: true })
+        }, 220)
+      },
+    ).then((cleanup) => {
       if (stopped) cleanup()
       else unsubscribe = cleanup
     }).catch((error) => {
@@ -307,16 +534,19 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     return () => {
       stopped = true
       if (realtimeRefreshRef.current) window.clearTimeout(realtimeRefreshRef.current)
+      if (schoolRealtimeRefreshRef.current) window.clearTimeout(schoolRealtimeRefreshRef.current)
       realtimeRefreshRef.current = 0
+      schoolRealtimeRefreshRef.current = 0
       unsubscribe()
     }
-  }, [load])
+  }, [load, loadSchool])
 
   useEffect(() => {
     const refresh = () => {
       if (document.hidden || navigator.onLine === false) return
       setNowMs(Date.now())
       load({ silent: true })
+      if (schoolSnapshotRef.current || rankingScopeRef.current === 'school') loadSchool({ silent: true })
     }
     document.addEventListener('visibilitychange', refresh)
     window.addEventListener('focus', refresh)
@@ -326,18 +556,27 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       window.removeEventListener('focus', refresh)
       window.removeEventListener('online', refresh)
     }
-  }, [load])
+  }, [load, loadSchool])
 
   const me = snapshot?.me || null
-  const meKey = me?.studentKey || ''
+  const meId = studentIdentity(me)
   const myActive = me?.active || null
   const myTodaySeconds = useMemo(
     () => studentTodaySeconds(me, nowMs),
     [me, nowMs],
   )
 
+  const selectedStudent = useMemo(() => {
+    if (!selectedStudentId) return null
+    const schoolMatch = schoolSnapshot?.students?.find((student) => studentIdentity(student) === selectedStudentId)
+    if (schoolMatch) return schoolMatch
+    return snapshot?.students?.find((student) => studentIdentity(student) === selectedStudentId) || null
+  }, [selectedStudentId, schoolSnapshot, snapshot])
+
+  const closeStudentSheet = useCallback(() => setSelectedStudentId(''), [])
+
   async function runAction({ kind, onlineLabel, action, broadcastAction, fallbackMessage }) {
-    if (saving || !requireOnline(onlineLabel)) return
+    if (saving || !requireOnline(onlineLabel)) return false
     setSaving(true)
     setActionKind(kind)
     setActionError('')
@@ -345,9 +584,12 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       await action()
       await broadcastPreviewStudyRealtime(broadcastAction)
       await load({ silent: true })
+      if (schoolSnapshotRef.current || rankingScopeRef.current === 'school') await loadSchool({ silent: true })
       setNowMs(Date.now())
+      return true
     } catch (error) {
       setActionError(error?.message || fallbackMessage)
+      return false
     } finally {
       setSaving(false)
       setActionKind('')
@@ -357,15 +599,17 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   async function start() {
     const subject = selectedSubject === '기타' ? customSubject.trim() : selectedSubject
     if (!subject || saving) return
-    await runAction({
+    const succeeded = await runAction({
       kind: 'start',
       onlineLabel: '스터디를 시작',
       action: () => startPreviewStudy(subject),
       broadcastAction: 'start',
       fallbackMessage: '공부를 시작하지 못했습니다.',
     })
-    setSelectedSubject('')
-    setCustomSubject('')
+    if (succeeded) {
+      setSelectedSubject('')
+      setCustomSubject('')
+    }
   }
 
   async function pause() {
@@ -449,9 +693,34 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
           />
 
           {loadError ? <p className="preview-study-inline-warning">실시간 새로고침이 일시적으로 중단되었습니다. 마지막으로 불러온 기록을 표시합니다.</p> : null}
-          <ActiveClassmates students={snapshot.students} meKey={meKey} nowMs={nowMs} />
-          <TodayStudyList students={snapshot.students} meKey={meKey} nowMs={nowMs} />
+          <ActiveClassmates
+            students={snapshot.students}
+            meId={meId}
+            nowMs={nowMs}
+            onStudent={(student) => setSelectedStudentId(studentIdentity(student))}
+          />
+          <StudyRanking
+            classSnapshot={snapshot}
+            schoolSnapshot={schoolSnapshot}
+            schoolLoading={schoolLoading}
+            schoolError={schoolError}
+            scope={rankingScope}
+            onScope={setRankingScope}
+            onRetrySchool={() => loadSchool()}
+            meId={meId}
+            nowMs={nowMs}
+            onStudent={(student) => setSelectedStudentId(studentIdentity(student))}
+          />
         </div>
+      ) : null}
+
+      {selectedStudent ? (
+        <StudyStudentSheet
+          student={selectedStudent}
+          meId={meId}
+          nowMs={nowMs}
+          onClose={closeStudentSheet}
+        />
       ) : null}
     </section>
   )
