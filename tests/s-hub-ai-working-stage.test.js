@@ -37,13 +37,13 @@ test('working copy changes softly at a non-rigid cadence and remains cancellable
   assert.match(css, /transition: opacity 240ms[\s\S]*?transform 240ms/)
 })
 
-test('working stage contracts before completed AI results reveal smoothly', () => {
+test('working stage contracts quickly before completed AI results reveal smoothly', () => {
   const sheet = read('src/s-hub-ai-sheet.jsx')
   const css = read('src/s-hub-ai.css')
 
   assert.match(sheet, /workingFinishing/)
   assert.match(sheet, /finishWorkingStage\(requestId\)/)
-  assert.match(sheet, /window\.setTimeout\(resolve, 420\)/)
+  assert.match(sheet, /window\.setTimeout\(resolve, 140\)/)
   assert.match(sheet, /s-hub-ai-thinking-stage \$\{workingFinishing \? 'is-finishing' : ''\}/)
   assert.match(css, /\.s-hub-ai-thinking-stage\.is-finishing \.s-hub-ai-orb[\s\S]*?scale\(0\.32\)/)
   assert.match(sheet, /!working && state\.mode === 'import'/)
