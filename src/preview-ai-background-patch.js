@@ -1,122 +1,84 @@
-const AI_BACKGROUND_CSS = `
-/* Preview-only AI continuity: keep the one AI session alive while other stations are used. */
-.preview-ai-persistent-host[hidden] {
-  display: none !important;
-}
-
-/* The persistent wrapper became the direct app-content child, so it must own the old AI centering contract. */
+const AI_BACKGROUND_CSS = String.raw`
+/* Preview-only AI continuity: keep the one AI session alive while other stations are visible. */
 .app-content.tab-ai {
   min-height: calc(100dvh - var(--nav-bottom) - 64px);
-  display: flex;
-  flex-direction: column;
-  padding-bottom: max(32px, env(safe-area-inset-top));
 }
 
-.app-content.tab-ai > .preview-ai-persistent-host.is-active {
+.preview-ai-persistent-host {
   width: 100%;
-  flex: 1 1 auto;
-  min-height: 0;
+}
+
+.preview-ai-persistent-host.is-active {
+  min-height: inherit;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.app-content.tab-ai > .preview-ai-persistent-host.is-active > .s-hub-ai-page {
-  width: 100%;
+.preview-ai-persistent-host.is-active > .s-hub-ai-page {
   margin-block: auto;
 }
 
-.preview-ai-persistent-host.is-active,
-.preview-station-page-host {
-  animation: s-hub-ai-background-page-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes s-hub-ai-background-page-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 12px, 0) scale(0.996);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
+.preview-ai-persistent-host[hidden] {
+  display: none !important;
 }
 
 .s-hub-ai-background-note {
-  max-width: 430px !important;
-  margin: 4px 0 0 !important;
-  color: var(--text-tertiary) !important;
-  font-size: 10.5px !important;
-  font-weight: 560 !important;
-  line-height: 1.38 !important;
-  letter-spacing: -.012em !important;
-  opacity: .76;
+  margin: 5px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
-.bottom-nav .nav-button[data-tab="ai"] {
+.nav-button[data-tab="ai"] {
   position: relative;
 }
 
-.bottom-nav .nav-button[data-tab="ai"] .s-hub-ai-nav-progress {
+.nav-button[data-tab="ai"] .s-hub-ai-nav-progress {
   position: absolute;
   z-index: 5;
-  top: 7px;
-  left: calc(50% + 9px);
+  top: 6px;
+  right: 8px;
   width: 7px;
   height: 7px;
-  border-radius: 999px;
+  border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface) 72%, transparent);
   pointer-events: none;
-  animation: s-hub-ai-nav-working 1.55s ease-in-out infinite;
+  animation: s-hub-ai-nav-progress-pulse 1.2s ease-in-out infinite;
 }
 
 .bottom-nav .nav-button[data-tab="ai"].is-ai-working:not(.active) svg {
-  animation: s-hub-ai-nav-orb-breathe 1.9s ease-in-out infinite;
+  animation: s-hub-ai-nav-working 1.8s cubic-bezier(.16, 1, .3, 1) infinite;
   transform-origin: 50% 50%;
 }
 
+@keyframes s-hub-ai-nav-progress-pulse {
+  0%, 100% { opacity: .28; transform: scale(.82); }
+  50% { opacity: .9; transform: scale(1.08); }
+}
+
 @keyframes s-hub-ai-nav-working {
-  0%, 100% {
-    opacity: .38;
-    transform: scale(.8);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.12);
-  }
-}
-
-@keyframes s-hub-ai-nav-orb-breathe {
-  0%, 100% { transform: scale(.96); }
-  50% { transform: scale(1.055); }
-}
-
-html.school-mobile-compat .preview-ai-persistent-host.is-active,
-html.school-mobile-compat .preview-station-page-host {
-  animation-duration: 620ms;
+  0%, 100% { transform: scale(1); opacity: .72; }
+  50% { transform: scale(1.08); opacity: 1; }
 }
 
 @media (max-height: 760px) {
   .app-content.tab-ai {
-    min-height: 100dvh;
-    display: block;
+    min-height: 0;
     padding-bottom: calc(104px + env(safe-area-inset-bottom));
   }
 
-  .app-content.tab-ai > .preview-ai-persistent-host.is-active {
-    display: block;
+  .preview-ai-persistent-host.is-active {
     min-height: 0;
+    justify-content: flex-start;
   }
 
-  .app-content.tab-ai > .preview-ai-persistent-host.is-active > .s-hub-ai-page {
+  .preview-ai-persistent-host.is-active > .s-hub-ai-page {
     margin-block: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .preview-ai-persistent-host.is-active,
-  .preview-station-page-host,
   .bottom-nav .nav-button[data-tab="ai"] .s-hub-ai-nav-progress,
   .bottom-nav .nav-button[data-tab="ai"].is-ai-working:not(.active) svg {
     animation-duration: .01ms !important;
@@ -143,8 +105,8 @@ function patchAISheet(source) {
 
   next = replaceRequired(
     next,
-    `  const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items, state.selected])`,
-    `  /* Preview-only background AI continuity callback. */\n  useEffect(() => {\n    if (typeof onWorkingChange === 'function') onWorkingChange(Boolean(working))\n  }, [working, onWorkingChange])\n\n  const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items, state.selected])`,
+    `  const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items])`,
+    `  /* Preview-only background AI continuity callback. */\n  useEffect(() => {\n    if (typeof onWorkingChange === 'function') onWorkingChange(Boolean(working))\n  }, [working, onWorkingChange])\n\n  const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items])`,
     'working callback effect',
   )
 
@@ -156,6 +118,12 @@ function patchAISheet(source) {
   )
 
   return next
+}
+
+function removeHomeAITrigger(source) {
+  const triggerPattern = /[ \t]*<button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick=\{onOpenAI\}>\s*<SHubAIOrb size=\{27\} \/>\s*<\/button>\n?/
+  if (!triggerPattern.test(source)) return source
+  return source.replace(triggerPattern, '')
 }
 
 function patchMain(source) {
@@ -190,12 +158,9 @@ function patchMain(source) {
     'station AI working callback',
   )
 
-  next = replaceRequired(
-    next,
-    `          <button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick={onOpenAI}>\n            <SHubAIOrb size={27} />\n          </button>`,
-    ``,
-    'home AI trigger removal',
-  )
+  // The home launcher may already have been removed by another preview-only layer.
+  // Treat that state as complete instead of failing the combined build.
+  next = removeHomeAITrigger(next)
 
   const homeLauncherMarker = `onOpenAI={() => setAiOpen(true)}`
   if (next.includes(homeLauncherMarker)) {
