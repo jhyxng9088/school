@@ -13,6 +13,31 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
   return `${source.slice(0, start)}${replacement}${source.slice(end)}`
 }
 
+function patchBoardAttachmentViewer(source) {
+  let next = String(source || '')
+  if (next.includes("import { createPortal } from 'react-dom'") && next.includes('document.body')) return next
+
+  next = replaceRequired(
+    next,
+    `import { useEffect, useMemo, useRef, useState } from 'react'`,
+    `import { useEffect, useMemo, useRef, useState } from 'react'\nimport { createPortal } from 'react-dom'`,
+    'board original viewer portal import',
+  )
+  next = replaceRequired(
+    next,
+    `  return (\n    <div className={\`reminder-original-viewer \${closing ? 'is-closing' : ''}\`.trim()} role="dialog" aria-modal="true" aria-label="원본 파일">`,
+    `  if (typeof document === 'undefined') return null\n\n  return createPortal(\n    <div className={\`reminder-original-viewer \${closing ? 'is-closing' : ''}\`.trim()} role="dialog" aria-modal="true" aria-label="원본 파일">`,
+    'board original viewer portal open',
+  )
+  next = replaceRequired(
+    next,
+    `      </div>\n    </div>\n  )\n}\n\nexport function BoardAttachmentPicker`,
+    `      </div>\n    </div>,\n    document.body,\n  )\n}\n\nexport function BoardAttachmentPicker`,
+    'board original viewer portal close',
+  )
+  return next
+}
+
 function patchCompletedBoardRealtime(source) {
   let next = String(source || '')
   if (next.includes('subscribePreviewBoardRealtime')) return next
@@ -102,6 +127,7 @@ export function patchPreviewBoardSource(source, id = '') {
   if (cleanId.endsWith('/preview-board.jsx')) {
     return patchPreviewBoardCompleteSource(patchPreviewBoardFinishSource(source, id), id)
   }
+  if (cleanId.endsWith('/preview-board-attachments.jsx')) return patchBoardAttachmentViewer(source)
   if (cleanId.endsWith('/preview-board-complete.jsx')) return patchCompletedBoardRealtime(source)
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
 
