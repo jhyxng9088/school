@@ -1,5 +1,5 @@
 import * as engine from './s-hub-ai-engine.js'
-import { findDeterministicConflict } from './s-hub-ai-core.js'
+import { compactSchoolTitle, findDeterministicConflict, titleSimilarity } from './s-hub-ai-core.js'
 import {
   groupSchoolAIImportItems,
   reviewKnownSchoolImportConflicts,
@@ -29,13 +29,6 @@ function previewSummaryFromAnalysis(item) {
   const detail = cleanText(item.detail || item.reason, 700)
   if (detail) return { overview: detail, sections: [] }
 
-  if (item.type === 'material') {
-    return {
-      overview: cleanText(item.title, 300) || '준비물 내용을 원문에서 확인해줘.',
-      sections: [],
-    }
-  }
-
   return {
     overview: cleanText(item.title, 300) || '세부 내용을 원문에서 확인해줘.',
     sections: [],
@@ -47,6 +40,38 @@ function attachPreviewSummaries(items = []) {
     const previewSummary = previewSummaryFromAnalysis(item)
     return previewSummary ? { ...item, previewSummary } : item
   })
+}
+
+function sameReminderMeaning(item, existing) {
+  if (!item || !existing || item.kind !== 'reminder') return false
+  if (item.dueDate !== existing.dueDate) return false
+  if (item.type && existing.type && item.type !== existing.type) return false
+  if (item.dueTime && existing.dueTime && item.dueTime !== existing.dueTime) return false
+  const first = compactSchoolTitle(item.title)
+  const second = compactSchoolTitle(existing.title)
+  if (!first || !second) return false
+  if (first === second) return true
+  if (titleSimilarity(item.title, existing.title) >= 0.72) return true
+  const shorter = first.length <= second.length ? first : second
+  const longer = first.length > second.length ? first : second
+  return shorter.length >= 5 && longer.includes(shorter) && shorter.length / longer.length >= 0.72
+}
+
+function reminderDuplicateConflict(item, context) {
+  if (item?.kind !== 'reminder') return null
+  const reminders = Array.isArray(context?.reminders) ? context.reminders : []
+  const existing = reminders.find((candidate) => candidate?.id !== item.id && sameReminderMeaning(item, candidate))
+  if (!existing) return null
+  return {
+    candidateId: item.id,
+    relation: 'duplicate',
+    existingKind: 'reminder',
+    existingId: existing.id,
+    existing,
+    reason: '같은 리마인더가 이미 있어.',
+    source: 'local',
+    confidence: 'high',
+  }
 }
 
 function localConflictMap(items, context) {
@@ -62,7 +87,7 @@ function localConflictMap(items, context) {
   for (const item of validItems) {
     if (!item?.id || conflicts[item.id]) continue
     try {
-      const conflict = findDeterministicConflict(item, context)
+      const conflict = reminderDuplicateConflict(item, context) || findDeterministicConflict(item, context)
       if (conflict) conflicts[item.id] = conflict
     } catch (error) {
       console.warn('S-Hub deterministic conflict guard unavailable for item:', item?.id, error)
@@ -71,24 +96,32 @@ function localConflictMap(items, context) {
   return conflicts
 }
 
-function removeKnownDuplicates(items, context) {
+function shouldAutoSkip(item, conflict) {
+  if (!conflict) return false
+  if (conflict.relation === 'duplicate') return true
+  return item?.kind === 'timetable_change'
+    && conflict.relation === 'conflict'
+    && Boolean(conflict?.existing?.isOverride)
+}
+
+function removeKnownExistingItems(items, context) {
   const source = Array.isArray(items) ? items : []
   const conflicts = localConflictMap(source, context)
-  const skippedDuplicates = []
+  const skippedExisting = []
   const kept = source.filter((item) => {
     const conflict = conflicts[item?.id]
-    if (conflict?.relation !== 'duplicate') return true
-    skippedDuplicates.push({ item, conflict })
+    if (!shouldAutoSkip(item, conflict)) return true
+    skippedExisting.push({ item, conflict })
     return false
   })
-  return { items: kept, skippedDuplicates }
+  return { items: kept, skippedExisting }
 }
 
 export const askSchoolHub = engine.askSchoolHub
 export const findReminderConflict = engine.findReminderConflict
 
-// Import review intentionally stays local. The source notice has already been interpreted
-// by the model once; a second semantic-model pass adds latency and another failure point.
+// Existing-data review is intentionally local. The source notice has already been
+// interpreted once; another model pass adds latency and another failure point.
 export async function reviewSchoolImportConflicts(items, context) {
   return localConflictMap(items, context)
 }
@@ -98,14 +131,14 @@ export async function analyzeSchoolNotice(options = {}) {
   const rawResult = await engine.analyzeSchoolNotice(options)
   const groupedItems = groupSchoolAIImportItems(rawResult?.items)
   const summarizedItems = attachPreviewSummaries(groupedItems)
-  const filtered = removeKnownDuplicates(
+  const filtered = removeKnownExistingItems(
     summarizedItems,
     options?.conflictContext || options?.context || {},
   )
   const result = {
     ...rawResult,
     items: filtered.items,
-    skippedDuplicates: filtered.skippedDuplicates,
+    skippedExisting: filtered.skippedExisting,
   }
   rememberSchoolAIReminderSources(result.items, options?.files, options?.text)
   return result
@@ -116,14 +149,14 @@ export async function answerAndAnalyzeSchoolAttachments(options = {}) {
   const rawResult = await engine.answerAndAnalyzeSchoolAttachments(options)
   const groupedItems = groupSchoolAIImportItems(rawResult?.items)
   const summarizedItems = attachPreviewSummaries(groupedItems)
-  const filtered = removeKnownDuplicates(
+  const filtered = removeKnownExistingItems(
     summarizedItems,
     options?.conflictContext || options?.context || {},
   )
   const result = {
     ...rawResult,
     items: filtered.items,
-    skippedDuplicates: filtered.skippedDuplicates,
+    skippedExisting: filtered.skippedExisting,
   }
   rememberSchoolAIReminderSources(result.items, options?.files, options?.question)
   return result
