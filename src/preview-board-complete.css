@@ -1,0 +1,270 @@
+/* Preview-only completed board controls. Keep the existing S-Hub material language. */
+.preview-board-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.preview-board-section-edit,
+.preview-board-load-more,
+.preview-board-owner-edit,
+.preview-board-comment-actions button,
+.preview-board-comment-editor button,
+.preview-board-danger-zone button,
+.preview-board-existing-file button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 680;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    transform 180ms cubic-bezier(.16, 1, .3, 1),
+    background 260ms ease,
+    color 260ms ease,
+    border-color 260ms ease,
+    opacity 180ms ease;
+}
+
+.preview-board-section-edit {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 11px;
+  font-size: 11px;
+}
+
+.preview-board-section-edit:active,
+.preview-board-owner-edit:active,
+.preview-board-comment-actions button:active,
+.preview-board-comment-editor button:active,
+.preview-board-danger-zone button:active,
+.preview-board-existing-file button:active,
+.preview-board-load-more:active {
+  transform: scale(.96);
+}
+
+.preview-board-load-more {
+  width: 100%;
+  min-height: 42px;
+  margin: 10px 0 2px;
+  border-radius: 15px;
+  font-size: 12px;
+  animation: preview-board-complete-rise 520ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.preview-board-detail-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preview-board-owner-edit {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 11px;
+  font-size: 11px;
+}
+
+.preview-board-comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.preview-board-comment-actions button,
+.preview-board-comment-editor button {
+  min-height: 28px;
+  padding: 0 9px;
+  border-radius: 10px;
+  font-size: 10.5px;
+}
+
+.preview-board-comment-actions button.is-danger,
+.preview-board-danger-zone button.is-danger {
+  border-color: color-mix(in srgb, #e35f5f 34%, var(--border));
+  background: color-mix(in srgb, #e35f5f 8%, var(--surface));
+  color: color-mix(in srgb, #e35f5f 78%, var(--text));
+}
+
+.preview-board-comment-editor {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  animation: preview-board-complete-rise 360ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.preview-board-comment-editor textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.preview-board-comment-editor > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.preview-board-comment-editor button.is-primary {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.preview-board-existing-attachments {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+
+.preview-board-existing-head,
+.preview-board-existing-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.preview-board-existing-head strong {
+  font-size: 12px;
+}
+
+.preview-board-existing-head span {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
+.preview-board-existing-file {
+  min-width: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--divider);
+}
+
+.preview-board-existing-file > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.preview-board-existing-file strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+
+.preview-board-existing-file small {
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+}
+
+.preview-board-existing-file button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 9px;
+  border-radius: 10px;
+  font-size: 10px;
+}
+
+.preview-board-danger-zone {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, #e35f5f 18%, var(--border));
+  border-radius: 15px;
+  background: color-mix(in srgb, #e35f5f 4%, var(--surface));
+}
+
+.preview-board-danger-zone p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.preview-board-danger-zone > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.preview-board-danger-zone button {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 11px;
+  font-size: 10.5px;
+}
+
+.preview-board-edit-form .preview-board-attachment-picker {
+  margin-top: 0;
+}
+
+@keyframes preview-board-complete-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 9px, 0) scale(.996);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (max-width: 520px) {
+  .preview-board-toolbar {
+    align-items: center;
+  }
+
+  .preview-board-toolbar-actions {
+    gap: 5px;
+  }
+
+  .preview-board-section-edit,
+  .preview-board-refresh {
+    padding-inline: 8px !important;
+    font-size: 10.5px !important;
+  }
+
+  .preview-board-detail-topline {
+    align-items: flex-start;
+  }
+
+  .preview-board-comment-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-board-section-edit,
+  .preview-board-load-more,
+  .preview-board-owner-edit,
+  .preview-board-comment-actions button,
+  .preview-board-comment-editor,
+  .preview-board-comment-editor button,
+  .preview-board-danger-zone button,
+  .preview-board-existing-file button {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
