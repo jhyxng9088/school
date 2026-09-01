@@ -33,7 +33,7 @@ export function patchPreviewHomeInfoSource(source, id) {
   next = replaceRequired(
     next,
     '  const content = {\n    home: (',
-    `  function navigateHomeSignal(target) {\n    if (target === 'class') {\n      changeTab('class')\n      return\n    }\n    if (target === 'board') {\n      setClassSection('board')\n      changeTab('class')\n      return\n    }\n    if (target === 'study') {\n      changeTab('study')\n      return\n    }\n    if (target === 'reminder') {\n      setScheduleSection('todo')\n      changeTab('schedule')\n    }\n  }\n\n  const content = {\n    home: (`,
+    `  function navigateHomeSignal(target) {\n    if (target === 'class') {\n      window.dispatchEvent(new CustomEvent('school:open-class-roster'))\n      return\n    }\n    if (target === 'board') {\n      setClassSection('board')\n      changeTab('class')\n      return\n    }\n    if (target === 'study') {\n      changeTab('study')\n      return\n    }\n    if (target === 'reminder') {\n      setScheduleSection('todo')\n      changeTab('schedule')\n    }\n  }\n\n  const content = {\n    home: (`,
     'home signal navigation',
   )
 
