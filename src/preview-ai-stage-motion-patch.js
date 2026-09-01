@@ -1,3 +1,5 @@
+import { patchPreviewAISpacingPolishSource } from './preview-ai-spacing-polish-patch.js'
+
 const AI_STAGE_MOTION_CSS = `
 /* Preview-only AI state motion: reuse the same content-in language as S-Hub pages. */
 .s-hub-ai-page-stage {
@@ -51,12 +53,13 @@ function patchAISheet(source) {
 
 export function patchPreviewAIStageMotionSource(source, id = '') {
   const cleanId = String(id || '').split('?')[0]
-  const current = String(source || '')
+  let next = String(source || '')
 
-  if (cleanId.endsWith('/s-hub-ai-sheet.jsx')) return patchAISheet(current)
-  if (cleanId.endsWith('/s-hub-ai.css')) {
-    if (current.includes('Preview-only AI state motion')) return current
-    return `${current}\n${AI_STAGE_MOTION_CSS}`
+  if (cleanId.endsWith('/s-hub-ai-sheet.jsx')) {
+    next = patchAISheet(next)
+  } else if (cleanId.endsWith('/s-hub-ai.css')) {
+    if (!next.includes('Preview-only AI state motion')) next = `${next}\n${AI_STAGE_MOTION_CSS}`
   }
-  return current
+
+  return patchPreviewAISpacingPolishSource(next, id)
 }
