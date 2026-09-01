@@ -43,6 +43,7 @@ jobs:
               'index.html'
               'public/sw.js'
               'push-backend-v2/api/class-roster.js'
+              'push-backend-v2/api/reminder-scheduled.js'
               'push-backend-v2/test/class-roster-repair-api.test.js'
               'push-backend-v2/vercel.json'
               'src/preview-ai-reminder-summary-patch.js'
@@ -80,6 +81,7 @@ jobs:
 
             for path in \
               push-backend-v2/api/class-roster.js \
+              push-backend-v2/api/reminder-scheduled.js \
               push-backend-v2/test/class-roster-repair-api.test.js \
               push-backend-v2/vercel.json \
               src/reminder-section-client.js \
