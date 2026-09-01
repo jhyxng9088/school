@@ -26,15 +26,18 @@ test('known conflict guard tolerates malformed context collections instead of cr
   assert.deepEqual(conflicts, {})
 })
 
-test('preview AI creates summaries before import and renders them on the review card', () => {
+test('preview import is one model pass with local summaries and local duplicate filtering', () => {
   const ai = readFileSync(new URL('../src/s-hub-ai.js', import.meta.url), 'utf8')
   const pagePatch = readFileSync(new URL('../src/preview-ai-page-patch.js', import.meta.url), 'utf8')
   const summaryPatch = readFileSync(new URL('../src/preview-ai-reminder-summary-patch.js', import.meta.url), 'utf8')
 
-  assert.match(ai, /PREVIEW_SUMMARY_SCHEMA/)
-  assert.match(ai, /summarizeSchoolAIImportItems/)
-  assert.match(ai, /previewSummary/)
-  assert.match(ai, /typeof review !== 'function'/)
+  assert.doesNotMatch(ai, /prepareAttachment/)
+  assert.doesNotMatch(ai, /generateSchoolStructured/)
+  assert.doesNotMatch(ai, /engine\?\.reviewSchoolImportConflicts/)
+  assert.match(ai, /previewSummaryFromAnalysis/)
+  assert.match(ai, /removeKnownDuplicates/)
+  assert.match(ai, /conflict\?\.relation !== 'duplicate'/)
+  assert.match(ai, /return localConflictMap\(items, context\)/)
   assert.match(pagePatch, /AI 요약/)
   assert.match(pagePatch, /s-hub-ai-item-summary/)
   assert.match(summaryPatch, /const previewSummary = item\?\.previewSummary\?\.overview/)
