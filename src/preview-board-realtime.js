@@ -13,6 +13,7 @@ let topicPromise = null
 let cachedTopic = ''
 let socketState = null
 let nextRef = 1
+const listeners = new Set()
 
 async function firebaseAuthorization() {
   const user = await ensureSignedIn()
@@ -21,26 +22,41 @@ async function firebaseAuthorization() {
   return `Bearer ${token}`
 }
 
+async function requestRealtimeConfig(since = null) {
+  const url = new URL(REALTIME_CONFIG_URL)
+  if (since != null) url.searchParams.set('since', String(Math.max(0, Number(since) || 0)))
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { authorization: await firebaseAuthorization() },
+    cache: 'no-store',
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body?.ok !== true || !body?.topic) {
+    throw new Error(String(body?.message || '게시판 실시간 연결을 준비하지 못했어요.'))
+  }
+  cachedTopic = String(body.topic)
+  return {
+    topic: cachedTopic,
+    cursor: Math.max(0, Number(body.cursor || 0)),
+    events: Array.isArray(body.events) ? body.events : [],
+    hasMore: Boolean(body.hasMore),
+  }
+}
+
 async function loadRealtimeTopic() {
   if (cachedTopic) return cachedTopic
   if (!topicPromise) {
-    topicPromise = (async () => {
-      const response = await fetch(REALTIME_CONFIG_URL, {
-        method: 'GET',
-        headers: { authorization: await firebaseAuthorization() },
-        cache: 'no-store',
+    topicPromise = requestRealtimeConfig(null)
+      .then((config) => config.topic)
+      .finally(() => {
+        topicPromise = null
       })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok || body?.ok !== true || !body?.topic) {
-        throw new Error(String(body?.message || '게시판 실시간 연결을 준비하지 못했어요.'))
-      }
-      cachedTopic = String(body.topic)
-      return cachedTopic
-    })().finally(() => {
-      topicPromise = null
-    })
   }
   return topicPromise
+}
+
+export async function loadPreviewBoardEvents(since = null) {
+  return requestRealtimeConfig(since)
 }
 
 function safePayload(value) {
@@ -109,6 +125,12 @@ function stopSocketState(state) {
   if (socketState === state) socketState = null
 }
 
+function emitRealtimeChange(payload) {
+  for (const listener of [...listeners]) {
+    try { listener(payload) } catch (error) { console.error('S-Hub board realtime listener failed:', error) }
+  }
+}
+
 function connectSocket(state) {
   if (state.stopped || typeof WebSocket === 'undefined') return
   let socket
@@ -152,14 +174,14 @@ function connectSocket(state) {
     if (message?.topic !== `realtime:${state.topic}` || message?.event !== 'broadcast') return
     const broadcast = message?.payload || {}
     if (broadcast?.event !== 'board_changed') return
-    state.onChange(broadcast?.payload && typeof broadcast.payload === 'object' ? broadcast.payload : {})
+    emitRealtimeChange(broadcast?.payload && typeof broadcast.payload === 'object' ? broadcast.payload : {})
   })
 
   socket.addEventListener('close', () => {
     if (state.socket === socket) state.socket = null
     if (state.heartbeatTimer) window.clearInterval(state.heartbeatTimer)
     state.heartbeatTimer = 0
-    if (!state.stopped) scheduleReconnect(state)
+    if (!state.stopped && listeners.size) scheduleReconnect(state)
   })
 
   socket.addEventListener('error', () => {
@@ -168,23 +190,22 @@ function connectSocket(state) {
 }
 
 function scheduleReconnect(state) {
-  if (state.stopped || state.reconnectTimer) return
+  if (state.stopped || state.reconnectTimer || !listeners.size) return
   const attempt = Math.min(6, state.reconnectAttempt++)
   const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_MIN_MS * (2 ** attempt))
   state.reconnectTimer = window.setTimeout(() => {
     state.reconnectTimer = 0
-    if (!state.stopped && navigator.onLine !== false) connectSocket(state)
-    else if (!state.stopped) scheduleReconnect(state)
+    if (!state.stopped && listeners.size && navigator.onLine !== false) connectSocket(state)
+    else if (!state.stopped && listeners.size) scheduleReconnect(state)
   }, delay)
 }
 
-export async function subscribePreviewBoardRealtime(onChange) {
-  if (typeof onChange !== 'function' || typeof window === 'undefined' || typeof WebSocket === 'undefined') return () => {}
+async function ensureSocket() {
+  if (socketState && !socketState.stopped) return socketState
   const topic = await loadRealtimeTopic()
-  if (socketState) stopSocketState(socketState)
+  if (!listeners.size) return null
   const state = {
     topic,
-    onChange,
     socket: null,
     joinRef: 0,
     heartbeatTimer: 0,
@@ -194,5 +215,23 @@ export async function subscribePreviewBoardRealtime(onChange) {
   }
   socketState = state
   connectSocket(state)
-  return () => stopSocketState(state)
+  return state
+}
+
+export async function subscribePreviewBoardRealtime(onChange) {
+  if (typeof onChange !== 'function' || typeof window === 'undefined' || typeof WebSocket === 'undefined') return () => {}
+  listeners.add(onChange)
+  try {
+    await ensureSocket()
+  } catch (error) {
+    listeners.delete(onChange)
+    throw error
+  }
+  let stopped = false
+  return () => {
+    if (stopped) return
+    stopped = true
+    listeners.delete(onChange)
+    if (!listeners.size && socketState) stopSocketState(socketState)
+  }
 }
