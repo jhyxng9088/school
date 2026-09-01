@@ -220,6 +220,112 @@
   margin-top: 0;
 }
 
+/* Keep edit/delete actions visually stable instead of stretching sparse controls across the sheet. */
+.preview-board-edit-form .preview-board-danger-zone {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.preview-board-edit-form .preview-board-danger-zone > div {
+  width: auto;
+  justify-content: flex-start;
+}
+
+.preview-board-edit-form .preview-board-danger-zone:not(:has(p)) .is-danger {
+  min-height: 36px;
+  padding-inline: 13px;
+  border-radius: 12px;
+}
+
+.preview-board-edit-form .preview-board-danger-zone:has(p) {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, #e35f5f 18%, var(--border));
+  border-radius: 15px;
+  background: color-mix(in srgb, #e35f5f 4%, var(--surface));
+}
+
+.preview-board-edit-form .preview-board-danger-zone:has(p) > div {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.preview-board-edit-form .preview-board-danger-zone:has(p) button {
+  min-height: 38px;
+}
+
+.preview-board-edit-form .preview-board-sheet-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.preview-board-edit-form .preview-board-sheet-actions button {
+  min-height: 48px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, var(--text) 2%);
+  color: var(--text-secondary);
+}
+
+.preview-board-edit-form .preview-board-sheet-actions button.is-primary {
+  border-color: transparent;
+  background: var(--text);
+  color: var(--background);
+}
+
+.preview-board-comment-actions {
+  min-height: 32px;
+  flex-wrap: nowrap;
+}
+
+.preview-board-comment-actions button {
+  min-width: 52px;
+  min-height: 30px;
+  padding-inline: 11px;
+  border-radius: 11px;
+}
+
+.preview-board-comment-actions:has(button.is-danger) > button:first-child {
+  display: none;
+}
+
+.preview-board-comment-actions:has(button.is-danger) > button:last-child {
+  order: 1;
+}
+
+.preview-board-comment-actions:has(button.is-danger) > button.is-danger {
+  order: 2;
+}
+
+.preview-board-comment-editor > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.preview-board-comment-editor button {
+  min-height: 34px;
+}
+
+.preview-board-comment-form {
+  grid-template-columns: minmax(0, 1fr) 64px;
+  align-items: stretch;
+}
+
+.preview-board-comment-submit {
+  width: 64px;
+  min-width: 64px;
+  height: auto;
+  min-height: 42px;
+  border: 1px solid transparent;
+}
+
 @keyframes preview-board-complete-rise {
   from {
     opacity: 0;
@@ -251,7 +357,7 @@
   }
 
   .preview-board-comment-actions {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 }
 
