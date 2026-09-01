@@ -41,7 +41,7 @@ test('section changes use S-Hub directional entrance motion without stale-post f
   assert.match(source, /const \[sectionDirection, setSectionDirection\] = useState\(1\)/)
   assert.match(source, /setSectionDirection\(nextIndex >= currentIndex \? 1 : -1\)/)
   assert.match(source, /key=\{activeSectionId\}/)
-  assert.match(source, /'--board-section-enter-x': \(sectionDirection \* 9\) \+ 'px'/)
+  assert.match(source, /'--board-section-enter-x': `\$\{sectionDirection \* 9\}px`/)
   assert.match(css, /animation: preview-board-section-view-in 560ms cubic-bezier\(\.16, 1, \.3, 1\) both/)
 })
 
