@@ -1,0 +1,105 @@
+/* Cross-device hardening for the V2 update tour. Keep this file after
+   v2-update-notice.css so only compatibility-sensitive rules are overridden. */
+
+.v2-update-tour-layer {
+  overscroll-behavior: none;
+}
+
+.v2-update-tour-layer .feature-tour-viewport {
+  overscroll-behavior: contain;
+}
+
+/* Keep a full-screen V2 tour from scrolling the page underneath it on desktop.
+   The stable gutter remains reserved, so opening/closing the tour does not shift
+   the centered app or fixed bottom navigation. iPhone/iPad/Android never receive
+   school-desktop-laptop, so their native viewport behavior is left untouched. */
+@media (hover: hover) and (pointer: fine) {
+  html.school-desktop-laptop:has(.v2-update-tour-layer) {
+    overflow-y: hidden;
+    scrollbar-gutter: stable both-edges;
+  }
+
+  html.school-desktop-laptop:has(.v2-update-tour-layer) body {
+    overflow-y: hidden;
+  }
+}
+
+/* Avoid CSS typed-arithmetic multiplication. Explicit lengths keep the animated
+   nav indicator identical on Safari/WebKit, Chromium/Samsung Internet and desktop. */
+.v2-tour-nav-indicator {
+  --v2-nav-step-1: calc(100% + 6px);
+  --v2-nav-step-2: calc(200% + 12px);
+  --v2-nav-step-3: calc(300% + 18px);
+  --v2-nav-step-4: calc(400% + 24px);
+  width: calc((100% - 24px) / 5);
+}
+
+.feature-tour-slide.is-active .v2-tour-nav > i:nth-child(1),
+.feature-tour-slide.is-active .v2-tour-home > i:nth-child(1) { animation-delay: 90ms; }
+.feature-tour-slide.is-active .v2-tour-nav > i:nth-child(2) { animation-delay: 155ms; }
+.feature-tour-slide.is-active .v2-tour-nav > i:nth-child(3) { animation-delay: 220ms; }
+.feature-tour-slide.is-active .v2-tour-nav > i:nth-child(4) { animation-delay: 285ms; }
+.feature-tour-slide.is-active .v2-tour-nav > i:nth-child(5) { animation-delay: 350ms; }
+.feature-tour-slide.is-active .v2-tour-home > i:nth-child(2) { animation-delay: 180ms; }
+.feature-tour-slide.is-active .v2-tour-home > i:nth-child(3) { animation-delay: 270ms; }
+.feature-tour-slide.is-active .v2-tour-home > i:nth-child(4) { animation-delay: 360ms; }
+
+@keyframes v2-nav-indicator-tour {
+  0%, 14% { transform: translateX(0); }
+  22%, 34% { transform: translateX(var(--v2-nav-step-1)); }
+  42%, 54% { transform: translateX(var(--v2-nav-step-2)); }
+  62%, 74% { transform: translateX(var(--v2-nav-step-3)); }
+  82%, 94% { transform: translateX(var(--v2-nav-step-4)); }
+  100% { transform: translateX(0); }
+}
+
+/* iPhone-class widths: keep all five destination icons inside the card without
+   clipping while preserving the same visual rhythm. */
+@media (max-width: 420px) {
+  .v2-tour-nav {
+    --v2-nav-gap: 4px;
+  }
+
+  .v2-tour-nav-indicator {
+    --v2-nav-step-1: calc(100% + 4px);
+    --v2-nav-step-2: calc(200% + 8px);
+    --v2-nav-step-3: calc(300% + 12px);
+    --v2-nav-step-4: calc(400% + 16px);
+    width: calc((100% - 16px) / 5);
+  }
+}
+
+/* Short landscape phone/tablet windows get more breathing room vertically.
+   The existing card/news interaction and CTA remain unchanged. */
+@media (max-height: 560px) {
+  .v2-update-tour-shell {
+    height: 100%;
+  }
+
+  .v2-update-slide {
+    grid-template-rows: minmax(120px, .82fr) auto;
+    gap: 8px;
+    padding-top: 12px;
+    padding-bottom: 14px;
+  }
+
+  .v2-update-visual {
+    min-height: 120px;
+  }
+
+  .v2-tour-intro,
+  .v2-tour-class,
+  .v2-tour-study,
+  .v2-tour-home,
+  .v2-tour-finish,
+  .v2-tour-nav {
+    min-height: 126px;
+    transform: scale(.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-tour-nav-indicator {
+    transform: translateX(var(--v2-nav-step-2));
+  }
+}
