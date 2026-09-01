@@ -105,9 +105,17 @@ function replacePreviewSource(source, id) {
   next = patchPreviewNavResponsivenessSource(next, cleanId)
   next = patchPreviewClassTopSegmentSource(next, cleanId)
   next = patchPreviewClassTopSegmentStyleSource(next, cleanId)
-  next = patchPreviewBoardSource(next, cleanId)
-  next = patchPreviewStudySource(next, cleanId)
-  next = patchPreviewFastCacheSource(next, cleanId)
+
+  const boardRuntimeFile = cleanId.endsWith('/preview-board-client.js') || cleanId.endsWith('/preview-board-complete.jsx')
+  if (boardRuntimeFile) {
+    next = patchPreviewFastCacheSource(next, cleanId)
+    next = patchPreviewBoardSource(next, cleanId)
+  } else {
+    next = patchPreviewBoardSource(next, cleanId)
+    next = patchPreviewStudySource(next, cleanId)
+    next = patchPreviewFastCacheSource(next, cleanId)
+  }
+
   next = patchPreviewScheduleTopSegmentSource(next, cleanId)
   next = patchPreviewAIPageSource(next, cleanId)
   next = patchPreviewAIDensitySource(next, cleanId)
