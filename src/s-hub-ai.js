@@ -42,15 +42,40 @@ function attachPreviewSummaries(items = []) {
   })
 }
 
+function analysisFingerprint(item) {
+  if (!item || item.valid === false) return ''
+  if (item.kind === 'reminder') {
+    return `reminder|${compactSchoolTitle(item.title)}|${item.dueDate || ''}|${item.dueTime || ''}`
+  }
+  if (item.kind === 'timetable_change') {
+    return `timetable|${item.date || ''}|${Number(item.period) || 0}|${compactSchoolTitle(item.subject)}`
+  }
+  if (item.kind === 'academic') {
+    return `academic|${compactSchoolTitle(item.title)}|${item.startDate || ''}|${item.endDate || ''}`
+  }
+  return ''
+}
+
+function dedupeAnalysisItems(items) {
+  const seen = new Set()
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    const key = analysisFingerprint(item)
+    if (!key) return true
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 function sameReminderMeaning(item, existing) {
   if (!item || !existing || item.kind !== 'reminder') return false
   if (item.dueDate !== existing.dueDate) return false
-  if (item.type && existing.type && item.type !== existing.type) return false
   if (item.dueTime && existing.dueTime && item.dueTime !== existing.dueTime) return false
   const first = compactSchoolTitle(item.title)
   const second = compactSchoolTitle(existing.title)
   if (!first || !second) return false
   if (first === second) return true
+  if (item.type && existing.type && item.type !== existing.type) return false
   if (titleSimilarity(item.title, existing.title) >= 0.72) return true
   const shorter = first.length <= second.length ? first : second
   const longer = first.length > second.length ? first : second
@@ -105,7 +130,7 @@ function shouldAutoSkip(item, conflict) {
 }
 
 function removeKnownExistingItems(items, context) {
-  const source = Array.isArray(items) ? items : []
+  const source = dedupeAnalysisItems(items)
   const conflicts = localConflictMap(source, context)
   const skippedExisting = []
   const kept = source.filter((item) => {
