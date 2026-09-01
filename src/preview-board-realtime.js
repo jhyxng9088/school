@@ -1,4 +1,5 @@
 import { ensureSignedIn } from './school-sync.js'
+import { dispatchPreviewBoardPostPush } from './preview-social-push.js'
 
 const PROJECT_REF = 'elhlsqhzjmsfhmawrpqu'
 const PUBLISHABLE_KEY = 'sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0'
@@ -74,6 +75,14 @@ function safePayload(value) {
 }
 
 export async function broadcastPreviewBoardRealtime(payload = {}) {
+  const safe = safePayload(payload)
+  // announceMutation is called only after the board API confirms the write. Push
+  // is independent of Supabase Broadcast availability, and the Vercel endpoint
+  // re-verifies the newest authored post before sending anything.
+  if (safe.kind === 'post' && safe.sectionIds[0]) {
+    void dispatchPreviewBoardPostPush({ sectionId: safe.sectionIds[0] })
+  }
+
   try {
     const topic = await loadRealtimeTopic()
     const response = await fetch(`${REALTIME_BROADCAST_BASE}/${encodeURIComponent(topic)}/events/board_changed`, {
@@ -82,7 +91,7 @@ export async function broadcastPreviewBoardRealtime(payload = {}) {
         apikey: PUBLISHABLE_KEY,
         'content-type': 'application/json',
       },
-      body: JSON.stringify(safePayload(payload)),
+      body: JSON.stringify(safe),
       cache: 'no-store',
     })
     if (!response.ok) throw new Error(`realtime broadcast ${response.status}`)
