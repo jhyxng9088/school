@@ -1,0 +1,321 @@
+/* Preview-only board completion layer: compact refresh, cached section transitions, private attachments. */
+.preview-board-refresh {
+  width: auto !important;
+  min-width: 64px !important;
+  height: 30px !important;
+  padding: 0 11px !important;
+  border-radius: 999px !important;
+  white-space: nowrap;
+}
+
+.preview-board-section-view {
+  min-width: 0;
+  animation: preview-board-section-view-in 560ms cubic-bezier(.16, 1, .3, 1) both;
+  transform-origin: 50% 8%;
+}
+
+@keyframes preview-board-section-view-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--board-section-enter-x, 8px), 5px, 0) scale(.996);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.preview-board-state.is-cached-loading {
+  min-height: 126px;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.preview-board-attachment-picker {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.preview-board-attachment-picker-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.preview-board-attachment-picker-head > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.preview-board-attachment-picker-head strong {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 680;
+}
+
+.preview-board-attachment-picker-head > div > span {
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.preview-board-attachment-picker-head > button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 180ms var(--motion-ease), opacity 180ms ease, background 240ms ease;
+}
+
+.preview-board-attachment-picker-head > button:active:not(:disabled) {
+  transform: scale(.96);
+}
+
+.preview-board-attachment-picker-head > button:disabled {
+  cursor: default;
+  opacity: .38;
+}
+
+.preview-board-attachment-picker-head svg,
+.preview-board-selected-file-icon svg,
+.preview-board-attachment-filemark svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.preview-board-attachment-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preview-board-selected-files {
+  display: grid;
+  gap: 7px;
+}
+
+.preview-board-selected-file {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 9px 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  animation: preview-board-attachment-in 420ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes preview-board-attachment-in {
+  from { opacity: 0; transform: translate3d(0, 7px, 0) scale(.995); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.preview-board-selected-file-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.preview-board-selected-file-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.preview-board-selected-file-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-board-selected-file-copy small {
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+}
+
+.preview-board-selected-file > button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.preview-board-selected-file > button:active:not(:disabled) {
+  background: var(--surface);
+}
+
+.preview-board-attachment-gallery {
+  display: grid;
+  gap: 8px;
+  margin-top: -2px;
+}
+
+.preview-board-attachment-gallery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.preview-board-attachment-gallery-head strong {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.preview-board-attachment-gallery-head span {
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+}
+
+.preview-board-attachment-grid {
+  display: grid;
+  gap: 7px;
+}
+
+.preview-board-attachment-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 7px 10px 7px 7px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 180ms var(--motion-ease), background 240ms ease, opacity 240ms ease;
+}
+
+.preview-board-attachment-card:active.is-ready {
+  transform: scale(.985);
+}
+
+.preview-board-attachment-card.is-loading {
+  opacity: .62;
+}
+
+.preview-board-attachment-thumb,
+.preview-board-attachment-filemark {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: -.01em;
+}
+
+.preview-board-attachment-thumb img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.preview-board-attachment-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.preview-board-attachment-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-board-attachment-copy small {
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+}
+
+.preview-board-attachment-open {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.preview-board-attachment-error {
+  margin: 0;
+  color: var(--danger, #d14949);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+html.school-samsung .preview-board-attachment-picker-head > button,
+html.school-samsung .preview-board-selected-file,
+html.school-samsung .preview-board-attachment-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (max-width: 430px) {
+  .preview-board-attachment-picker-head {
+    gap: 8px;
+  }
+
+  .preview-board-attachment-picker-head > div > span {
+    max-width: 230px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-board-section-view,
+  .preview-board-selected-file {
+    animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
+  }
+
+  .preview-board-attachment-picker-head > button,
+  .preview-board-attachment-card {
+    transition-duration: .01ms !important;
+  }
+}
