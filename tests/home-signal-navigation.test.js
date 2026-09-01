@@ -4,10 +4,12 @@ import { readFileSync } from 'node:fs'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('home overview cards route to the correct V2 station and sub-section', () => {
+test('home overview cards route to the correct V2 destination', () => {
   const patch = read('src/preview-home-info-patch.js')
+  const roster = read('src/class-roster-ui.js')
 
-  assert.ok(patch.includes("if (target === 'class') {\\n      changeTab('class')"))
+  assert.ok(patch.includes("if (target === 'class') {\\n      document.querySelector('.class-presence-count')?.click()"))
+  assert.match(roster, /counter\.addEventListener\('click', \(\) => openModal\(\)\)/)
   assert.ok(patch.includes("if (target === 'board') {\\n      setClassSection('board')\\n      changeTab('class')"))
   assert.ok(patch.includes("if (target === 'study') {\\n      changeTab('study')"))
   assert.ok(patch.includes("if (target === 'reminder') {\\n      setScheduleSection('todo')\\n      changeTab('schedule')"))
