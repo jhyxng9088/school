@@ -1,2 +1,2 @@
 S-Hub preview deployment trigger.
-Redeploy scroll reset, class-scoped section management, section-to-general migration, polite-copy audit, guarded shared backend route within the 12-function limit, preserved roster repair regression guard, S-Hub AI photo reminder summary enrichment, Node-compatible preview regression tests, and the 2026-09-01 home overview card navigation fix.
+Redeploy scroll reset, class-scoped section management, section-to-general migration, polite-copy audit, guarded shared backend route within the 12-function limit, preserved roster repair regression guard, S-Hub AI photo reminder summary enrichment, Node-compatible preview regression tests, and the 2026-09-01 home overview card navigation fix after CI regression cleanup.
