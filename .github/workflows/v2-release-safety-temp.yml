@@ -118,6 +118,16 @@ jobs:
                   raise SystemExit('vite import marker changed')
               s = s.replace(import_marker, import_marker + imports, 1)
 
+          station_import = "import { patchPreviewStationNavSource } from './src/preview-station-nav-patch.js'\n"
+          compat_import = (
+              "import { preparePreviewStationNavRecoverySource, cleanupPreviewStationNavRecoverySource } "
+              "from './src/preview-station-nav-recovery-compat.js'\n"
+          )
+          if "preparePreviewStationNavRecoverySource" not in s:
+              if station_import not in s:
+                  raise SystemExit('station nav import marker changed')
+              s = s.replace(station_import, station_import + compat_import, 1)
+
           call_marker = "  next = patchPreviewReminderPolishSource(next, cleanId)\n"
           calls = (
               "  next = patchDataSplitV1Source(next, cleanId)\n"
@@ -129,16 +139,30 @@ jobs:
                   raise SystemExit('vite patch-call marker changed')
               s = s.replace(call_marker, call_marker + calls, 1)
 
+          station_call = "  next = patchPreviewStationNavSource(next, cleanId)\n"
+          station_calls = (
+              "  next = preparePreviewStationNavRecoverySource(next, cleanId)\n"
+              "  next = patchPreviewStationNavSource(next, cleanId)\n"
+              "  next = cleanupPreviewStationNavRecoverySource(next, cleanId)\n"
+          )
+          if "next = preparePreviewStationNavRecoverySource(next, cleanId)" not in s:
+              if station_call not in s:
+                  raise SystemExit('station nav call marker changed')
+              s = s.replace(station_call, station_calls, 1)
+
           skip_marker = "        || cleanId.endsWith('/preview-reminder-polish-patch.js')\n"
           skips = (
               "        || cleanId.endsWith('/data-split-v1-patch.js')\n"
               "        || cleanId.endsWith('/presence-split-patch.js')\n"
               "        || cleanId.endsWith('/production-recovery-patch.js')\n"
+              "        || cleanId.endsWith('/preview-station-nav-recovery-compat.js')\n"
           )
           if "cleanId.endsWith('/data-split-v1-patch.js')" not in s:
               if skip_marker not in s:
                   raise SystemExit('vite polite-copy skip marker changed')
               s = s.replace(skip_marker, skip_marker + skips, 1)
+          elif "cleanId.endsWith('/preview-station-nav-recovery-compat.js')" not in s:
+              s = s.replace(skip_marker, skip_marker + "        || cleanId.endsWith('/preview-station-nav-recovery-compat.js')\n", 1)
 
           p.write_text(s)
           PY
