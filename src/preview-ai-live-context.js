@@ -7,6 +7,7 @@ const MAX_CLASS_STUDENTS = 60
 const MAX_SCHOOL_STUDENTS = 120
 const MAX_BOARD_POSTS = 24
 const MAX_BOARD_COMMENTS_PER_POST = 3
+const CONTEXT_DATA_KEYS = ['study', 'board', 'reminders', 'timetable', 'academic', 'meals']
 
 function cleanText(value, maxLength) {
   return String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, maxLength)
@@ -54,29 +55,41 @@ function studySubjectTotals(student, nowMs) {
     .slice(0, 6)
 }
 
+function studyIdentity(student) {
+  if (!student) return ''
+  return `${String(student.classId || '')}|${String(student.studentKey || '')}`
+}
+
 function normalizeStudySnapshot(snapshot, scope, nowMs) {
-  const ranked = [...(Array.isArray(snapshot?.students) ? snapshot.students : [])]
+  const allRanked = [...(Array.isArray(snapshot?.students) ? snapshot.students : [])]
     .map((student) => ({ ...student, displaySeconds: studyDisplaySeconds(student, nowMs) }))
     .filter((student) => student.displaySeconds > 0 || student.active)
     .sort((a, b) => b.displaySeconds - a.displaySeconds || String(a.name || '').localeCompare(String(b.name || ''), 'ko'))
-    .slice(0, scope === 'school' ? MAX_SCHOOL_STUDENTS : MAX_CLASS_STUDENTS)
+  const limit = scope === 'school' ? MAX_SCHOOL_STUDENTS : MAX_CLASS_STUDENTS
+  const ranked = allRanked.slice(0, limit)
+  const meId = studyIdentity(snapshot?.me)
+  const meIndex = meId ? allRanked.findIndex((student) => studyIdentity(student) === meId) : -1
+
+  const studentRow = (student, rank) => ({
+    rank,
+    name: cleanText(student?.name, 20),
+    classId: cleanText(student?.classId, 32),
+    totalSeconds: Math.max(0, Math.floor(Number(student?.displaySeconds || studyDisplaySeconds(student, nowMs)))),
+    subjectTotals: studySubjectTotals(student, nowMs),
+    active: student?.active ? {
+      subject: cleanText(student.active.subject, 24),
+      isPaused: student.active.isPaused === true,
+      startedAt: Math.max(0, Number(student.active.startedAt || 0)),
+    } : null,
+  })
 
   return {
     scope,
     date: cleanText(snapshot?.date, 12),
     generatedAt: Math.max(0, Number(snapshot?.generatedAt || nowMs)),
-    students: ranked.map((student, index) => ({
-      rank: index + 1,
-      name: cleanText(student?.name, 20),
-      classId: cleanText(student?.classId, 32),
-      totalSeconds: Math.max(0, Math.floor(Number(student?.displaySeconds || 0))),
-      subjectTotals: studySubjectTotals(student, nowMs),
-      active: student?.active ? {
-        subject: cleanText(student.active.subject, 24),
-        isPaused: student.active.isPaused === true,
-        startedAt: Math.max(0, Number(student.active.startedAt || 0)),
-      } : null,
-    })),
+    recordedStudentCount: allRanked.length,
+    students: ranked.map((student, index) => studentRow(student, index + 1)),
+    me: meIndex >= 0 ? studentRow(allRanked[meIndex], meIndex + 1) : null,
   }
 }
 
@@ -149,6 +162,46 @@ function wantsSchoolStudy(question) {
   return studyIntent && schoolScope
 }
 
+function questionPriorityKeys(question) {
+  const text = cleanText(question, 500)
+  const keys = []
+  const add = (key) => { if (!keys.includes(key)) keys.push(key) }
+
+  if (/스터디|공부|학습|랭킹|순위|\d+\s*등|몇\s*등/i.test(text)) add('study')
+  if (/게시판|게시글|글\s*(?:올라|쓴|작성)|댓글|필기|자료실|질문글/i.test(text)) add('board')
+  if (/급식|점심|중식|메뉴|밥/i.test(text)) add('meals')
+  if (/시간표|교시|수업|과목/i.test(text)) add('timetable')
+  if (/리마인더|할\s*일|과제|제출|준비물|수행평가|시험|고사/i.test(text)) add('reminders')
+  if (/학사|일정|행사|방학|개학|휴업|시험기간/i.test(text)) add('academic')
+  return keys
+}
+
+export function prioritizePreviewAIContext(question, context = {}, live = {}) {
+  const base = context && typeof context === 'object' ? context : {}
+  const ordered = {
+    reference: base.reference || '',
+    profile: live.profile || null,
+    liveSources: live.liveSources || {},
+  }
+  const merged = {
+    study: live.study || null,
+    board: live.board || null,
+    reminders: base.reminders || [],
+    timetable: base.timetable || [],
+    academic: base.academic || [],
+    meals: base.meals || [],
+  }
+
+  for (const key of questionPriorityKeys(question)) ordered[key] = merged[key]
+  for (const key of CONTEXT_DATA_KEYS) {
+    if (!(key in ordered)) ordered[key] = merged[key]
+  }
+  for (const [key, value] of Object.entries(base)) {
+    if (!(key in ordered)) ordered[key] = value
+  }
+  return ordered
+}
+
 async function settleSource(loader, signal) {
   try {
     return { status: 'ok', value: await loader() }
@@ -181,8 +234,7 @@ export async function loadPreviewAIContext({ question = '', context = {}, signal
     schoolStudyPromise,
   ])
 
-  return {
-    ...(context && typeof context === 'object' ? context : {}),
+  const live = {
     profile: normalizeProfile(),
     study: {
       class: classStudySource.value ? normalizeStudySnapshot(classStudySource.value, 'class', nowMs) : null,
@@ -195,4 +247,6 @@ export async function loadPreviewAIContext({ question = '', context = {}, signal
       board: boardSource.status,
     },
   }
+
+  return prioritizePreviewAIContext(question, context, live)
 }
