@@ -93,3 +93,13 @@ test('refresh width override fixes the legacy 34px text squeeze', () => {
   assert.match(finish, /min-width: 64px !important/)
   assert.match(finish, /white-space: nowrap/)
 })
+
+test('post editor and comment controls keep stable compact action geometry', () => {
+  const css = read('src/preview-board-complete.css')
+  assert.match(css, /\.preview-board-edit-form \.preview-board-danger-zone \{[\s\S]*padding: 0;[\s\S]*border: 0;/)
+  assert.match(css, /\.preview-board-edit-form \.preview-board-danger-zone:has\(p\)[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
+  assert.match(css, /\.preview-board-edit-form \.preview-board-sheet-actions \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
+  assert.match(css, /\.preview-board-comment-actions:has\(button\.is-danger\) > button:first-child \{[\s\S]*display: none;/)
+  assert.match(css, /\.preview-board-comment-editor > div \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
+  assert.match(css, /\.preview-board-comment-form \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 64px;/)
+})
