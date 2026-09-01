@@ -1,4 +1,5 @@
 import { patchPreviewAISpacingPolishSource } from './preview-ai-spacing-polish-patch.js'
+import { patchPreviewAIContextLayoutSource } from './preview-ai-context-layout-patch.js'
 
 const AI_STAGE_MOTION_CSS = `
 /* Preview-only AI state motion: reuse the same content-in language as S-Hub pages. */
@@ -61,5 +62,6 @@ export function patchPreviewAIStageMotionSource(source, id = '') {
     if (!next.includes('Preview-only AI state motion')) next = `${next}\n${AI_STAGE_MOTION_CSS}`
   }
 
-  return patchPreviewAISpacingPolishSource(next, id)
+  next = patchPreviewAISpacingPolishSource(next, id)
+  return patchPreviewAIContextLayoutSource(next, id)
 }
