@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { POLITE_COPY_REPLACEMENTS, POLITE_SOURCE_FRAGMENTS } from '../src/polite-copy-runtime.js'
 import { PREVIEW_POLITE_COPY_REPLACEMENTS } from '../src/preview-polite-copy-additions.js'
 import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
+import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -53,6 +54,10 @@ const BANNED_INFORMAL_ENDINGS = [
   /잡았어(?=[.'"`])/,
   /바꿀 수 있어(?=[.'"`])/,
   /중이야(?=[.'"`])/,
+  /물어봐(?=[.'"`])/,
+  /확인해(?=[.'"`])/,
+  /저장해(?=[.'"`])/,
+  /추가해(?=[.'"`])/,
 ]
 
 function replacePairs(source, pairs) {
@@ -64,6 +69,9 @@ function replacePairs(source, pairs) {
 function previewBuiltSource(path) {
   let source = read(path)
   source = patchPreviewSHubV2Source(source, `/workspace/${path}`)
+  if (path === 'src/s-hub-ai-sheet.jsx') {
+    source = patchPreviewAIPageSource(source, `/workspace/${path}`)
+  }
   source = replacePairs(source, [
     ...POLITE_COPY_REPLACEMENTS.filter(([from]) => from !== '등록된 급식이 없어'),
     ...PREVIEW_POLITE_COPY_REPLACEMENTS,
