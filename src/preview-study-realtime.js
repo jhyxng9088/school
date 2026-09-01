@@ -5,19 +5,20 @@ const PUBLISHABLE_KEY = 'sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0'
 const REALTIME_CONFIG_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/board-realtime`
 const REALTIME_SOCKET_URL = `wss://${PROJECT_REF}.supabase.co/realtime/v1/websocket?apikey=${encodeURIComponent(PUBLISHABLE_KEY)}&vsn=1.0.0`
 const REALTIME_BROADCAST_BASE = `https://${PROJECT_REF}.supabase.co/realtime/v1/api/broadcast`
+const SCHOOL_STUDY_TOPIC = 'preview-study-school-v1'
 const RECONNECT_MIN_MS = 1200
 const RECONNECT_MAX_MS = 12_000
 const HEARTBEAT_MS = 25_000
 
 let topicPromise = null
 let cachedTopic = ''
-let socketState = null
+let subscriptionStates = []
 let nextRef = 1
 
 async function firebaseAuthorization() {
   const user = await ensureSignedIn()
   const token = String(await user.getIdToken()).trim()
-  if (!token) throw new Error('로그인 정보를 확인하지 못했어요.')
+  if (!token) throw new Error('로그인 정보를 확인할 수 없습니다.')
   return `Bearer ${token}`
 }
 
@@ -32,7 +33,7 @@ async function loadRealtimeTopic() {
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok || body?.ok !== true || !body?.topic) {
-        throw new Error(String(body?.message || '스터디 실시간 연결을 준비하지 못했어요.'))
+        throw new Error(String(body?.message || '스터디 실시간 연결을 준비하지 못했습니다.'))
       }
       cachedTopic = String(body.topic)
       return cachedTopic
@@ -43,20 +44,27 @@ async function loadRealtimeTopic() {
   return topicPromise
 }
 
+async function broadcastTopic(topic, kind) {
+  const response = await fetch(`${REALTIME_BROADCAST_BASE}/${encodeURIComponent(topic)}/events/study_changed`, {
+    method: 'POST',
+    headers: {
+      apikey: PUBLISHABLE_KEY,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ at: Date.now(), kind: String(kind || 'study').slice(0, 20) }),
+    cache: 'no-store',
+  })
+  if (!response.ok) throw new Error(`realtime broadcast ${response.status}`)
+}
+
 export async function broadcastPreviewStudyRealtime(kind = 'study') {
   try {
-    const topic = await loadRealtimeTopic()
-    const response = await fetch(`${REALTIME_BROADCAST_BASE}/${encodeURIComponent(topic)}/events/study_changed`, {
-      method: 'POST',
-      headers: {
-        apikey: PUBLISHABLE_KEY,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ at: Date.now(), kind: String(kind || 'study').slice(0, 20) }),
-      cache: 'no-store',
-    })
-    if (!response.ok) throw new Error(`realtime broadcast ${response.status}`)
-    return true
+    const classTopic = await loadRealtimeTopic()
+    const results = await Promise.allSettled([
+      broadcastTopic(classTopic, kind),
+      broadcastTopic(SCHOOL_STUDY_TOPIC, kind),
+    ])
+    return results.some((result) => result.status === 'fulfilled')
   } catch (error) {
     console.warn('S-Hub study realtime broadcast skipped:', error)
     return false
@@ -92,7 +100,6 @@ function stopSocketState(state) {
     sendSocket(socket, makeMessage(`realtime:${state.topic}`, 'phx_leave', {}, ref, state.joinRef || ref))
   }
   try { socket?.close(1000, 'study-unsubscribe') } catch { /* no-op */ }
-  if (socketState === state) socketState = null
 }
 
 function scheduleReconnect(state) {
@@ -111,8 +118,8 @@ function connectSocket(state) {
   let socket
   try {
     socket = new WebSocket(REALTIME_SOCKET_URL)
-  } catch (error) {
-    scheduleReconnect(state, error)
+  } catch {
+    scheduleReconnect(state)
     return
   }
   state.socket = socket
@@ -164,10 +171,7 @@ function connectSocket(state) {
   })
 }
 
-export async function subscribePreviewStudyRealtime(onChange) {
-  if (typeof onChange !== 'function' || typeof window === 'undefined' || typeof WebSocket === 'undefined') return () => {}
-  const topic = await loadRealtimeTopic()
-  if (socketState) stopSocketState(socketState)
+function startSubscription(topic, onChange) {
   const state = {
     topic,
     onChange,
@@ -178,7 +182,20 @@ export async function subscribePreviewStudyRealtime(onChange) {
     reconnectAttempt: 0,
     stopped: false,
   }
-  socketState = state
   connectSocket(state)
-  return () => stopSocketState(state)
+  return state
+}
+
+export async function subscribePreviewStudyRealtime(onClassChange, onSchoolChange = () => {}) {
+  if (typeof onClassChange !== 'function' || typeof window === 'undefined' || typeof WebSocket === 'undefined') return () => {}
+  const classTopic = await loadRealtimeTopic()
+  subscriptionStates.forEach(stopSocketState)
+  subscriptionStates = [
+    startSubscription(classTopic, onClassChange),
+    startSubscription(SCHOOL_STUDY_TOPIC, typeof onSchoolChange === 'function' ? onSchoolChange : () => {}),
+  ]
+  return () => {
+    subscriptionStates.forEach(stopSocketState)
+    subscriptionStates = []
+  }
 }
