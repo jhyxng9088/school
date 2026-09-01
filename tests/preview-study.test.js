@@ -73,3 +73,23 @@ test('new study presence rows animate in and respect reduced motion', () => {
   assert.match(style, /prefers-reduced-motion: reduce/)
   assert.match(style, /animation: none !important/)
 })
+
+test('study action buttons morph smoothly between idle, running and paused states', () => {
+  const page = read('src/preview-study.jsx')
+  const style = read('src/preview-study.css')
+
+  assert.match(page, /preview-study-action-dock/)
+  assert.match(page, /data-study-control-state/)
+  assert.match(page, /preview-study-morph-primary/)
+  assert.match(page, /preview-study-morph-stop/)
+  assert.match(page, /preview-study-action-label/)
+  assert.match(page, /actionKind === 'pause'/)
+  assert.match(page, /actionKind === 'resume'/)
+  assert.match(page, /actionKind === 'stop'/)
+
+  assert.match(style, /\.preview-study-action-dock\.is-active/)
+  assert.match(style, /width 520ms cubic-bezier/)
+  assert.match(style, /@keyframes preview-study-action-label-enter/)
+  assert.match(style, /preview-study-control-content-enter/)
+  assert.match(style, /prefers-reduced-motion: reduce/)
+})
