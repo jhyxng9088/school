@@ -38,6 +38,26 @@ function patchBoardAttachmentViewer(source) {
   return next
 }
 
+function patchBoardClientRetry(source) {
+  let next = String(source || '')
+  if (next.includes('BOARD_GET_RETRY_DELAYS')) return next
+
+  next = replaceRequired(
+    next,
+    `const ATTACHMENT_URL_SAFETY_MS = 30_000`,
+    `const ATTACHMENT_URL_SAFETY_MS = 30_000\nconst BOARD_GET_RETRY_DELAYS = [0, 180, 420]`,
+    'board GET retry delays',
+  )
+
+  next = replaceRequired(
+    next,
+    `  let response\n  try {\n    response = await fetch(url, options)\n  } catch (error) {\n    if (error?.name === 'AbortError') throw error\n    throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')\n  }\n  return parseBoardResponse(response)`,
+    `  const delays = method === 'GET' ? BOARD_GET_RETRY_DELAYS : [0]\n  let response = null\n  let lastNetworkError = null\n  for (let attempt = 0; attempt < delays.length; attempt += 1) {\n    if (attempt > 0) await new Promise((resolve) => window.setTimeout(resolve, delays[attempt]))\n    if (signal?.aborted) {\n      const aborted = new Error('Aborted')\n      aborted.name = 'AbortError'\n      throw aborted\n    }\n    try {\n      response = await fetch(url, options)\n      lastNetworkError = null\n    } catch (error) {\n      if (error?.name === 'AbortError') throw error\n      lastNetworkError = error\n      if (attempt === delays.length - 1) throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')\n      continue\n    }\n    const retryable = method === 'GET' && response.status >= 500 && attempt < delays.length - 1\n    if (!retryable) return parseBoardResponse(response)\n  }\n  if (lastNetworkError) throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')\n  return parseBoardResponse(response)`,
+    'board GET retry loop',
+  )
+  return next
+}
+
 function patchCompletedBoardRealtime(source) {
   let next = String(source || '')
   if (next.includes('subscribePreviewBoardRealtime')) return next
@@ -87,6 +107,43 @@ function patchCompletedBoardRealtime(source) {
   return next
 }
 
+function patchCompletedBoardUnread(source) {
+  let next = String(source || '')
+  if (next.includes("usePreviewBoardUnread(profile)")) return next
+
+  next = replaceRequired(
+    next,
+    `import { BoardAttachmentGallery, BoardAttachmentPicker } from './preview-board-attachments.jsx'`,
+    `import { BoardAttachmentGallery, BoardAttachmentPicker } from './preview-board-attachments.jsx'\nimport { usePreviewBoardUnread } from './preview-board-unread.js'`,
+    'board unread import',
+  )
+  next = replaceRequired(
+    next,
+    `export function PreviewBoard({ profile = null }) {`,
+    `export function PreviewBoard({ profile = null }) {\n  const boardUnread = usePreviewBoardUnread(profile)`,
+    'board unread hook',
+  )
+  next = replaceRequired(
+    next,
+    `                const attachments = Array.isArray(post.attachments) ? post.attachments : []\n                return (`,
+    `                const attachments = Array.isArray(post.attachments) ? post.attachments : []\n                const unread = boardUnread.isPostUnread(post.id)\n                return (`,
+    'board unread card state',
+  )
+  next = replaceRequired(
+    next,
+    `                  <button type="button" className="preview-board-card" key={post.id} style={{ '--board-delay': \`${'${Math.min(index, 8) * 28}'}ms\` }} onClick={() => setDetailPostId(post.id)}>`,
+    `                  <button type="button" className={\`preview-board-card ${'${unread ? \'has-unread\' : \'\'}'}\`} key={post.id} style={{ '--board-delay': \`${'${Math.min(index, 8) * 28}'}ms\` }} onClick={() => { boardUnread.markPostRead(post.id); setDetailPostId(post.id) }}>`,
+    'board unread card button',
+  )
+  next = replaceRequired(
+    next,
+    `                    <h2>{post.title}</h2>`,
+    `                    <h2>{post.title}{unread ? <span className="preview-board-unread-dot" aria-label="새 업데이트" /> : null}</h2>`,
+    'board unread card dot',
+  )
+  return next
+}
+
 const BOARD_PAGE_COMPONENT = String.raw`function PreviewBoardPage({ profile }) {
   return <PreviewBoard profile={profile} />
 }
@@ -105,10 +162,10 @@ const CLASS_STATION_PAGE_MARKER = String.raw`function ClassStationPage({ section
 }
 `
 
-const CLASS_STATION_PAGE_WITH_MOTION = String.raw`function ClassStationPage({ section, onSectionChange, timetablePage, boardPage }) {
+const CLASS_STATION_PAGE_WITH_MOTION = String.raw`function ClassStationPage({ section, onSectionChange, timetablePage, boardPage, hasBoardUnread = false }) {
   return (
     <section className="class-station-page">
-      <ClassTopSegment section={section} onSectionChange={onSectionChange} />
+      <ClassTopSegment section={section} onSectionChange={onSectionChange} hasBoardUnread={hasBoardUnread} />
       <div className="class-station-content">
         <div
           key={section}
@@ -122,25 +179,66 @@ const CLASS_STATION_PAGE_WITH_MOTION = String.raw`function ClassStationPage({ se
 }
 `
 
+function patchMainUnread(source) {
+  let next = String(source || '')
+  if (next.includes('const boardUnread = usePreviewBoardUnread(profile)')) return next
+
+  next = replaceRequired(
+    next,
+    `function ClassTopSegment({ section, onSectionChange }) {`,
+    `function ClassTopSegment({ section, onSectionChange, hasBoardUnread = false }) {`,
+    'class segment unread prop',
+  )
+  next = replaceRequired(
+    next,
+    `          className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '')}`,
+    `          className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '') + (item.id === 'board' && hasBoardUnread ? ' has-board-unread' : '')}`,
+    'class segment unread class',
+  )
+  next = replaceRequired(
+    next,
+    `function AppShell({ profile }) {`,
+    `function AppShell({ profile }) {\n  const boardUnread = usePreviewBoardUnread(profile)`,
+    'app shell board unread hook',
+  )
+  next = replaceRequired(
+    next,
+    `        onSectionChange={setClassSection}\n        boardPage=`,
+    `        onSectionChange={setClassSection}\n        hasBoardUnread={boardUnread.hasUnread}\n        boardPage=`,
+    'class page unread prop',
+  )
+  next = replaceRequired(
+    next,
+    "className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}",
+    "className={`nav-button ${activeTab === tab.id ? 'active' : ''} ${tab.id === 'class' && boardUnread.hasUnread ? 'has-board-unread' : ''}`}",
+    'bottom nav unread class',
+  )
+  return next
+}
+
 export function patchPreviewBoardSource(source, id = '') {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/preview-board.jsx')) {
     return patchPreviewBoardCompleteSource(patchPreviewBoardFinishSource(source, id), id)
   }
   if (cleanId.endsWith('/preview-board-attachments.jsx')) return patchBoardAttachmentViewer(source)
-  if (cleanId.endsWith('/preview-board-complete.jsx')) return patchCompletedBoardRealtime(source)
+  if (cleanId.endsWith('/preview-board-client.js')) return patchBoardClientRetry(source)
+  if (cleanId.endsWith('/preview-board-complete.jsx')) return patchCompletedBoardUnread(patchCompletedBoardRealtime(source))
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
 
   let next = String(source || '')
   const boardImport = `import { PreviewBoard } from './preview-board.jsx'`
   const boardThemeImport = `import './preview-board-theme.css'`
+  const boardUnreadImport = `import { usePreviewBoardUnread } from './preview-board-unread.js'`
   if (!next.includes(boardImport)) {
     next = replaceRequired(
       next,
       `import { SHubAIOrb } from './s-hub-ai-orb.jsx'`,
-      `import { SHubAIOrb } from './s-hub-ai-orb.jsx'\n${boardImport}\n${boardThemeImport}`,
+      `import { SHubAIOrb } from './s-hub-ai-orb.jsx'\n${boardImport}\n${boardThemeImport}\n${boardUnreadImport}`,
       'board import',
     )
+  } else if (!next.includes(boardUnreadImport)) {
+    next = replaceRequired(next, boardImport, `${boardImport}\n${boardUnreadImport}`, 'board unread import')
   }
 
   next = spliceRequired(
@@ -153,5 +251,6 @@ export function patchPreviewBoardSource(source, id = '') {
 
   next = replaceRequired(next, CLASS_STATION_PAGE_MARKER, CLASS_STATION_PAGE_WITH_MOTION, 'class station transition')
   next = replaceRequired(next, `<PreviewBoardPage />`, `<PreviewBoardPage profile={profile} />`, 'board page profile props')
+  next = patchMainUnread(next)
   return next
 }
