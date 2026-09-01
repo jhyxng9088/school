@@ -190,6 +190,13 @@ function patchMain(source) {
     'station AI working callback',
   )
 
+  next = replaceRequired(
+    next,
+    `          <button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick={onOpenAI}>\n            <SHubAIOrb size={27} />\n          </button>`,
+    ``,
+    'home AI trigger removal',
+  )
+
   const homeLauncherMarker = `onOpenAI={() => setAiOpen(true)}`
   if (next.includes(homeLauncherMarker)) {
     next = next.replace(homeLauncherMarker, `onOpenAI={() => changeTab('ai')}`)
