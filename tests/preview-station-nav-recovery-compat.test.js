@@ -8,16 +8,23 @@ import {
 const navHook = `  const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)\n\n`
 const aiContext = `  const aiContext = useMemo(() => {\n    return {}\n  }, [])\n`
 
-test('production data-split shape gets a temporary station-nav anchor and no runtime residue', () => {
+test('production data-split shape keeps the temporary station-nav anchor until refinement consumes it', () => {
   const recovered = `${navHook}${aiContext}`
   const prepared = preparePreviewStationNavRecoverySource(recovered, '/src/main.jsx')
 
   assert.match(prepared, /__S_HUB_V2_STATION_NAV_RECOVERY_COMPAT__/)
   assert.match(prepared, /useNavSpring\(activeIndex\)\n\n  useEffect\(\(\) => \{/)
 
-  const cleaned = cleanupPreviewStationNavRecoverySource(prepared, '/src/main.jsx')
-  assert.equal(cleaned, recovered)
+  const earlyCleanup = cleanupPreviewStationNavRecoverySource(prepared, '/src/main.jsx')
+  assert.equal(earlyCleanup, prepared)
+
+  const refined = prepared.replace(
+    navHook,
+    `${navHook}  const [classNavCollapsing, setClassNavCollapsing] = useState(false)\n`,
+  )
+  const cleaned = cleanupPreviewStationNavRecoverySource(refined, '/src/main.jsx')
   assert.doesNotMatch(cleaned, /__S_HUB_V2_STATION_NAV_RECOVERY_COMPAT__/)
+  assert.match(cleaned, /classNavCollapsing/)
 })
 
 test('baseline source with its real effect is left untouched', () => {
