@@ -12,6 +12,28 @@ import { patchPreviewAIReminderSummarySource } from './src/preview-ai-reminder-s
 import { patchPreviewNavSpringSource } from './src/preview-nav-spring-patch.js'
 import { patchPreviewReminderPolishSource } from './src/preview-reminder-polish-patch.js'
 import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'
+import { patchPreviewStationNavSource } from './src/preview-station-nav-patch.js'
+import { patchPreviewStudySource } from './src/preview-study-patch.js'
+import { patchPreviewStudyUnifiedUISource } from './src/preview-study-unified-ui-patch.js'
+import { patchPreviewFastCacheSource } from './src/preview-fast-cache-patch.js'
+import { patchPreviewStationNavRefinementSource } from './src/preview-station-nav-refine-patch.js'
+import { patchPreviewStationJellyMotionSource } from './src/preview-station-jelly-motion-patch.js'
+import { patchPreviewNestedStationReactionSource } from './src/preview-nested-station-reaction-patch.js'
+import { patchPreviewUnifiedStationPhysicsSource } from './src/preview-unified-station-physics-patch.js'
+import { patchPreviewPhysicalClassCouplingSource } from './src/preview-physical-class-coupling-patch.js'
+import { patchPreviewNestedGeometryCouplingSource } from './src/preview-nested-geometry-coupling-patch.js'
+import { patchPreviewNavResponsivenessSource } from './src/preview-nav-responsiveness-patch.js'
+import { patchPreviewClassTopSegmentSource } from './src/preview-class-top-segment-patch.js'
+import { patchPreviewClassTopSegmentStyleSource } from './src/preview-class-top-segment-style-patch.js'
+import { patchPreviewBoardSource } from './src/preview-board-patch.js'
+import { patchPreviewScheduleTopSegmentSource } from './src/preview-schedule-top-segment-patch.js'
+import { patchPreviewAIPageSource } from './src/preview-ai-page-patch.js'
+import { patchPreviewAIDensitySource } from './src/preview-ai-density-patch.js'
+import { patchPreviewAIStageMotionSource } from './src/preview-ai-stage-motion-patch.js'
+import { patchPreviewAIBackgroundSource } from './src/preview-ai-background-patch.js'
+import { patchPreviewHomeInfoSource } from './src/preview-home-info-patch.js'
+import { patchPreviewBoardAllSource } from './src/preview-board-all-patch.js'
+import { patchPreviewAILiveContextSource } from './src/preview-ai-live-context-patch.js'
 import { patchDataSplitV1Source } from './src/data-split-v1-patch.js'
 import { patchPresenceSplitSource } from './src/presence-split-patch.js'
 import { patchProductionRecoverySource } from './src/production-recovery-patch.js'
@@ -60,6 +82,36 @@ function replaceV2Source(source, id) {
   next = patchPreviewSHubV2Source(next, cleanId)
   next = patchPreviewAIReminderSummarySource(next, cleanId)
   next = patchPreviewReminderPolishSource(next, cleanId)
+  next = patchPreviewStationNavSource(next, cleanId)
+  next = patchPreviewStationNavRefinementSource(next, cleanId)
+  next = patchPreviewStationJellyMotionSource(next, cleanId)
+  next = patchPreviewNestedStationReactionSource(next, cleanId)
+  next = patchPreviewUnifiedStationPhysicsSource(next, cleanId)
+  next = patchPreviewPhysicalClassCouplingSource(next, cleanId)
+  next = patchPreviewNestedGeometryCouplingSource(next, cleanId)
+  next = patchPreviewNavResponsivenessSource(next, cleanId)
+  next = patchPreviewClassTopSegmentSource(next, cleanId)
+  next = patchPreviewClassTopSegmentStyleSource(next, cleanId)
+
+  const boardRuntimeFile = cleanId.endsWith('/preview-board-client.js') || cleanId.endsWith('/preview-board-complete.jsx')
+  if (boardRuntimeFile) {
+    next = patchPreviewFastCacheSource(next, cleanId)
+    next = patchPreviewBoardSource(next, cleanId)
+  } else {
+    next = patchPreviewBoardSource(next, cleanId)
+    next = patchPreviewStudySource(next, cleanId)
+    next = patchPreviewFastCacheSource(next, cleanId)
+  }
+
+  next = patchPreviewScheduleTopSegmentSource(next, cleanId)
+  next = patchPreviewAIPageSource(next, cleanId)
+  next = patchPreviewAIDensitySource(next, cleanId)
+  next = patchPreviewAIStageMotionSource(next, cleanId)
+  next = patchPreviewAIBackgroundSource(next, cleanId)
+  next = patchPreviewHomeInfoSource(next, cleanId)
+  next = patchPreviewBoardAllSource(next, cleanId)
+  next = patchPreviewStudyUnifiedUISource(next, cleanId)
+  next = patchPreviewAILiveContextSource(next, cleanId)
   next = patchDataSplitV1Source(next, cleanId)
   next = patchPresenceSplitSource(next, cleanId)
   next = patchProductionRecoverySource(next, cleanId)
@@ -102,6 +154,28 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-ai-reminder-summary-patch.js')
         || cleanId.endsWith('/preview-reminder-polish-patch.js')
         || cleanId.endsWith('/preview-nav-spring-patch.js')
+        || cleanId.endsWith('/preview-station-nav-patch.js')
+        || cleanId.endsWith('/preview-study-patch.js')
+        || cleanId.endsWith('/preview-study-unified-ui-patch.js')
+        || cleanId.endsWith('/preview-fast-cache-patch.js')
+        || cleanId.endsWith('/preview-station-nav-refine-patch.js')
+        || cleanId.endsWith('/preview-station-jelly-motion-patch.js')
+        || cleanId.endsWith('/preview-nested-station-reaction-patch.js')
+        || cleanId.endsWith('/preview-unified-station-physics-patch.js')
+        || cleanId.endsWith('/preview-physical-class-coupling-patch.js')
+        || cleanId.endsWith('/preview-nested-geometry-coupling-patch.js')
+        || cleanId.endsWith('/preview-nav-responsiveness-patch.js')
+        || cleanId.endsWith('/preview-class-top-segment-patch.js')
+        || cleanId.endsWith('/preview-class-top-segment-style-patch.js')
+        || cleanId.endsWith('/preview-board-patch.js')
+        || cleanId.endsWith('/preview-board-all-patch.js')
+        || cleanId.endsWith('/preview-schedule-top-segment-patch.js')
+        || cleanId.endsWith('/preview-ai-page-patch.js')
+        || cleanId.endsWith('/preview-ai-density-patch.js')
+        || cleanId.endsWith('/preview-ai-stage-motion-patch.js')
+        || cleanId.endsWith('/preview-ai-background-patch.js')
+        || cleanId.endsWith('/preview-ai-live-context-patch.js')
+        || cleanId.endsWith('/preview-home-info-patch.js')
         || cleanId.endsWith('/data-split-v1-patch.js')
         || cleanId.endsWith('/presence-split-patch.js')
         || cleanId.endsWith('/production-recovery-patch.js')

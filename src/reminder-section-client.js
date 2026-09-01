@@ -1,15 +1,11 @@
-import { classKeyFor, ensureSignedIn, readStudentProfile } from './school-sync.js'
+import { ensureSignedIn } from './school-sync.js'
 import {
-  normalizeReminderCategories,
   normalizeReminderCategory,
   reminderFilterOptions,
   reminderSectionById,
 } from './reminder-categories.js'
 
 const REMINDER_SECTION_API_URL = 'https://school-reminder-backend.vercel.app/api/reminder-sections'
-const REMINDER_CATEGORIES_CACHE_VERSION = 'v1'
-const PENDING_SECTION_QUEUE_VERSION = 'v1'
-const PENDING_SECTION_RETRY_MS = 30 * 60 * 1000
 
 function sectionError(code, message) {
   const error = new Error(message)
@@ -36,131 +32,14 @@ function validateUniqueSection(sectionId, label, color, categories) {
   }
 }
 
-function currentProfile() {
-  try {
-    return readStudentProfile()
-  } catch {
-    return null
-  }
-}
+async function requestSectionChange(payload) {
+  const user = await ensureSignedIn()
+  const idToken = String(await user.getIdToken()).trim()
+  if (!idToken) throw sectionError('reminder-section/auth-required', 'Authentication required')
 
-function scopedStorageKey(prefix, profile = currentProfile()) {
-  const classKey = classKeyFor(profile)
-  return classKey ? `${prefix}.${classKey}` : ''
-}
-
-function pendingQueueKey(profile) {
-  return scopedStorageKey(`school.reminderSection.pending.${PENDING_SECTION_QUEUE_VERSION}`, profile)
-}
-
-function pendingAttemptKey(profile) {
-  return scopedStorageKey(`school.reminderSection.pendingAttempt.${PENDING_SECTION_QUEUE_VERSION}`, profile)
-}
-
-function reminderCategoriesCacheKey(profile) {
-  const classKey = classKeyFor(profile)
-  return classKey ? `school.reminderCategories.${REMINDER_CATEGORIES_CACHE_VERSION}.${classKey}` : ''
-}
-
-function readPendingQueue(profile = currentProfile()) {
-  const key = pendingQueueKey(profile)
-  if (!key || typeof localStorage === 'undefined') return []
-  try {
-    const value = JSON.parse(localStorage.getItem(key) || '[]')
-    return Array.isArray(value)
-      ? value.filter((item) => item && item.action === 'update' && item.sectionId)
-      : []
-  } catch {
-    return []
-  }
-}
-
-function writePendingQueue(profile, queue) {
-  const key = pendingQueueKey(profile)
-  if (!key || typeof localStorage === 'undefined') return false
-  try {
-    if (queue.length) localStorage.setItem(key, JSON.stringify(queue))
-    else localStorage.removeItem(key)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function writeLastPendingAttempt(profile, value = Date.now()) {
-  const key = pendingAttemptKey(profile)
-  if (!key || typeof localStorage === 'undefined') return
-  try {
-    localStorage.setItem(key, String(value))
-  } catch {
-    // Retry throttling is best-effort.
-  }
-}
-
-function readLastPendingAttempt(profile) {
-  const key = pendingAttemptKey(profile)
-  if (!key || typeof localStorage === 'undefined') return 0
-  try {
-    return Number(localStorage.getItem(key) || 0)
-  } catch {
-    return 0
-  }
-}
-
-function updateReminderCategoriesCache(profile, optimistic) {
-  const key = reminderCategoriesCacheKey(profile)
-  if (!key || typeof localStorage === 'undefined') return false
-  try {
-    const stored = normalizeReminderCategories(JSON.parse(localStorage.getItem(key) || '[]'))
-    const next = normalizeReminderCategories([
-      ...stored.filter((category) => category.id !== optimistic.id),
-      optimistic,
-    ])
-    localStorage.setItem(key, JSON.stringify(next))
-    return true
-  } catch {
-    return false
-  }
-}
-
-function queuePendingSectionUpdate(payload, optimistic) {
-  const profile = currentProfile()
-  if (!profile) return false
-
-  const queue = readPendingQueue(profile)
-    .filter((item) => item.sectionId !== payload.sectionId)
-
-  queue.push({
-    action: 'update',
-    sectionId: payload.sectionId,
-    label: payload.label,
-    color: payload.color,
-    queuedAt: Date.now(),
-  })
-
-  const queued = writePendingQueue(profile, queue)
-  const cached = updateReminderCategoriesCache(profile, optimistic)
-  if (!queued || !cached) return false
-
-  writeLastPendingAttempt(profile)
-  return true
-}
-
-function queueableUpdateError(error) {
-  const code = String(error?.code || '')
-  const message = String(error?.message || '')
-  return (
-    code === '8'
-    || code === 'RESOURCE_EXHAUSTED'
-    || code === 'reminder-section/quota-exhausted'
-    || /resource[_ -]?exhausted|quota exceeded/i.test(`${code} ${message}`)
-  )
-}
-
-async function postSectionChange(url, payload, idToken) {
   let response
   try {
-    response = await fetch(url, {
+    response = await fetch(REMINDER_SECTION_API_URL, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${idToken}`,
@@ -169,90 +48,18 @@ async function postSectionChange(url, payload, idToken) {
       body: JSON.stringify(payload),
     })
   } catch {
-    return {
-      response: null,
-      body: {},
-      networkError: true,
-    }
-  }
-
-  const body = await response.json().catch(() => ({}))
-  return { response, body, networkError: false }
-}
-
-async function requestSectionChange(payload) {
-  const user = await ensureSignedIn()
-  const idToken = String(await user.getIdToken()).trim()
-  if (!idToken) throw sectionError('reminder-section/auth-required', 'Authentication required')
-
-  const result = await postSectionChange(REMINDER_SECTION_API_URL, payload, idToken)
-  if (result.networkError || !result.response) {
     throw sectionError('reminder-section/network', 'Reminder section server unavailable')
   }
 
-  if (!result.response.ok || result.body?.ok !== true) {
-    const code = String(result.body?.error || 'reminder-section/server')
-    if (code === '8' || /resource[_ -]?exhausted|quota/i.test(code)) {
-      throw sectionError('reminder-section/quota-exhausted', 'Firestore quota exceeded')
-    }
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body?.ok !== true) {
     throw sectionError(
-      code,
-      String(result.body?.message || 'Reminder section save failed'),
+      String(body?.error || 'reminder-section/server'),
+      String(body?.message || 'Reminder section save failed'),
     )
   }
-  return result.body.data || {}
+  return body.data || {}
 }
-
-export async function flushPendingReminderSectionChanges({ force = false } = {}) {
-  const profile = currentProfile()
-  if (!profile) return { flushed: 0, pending: 0 }
-
-  const queue = readPendingQueue(profile)
-  if (!queue.length) return { flushed: 0, pending: 0 }
-
-  const now = Date.now()
-  const lastAttempt = readLastPendingAttempt(profile)
-  if (!force && now - lastAttempt < PENDING_SECTION_RETRY_MS) {
-    return { flushed: 0, pending: queue.length }
-  }
-
-  writeLastPendingAttempt(profile, now)
-  const remaining = [...queue]
-  let flushed = 0
-
-  while (remaining.length) {
-    const item = remaining[0]
-    try {
-      await requestSectionChange({
-        action: 'update',
-        sectionId: item.sectionId,
-        label: item.label,
-        color: item.color,
-      })
-      remaining.shift()
-      flushed += 1
-      writePendingQueue(profile, remaining)
-    } catch {
-      break
-    }
-  }
-
-  return { flushed, pending: remaining.length }
-}
-
-function installPendingSectionRetry() {
-  if (typeof window === 'undefined') return
-  const retry = () => {
-    void flushPendingReminderSectionChanges().catch(() => {})
-  }
-  window.setTimeout(retry, 12_000)
-  window.setInterval(retry, PENDING_SECTION_RETRY_MS)
-  window.addEventListener('online', () => {
-    void flushPendingReminderSectionChanges({ force: true }).catch(() => {})
-  })
-}
-
-installPendingSectionRetry()
 
 export async function saveReminderSectionChange({
   action,
@@ -309,21 +116,10 @@ export async function saveReminderSectionChange({
   })
   if (!optimistic) throw sectionError('reminder-section/invalid', 'Invalid reminder section')
 
-  const payload = {
+  return requestSectionChange({
     action: 'update',
     sectionId: current.id,
     label: nextLabel,
     color: nextColor,
-  }
-
-  try {
-    return await requestSectionChange(payload)
-  } catch (error) {
-    if (!queueableUpdateError(error) || !queuePendingSectionUpdate(payload, optimistic)) throw error
-
-    return {
-      section: optimistic,
-      pendingSync: true,
-    }
-  }
+  })
 }

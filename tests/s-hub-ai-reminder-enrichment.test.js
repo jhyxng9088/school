@@ -31,7 +31,7 @@ test('S-Hub reminder saving reuses reminder AI summary and original attachment p
   const facade = read('src/s-hub-ai.js')
   const todo = read('src/todo.js')
 
-  assert.match(facade, /rememberSchoolAIReminderSources\(result\?\.items, options\?\.files/)
+  assert.match(facade, /rememberSchoolAIReminderSources\(result(?:\?\.)?\.items, options\?\.files/)
   assert.match(todo, /s-hub-ai-sheet\.is-open/)
   assert.match(todo, /createPendingReminderSummary/)
   assert.match(todo, /parseReminderWithAI\(promptText, new Date\(\), files\)/)

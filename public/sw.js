@@ -1,8 +1,8 @@
-const CACHE_NAME = 'school-shell-v155'
+const CACHE_NAME = 'school-shell-v155-v2-update4'
 const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
 const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
 const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
-const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './feature-tour-sequences.css', './samsung-nav-icon-fixes.css', './school-timetable-motion.js', './school-home-nav.js', './school-home-live.js', './feature-tour-ai-orb.js', './first-run-notice.js', './notification-routing.js', './notification-tone-profile.js']
+const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './feature-tour-sequences.css', './v2-update-notice.css', './v2-update-device-fixes.css', './samsung-nav-icon-fixes.css', './school-timetable-motion.js', './school-home-nav.js', './school-home-live.js', './feature-tour-ai-orb.js', './v2-update-audience.js', './first-run-notice.js', './v2-update-notice.js', './notification-routing.js', './notification-tone-profile.js']
 const ROUTINE_PUSH_PAUSE_FROM_MS = Date.parse('2026-09-01T00:00:00+09:00')
 
 self.addEventListener('install', (event) => {
@@ -55,6 +55,8 @@ function notificationTarget(tag, body, fallbackUrl = './') {
   const normalizedTag = String(tag || '').toLowerCase()
   const normalizedBody = String(body || '')
 
+  if (normalizedTag.includes('board') || normalizedBody.includes('게시판')) return { url: './?tab=board', tab: 'board' }
+  if (normalizedTag.includes('study') || normalizedBody.includes('스터디') || normalizedBody.includes('공부를 시작')) return { url: './?tab=study', tab: 'study' }
   if (normalizedTag.includes('reminder') || normalizedBody.includes('리마인더')) return { url: './?tab=todo', tab: 'todo' }
   if (normalizedTag.includes('timetable') || normalizedBody.includes('시간표')) return { url: './?tab=timetable', tab: 'timetable' }
   if (normalizedTag.includes('academic') || normalizedBody.includes('학사일정')) return { url: './?tab=academic', tab: 'academic' }
@@ -80,7 +82,7 @@ async function notificationBodyForProfile(body) {
 function tabFromUrl(value) {
   try {
     const tab = new URL(value || './', self.registration.scope).searchParams.get('tab') || ''
-    return ['home', 'todo', 'timetable', 'meal', 'academic'].includes(tab) ? tab : ''
+    return ['home', 'todo', 'timetable', 'board', 'study', 'meal', 'academic'].includes(tab) ? tab : ''
   } catch {
     return ''
   }

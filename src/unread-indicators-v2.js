@@ -2,6 +2,8 @@ import { getApp } from 'firebase/app'
 import { collection, doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore'
 import { classKeyFor, ensureSignedIn, readStudentProfile, studentKeyFor } from './school-sync'
 import { reminderActivityEligibleForStudent, reminderExpiryMs } from './reminder-lifecycle.js'
+import { markPreviewBoardSectionSeen, subscribePreviewBoardUnread } from './preview-board-unread.js'
+import { markPreviewStudySeen, subscribePreviewStudyUnread } from './preview-study-unread.js'
 import './unread-indicators.css'
 
 const INTERNAL_PREFIX = '__school_seen_'
@@ -20,7 +22,11 @@ const LABEL_TO_TAB = {
   '시간표': 'timetable',
   '급식': 'meal',
   '학사일정': 'academic',
+  '우리반': 'class',
+  '스터디': 'study',
+  '일정': 'schedule',
 }
+const V2_TABS = new Set(['home', 'class', 'ai', 'study', 'schedule'])
 
 function safeReminderStateId(todoId) {
   const safe = String(todoId || '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100)
@@ -56,13 +62,19 @@ function hasTodayMealInCache() {
 }
 
 function tabForButton(button) {
+  const dataTab = String(button?.dataset?.tab || '').trim()
+  if (V2_TABS.has(dataTab)) return dataTab
   const label = button?.querySelector('span')?.textContent?.trim() || ''
   return LABEL_TO_TAB[label] || ''
 }
 
 function addDot(container, kind) {
   if (!container) return
-  const className = kind === 'nav' ? 'school-unread-dot is-nav' : 'school-unread-dot is-reminder'
+  const className = kind === 'nav'
+    ? 'school-unread-dot is-nav'
+    : kind === 'segment'
+      ? 'school-unread-dot is-segment'
+      : 'school-unread-dot is-reminder'
   let dot = Array.from(container.children).find((child) => child.classList?.contains('school-unread-dot'))
   if (!dot) {
     dot = document.createElement('i')
@@ -105,6 +117,8 @@ async function startUnreadIndicators() {
     timetableReady: false,
     academicReady: false,
     mealAvailable: hasTodayMealInCache(),
+    boardUnread: false,
+    studyUnread: false,
     stopped: false,
   }
 
@@ -240,6 +254,10 @@ async function startUnreadIndicators() {
         && state.mealAvailable
         && todayVersion() > seenVersion(NAV_STATE_IDS.meal)
     }
+    if (tab === 'board') return state.boardUnread
+    if (tab === 'study') return state.studyUnread
+    if (tab === 'class') return navUnread('timetable') || navUnread('board')
+    if (tab === 'schedule') return navUnread('todo') || navUnread('academic') || navUnread('meal')
     return false
   }
 
@@ -286,11 +304,20 @@ async function startUnreadIndicators() {
     else if (tab === 'timetable') writeSeen(NAV_STATE_IDS.timetable, otherActivityVersion('timetable'))
     else if (tab === 'academic') writeSeen(NAV_STATE_IDS.academic, academicVersion())
     else if (tab === 'meal' && state.mealAvailable) writeSeen(NAV_STATE_IDS.meal, todayVersion())
+    else if (tab === 'board') markPreviewBoardSectionSeen(profile)
+    else if (tab === 'study') markPreviewStudySeen(profile)
   }
 
-  function activeTab() {
+  function activeLeafTab() {
     const active = document.querySelector('.bottom-nav .nav-button.active')
-    return tabForButton(active)
+    const tab = tabForButton(active)
+    if (tab === 'class') {
+      return String(document.querySelector('.class-station-page .class-top-segment-button.is-active[data-unread-key]')?.dataset?.unreadKey || '')
+    }
+    if (tab === 'schedule') {
+      return String(document.querySelector('.station-schedule-page .class-top-segment-button.is-active[data-unread-key]')?.dataset?.unreadKey || '')
+    }
+    return tab
   }
 
   function renderReminderRows() {
@@ -301,10 +328,21 @@ async function startUnreadIndicators() {
     })
   }
 
+  function renderTopSegments() {
+    document.querySelectorAll('.class-top-segment-button[data-unread-key]').forEach((button) => {
+      const tab = String(button.dataset.unreadKey || '')
+      if (navUnread(tab)) addDot(button, 'segment')
+      else removeDot(button)
+    })
+  }
+
   function renderNav() {
     document.querySelectorAll('.bottom-nav .nav-button').forEach((button) => {
       const tab = tabForButton(button)
-      if (!tab) return
+      if (!tab || tab === 'home' || tab === 'ai') {
+        removeDot(button)
+        return
+      }
       if (navUnread(tab)) addDot(button, 'nav')
       else removeDot(button)
     })
@@ -316,9 +354,10 @@ async function startUnreadIndicators() {
     ensureTimetableBaseline()
     ensureAcademicBaseline()
     renderReminderRows()
+    renderTopSegments()
     renderNav()
     scheduleNextReminderExpiry()
-    const tab = activeTab()
+    const tab = activeLeafTab()
     if (tab) markTabSeen(tab)
   }
 
@@ -328,10 +367,19 @@ async function startUnreadIndicators() {
   }
 
   function handleClick(event) {
+    const segmentButton = event.target.closest?.('.class-top-segment-button[data-unread-key]')
+    if (segmentButton) {
+      const tab = String(segmentButton.dataset.unreadKey || '')
+      if (tab) markTabSeen(tab)
+      return
+    }
+
     const navButton = event.target.closest?.('.bottom-nav .nav-button')
     if (navButton) {
       const tab = tabForButton(navButton)
-      if (tab) markTabSeen(tab)
+      // Parent stations aggregate their children. Opening a parent must not clear
+      // siblings the student has not actually viewed.
+      if (tab && !['class', 'schedule'].includes(tab)) markTabSeen(tab)
       return
     }
 
@@ -341,6 +389,22 @@ async function startUnreadIndicators() {
     const todo = state.todos.get(String(row?.dataset.reminderId || ''))
     if (todo) markReminderSeen(todo)
   }
+
+  subscriptions.push(subscribePreviewBoardUnread(profile, (next) => {
+    const unread = Boolean(next?.hasSectionUnread)
+    if (unread !== state.boardUnread) {
+      state.boardUnread = unread
+      scheduleRender()
+    }
+  }))
+
+  subscriptions.push(subscribePreviewStudyUnread(profile, (next) => {
+    const unread = Boolean(next?.hasUnread)
+    if (unread !== state.studyUnread) {
+      state.studyUnread = unread
+      scheduleRender()
+    }
+  }))
 
   subscriptions.push(onSnapshot(collection(db, 'classes', classId, 'activity'), (snapshot) => {
     const next = new Map()

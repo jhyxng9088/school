@@ -309,7 +309,7 @@ export function SchoolAISheet({
     if (requestSequenceRef.current !== requestId) return false
     setWorkingFinishing(true)
     setWorkingMessageFading(true)
-    await new Promise((resolve) => window.setTimeout(resolve, 420))
+    await new Promise((resolve) => window.setTimeout(resolve, 140))
     return requestSequenceRef.current === requestId
   }
 
@@ -398,12 +398,14 @@ export function SchoolAISheet({
     setError('')
     setEditingId('')
     try {
-      const result = await analyzeSchoolNotice({ text: input, files, context, now, signal: controller.signal })
+      const result = await analyzeSchoolNotice({ text: input, files, context, conflictContext, now, signal: controller.signal })
       if (requestSequenceRef.current !== requestId) return
       if (!result.items.length) {
         if (!await finishWorkingStage(requestId)) return
         setState((current) => ({ ...current, mode: 'import', items: [], selected: {}, conflicts: {}, resolutions: {} }))
-        setError('등록할 수 있는 학교 일정을 찾지 못했어. 날짜나 공지 내용이 보이는지 확인해줘.')
+        setError(result.skippedExisting?.length
+          ? '이미 S-Hub에 등록된 내용이라 새로 추가할 항목이 없어.'
+          : '등록할 수 있는 학교 일정을 찾지 못했어. 날짜나 공지 내용이 보이는지 확인해줘.')
         return
       }
       const items = result.items
@@ -444,7 +446,7 @@ export function SchoolAISheet({
     setError('')
     setEditingId('')
     try {
-      const result = await answerAndAnalyzeSchoolAttachments({ question, files, context, now, signal: controller.signal })
+      const result = await answerAndAnalyzeSchoolAttachments({ question, files, context, conflictContext, now, signal: controller.signal })
       if (requestSequenceRef.current !== requestId) return
       const items = result.items || []
       if (items.length) {

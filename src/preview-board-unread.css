@@ -1,0 +1,28 @@
+/* Preview board keeps per-post unread markers. Parent/tab dots are rendered by the unified V2 unread engine. */
+.preview-board-unread-dot {
+  content: "";
+  width: 6px;
+  height: 6px;
+  display: inline-block;
+  margin-left: 7px;
+  vertical-align: .14em;
+  border-radius: 50%;
+  background: #ff6259;
+  pointer-events: none;
+  animation: preview-board-unread-in 420ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.preview-board-card.has-unread {
+  border-color: color-mix(in srgb, #ff6259 18%, var(--border));
+}
+
+@keyframes preview-board-unread-in {
+  from { opacity: 0; transform: scale(.35); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-board-unread-dot {
+    animation-duration: .01ms !important;
+  }
+}
