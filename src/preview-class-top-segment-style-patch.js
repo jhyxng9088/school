@@ -17,6 +17,13 @@ const CLASS_TOP_SEGMENT_STYLE_CSS = `
 .class-top-segment-button {
   min-height: 34px !important;
 }
+
+/* Keep the home current-class description readable on iPad/desktop widths. */
+.current-class-copy > p:last-child {
+  max-width: 440px !important;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
 `
 
 function patchClassDefaultAndOrder(source) {
