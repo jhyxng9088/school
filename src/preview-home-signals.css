@@ -1,0 +1,109 @@
+.preview-home-signals {
+  margin-top: 0;
+}
+
+.preview-home-signals-heading {
+  margin-bottom: 10px;
+}
+
+.preview-home-signals-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.preview-home-signal {
+  min-width: 0;
+  padding: 14px 14px 13px;
+  border: 1px solid var(--border);
+  border-radius: 19px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--border) 42%, transparent);
+}
+
+.preview-home-signal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.preview-home-signal-head span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-home-signal-head i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
+  opacity: .35;
+  transition: opacity 240ms var(--motion-soft), transform 240ms var(--motion-soft);
+}
+
+.preview-home-signal.is-active .preview-home-signal-head i {
+  opacity: .9;
+  transform: scale(1.08);
+}
+
+.preview-home-signal strong {
+  display: block;
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 760;
+  letter-spacing: -.045em;
+  line-height: 1.12;
+}
+
+.preview-home-signal p {
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-weight: 560;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.school-samsung .preview-home-signal {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (min-width: 760px) {
+  .preview-home-signals-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 360px) {
+  .preview-home-signals-grid {
+    gap: 8px;
+  }
+
+  .preview-home-signal {
+    padding: 12px;
+    border-radius: 17px;
+  }
+
+  .preview-home-signal strong {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-home-signal-head i {
+    transition-duration: .01ms !important;
+  }
+}
