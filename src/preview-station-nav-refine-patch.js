@@ -1,3 +1,5 @@
+import { cleanupPreviewStationNavRecoverySource } from './preview-station-nav-recovery-compat.js'
+
 const STATION_NAV_REFINEMENT_CSS = `
 /* Preview-only station motion refinement: expanded class slot redistributes
    the remaining four station buttons evenly instead of overlapping them. */
@@ -129,5 +131,6 @@ export function patchPreviewStationNavRefinementSource(source, id = '') {
     return `${current}\n${STATION_NAV_REFINEMENT_CSS}`
   }
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
-  return patchMainSource(source)
+  const refined = patchMainSource(source)
+  return cleanupPreviewStationNavRecoverySource(refined, cleanId)
 }
