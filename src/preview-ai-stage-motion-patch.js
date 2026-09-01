@@ -292,7 +292,7 @@ function patchAISheet(source) {
   next = replaceRequired(
     next,
     `<div className="s-hub-ai-page-title">\n            <p className="eyebrow">S-Hub AI</p>\n            <h1>AI</h1>\n            <p>학교 정보를 묻고, 공지를 분석하고, 찾은 일정을 바로 S-Hub에 추가해.</p>\n          </div>`,
-    `<div className="s-hub-ai-page-title">\n            <p className="eyebrow">S-Hub AI</p>\n            <h1>{working ? '처리 중' : 'AI'}</h1>\n            <p className={\`s-hub-ai-page-hero-copy ${working ? 'is-working-copy' : 'is-description'} ${working && workingMessageFading ? 'is-fading' : ''}\`.trim()}>\n              {working ? workingMessage : '학교 정보를 묻고, 공지를 분석하고, 찾은 일정을 바로 S-Hub에 추가해.'}\n            </p>\n          </div>`,
+    `<div className="s-hub-ai-page-title">\n            <p className="eyebrow">S-Hub AI</p>\n            <h1>{working ? '처리 중' : 'AI'}</h1>\n            <p className={['s-hub-ai-page-hero-copy', working ? 'is-working-copy' : 'is-description', working && workingMessageFading ? 'is-fading' : ''].filter(Boolean).join(' ')}>\n              {working ? workingMessage : '학교 정보를 묻고, 공지를 분석하고, 찾은 일정을 바로 S-Hub에 추가해.'}\n            </p>\n          </div>`,
     'minimal working copy',
   )
 
