@@ -25,3 +25,10 @@ test('home overview section opts out of the legacy whole-section navigation hand
   assert.match(signals, /onClick=\{\(\) => onNavigate\?\.\(signal\.id\)\}/)
   assert.match(signals, /event\.key !== 'Enter' && event\.key !== ' '/)
 })
+
+test('home overview stays a 2 by 2 grid on portrait and wide layouts', () => {
+  const css = read('src/preview-home-signals.css')
+
+  assert.match(css, /\.preview-home-signals-grid\s*\{[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/)
+  assert.doesNotMatch(css, /grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/)
+})
