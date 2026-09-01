@@ -125,6 +125,12 @@ function patchCompletedBoardUnread(source) {
   )
   next = replaceRequired(
     next,
+    `  const activeSectionName = activeSection.label || '일반'`,
+    `  const activeSectionName = activeSection.label || '일반'\n\n  useEffect(() => {\n    if (!detailPostId || !boardUnread.isPostUnread(detailPostId)) return\n    boardUnread.markPostRead(detailPostId)\n  }, [detailPostId, boardUnread.revision])`,
+    'keep open board detail read',
+  )
+  next = replaceRequired(
+    next,
     `                const attachments = Array.isArray(post.attachments) ? post.attachments : []\n                return (`,
     `                const attachments = Array.isArray(post.attachments) ? post.attachments : []\n                const unread = boardUnread.isPostUnread(post.id)\n                return (`,
     'board unread card state',
