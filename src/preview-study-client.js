@@ -29,10 +29,15 @@ async function parseStudyResponse(response) {
   return body
 }
 
-async function requestStudy({ method = 'GET', payload = null, signal } = {}) {
+async function requestStudy({ method = 'GET', payload = null, signal, scope = 'class' } = {}) {
+  const normalizedScope = scope === 'school' ? 'school' : 'class'
+  const url = method === 'GET'
+    ? `${STUDY_API_URL}?scope=${encodeURIComponent(normalizedScope)}`
+    : STUDY_API_URL
+
   let response
   try {
-    response = await fetch(STUDY_API_URL, {
+    response = await fetch(url, {
       method,
       headers: await authHeaders(),
       body: payload ? JSON.stringify(payload) : undefined,
@@ -51,6 +56,7 @@ function normalizeActive(value) {
   const startedAt = Number(value.startedAt || 0)
   const segmentStartedAt = Number(value.segmentStartedAt || 0)
   const pausedAt = Number(value.pausedAt || 0)
+  const classId = String(value.classId || '')
   const studentKey = String(value.studentKey || '')
   const name = String(value.name || '').trim().slice(0, 20)
   const subject = String(value.subject || '').trim().slice(0, 24)
@@ -59,6 +65,7 @@ function normalizeActive(value) {
   if (!studentKey || !name || !subject || !Number.isFinite(startedAt) || startedAt <= 0) return null
   if (!isPaused && (!Number.isFinite(segmentStartedAt) || segmentStartedAt <= 0)) return null
   return {
+    classId,
     studentKey,
     name,
     subject,
@@ -70,15 +77,29 @@ function normalizeActive(value) {
   }
 }
 
+function normalizeSubjectTotals(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => ({
+      subject: String(item?.subject || '').trim().slice(0, 24),
+      totalSeconds: Math.max(0, Math.floor(Number(item?.totalSeconds || 0))),
+    }))
+    .filter((item) => item.subject && item.totalSeconds > 0)
+    .sort((a, b) => b.totalSeconds - a.totalSeconds || a.subject.localeCompare(b.subject, 'ko'))
+}
+
 function normalizeStudent(value) {
   if (!value || typeof value !== 'object') return null
+  const classId = String(value.classId || '')
   const studentKey = String(value.studentKey || '')
   const name = String(value.name || '').trim().slice(0, 20)
   if (!studentKey || !name) return null
   return {
+    classId,
     studentKey,
     name,
     totalSeconds: Math.max(0, Math.floor(Number(value.totalSeconds || 0))),
+    subjectTotals: normalizeSubjectTotals(value.subjectTotals),
     active: normalizeActive(value.active),
   }
 }
@@ -90,6 +111,7 @@ export function normalizePreviewStudySnapshot(body) {
     .filter(Boolean)
   const me = normalizeStudent(source.me) || null
   return {
+    scope: source.scope === 'school' ? 'school' : 'class',
     date: String(source.date || ''),
     students,
     me,
@@ -97,8 +119,8 @@ export function normalizePreviewStudySnapshot(body) {
   }
 }
 
-export async function loadPreviewStudy({ signal } = {}) {
-  return normalizePreviewStudySnapshot(await requestStudy({ signal }))
+export async function loadPreviewStudy({ signal, scope = 'class' } = {}) {
+  return normalizePreviewStudySnapshot(await requestStudy({ signal, scope }))
 }
 
 export async function startPreviewStudy(subject) {
