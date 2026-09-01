@@ -29,8 +29,10 @@ async function parseBoardResponse(response) {
   return body
 }
 
-async function requestBoard({ method = 'GET', payload = null, signal } = {}) {
+async function requestBoard({ method = 'GET', payload = null, signal, sectionId = '' } = {}) {
   const headers = await authHeaders()
+  const url = new URL(BOARD_API_URL)
+  if (method === 'GET' && sectionId) url.searchParams.set('section', sectionId)
   const options = {
     method,
     headers,
@@ -41,7 +43,7 @@ async function requestBoard({ method = 'GET', payload = null, signal } = {}) {
 
   let response
   try {
-    response = await fetch(BOARD_API_URL, options)
+    response = await fetch(url, options)
   } catch (error) {
     if (error?.name === 'AbortError') throw error
     throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')
@@ -49,18 +51,31 @@ async function requestBoard({ method = 'GET', payload = null, signal } = {}) {
   return parseBoardResponse(response)
 }
 
-export async function loadPreviewBoard({ signal } = {}) {
-  const body = await requestBoard({ method: 'GET', signal })
-  return Array.isArray(body.posts) ? body.posts : []
+export async function loadPreviewBoard({ signal, sectionId = 'general' } = {}) {
+  const body = await requestBoard({ method: 'GET', signal, sectionId })
+  return {
+    posts: Array.isArray(body.posts) ? body.posts : [],
+    sections: Array.isArray(body.sections) ? body.sections : [],
+    activeSectionId: String(body.activeSectionId || sectionId || 'general'),
+  }
 }
 
-export async function createPreviewBoardPost({ kind = 'general', title, body }) {
+export async function createPreviewBoardPost({ sectionId = 'general', title, body }) {
   const response = await requestBoard({
     method: 'POST',
-    payload: { action: 'create', kind, title, body },
+    payload: { action: 'create', sectionId, title, body },
   })
   if (!response.post?.id) throw boardError('board/invalid-post', '새 게시글을 확인하지 못했어요.')
   return response.post
+}
+
+export async function createPreviewBoardSection(label) {
+  const response = await requestBoard({
+    method: 'POST',
+    payload: { action: 'create-section', label },
+  })
+  if (!response.section?.id) throw boardError('board/invalid-section', '새 섹션을 확인하지 못했어요.')
+  return response.section
 }
 
 export async function addPreviewBoardComment(postId, body) {
