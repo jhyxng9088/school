@@ -70,3 +70,14 @@ test('preview main feeds meal ranges into AI context and transport avoids duplic
   assert.match(transport, /SCHOOL_DATA already carries meals/)
   assert.match(transport, /"meals"\\s\*:/)
 })
+
+test('preview AI keeps long composer content above the fixed bottom nav', () => {
+  const css = patchPreviewAIContextLayoutSource(read('src/s-hub-ai.css'), path.join(root, 'src/s-hub-ai.css'))
+
+  assert.match(css, /--s-hub-ai-top-inset:\s*max\(32px, env\(safe-area-inset-top\)\)/)
+  assert.match(css, /--s-hub-ai-nav-clearance:\s*calc\(64px \+ var\(--nav-bottom\) \+ 24px\)/)
+  assert.match(css, /min-height:\s*calc\(100dvh \+ 24px - var\(--s-hub-ai-top-inset\)\)/)
+  assert.match(css, /padding-bottom:\s*var\(--s-hub-ai-nav-clearance\)/)
+  assert.match(css, /\.s-hub-ai-page \.s-hub-ai-content\s*\{[^}]*scroll-margin-bottom:\s*var\(--s-hub-ai-nav-clearance\)/s)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*padding-bottom:\s*calc\(104px \+ env\(safe-area-inset-bottom\)\)/)
+})
