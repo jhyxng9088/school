@@ -1,84 +1,122 @@
-const AI_BACKGROUND_CSS = String.raw`
-/* Preview-only AI continuity: keep the one AI session alive while other stations are visible. */
+const AI_BACKGROUND_CSS = `
+/* Preview-only AI continuity: keep the one AI session alive while other stations are used. */
+.preview-ai-persistent-host[hidden] {
+  display: none !important;
+}
+
+/* The persistent wrapper became the direct app-content child, so it must own the old AI centering contract. */
 .app-content.tab-ai {
   min-height: calc(100dvh - var(--nav-bottom) - 64px);
+  display: flex;
+  flex-direction: column;
+  padding-bottom: max(32px, env(safe-area-inset-top));
 }
 
-.preview-ai-persistent-host {
+.app-content.tab-ai > .preview-ai-persistent-host.is-active {
   width: 100%;
-}
-
-.preview-ai-persistent-host.is-active {
-  min-height: inherit;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.preview-ai-persistent-host.is-active > .s-hub-ai-page {
+.app-content.tab-ai > .preview-ai-persistent-host.is-active > .s-hub-ai-page {
+  width: 100%;
   margin-block: auto;
 }
 
-.preview-ai-persistent-host[hidden] {
-  display: none !important;
+.preview-ai-persistent-host.is-active,
+.preview-station-page-host {
+  animation: s-hub-ai-background-page-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes s-hub-ai-background-page-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.996);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 .s-hub-ai-background-note {
-  margin: 5px 0 0;
-  color: var(--text-tertiary);
-  font-size: 12px;
-  line-height: 1.45;
+  max-width: 430px !important;
+  margin: 4px 0 0 !important;
+  color: var(--text-tertiary) !important;
+  font-size: 10.5px !important;
+  font-weight: 560 !important;
+  line-height: 1.38 !important;
+  letter-spacing: -.012em !important;
+  opacity: .76;
 }
 
-.nav-button[data-tab="ai"] {
+.bottom-nav .nav-button[data-tab="ai"] {
   position: relative;
 }
 
-.nav-button[data-tab="ai"] .s-hub-ai-nav-progress {
+.bottom-nav .nav-button[data-tab="ai"] .s-hub-ai-nav-progress {
   position: absolute;
   z-index: 5;
-  top: 6px;
-  right: 8px;
+  top: 7px;
+  left: calc(50% + 9px);
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: 999px;
   background: currentColor;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface) 72%, transparent);
   pointer-events: none;
-  animation: s-hub-ai-nav-progress-pulse 1.2s ease-in-out infinite;
+  animation: s-hub-ai-nav-working 1.55s ease-in-out infinite;
 }
 
 .bottom-nav .nav-button[data-tab="ai"].is-ai-working:not(.active) svg {
-  animation: s-hub-ai-nav-working 1.8s cubic-bezier(.16, 1, .3, 1) infinite;
+  animation: s-hub-ai-nav-orb-breathe 1.9s ease-in-out infinite;
   transform-origin: 50% 50%;
 }
 
-@keyframes s-hub-ai-nav-progress-pulse {
-  0%, 100% { opacity: .28; transform: scale(.82); }
-  50% { opacity: .9; transform: scale(1.08); }
+@keyframes s-hub-ai-nav-working {
+  0%, 100% {
+    opacity: .38;
+    transform: scale(.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
 }
 
-@keyframes s-hub-ai-nav-working {
-  0%, 100% { transform: scale(1); opacity: .72; }
-  50% { transform: scale(1.08); opacity: 1; }
+@keyframes s-hub-ai-nav-orb-breathe {
+  0%, 100% { transform: scale(.96); }
+  50% { transform: scale(1.055); }
+}
+
+html.school-mobile-compat .preview-ai-persistent-host.is-active,
+html.school-mobile-compat .preview-station-page-host {
+  animation-duration: 620ms;
 }
 
 @media (max-height: 760px) {
   .app-content.tab-ai {
-    min-height: 0;
+    min-height: 100dvh;
+    display: block;
     padding-bottom: calc(104px + env(safe-area-inset-bottom));
   }
 
-  .preview-ai-persistent-host.is-active {
+  .app-content.tab-ai > .preview-ai-persistent-host.is-active {
+    display: block;
     min-height: 0;
-    justify-content: flex-start;
   }
 
-  .preview-ai-persistent-host.is-active > .s-hub-ai-page {
+  .app-content.tab-ai > .preview-ai-persistent-host.is-active > .s-hub-ai-page {
     margin-block: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .preview-ai-persistent-host.is-active,
+  .preview-station-page-host,
   .bottom-nav .nav-button[data-tab="ai"] .s-hub-ai-nav-progress,
   .bottom-nav .nav-button[data-tab="ai"].is-ai-working:not(.active) svg {
     animation-duration: .01ms !important;
@@ -105,8 +143,8 @@ function patchAISheet(source) {
 
   next = replaceRequired(
     next,
-    `  const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items])`,
-    `  /* Preview-only background AI continuity callback. */\n  useEffect(() => {\n    if (typeof onWorkingChange === 'function') onWorkingChange(Boolean(working))\n  }, [working, onWorkingChange])\n\n  const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items])`,
+    `  const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items, state.selected])`,
+    `  /* Preview-only background AI continuity callback. */\n  useEffect(() => {\n    if (typeof onWorkingChange === 'function') onWorkingChange(Boolean(working))\n  }, [working, onWorkingChange])\n\n  const selectedItems = useMemo(() => state.items.filter((item) => state.selected[item.id]), [state.items, state.selected])`,
     'working callback effect',
   )
 
@@ -158,8 +196,8 @@ function patchMain(source) {
     'station AI working callback',
   )
 
-  // The home launcher may already have been removed by another preview-only layer.
-  // Treat that state as complete instead of failing the combined build.
+  // Another preview layer can remove this launcher first. In that combined state,
+  // removal is already complete and must not abort the build.
   next = removeHomeAITrigger(next)
 
   const homeLauncherMarker = `onOpenAI={() => setAiOpen(true)}`
