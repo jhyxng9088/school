@@ -16,7 +16,7 @@ import { patchPreviewClassTopSegmentStyleSource } from '../src/preview-class-top
 import { patchPreviewBoardSource } from '../src/preview-board-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
-const boardUi = () => read('src/preview-board-complete.jsx')
+const boardUi = () => patchPreviewBoardSource(read('src/preview-board-complete.jsx'), '/workspace/src/preview-board-complete.jsx')
 
 function buildBoardMain() {
   let source = read('src/main.jsx')
@@ -37,13 +37,13 @@ function buildBoardMain() {
   return source
 }
 
-test('preview class board wires the standalone functional board with realtime props', () => {
+test('preview class board wires the standalone functional board without Firestore board signals', () => {
   const source = buildBoardMain()
   assert.match(source, /import \{ PreviewBoard \} from '\.\/preview-board\.jsx'/)
-  assert.match(source, /function PreviewBoardPage\(\{ profile, activitySignal \}\)/)
-  assert.match(source, /<PreviewBoard profile=\{profile\} activitySignal=\{activitySignal\} \/>/)
-  assert.match(source, /boardActivitySignal/)
-  assert.match(source, /<PreviewBoardPage profile=\{profile\} activitySignal=\{boardActivitySignal\} \/>/)
+  assert.match(source, /function PreviewBoardPage\(\{ profile \}\)/)
+  assert.match(source, /<PreviewBoard profile=\{profile\} \/>/)
+  assert.match(source, /<PreviewBoardPage profile=\{profile\} \/>/)
+  assert.doesNotMatch(source, /boardActivitySignal/)
   assert.equal(source.match(/function PreviewStudyPage\(\) \{/g)?.length, 1)
   assert.doesNotMatch(source, /게시판 자리까지 먼저 연결/)
 })
@@ -79,7 +79,7 @@ test('board sections share reminder colors and filter real Supabase posts', () =
   assert.match(ui, /createPreviewBoardSection\(label\.trim\(\), color\)/)
 })
 
-test('complete board UI covers writes comments editing deletion pagination and realtime refresh', () => {
+test('complete board UI covers CRUD pagination and Supabase realtime refresh', () => {
   const source = boardUi()
   for (const marker of [
     'createPreviewBoardPost',
@@ -92,15 +92,39 @@ test('complete board UI covers writes comments editing deletion pagination and r
     'editPreviewBoardSection',
     'deletePreviewBoardSection',
     'loadMore',
-    'activitySignal',
-    'recordClassActivity',
+    'subscribePreviewBoardRealtime',
+    'broadcastPreviewBoardRealtime',
   ]) assert.match(source, new RegExp(marker))
+  assert.doesNotMatch(source, /recordClassActivity/)
+  assert.doesNotMatch(source, /activitySignal/)
   assert.match(source, /maxLength=\{70\}/)
   assert.match(source, /maxLength=\{1200\}/)
   assert.match(source, /maxLength=\{500\}/)
   assert.match(source, /maxLength=\{16\}/)
   assert.match(source, /navigator\.onLine/)
   assert.match(source, /UnifiedBottomSheet/)
+})
+
+test('Supabase realtime messages are class-topic scoped and never carry board content', () => {
+  const realtime = read('src/preview-board-realtime.js')
+  assert.match(realtime, /functions\/v1\/board-realtime/)
+  assert.match(realtime, /ensureSignedIn/)
+  assert.match(realtime, /getIdToken/)
+  assert.match(realtime, /sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0/)
+  assert.match(realtime, /events\/board_changed/)
+  assert.match(realtime, /private: false/)
+  assert.match(realtime, /sectionIds/)
+  assert.match(realtime, /HEARTBEAT_MS = 25_000/)
+  assert.match(realtime, /RECONNECT_MAX_MS = 12_000/)
+  assert.doesNotMatch(realtime, /SUPABASE_SERVICE_ROLE|SUPABASE_SECRET_KEYS/)
+  assert.doesNotMatch(realtime, /title:|body:|fileName:|authorName:/)
+})
+
+test('moved posts notify only the old and new sections', () => {
+  const source = boardUi()
+  assert.match(source, /sectionHints\.length && !sectionHints\.includes\(activeSectionId\)/)
+  assert.match(source, /announceMutation\(post\.id, 'added', \[post\.sectionId\]\)/)
+  assert.match(source, /announceMutation\(updated\.id, 'edited', \[activeSectionId, updated\.sectionId\]\)/)
 })
 
 test('refresh control is text-only and compact', () => {
