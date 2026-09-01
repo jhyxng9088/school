@@ -22,11 +22,11 @@ test('V2 home overview reuses existing unread controllers and local app data', (
   assert.match(vite, /patchPreviewHomeInfoSource/)
 })
 
-test('V2 home overview remains compact across mobile and larger layouts', () => {
+test('V2 home overview remains compact as a 2 by 2 grid across mobile and larger layouts', () => {
   const css = read('src/preview-home-signals.css')
 
   assert.match(css, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
-  assert.match(css, /@media \(min-width: 760px\)[\s\S]*repeat\(4, minmax\(0, 1fr\)\)/)
+  assert.doesNotMatch(css, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/)
   assert.match(css, /html\.school-samsung \.preview-home-signal/)
   assert.match(css, /prefers-reduced-motion: reduce/)
 })
