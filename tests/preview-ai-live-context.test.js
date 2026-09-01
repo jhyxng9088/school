@@ -30,7 +30,8 @@ test('preview AI live loader fetches current class study and aggregate board wit
   assert.match(runtime, /wantsSchoolStudy\(question\)/)
   assert.match(runtime, /recorded \+ runningTodaySeconds\(active\.segmentStartedAt \|\| active\.startedAt, nowMs\)/)
   assert.match(runtime, /sort\(\(a, b\) => b\.displaySeconds - a\.displaySeconds/)
-  assert.match(runtime, /rank: index \+ 1/)
+  assert.match(runtime, /const studentRow = \(student, rank\) => \(\{[\s\S]*?rank,/)
+  assert.match(runtime, /students: ranked\.map\(\(student, index\) => studentRow\(student, index \+ 1\)\)/)
   assert.match(runtime, /prioritizePreviewAIContext\(question, context, live\)/)
 })
 
