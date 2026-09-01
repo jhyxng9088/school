@@ -11,7 +11,7 @@ function studyError(code, message) {
 async function authHeaders() {
   const user = await ensureSignedIn()
   const idToken = String(await user.getIdToken()).trim()
-  if (!idToken) throw studyError('study/auth-required', '로그인 정보를 확인하지 못했어요.')
+  if (!idToken) throw studyError('study/auth-required', '로그인 정보를 확인할 수 없습니다.')
   return {
     authorization: `Bearer ${idToken}`,
     'content-type': 'application/json',
@@ -23,7 +23,7 @@ async function parseStudyResponse(response) {
   if (!response.ok || body?.ok !== true) {
     throw studyError(
       String(body?.error || `study/http-${response.status || 0}`),
-      String(body?.message || '스터디 요청을 처리하지 못했어요.'),
+      String(body?.message || '스터디 요청을 처리하지 못했습니다.'),
     )
   }
   return body
@@ -41,7 +41,7 @@ async function requestStudy({ method = 'GET', payload = null, signal } = {}) {
     })
   } catch (error) {
     if (error?.name === 'AbortError') throw error
-    throw studyError('study/network', '스터디 서버에 연결하지 못했어요.')
+    throw studyError('study/network', '스터디 서버에 연결하지 못했습니다.')
   }
   return parseStudyResponse(response)
 }
@@ -49,11 +49,25 @@ async function requestStudy({ method = 'GET', payload = null, signal } = {}) {
 function normalizeActive(value) {
   if (!value || typeof value !== 'object') return null
   const startedAt = Number(value.startedAt || 0)
+  const segmentStartedAt = Number(value.segmentStartedAt || 0)
+  const pausedAt = Number(value.pausedAt || 0)
   const studentKey = String(value.studentKey || '')
   const name = String(value.name || '').trim().slice(0, 20)
   const subject = String(value.subject || '').trim().slice(0, 24)
+  const isPaused = value.isPaused === true
+  const sessionSeconds = Math.max(0, Math.floor(Number(value.sessionSeconds || 0)))
   if (!studentKey || !name || !subject || !Number.isFinite(startedAt) || startedAt <= 0) return null
-  return { studentKey, name, subject, startedAt }
+  if (!isPaused && (!Number.isFinite(segmentStartedAt) || segmentStartedAt <= 0)) return null
+  return {
+    studentKey,
+    name,
+    subject,
+    startedAt,
+    segmentStartedAt: Number.isFinite(segmentStartedAt) ? segmentStartedAt : 0,
+    isPaused,
+    pausedAt: Number.isFinite(pausedAt) ? pausedAt : 0,
+    sessionSeconds,
+  }
 }
 
 function normalizeStudent(value) {
@@ -91,6 +105,14 @@ export async function startPreviewStudy(subject) {
   const cleanSubject = String(subject || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, 24)
   if (!cleanSubject) throw studyError('study/subject-required', '공부할 과목을 선택해 주세요.')
   return requestStudy({ method: 'POST', payload: { action: 'start', subject: cleanSubject } })
+}
+
+export async function pausePreviewStudy() {
+  return requestStudy({ method: 'POST', payload: { action: 'pause' } })
+}
+
+export async function resumePreviewStudy() {
+  return requestStudy({ method: 'POST', payload: { action: 'resume' } })
 }
 
 export async function stopPreviewStudy() {
