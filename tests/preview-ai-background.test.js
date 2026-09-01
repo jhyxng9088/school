@@ -16,16 +16,8 @@ function builtSheet() {
   return patchPreviewAIBackgroundSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
 }
 
-test('inline AI tells students they may use other features but should keep the app open', () => {
-  const source = builtSheet()
-  assert.match(source, /onWorkingChange = null/)
-  assert.match(source, /onWorkingChange\(Boolean\(working\)\)/)
-  assert.match(source, /앱을 닫지 마세요\. 다른 기능은 계속 사용할 수 있어요\./)
-  assert.match(source, /className="s-hub-ai-background-note"/)
-})
-
-test('AI working state is lifted to AppShell and the AI page stays mounted across station changes', () => {
-  const representative = `
+function representativeMain() {
+  return `
 function PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline }) {
   return (
     <SchoolAISheet
@@ -84,63 +76,30 @@ function AppShell() {
   )
 }
 `
-  const source = patchPreviewAIBackgroundSource(representative, '/workspace/src/main.jsx')
+}
+
+test('inline AI tells students they may use other features but should keep the app open', () => {
+  const source = builtSheet()
+  assert.match(source, /onWorkingChange = null/)
+  assert.match(source, /onWorkingChange\(Boolean\(working\)\)/)
+  assert.match(source, /앱을 닫지 마세요\. 다른 기능은 계속 사용할 수 있어요\./)
+  assert.match(source, /className="s-hub-ai-background-note"/)
+})
+
+test('AI working state is lifted to AppShell and the AI page stays mounted across station changes', () => {
+  const source = patchPreviewAIBackgroundSource(representativeMain(), '/workspace/src/main.jsx')
   assert.match(source, /const \[aiWorking, setAiWorking\] = useState\(false\)/)
   assert.match(source, /onWorkingChange=\{setAiWorking\}/)
   assert.match(source, /className=\{`preview-ai-persistent-host/)
   assert.match(source, /hidden=\{activeTab !== 'ai'\}/)
   assert.match(source, /\{content\.ai\}/)
   assert.match(source, /activeTab !== 'ai' \? \(/)
-  assert.doesNotMatch(source, /key=\{activeTab\}[\s\S]{0,120}\{content\[activeTab\]\}/)
+  assert.doesNotMatch(source, /className=\{`app-content tab-\$\{activeTab\}`\}\s+key=\{activeTab\}/)
+  assert.match(source, /className="preview-station-page-host" key=\{activeTab\}/)
 })
 
 test('home AI launcher reuses the persistent station and background work is visible in nav', () => {
-  const representative = `
-function PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline }) {
-  return (
-    <SchoolAISheet
-      inline
-      open={true}
-      now={now}
-      context={context}
-      conflictContext={conflictContext}
-      onImportItems={onImportItems}
-      requireOnline={requireOnline}
-    />
-  )
-}
-function AppShell() {
-  const [aiOpen, setAiOpen] = useState(false)
-  const content = {
-    home: <Home onOpenAI={() => setAiOpen(true)} />,
-    ai: (
-      <PreviewAIPage
-        now={now}
-        context={aiContext}
-        conflictContext={aiConflictContext}
-        onImportItems={importAIItems}
-        requireOnline={requireOnline}
-      />
-    ),
-  }
-  return (
-    <div>
-      <main
-        className={\`app-content tab-\${activeTab}\`}
-        key={activeTab}
-        style={{ '--content-enter-x': \`\${contentDirection * 16}px\` }}
-      >
-        {content[activeTab]}
-      </main>
-      <button
-        data-tab={tab.id}
-        className={\`nav-button \${activeTab === tab.id ? 'active' : ''}\`}
-      >x</button>
-    </div>
-  )
-}
-`
-  const source = patchPreviewAIBackgroundSource(representative, '/workspace/src/main.jsx')
+  const source = patchPreviewAIBackgroundSource(representativeMain(), '/workspace/src/main.jsx')
   assert.match(source, /onOpenAI=\{\(\) => changeTab\('ai'\)\}/)
   assert.match(source, /tab\.id === 'ai' && aiWorking \? 'is-ai-working'/)
 })
