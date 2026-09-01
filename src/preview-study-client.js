@@ -1,4 +1,5 @@
 import { ensureSignedIn } from './school-sync.js'
+import { dispatchPreviewStudyStartPush } from './preview-social-push.js'
 import './preview-study-ranking.css'
 
 const STUDY_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-study'
@@ -127,7 +128,9 @@ export async function loadPreviewStudy({ signal, scope = 'class' } = {}) {
 export async function startPreviewStudy(subject) {
   const cleanSubject = String(subject || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, 24)
   if (!cleanSubject) throw studyError('study/subject-required', '공부할 과목을 선택해 주세요.')
-  return requestStudy({ method: 'POST', payload: { action: 'start', subject: cleanSubject } })
+  const response = await requestStudy({ method: 'POST', payload: { action: 'start', subject: cleanSubject } })
+  if (response?.active) void dispatchPreviewStudyStartPush(response.active)
+  return response
 }
 
 export async function pausePreviewStudy() {
