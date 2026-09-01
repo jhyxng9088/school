@@ -1,7 +1,7 @@
 import { ensureSignedIn } from './school-sync.js'
 
 const PROJECT_REF = 'elhlsqhzjmsfhmawrpqu'
-const PUBLISHABLE_KEY = 'sb_publishable_5S8oFpb6NL1gETcmDgnQhA_6wXyiWLN'
+const PUBLISHABLE_KEY = 'sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0'
 const REALTIME_CONFIG_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/board-realtime`
 const REALTIME_SOCKET_URL = `wss://${PROJECT_REF}.supabase.co/realtime/v1/websocket?apikey=${encodeURIComponent(PUBLISHABLE_KEY)}&vsn=1.0.0`
 const REALTIME_BROADCAST_BASE = `https://${PROJECT_REF}.supabase.co/realtime/v1/api/broadcast`
