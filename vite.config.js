@@ -31,6 +31,7 @@ import { patchPreviewAIDensitySource } from './src/preview-ai-density-patch.js'
 import { patchPreviewAIStageMotionSource } from './src/preview-ai-stage-motion-patch.js'
 import { patchPreviewAIBackgroundSource } from './src/preview-ai-background-patch.js'
 import { patchPreviewHomeInfoSource } from './src/preview-home-info-patch.js'
+import { patchPreviewBoardAllSource } from './src/preview-board-all-patch.js'
 
 const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
@@ -123,6 +124,7 @@ function replacePreviewSource(source, id) {
   next = patchPreviewAIStageMotionSource(next, cleanId)
   next = patchPreviewAIBackgroundSource(next, cleanId)
   next = patchPreviewHomeInfoSource(next, cleanId)
+  next = patchPreviewBoardAllSource(next, cleanId)
   return next
 }
 
@@ -200,6 +202,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-class-top-segment-patch.js')
         || cleanId.endsWith('/preview-class-top-segment-style-patch.js')
         || cleanId.endsWith('/preview-board-patch.js')
+        || cleanId.endsWith('/preview-board-all-patch.js')
         || cleanId.endsWith('/preview-schedule-top-segment-patch.js')
         || cleanId.endsWith('/preview-ai-page-patch.js')
         || cleanId.endsWith('/preview-ai-density-patch.js')
