@@ -59,10 +59,28 @@ function patchMain(source) {
     )
   }
 
-  next = next.replace(
-    `function PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline }) {`,
-    `function PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline, loadContext }) {`,
-  )
+  const pageSignatureWithWorking = `function PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline, onWorkingChange }) {`
+  const pageSignatureBase = `function PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline }) {`
+  const pageSignaturePatched = `function PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline, loadContext, onWorkingChange }) {`
+
+  if (!next.includes(pageSignaturePatched)) {
+    if (next.includes(pageSignatureWithWorking)) {
+      next = replaceRequired(
+        next,
+        pageSignatureWithWorking,
+        pageSignaturePatched,
+        'main live context persistent AI page prop',
+      )
+    } else {
+      next = replaceRequired(
+        next,
+        pageSignatureBase,
+        `function PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline, loadContext }) {`,
+        'main live context AI page prop',
+      )
+    }
+  }
+
   next = next.replace(
     `      context={context}\n      conflictContext={conflictContext}`,
     `      context={context}\n      loadContext={loadContext}\n      conflictContext={conflictContext}`,
