@@ -24,6 +24,8 @@ jobs:
 
       - name: Diagnose merge with current main
         run: |
+          git config user.name "S-Hub V2 Sync QA"
+          git config user.email "s-hub-v2-sync@users.noreply.github.com"
           git fetch origin main
           set +e
           git merge --no-commit --no-ff origin/main
