@@ -193,3 +193,5 @@ EOF
           fi
           git commit -m "chore(v2): sync main fixes and secure preview build"
           git push origin HEAD:preview/s-hub-v2
+
+# This workflow intentionally writes only to preview/s-hub-v2; main remains read-only here.
