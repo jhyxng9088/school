@@ -45,10 +45,15 @@ async function loadRealtimeTopic() {
 
 function safePayload(value) {
   const source = value && typeof value === 'object' ? value : {}
+  const rawSections = Array.isArray(source.sectionIds) ? source.sectionIds : [source.sectionId]
+  const sectionIds = [...new Set(rawSections
+    .map((item) => String(item || '').trim().slice(0, 32))
+    .filter(Boolean))]
+    .slice(0, 2)
   return {
     at: Date.now(),
     kind: String(source.kind || 'board').slice(0, 20),
-    sectionId: String(source.sectionId || '').slice(0, 32),
+    sectionIds,
   }
 }
 
