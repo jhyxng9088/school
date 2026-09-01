@@ -74,6 +74,15 @@ test('AI reference panel truthfully shows study and board as live sources', () =
   assert.match(css, /nth-child\(6\).*animation-delay: 730ms/)
 })
 
+test('live context main patch keeps loadContext declared after background continuity adds onWorkingChange', () => {
+  const source = `import { buildSchoolAIContext } from './s-hub-ai-core.js'\n\nfunction PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline, onWorkingChange }) {\n  return (\n    <SchoolAISheet\n      context={context}\n      conflictContext={conflictContext}\n      onImportItems={onImportItems}\n      requireOnline={requireOnline}\n      onWorkingChange={onWorkingChange}\n    />\n  )\n}\n\nconst content = {\n  ai: <PreviewAIPage\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={importAIItems}\n        requireOnline={requireOnline}\n      />,\n}\n\n<SchoolAISheet\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={importAIItems}\n        requireOnline={requireOnline}\n      />\n`
+
+  const patched = patchPreviewAILiveContextSource(source, '/virtual/src/main.jsx')
+  assert.match(patched, /function PreviewAIPage\(\{ now, context, conflictContext, onImportItems, requireOnline, loadContext, onWorkingChange \}\)/)
+  assert.match(patched, /context=\{context\}\n      loadContext=\{loadContext\}\n      conflictContext=\{conflictContext\}/)
+  assert.match(patched, /context=\{aiContext\}\n        loadContext=\{loadPreviewAIContext\}\n        conflictContext=\{aiConflictContext\}/)
+})
+
 test('live AI context patch runs after board-all and study UI patches', () => {
   const vite = read('vite.config.js')
   const boardAll = vite.indexOf('next = patchPreviewBoardAllSource(next, cleanId)')
