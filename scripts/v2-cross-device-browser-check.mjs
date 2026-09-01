@@ -1,7 +1,18 @@
 import { chromium, webkit } from 'playwright'
 
 const baseUrl = process.env.V2_QA_URL || 'http://127.0.0.1:4173/school/'
+const appOrigin = new URL(baseUrl).origin
 const profile = JSON.stringify({ name: 'QA', classNumber: 1, studentNumber: 1 })
+const legacyStorage = {
+  cookies: [],
+  origins: [{
+    origin: appOrigin,
+    localStorage: [
+      { name: 'school.studentProfile.v1', value: profile },
+      { name: 'school.featureTour.v1', value: 'done' },
+    ],
+  }],
+}
 
 const targets = [
   {
@@ -75,7 +86,10 @@ function fail(name, message) {
 for (const target of targets) {
   const browser = await target.browser.launch({ headless: true })
   try {
-    const context = await browser.newContext(target.context)
+    // Seed the legacy-user state at the browser-context level so the very first
+    // app boot sees the profile and completed V1 tour. This avoids the audience
+    // bootstrap marking a fresh QA context as a post-V2 user before our test runs.
+    const context = await browser.newContext({ ...target.context, storageState: legacyStorage })
     const page = await context.newPage()
     const consoleErrors = []
     const pageErrors = []
@@ -84,18 +98,23 @@ for (const target of targets) {
     })
     page.on('pageerror', (error) => pageErrors.push(String(error?.message || error)))
 
-    // Establish this target's real origin first. Then seed the exact legacy-user
-    // state the V2 update tour expects and reload so audience detection runs from
-    // page boot with those persisted values.
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
-    await page.evaluate(({ profile }) => {
-      localStorage.setItem('school.studentProfile.v1', profile)
-      localStorage.setItem('school.featureTour.v1', 'done')
-      localStorage.removeItem('school.v2UpdateTour.v1')
-      localStorage.removeItem('school.v2UpdateTourStep.v1')
-    }, { profile })
-    await page.reload({ waitUntil: 'networkidle' })
-    await page.waitForSelector('.v2-update-tour-layer.is-open', { state: 'visible', timeout: 15000 })
+    await page.goto(baseUrl, { waitUntil: 'networkidle' })
+    try {
+      await page.waitForSelector('.v2-update-tour-layer.is-open', { state: 'visible', timeout: 15000 })
+    } catch (error) {
+      const debug = await page.evaluate(() => ({
+        url: location.href,
+        readyState: document.readyState,
+        profile: localStorage.getItem('school.studentProfile.v1'),
+        firstTour: localStorage.getItem('school.featureTour.v1'),
+        updateTour: localStorage.getItem('school.v2UpdateTour.v1'),
+        updateStep: localStorage.getItem('school.v2UpdateTourStep.v1'),
+        layer: document.querySelector('.feature-tour-layer')?.className || '',
+        scripts: [...document.scripts].map((script) => script.src).filter(Boolean),
+      }))
+      console.error(`DEBUG ${target.name}`, JSON.stringify(debug))
+      throw error
+    }
 
     const initial = await page.evaluate(() => {
       const html = document.documentElement
