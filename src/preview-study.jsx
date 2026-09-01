@@ -55,90 +55,126 @@ function studentTodaySeconds(student, nowMs) {
   return recorded + runningTodaySeconds(active.segmentStartedAt || active.startedAt, nowMs)
 }
 
-function StudyStartCard({ selectedSubject, customSubject, onSubject, onCustomSubject, onStart, saving, error }) {
+function StudyControlCard({
+  active,
+  todaySeconds,
+  nowMs,
+  selectedSubject,
+  customSubject,
+  onSubject,
+  onCustomSubject,
+  onStart,
+  onPause,
+  onResume,
+  onStop,
+  saving,
+  actionKind,
+  error,
+}) {
   const finalSubject = selectedSubject === '기타' ? customSubject.trim() : selectedSubject
-  return (
-    <section className="preview-study-card preview-study-start-card">
-      <div className="preview-study-card-heading">
-        <div>
-          <p>공부 시작</p>
-          <h2>공부할 과목을 선택해 주세요.</h2>
-        </div>
-      </div>
-
-      <div className="preview-study-subjects" role="group" aria-label="공부 과목 선택">
-        {SUBJECTS.map((subject) => (
-          <button
-            type="button"
-            className={selectedSubject === subject ? 'is-selected' : ''}
-            aria-pressed={selectedSubject === subject}
-            onClick={() => onSubject(subject)}
-            key={subject}
-          >
-            {subject}
-          </button>
-        ))}
-      </div>
-
-      {selectedSubject === '기타' ? (
-        <label className="preview-study-custom-subject">
-          <span>과목 이름</span>
-          <input
-            value={customSubject}
-            onChange={(event) => onCustomSubject(event.target.value.slice(0, 24))}
-            placeholder="예: 생명과학"
-            autoComplete="off"
-            maxLength={24}
-          />
-        </label>
-      ) : null}
-
-      {error ? <p className="preview-study-error" role="alert">{error}</p> : null}
-      <button
-        type="button"
-        className="preview-study-primary-button"
-        onClick={onStart}
-        disabled={!finalSubject || saving}
-      >
-        {saving ? '시작 중…' : '공부 시작'}
-      </button>
-    </section>
-  )
-}
-
-function StudyActiveCard({ active, todaySeconds, nowMs, onPause, onResume, onStop, saving, error }) {
+  const hasActive = Boolean(active)
+  const paused = Boolean(active?.isPaused)
   const elapsed = activeSessionSeconds(active, nowMs)
+
+  let primaryLabel = '공부 시작'
+  if (hasActive) primaryLabel = paused ? '계속하기' : '일시정지'
+  if (saving && actionKind === 'start') primaryLabel = '시작 중…'
+  if (saving && actionKind === 'pause') primaryLabel = '일시정지 중…'
+  if (saving && actionKind === 'resume') primaryLabel = '계속하는 중…'
+
+  const stopLabel = saving && actionKind === 'stop' ? '종료 중…' : '공부 종료'
+  const primaryDisabled = saving || (!hasActive && !finalSubject)
+
+  function handlePrimary() {
+    if (hasActive) {
+      if (paused) onResume()
+      else onPause()
+      return
+    }
+    onStart()
+  }
+
   return (
-    <section className={`preview-study-card preview-study-active-card${active.isPaused ? ' is-paused' : ''}`}>
-      <div className="preview-study-live-row">
-        <span className={`preview-study-live-dot${active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
-        <span>{active.isPaused ? '일시정지' : '공부 중'}</span>
+    <section className={`preview-study-card preview-study-control-card${paused ? ' is-paused' : ''}`}>
+      <div className="preview-study-control-content" key={hasActive ? 'active' : 'setup'}>
+        {hasActive ? (
+          <>
+            <div className="preview-study-live-row">
+              <span className={`preview-study-live-dot${paused ? ' is-paused' : ''}`} aria-hidden="true" />
+              <span>{paused ? '일시정지' : '공부 중'}</span>
+            </div>
+            <strong className="preview-study-active-subject">{active.subject}</strong>
+            <div className="preview-study-running-time" aria-label={`현재 스터디 시간 ${formatStudyDuration(elapsed)}`}>
+              {formatStudyDuration(elapsed, { clock: true })}
+            </div>
+            <div className="preview-study-today-summary">
+              <span>오늘 누적</span>
+              <strong>{formatStudyDuration(todaySeconds)}</strong>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="preview-study-card-heading">
+              <div>
+                <p>공부 시작</p>
+                <h2>공부할 과목을 선택해 주세요.</h2>
+              </div>
+            </div>
+
+            <div className="preview-study-subjects" role="group" aria-label="공부 과목 선택">
+              {SUBJECTS.map((subject) => (
+                <button
+                  type="button"
+                  className={selectedSubject === subject ? 'is-selected' : ''}
+                  aria-pressed={selectedSubject === subject}
+                  onClick={() => onSubject(subject)}
+                  key={subject}
+                >
+                  {subject}
+                </button>
+              ))}
+            </div>
+
+            {selectedSubject === '기타' ? (
+              <label className="preview-study-custom-subject">
+                <span>과목 이름</span>
+                <input
+                  value={customSubject}
+                  onChange={(event) => onCustomSubject(event.target.value.slice(0, 24))}
+                  placeholder="예: 생명과학"
+                  autoComplete="off"
+                  maxLength={24}
+                />
+              </label>
+            ) : null}
+          </>
+        )}
       </div>
-      <strong className="preview-study-active-subject">{active.subject}</strong>
-      <div className="preview-study-running-time" aria-label={`현재 스터디 시간 ${formatStudyDuration(elapsed)}`}>
-        {formatStudyDuration(elapsed, { clock: true })}
-      </div>
-      <div className="preview-study-today-summary">
-        <span>오늘 누적</span>
-        <strong>{formatStudyDuration(todaySeconds)}</strong>
-      </div>
+
       {error ? <p className="preview-study-error" role="alert">{error}</p> : null}
-      <div className="preview-study-action-row">
+
+      <div
+        className={`preview-study-action-dock${hasActive ? ' is-active' : ' is-idle'}${paused ? ' is-paused' : ''}${saving ? ' is-saving' : ''}`}
+        data-study-control-state={hasActive ? (paused ? 'paused' : 'running') : 'idle'}
+      >
         <button
           type="button"
-          className="preview-study-pause-button"
-          onClick={active.isPaused ? onResume : onPause}
-          disabled={saving}
+          className="preview-study-primary-button preview-study-morph-primary"
+          onClick={handlePrimary}
+          disabled={primaryDisabled}
+          aria-live="polite"
         >
-          {saving ? '처리 중…' : active.isPaused ? '계속하기' : '일시정지'}
+          <span className="preview-study-action-label" key={primaryLabel}>{primaryLabel}</span>
         </button>
         <button
           type="button"
-          className="preview-study-stop-button"
+          className="preview-study-stop-button preview-study-morph-stop"
           onClick={onStop}
-          disabled={saving}
+          disabled={!hasActive || saving}
+          tabIndex={hasActive ? 0 : -1}
+          aria-hidden={!hasActive}
         >
-          {saving ? '처리 중…' : '공부 종료'}
+          <span className="preview-study-action-label" key={stopLabel}>{stopLabel}</span>
         </button>
       </div>
     </section>
@@ -220,6 +256,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [actionKind, setActionKind] = useState('')
   const [selectedSubject, setSelectedSubject] = useState('')
   const [customSubject, setCustomSubject] = useState('')
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -299,9 +336,10 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     [me, nowMs],
   )
 
-  async function runAction({ onlineLabel, action, broadcastAction, fallbackMessage }) {
+  async function runAction({ kind, onlineLabel, action, broadcastAction, fallbackMessage }) {
     if (saving || !requireOnline(onlineLabel)) return
     setSaving(true)
+    setActionKind(kind)
     setActionError('')
     try {
       await action()
@@ -312,6 +350,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       setActionError(error?.message || fallbackMessage)
     } finally {
       setSaving(false)
+      setActionKind('')
     }
   }
 
@@ -319,6 +358,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     const subject = selectedSubject === '기타' ? customSubject.trim() : selectedSubject
     if (!subject || saving) return
     await runAction({
+      kind: 'start',
       onlineLabel: '스터디를 시작',
       action: () => startPreviewStudy(subject),
       broadcastAction: 'start',
@@ -331,6 +371,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   async function pause() {
     if (!myActive || myActive.isPaused) return
     await runAction({
+      kind: 'pause',
       onlineLabel: '스터디를 일시정지',
       action: pausePreviewStudy,
       broadcastAction: 'pause',
@@ -341,6 +382,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   async function resume() {
     if (!myActive || !myActive.isPaused) return
     await runAction({
+      kind: 'resume',
       onlineLabel: '스터디를 계속',
       action: resumePreviewStudy,
       broadcastAction: 'resume',
@@ -351,6 +393,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   async function stop() {
     if (!myActive) return
     await runAction({
+      kind: 'stop',
       onlineLabel: '스터디를 종료',
       action: stopPreviewStudy,
       broadcastAction: 'stop',
@@ -381,35 +424,29 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
 
       {snapshot ? (
         <div className="preview-study-stack">
-          {myActive ? (
-            <StudyActiveCard
-              active={myActive}
-              todaySeconds={myTodaySeconds}
-              nowMs={nowMs}
-              onPause={pause}
-              onResume={resume}
-              onStop={stop}
-              saving={saving}
-              error={actionError}
-            />
-          ) : (
-            <StudyStartCard
-              selectedSubject={selectedSubject}
-              customSubject={customSubject}
-              onSubject={(subject) => {
-                setSelectedSubject(subject)
-                setActionError('')
-                if (subject !== '기타') setCustomSubject('')
-              }}
-              onCustomSubject={(value) => {
-                setCustomSubject(value)
-                setActionError('')
-              }}
-              onStart={start}
-              saving={saving}
-              error={actionError}
-            />
-          )}
+          <StudyControlCard
+            active={myActive}
+            todaySeconds={myTodaySeconds}
+            nowMs={nowMs}
+            selectedSubject={selectedSubject}
+            customSubject={customSubject}
+            onSubject={(subject) => {
+              setSelectedSubject(subject)
+              setActionError('')
+              if (subject !== '기타') setCustomSubject('')
+            }}
+            onCustomSubject={(value) => {
+              setCustomSubject(value)
+              setActionError('')
+            }}
+            onStart={start}
+            onPause={pause}
+            onResume={resume}
+            onStop={stop}
+            saving={saving}
+            actionKind={actionKind}
+            error={actionError}
+          />
 
           {loadError ? <p className="preview-study-inline-warning">실시간 새로고침이 일시적으로 중단되었습니다. 마지막으로 불러온 기록을 표시합니다.</p> : null}
           <ActiveClassmates students={snapshot.students} meKey={meKey} nowMs={nowMs} />
