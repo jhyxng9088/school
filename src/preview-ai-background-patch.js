@@ -146,12 +146,10 @@ function patchMain(source) {
     'station AI working callback',
   )
 
-  next = replaceRequired(
-    next,
-    `        onOpenAI={() => setAiOpen(true)}`,
-    `        onOpenAI={() => changeTab('ai')}`,
-    'home launcher uses persistent AI station',
-  )
+  const homeLauncherMarker = `onOpenAI={() => setAiOpen(true)}`
+  if (next.includes(homeLauncherMarker)) {
+    next = next.replace(homeLauncherMarker, `onOpenAI={() => changeTab('ai')}`)
+  }
 
   next = replaceRequired(
     next,
