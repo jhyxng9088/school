@@ -1,0 +1,56 @@
+name: V2 Cross Device Browser Check
+
+on:
+  push:
+    branches: [preview/s-hub-v2]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-cross-device-browser-check
+  cancel-in-progress: true
+
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout preview branch
+        uses: actions/checkout@v4
+        with:
+          ref: preview/s-hub-v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install temporary Playwright runtime
+        run: npm install --no-save --package-lock=false playwright
+
+      - name: Install Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Build preview
+        run: npm run build
+
+      - name: Start preview server
+        run: |
+          npm run preview -- --host 127.0.0.1 > /tmp/s-hub-v2-preview.log 2>&1 &
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/school/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/s-hub-v2-preview.log
+          exit 1
+
+      - name: Run five-target browser QA
+        env:
+          V2_QA_URL: http://127.0.0.1:4173/school/
+        run: node scripts/v2-cross-device-browser-check.mjs
