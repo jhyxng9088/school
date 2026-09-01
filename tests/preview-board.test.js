@@ -64,19 +64,19 @@ test('board API client authenticates with Firebase but stores board data through
   assert.doesNotMatch(source, /mock|fixture|seedPosts/i)
 })
 
-test('board sections are Supabase-backed, class-shared, and filter real posts', () => {
+test('board sections are Supabase-backed with shared colors and filter real posts', () => {
   const client = read('src/preview-board-client.js')
   const ui = read('src/preview-board.jsx')
   assert.match(client, /url\.searchParams\.set\('section', sectionId\)/)
-  assert.match(client, /createPreviewBoardSection/)
-  assert.match(client, /action: 'create-section'/)
+  assert.match(client, /createPreviewBoardSection\(label, color\)/)
+  assert.match(client, /action: 'create-section', label, color/)
   assert.match(client, /payload: \{ action: 'create', sectionId, title, body \}/)
-  assert.match(ui, /\{ id: 'general', label: '일반', builtin: true \}/)
-  assert.match(ui, /\{ id: 'question', label: '질문', builtin: true \}/)
-  assert.match(ui, /\{ id: 'notes', label: '필기', builtin: true \}/)
+  assert.match(ui, /REMINDER_CATEGORY_COLORS/)
+  assert.match(ui, /id: 'general', label: '일반', color: '#90939a'/)
+  assert.match(ui, /id: 'question', label: '질문', color: '#7c83ff'/)
+  assert.match(ui, /id: 'notes', label: '필기', color: '#56a781'/)
   assert.match(ui, /function BoardSections/)
-  assert.match(ui, /게시판 섹션 추가/)
-  assert.match(ui, /createPreviewBoardSection\(label\.trim\(\)\)/)
+  assert.match(ui, /createPreviewBoardSection\(label\.trim\(\), color\)/)
   assert.match(ui, /loadPreviewBoard\(\{ signal, sectionId: activeSectionId \}\)/)
 })
 
@@ -95,32 +95,46 @@ test('board UI covers writes, comments, resolve, offline and server limits', () 
   assert.match(source, /window\.addEventListener\('online', revalidate\)/)
 })
 
-test('refresh icon uses one continuous circular arrow instead of the broken legacy glyph', () => {
+test('refresh control is text-only with no refresh SVG icon', () => {
   const source = read('src/preview-board.jsx')
-  assert.match(source, /<path d="M20 11a8 8 0 1 1-2\.34-5\.66" \/>/)
-  assert.match(source, /<path d="M20 4v5h-5" \/>/)
-  assert.doesNotMatch(source, /M20 6\.8V3\.5h-3\.3/)
+  assert.match(source, />\s*새로고침\s*<\/button>/)
+  assert.doesNotMatch(source, /function RefreshIcon/)
+  assert.doesNotMatch(source, /preview-board-refresh[^>]*>[\s\S]*?<svg/)
 })
 
-test('board layout is centered and refresh control is a clear compact pill', () => {
+test('board layout stays centered and refresh is a compact text button', () => {
   const theme = read('src/preview-board-theme.css')
   assert.match(theme, /\.preview-board-page[\s\S]*width: min\(100%, 760px\)/)
   assert.match(theme, /\.preview-board-page[\s\S]*max-width: 760px/)
   assert.match(theme, /\.preview-board-page[\s\S]*margin-inline: auto/)
-  assert.match(theme, /\.preview-board-refresh[\s\S]*width: auto/)
-  assert.match(theme, /\.preview-board-refresh[\s\S]*height: 36px/)
-  assert.match(theme, /\.preview-board-refresh[\s\S]*border: 1px solid var\(--border\)/)
-  assert.match(theme, /\.preview-board-refresh[\s\S]*border-radius: 12px/)
-  assert.match(theme, /\.preview-board-refresh::after[\s\S]*content: '새로고침'/)
-  assert.match(theme, /\.preview-board-refresh\.is-spinning::after[\s\S]*content: '불러오는 중'/)
+  assert.match(theme, /\.preview-board-refresh[\s\S]*height: 30px/)
+  assert.match(theme, /\.preview-board-refresh[\s\S]*border-radius: 10px/)
+  assert.doesNotMatch(theme, /\.preview-board-refresh::after/)
+  assert.doesNotMatch(theme, /\.preview-board-refresh svg/)
 })
 
-test('board section controls are horizontally scrollable and mobile safe', () => {
+test('board section chips mirror reminder pills, dots and circular add control', () => {
+  const ui = read('src/preview-board.jsx')
   const theme = read('src/preview-board-theme.css')
-  assert.match(theme, /\.preview-board-sections,[\s\S]*\.preview-board-compose-sections[\s\S]*overflow-x: auto/)
-  assert.match(theme, /\.preview-board-sections \.preview-board-section-add[\s\S]*border-style: dashed/)
-  assert.match(theme, /html\.school-samsung \.preview-board-sections button/)
-  assert.match(theme, /@media \(max-width: 430px\)/)
+  assert.match(ui, /preview-board-section-dot/)
+  assert.match(theme, /\.preview-board-sections > button,[\s\S]*min-height: 30px/)
+  assert.match(theme, /\.preview-board-sections > button,[\s\S]*border-radius: 999px/)
+  assert.match(theme, /\.preview-board-section-dot,[\s\S]*width: 7px;[\s\S]*height: 7px/)
+  assert.match(theme, /button\.preview-board-section-add[\s\S]*width: 30px;[\s\S]*border-radius: 50%/)
+  assert.match(theme, /\.preview-board-sections > button\.is-active[\s\S]*background: var\(--text\)/)
+})
+
+test('new board section sheet mirrors reminder name and color picker controls', () => {
+  const ui = read('src/preview-board.jsx')
+  const theme = read('src/preview-board-theme.css')
+  assert.match(ui, /title="새 섹션"/)
+  assert.match(ui, /게시판을 구분할 이름과 색상을 골라 주세요/)
+  assert.match(ui, /preview-board-section-colors/)
+  assert.match(ui, /disabled=\{used \|\| pending\}/)
+  assert.match(theme, /\.preview-board-section-colors > div[\s\S]*grid-template-columns: repeat\(6, 38px\)/)
+  assert.match(theme, /\.preview-board-section-colors button > span[\s\S]*width: 22px;[\s\S]*height: 22px/)
+  assert.match(theme, /\.preview-board-section-colors button\.is-selected[\s\S]*transform: scale\(1\.08\)/)
+  assert.match(theme, /\.preview-board-section-actions[\s\S]*grid-template-columns: 1fr 1\.4fr/)
 })
 
 test('board motion remains mobile and accessibility safe', () => {
@@ -131,7 +145,8 @@ test('board motion remains mobile and accessibility safe', () => {
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
   assert.match(css, /html\.school-samsung/)
   assert.match(css, /@media \(max-width: 430px\)/)
-  assert.match(theme, /color: var\(--bg\)/)
+  assert.match(theme, /html\.school-samsung/)
+  assert.match(theme, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
 test('vite runs board wiring after the class top segment replacement', () => {
