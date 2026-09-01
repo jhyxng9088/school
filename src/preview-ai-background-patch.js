@@ -202,10 +202,17 @@ function patchMain(source) {
     'persistent AI host',
   )
 
+  const plainNavMarker = `            data-tab={tab.id}\n            className={\`nav-button ${'${activeTab === tab.id ? \'active\' : \'\'}'}\`}`
+  const boardUnreadNavMarker = `            data-tab={tab.id}\n            className={\`nav-button ${'${activeTab === tab.id ? \'active\' : \'\'}'} ${'${tab.id === \'class\' && boardUnread.hasUnread ? \'has-board-unread\' : \'\'}'}\`}`
+  const navMarker = next.includes(boardUnreadNavMarker) ? boardUnreadNavMarker : plainNavMarker
+  const boardUnreadClassLine = next.includes(boardUnreadNavMarker)
+    ? `\n              tab.id === 'class' && boardUnread.hasUnread ? 'has-board-unread' : '',`
+    : ''
+
   next = replaceRequired(
     next,
-    `            data-tab={tab.id}\n            className={\`nav-button ${'${activeTab === tab.id ? \'active\' : \'\'}'}\`}`,
-    `            data-tab={tab.id}\n            className={[\n              'nav-button',\n              activeTab === tab.id ? 'active' : '',\n              tab.id === 'ai' && aiWorking ? 'is-ai-working' : '',\n            ].filter(Boolean).join(' ')}`,
+    navMarker,
+    `            data-tab={tab.id}\n            className={[\n              'nav-button',\n              activeTab === tab.id ? 'active' : '',\n              tab.id === 'ai' && aiWorking ? 'is-ai-working' : '',${'${boardUnreadClassLine}'}\n            ].filter(Boolean).join(' ')}`,
     'AI nav working state',
   )
 
