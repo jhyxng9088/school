@@ -38,6 +38,12 @@
   animation: preview-study-control-content-enter 360ms cubic-bezier(.16, 1, .3, 1) both;
 }
 
+/* Idle setup should size to its real content. The old fixed minimum created a large
+   empty band above the start button on wide layouts where subjects fit in one row. */
+.preview-study-control-card:has(.preview-study-action-dock.is-idle) .preview-study-control-content {
+  min-height: 0;
+}
+
 .preview-study-card-heading p,
 .preview-study-live-row,
 .preview-study-today-summary span {
@@ -91,6 +97,10 @@
   display: grid;
   gap: 8px;
   margin-top: 14px;
+  max-height: 84px;
+  overflow: hidden;
+  transform-origin: 50% 0;
+  animation: preview-study-custom-subject-in 420ms cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .preview-study-custom-subject span {
@@ -124,7 +134,7 @@
   font: inherit;
   font-size: 14px;
   font-weight: 720;
-  transition: transform 150ms var(--motion-ease), opacity 180ms ease, background 220ms var(--motion-soft);
+  transition: transform 150ms var(--motion-ease), opacity 180ms ease, background 220ms var(--motion-soft), color 220ms var(--motion-soft), box-shadow 220ms var(--motion-soft);
 }
 
 .preview-study-primary-button {
@@ -181,6 +191,7 @@
     opacity 220ms ease,
     background 360ms var(--motion-soft),
     color 360ms var(--motion-soft),
+    box-shadow 360ms var(--motion-soft),
     border-radius 520ms cubic-bezier(.16, 1, .3, 1);
 }
 
@@ -199,7 +210,8 @@
     opacity 260ms ease,
     transform 520ms cubic-bezier(.16, 1, .3, 1),
     background 360ms var(--motion-soft),
-    color 360ms var(--motion-soft);
+    color 360ms var(--motion-soft),
+    box-shadow 360ms var(--motion-soft);
 }
 
 .preview-study-action-dock.is-active {
@@ -211,11 +223,22 @@
   width: calc(50% - 4px);
 }
 
+/* While a session is active, pause/continue is the quiet secondary action and
+   stopping the session owns the high-contrast primary treatment. */
+.preview-study-action-dock.is-active .preview-study-morph-primary {
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
 .preview-study-action-dock.is-active .preview-study-morph-stop {
   max-width: calc(50% - 4px);
   padding-inline: 12px;
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: none;
   pointer-events: auto;
 }
 
@@ -451,6 +474,17 @@
   padding: 0 3px;
 }
 
+/* The ranking indicator mirrors the final visible bottom-nav pill layer, not the
+   older solid surface token. This keeps the two capsules visually identical. */
+.preview-study-ranking-pill {
+  background: var(--surface-glass) !important;
+  box-shadow: inset 0 0 0 0.5px var(--border), 0 5px 18px rgba(0, 0, 0, .10) !important;
+}
+
+html.school-samsung .preview-study-ranking-pill {
+  background: var(--surface) !important;
+}
+
 @keyframes preview-study-control-content-enter {
   from {
     opacity: 0;
@@ -459,6 +493,21 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes preview-study-custom-subject-in {
+  from {
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+    transform: translateY(-6px) scaleY(.94);
+  }
+  to {
+    max-height: 84px;
+    margin-top: 14px;
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
   }
 }
 
@@ -535,6 +584,7 @@ html.school-samsung .preview-study-today-list {
   }
 
   .preview-study-control-content,
+  .preview-study-custom-subject,
   .preview-study-action-label,
   .preview-study-live-person,
   .preview-study-today-person {
