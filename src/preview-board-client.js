@@ -4,6 +4,7 @@ const BOARD_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/cla
 const BOARD_CACHE_FRESH_MS = 45_000
 const ATTACHMENT_URL_SAFETY_MS = 30_000
 
+export const BOARD_PAGE_SIZE = 40
 export const BOARD_ATTACHMENT_LIMIT = 4
 export const BOARD_ATTACHMENT_MAX_BYTES = 6 * 1024 * 1024
 export const BOARD_ATTACHMENT_ACCEPT = 'image/*,.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.pages,.numbers,.key'
@@ -45,11 +46,12 @@ async function parseBoardResponse(response) {
   return body
 }
 
-async function requestBoard({ method = 'GET', payload = null, signal, sectionId = '', includeSections = true } = {}) {
+async function requestBoard({ method = 'GET', payload = null, signal, sectionId = '', includeSections = true, cursor = '' } = {}) {
   const headers = await authHeaders('application/json')
   const url = new URL(BOARD_API_URL)
   if (method === 'GET' && sectionId) url.searchParams.set('section', sectionId)
   if (method === 'GET' && !includeSections) url.searchParams.set('sections', '0')
+  if (method === 'GET' && cursor) url.searchParams.set('cursor', cursor)
   const options = {
     method,
     headers,
@@ -68,19 +70,58 @@ async function requestBoard({ method = 'GET', payload = null, signal, sectionId 
   return parseBoardResponse(response)
 }
 
+function uniquePosts(posts = []) {
+  const seen = new Set()
+  return posts.filter((post) => {
+    const id = String(post?.id || '')
+    if (!id || seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+}
+
+function removeCachedPost(postId) {
+  const id = String(postId || '')
+  if (!id) return
+  for (const [key, current] of sectionCache.entries()) {
+    const posts = current.posts.filter((post) => post.id !== id)
+    if (posts.length !== current.posts.length) sectionCache.set(key, { ...current, posts })
+  }
+}
+
 function updateCachedPost(post) {
   if (!post?.id || !post?.sectionId) return
+  removeCachedPost(post.id)
   const key = String(post.sectionId)
   const current = sectionCache.get(key)
   if (!current) {
-    sectionCache.set(key, { posts: [post], loadedAt: Date.now() })
+    sectionCache.set(key, {
+      posts: [post],
+      loadedAt: Date.now(),
+      hasMore: false,
+      nextCursor: '',
+    })
     return
   }
-  const index = current.posts.findIndex((item) => item.id === post.id)
-  const posts = index < 0
-    ? [post, ...current.posts]
-    : current.posts.map((item, itemIndex) => (itemIndex === index ? post : item))
-  sectionCache.set(key, { posts, loadedAt: Date.now() })
+  sectionCache.set(key, {
+    ...current,
+    posts: uniquePosts([post, ...current.posts]),
+    loadedAt: Date.now(),
+  })
+}
+
+function updateCachedSection(section) {
+  if (!section?.id) return
+  const index = cachedSections.findIndex((item) => item.id === section.id)
+  cachedSections = index < 0
+    ? [...cachedSections, section]
+    : cachedSections.map((item, itemIndex) => (itemIndex === index ? section : item))
+  sectionsCachedAt = Date.now()
+}
+
+export function invalidatePreviewBoardSection(sectionId = '') {
+  if (sectionId) sectionCache.delete(String(sectionId))
+  else sectionCache.clear()
 }
 
 export function peekPreviewBoardCache(sectionId = 'general') {
@@ -91,6 +132,8 @@ export function peekPreviewBoardCache(sectionId = 'general') {
     posts: [...cached.posts],
     sections: [...cachedSections],
     loadedAt: cached.loadedAt,
+    hasMore: Boolean(cached.hasMore),
+    nextCursor: String(cached.nextCursor || ''),
     isFresh: Date.now() - cached.loadedAt < BOARD_CACHE_FRESH_MS,
   }
 }
@@ -99,18 +142,23 @@ export function previewBoardCacheIsFresh(sectionId = 'general') {
   return Boolean(peekPreviewBoardCache(sectionId)?.isFresh)
 }
 
-export async function loadPreviewBoard({ signal, sectionId = 'general', forceSections = false } = {}) {
-  const includeSections = forceSections || !cachedSections.length || Date.now() - sectionsCachedAt > 5 * 60_000
-  const body = await requestBoard({ method: 'GET', signal, sectionId, includeSections })
-  const posts = Array.isArray(body.posts) ? body.posts : []
+export async function loadPreviewBoard({ signal, sectionId = 'general', forceSections = false, cursor = '', append = false } = {}) {
+  const includeSections = !cursor && (forceSections || !cachedSections.length || Date.now() - sectionsCachedAt > 5 * 60_000)
+  const body = await requestBoard({ method: 'GET', signal, sectionId, includeSections, cursor })
+  const pagePosts = Array.isArray(body.posts) ? body.posts : []
   const sections = Array.isArray(body.sections) && body.sections.length ? body.sections : cachedSections
   if (Array.isArray(body.sections) && body.sections.length) {
     cachedSections = body.sections
     sectionsCachedAt = Date.now()
   }
   const activeSectionId = String(body.activeSectionId || sectionId || 'general')
-  sectionCache.set(activeSectionId, { posts, loadedAt: Date.now() })
-  return { posts, sections: [...sections], activeSectionId }
+  const prior = sectionCache.get(activeSectionId)
+  const posts = append && prior ? uniquePosts([...prior.posts, ...pagePosts]) : uniquePosts(pagePosts)
+  const page = body.page && typeof body.page === 'object' ? body.page : {}
+  const hasMore = Boolean(page.hasMore)
+  const nextCursor = String(page.nextCursor || '')
+  sectionCache.set(activeSectionId, { posts, loadedAt: Date.now(), hasMore, nextCursor })
+  return { posts, sections: [...sections], activeSectionId, hasMore, nextCursor }
 }
 
 export function newPreviewBoardAttachmentDraftId() {
@@ -188,15 +236,62 @@ export async function createPreviewBoardPost({ sectionId = 'general', title, bod
   return response.post
 }
 
+export async function editPreviewBoardPost({ postId, sectionId, title, body, keepAttachmentIds = [], attachments = [] }) {
+  const response = await requestBoard({
+    method: 'POST',
+    payload: {
+      action: 'edit-post',
+      postId,
+      sectionId,
+      title,
+      body,
+      keepAttachmentIds: keepAttachmentIds.slice(0, BOARD_ATTACHMENT_LIMIT),
+      attachments: attachments.slice(0, BOARD_ATTACHMENT_LIMIT),
+    },
+  })
+  if (!response.post?.id) throw boardError('board/invalid-post', '수정된 게시글을 확인하지 못했어요.')
+  updateCachedPost(response.post)
+  return response.post
+}
+
+export async function deletePreviewBoardPost(postId) {
+  const response = await requestBoard({ method: 'POST', payload: { action: 'delete-post', postId } })
+  if (!response.postId) throw boardError('board/invalid-post', '삭제된 게시글을 확인하지 못했어요.')
+  removeCachedPost(response.postId)
+  return { postId: String(response.postId), sectionId: String(response.sectionId || 'general') }
+}
+
 export async function createPreviewBoardSection(label, color) {
   const response = await requestBoard({
     method: 'POST',
     payload: { action: 'create-section', label, color },
   })
   if (!response.section?.id) throw boardError('board/invalid-section', '새 섹션을 확인하지 못했어요.')
-  cachedSections = [...cachedSections.filter((item) => item.id !== response.section.id), response.section]
-  sectionsCachedAt = Date.now()
+  updateCachedSection(response.section)
   return response.section
+}
+
+export async function editPreviewBoardSection(sectionId, label, color) {
+  const response = await requestBoard({
+    method: 'POST',
+    payload: { action: 'edit-section', sectionId, label, color },
+  })
+  if (!response.section?.id) throw boardError('board/invalid-section', '수정된 섹션을 확인하지 못했어요.')
+  updateCachedSection(response.section)
+  return response.section
+}
+
+export async function deletePreviewBoardSection(sectionId) {
+  const response = await requestBoard({
+    method: 'POST',
+    payload: { action: 'delete-section', sectionId },
+  })
+  if (!response.sectionId) throw boardError('board/invalid-section', '삭제된 섹션을 확인하지 못했어요.')
+  cachedSections = cachedSections.filter((item) => item.id !== response.sectionId)
+  sectionsCachedAt = Date.now()
+  sectionCache.delete(String(response.sectionId))
+  sectionCache.delete('general')
+  return { sectionId: String(response.sectionId), movedCount: Number(response.movedCount || 0) }
 }
 
 export async function addPreviewBoardComment(postId, body) {
@@ -205,6 +300,26 @@ export async function addPreviewBoardComment(postId, body) {
     payload: { action: 'comment', postId, body },
   })
   if (!response.post?.id) throw boardError('board/invalid-post', '댓글이 반영된 게시글을 확인하지 못했어요.')
+  updateCachedPost(response.post)
+  return response.post
+}
+
+export async function editPreviewBoardComment(postId, commentId, body) {
+  const response = await requestBoard({
+    method: 'POST',
+    payload: { action: 'edit-comment', postId, commentId, body },
+  })
+  if (!response.post?.id) throw boardError('board/invalid-post', '수정된 댓글을 확인하지 못했어요.')
+  updateCachedPost(response.post)
+  return response.post
+}
+
+export async function deletePreviewBoardComment(postId, commentId) {
+  const response = await requestBoard({
+    method: 'POST',
+    payload: { action: 'delete-comment', postId, commentId },
+  })
+  if (!response.post?.id) throw boardError('board/invalid-post', '댓글 삭제 결과를 확인하지 못했어요.')
   updateCachedPost(response.post)
   return response.post
 }
@@ -219,11 +334,11 @@ export async function resolvePreviewBoardQuestion(postId) {
   return response.post
 }
 
-export async function getPreviewBoardAttachmentUrl(postId, attachmentId) {
+async function getPreviewBoardAttachmentAccess(postId, attachmentId) {
   const id = String(attachmentId || '').trim()
   if (!id) throw boardError('board/attachment-required', '첨부 파일을 찾지 못했어요.')
   const cached = attachmentUrlCache.get(id)
-  if (cached && cached.expiresAt - ATTACHMENT_URL_SAFETY_MS > Date.now()) return cached.url
+  if (cached && cached.expiresAt - ATTACHMENT_URL_SAFETY_MS > Date.now()) return cached
 
   const response = await requestBoard({
     method: 'POST',
@@ -232,6 +347,33 @@ export async function getPreviewBoardAttachmentUrl(postId, attachmentId) {
   const url = String(response.url || '')
   const expiresAt = Number(response.expiresAt || 0)
   if (!url || !expiresAt) throw boardError('board/attachment-url', '원본 파일을 열지 못했어요.')
-  attachmentUrlCache.set(id, { url, expiresAt })
-  return url
+  const access = { url, expiresAt, attachment: response.attachment || null }
+  attachmentUrlCache.set(id, access)
+  return access
+}
+
+export async function getPreviewBoardAttachmentUrl(postId, attachmentId) {
+  return (await getPreviewBoardAttachmentAccess(postId, attachmentId)).url
+}
+
+export async function loadPreviewBoardAttachmentOriginal(postId, attachmentId) {
+  const access = await getPreviewBoardAttachmentAccess(postId, attachmentId)
+  let response
+  try {
+    response = await fetch(access.url, { method: 'GET', cache: 'no-store' })
+  } catch {
+    throw boardError('board/attachment-network', '원본 파일을 불러오는 중 연결이 끊겼어요.')
+  }
+  if (!response.ok) {
+    attachmentUrlCache.delete(String(attachmentId || ''))
+    throw boardError('board/attachment-download', '원본 파일을 불러오지 못했어요.')
+  }
+  const blob = await response.blob()
+  const attachment = access.attachment || {}
+  return {
+    blob,
+    name: String(attachment.fileName || '원본 파일'),
+    mimeType: String(attachment.mimeType || blob.type || 'application/octet-stream'),
+    size: Number(attachment.sizeBytes || blob.size || 0),
+  }
 }
