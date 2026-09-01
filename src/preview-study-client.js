@@ -1,0 +1,98 @@
+import { ensureSignedIn } from './school-sync.js'
+
+const STUDY_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-study'
+
+function studyError(code, message) {
+  const error = new Error(message)
+  error.code = code
+  return error
+}
+
+async function authHeaders() {
+  const user = await ensureSignedIn()
+  const idToken = String(await user.getIdToken()).trim()
+  if (!idToken) throw studyError('study/auth-required', '로그인 정보를 확인하지 못했어요.')
+  return {
+    authorization: `Bearer ${idToken}`,
+    'content-type': 'application/json',
+  }
+}
+
+async function parseStudyResponse(response) {
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body?.ok !== true) {
+    throw studyError(
+      String(body?.error || `study/http-${response.status || 0}`),
+      String(body?.message || '스터디 요청을 처리하지 못했어요.'),
+    )
+  }
+  return body
+}
+
+async function requestStudy({ method = 'GET', payload = null, signal } = {}) {
+  let response
+  try {
+    response = await fetch(STUDY_API_URL, {
+      method,
+      headers: await authHeaders(),
+      body: payload ? JSON.stringify(payload) : undefined,
+      cache: 'no-store',
+      signal,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    throw studyError('study/network', '스터디 서버에 연결하지 못했어요.')
+  }
+  return parseStudyResponse(response)
+}
+
+function normalizeActive(value) {
+  if (!value || typeof value !== 'object') return null
+  const startedAt = Number(value.startedAt || 0)
+  const studentKey = String(value.studentKey || '')
+  const name = String(value.name || '').trim().slice(0, 20)
+  const subject = String(value.subject || '').trim().slice(0, 24)
+  if (!studentKey || !name || !subject || !Number.isFinite(startedAt) || startedAt <= 0) return null
+  return { studentKey, name, subject, startedAt }
+}
+
+function normalizeStudent(value) {
+  if (!value || typeof value !== 'object') return null
+  const studentKey = String(value.studentKey || '')
+  const name = String(value.name || '').trim().slice(0, 20)
+  if (!studentKey || !name) return null
+  return {
+    studentKey,
+    name,
+    totalSeconds: Math.max(0, Math.floor(Number(value.totalSeconds || 0))),
+    active: normalizeActive(value.active),
+  }
+}
+
+export function normalizePreviewStudySnapshot(body) {
+  const source = body && typeof body === 'object' ? body : {}
+  const students = (Array.isArray(source.students) ? source.students : [])
+    .map(normalizeStudent)
+    .filter(Boolean)
+  const me = normalizeStudent(source.me) || null
+  return {
+    date: String(source.date || ''),
+    students,
+    me,
+    generatedAt: Math.max(0, Number(source.generatedAt || Date.now())),
+  }
+}
+
+export async function loadPreviewStudy({ signal } = {}) {
+  return normalizePreviewStudySnapshot(await requestStudy({ signal }))
+}
+
+export async function startPreviewStudy(subject) {
+  const cleanSubject = String(subject || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, 24)
+  if (!cleanSubject) throw studyError('study/subject-required', '공부할 과목을 선택해 주세요.')
+  return requestStudy({ method: 'POST', payload: { action: 'start', subject: cleanSubject } })
+}
+
+export async function stopPreviewStudy() {
+  return requestStudy({ method: 'POST', payload: { action: 'stop' } })
+}
