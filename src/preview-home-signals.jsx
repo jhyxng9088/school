@@ -50,7 +50,7 @@ function signalCopy({ boardUnread, studyUnread, presence, todos }) {
   ]
 }
 
-export function PreviewHomeSignals({ profile, presence, todos }) {
+export function PreviewHomeSignals({ profile, presence, todos, onNavigate }) {
   const boardUnread = usePreviewBoardUnread(profile)
   const [studyUnread, setStudyUnread] = useState(() => previewStudyUnreadSnapshot(profile))
 
@@ -62,14 +62,30 @@ export function PreviewHomeSignals({ profile, presence, todos }) {
   )
 
   return (
-    <section className="home-section preview-home-signals" aria-label="S-Hub 한눈에 보기">
+    <section
+      className="home-section preview-home-signals"
+      aria-label="S-Hub 한눈에 보기"
+      data-home-nav-ready="true"
+    >
       <div className="section-heading preview-home-signals-heading">
         <h2>한눈에 보기</h2>
         <span>실시간</span>
       </div>
       <div className="preview-home-signals-grid">
         {signals.map((signal) => (
-          <article className={`preview-home-signal ${signal.active ? 'is-active' : ''}`} key={signal.id}>
+          <article
+            className={`preview-home-signal ${signal.active ? 'is-active' : ''}`}
+            key={signal.id}
+            role="button"
+            tabIndex={0}
+            aria-label={`${signal.label} 열기`}
+            onClick={() => onNavigate?.(signal.id)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return
+              event.preventDefault()
+              onNavigate?.(signal.id)
+            }}
+          >
             <div className="preview-home-signal-head">
               <span>{signal.label}</span>
               <i aria-hidden="true" />
