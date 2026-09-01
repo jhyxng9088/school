@@ -22,6 +22,7 @@ import { patchPreviewNestedGeometryCouplingSource } from './src/preview-nested-g
 import { patchPreviewNavResponsivenessSource } from './src/preview-nav-responsiveness-patch.js'
 import { patchPreviewClassTopSegmentSource } from './src/preview-class-top-segment-patch.js'
 import { patchPreviewClassTopSegmentStyleSource } from './src/preview-class-top-segment-style-patch.js'
+import { patchPreviewBoardSource } from './src/preview-board-patch.js'
 import { patchPreviewScheduleTopSegmentSource } from './src/preview-schedule-top-segment-patch.js'
 import { patchPreviewAIPageSource } from './src/preview-ai-page-patch.js'
 import { patchPreviewAIDensitySource } from './src/preview-ai-density-patch.js'
@@ -101,6 +102,7 @@ function replacePreviewSource(source, id) {
   next = patchPreviewNavResponsivenessSource(next, cleanId)
   next = patchPreviewClassTopSegmentSource(next, cleanId)
   next = patchPreviewClassTopSegmentStyleSource(next, cleanId)
+  next = patchPreviewBoardSource(next, cleanId)
   next = patchPreviewScheduleTopSegmentSource(next, cleanId)
   next = patchPreviewAIPageSource(next, cleanId)
   next = patchPreviewAIDensitySource(next, cleanId)
@@ -179,6 +181,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-nav-responsiveness-patch.js')
         || cleanId.endsWith('/preview-class-top-segment-patch.js')
         || cleanId.endsWith('/preview-class-top-segment-style-patch.js')
+        || cleanId.endsWith('/preview-board-patch.js')
         || cleanId.endsWith('/preview-schedule-top-segment-patch.js')
         || cleanId.endsWith('/preview-ai-page-patch.js')
         || cleanId.endsWith('/preview-ai-density-patch.js')
