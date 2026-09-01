@@ -119,11 +119,13 @@ test('home AI launcher is removed while the bottom AI station keeps background p
   assert.match(source, /tab\.id === 'ai' && aiWorking \? <span className="s-hub-ai-nav-progress"/)
 })
 
-test('persistent AI wrapper restores viewport centering and keeps short screens scroll-safe', () => {
+test('persistent AI wrapper keeps viewport centering, nav clearance, and short-screen scroll safety', () => {
   const css = patchPreviewAIBackgroundSource('', '/workspace/src/s-hub-ai.css')
-  assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*min-height:\s*calc\(100dvh - var\(--nav-bottom\) - 64px\)/)
-  assert.match(css, /\.preview-ai-persistent-host\.is-active\s*\{[\s\S]*justify-content:\s*center/)
-  assert.match(css, /\.preview-ai-persistent-host\.is-active > \.s-hub-ai-page\s*\{[\s\S]*margin-block:\s*auto/)
+  assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*--s-hub-ai-nav-clearance:\s*calc\(64px \+ var\(--nav-bottom\) \+ 24px\)/)
+  assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*min-height:\s*calc\(100dvh \+ 24px - var\(--s-hub-ai-top-inset\)\)/)
+  assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*padding-bottom:\s*var\(--s-hub-ai-nav-clearance\)/)
+  assert.match(css, /\.app-content\.tab-ai > \.preview-ai-persistent-host\.is-active > \.s-hub-ai-page\s*\{[\s\S]*margin-block:\s*auto/)
+  assert.match(css, /@media \(max-height: 760px\)[\s\S]*min-height:\s*100dvh/)
   assert.match(css, /@media \(max-height: 760px\)[\s\S]*padding-bottom:\s*calc\(104px \+ env\(safe-area-inset-bottom\)\)/)
   assert.match(css, /@media \(max-height: 760px\)[\s\S]*margin-block:\s*0/)
 })
