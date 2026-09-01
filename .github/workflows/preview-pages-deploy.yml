@@ -65,12 +65,19 @@ jobs:
           from pathlib import Path
           path = Path('preview-source/vite.config.js')
           text = path.read_text()
+          preview_base = "base: '/school/preview-v2/'"
+          production_base = "base: '/school/'"
           marker = "export default defineConfig({"
-          replacement = "export default defineConfig({\n  base: '/school/preview-v2/',"
-          if "base: '/school/preview-v2/'" not in text:
-              if marker not in text:
-                  raise SystemExit('vite config marker missing')
-              path.write_text(text.replace(marker, replacement, 1))
+          if preview_base not in text:
+              if production_base in text:
+                  text = text.replace(production_base, preview_base, 1)
+              elif marker in text:
+                  text = text.replace(marker, marker + "\n  " + preview_base + ",", 1)
+              else:
+                  raise SystemExit('vite config base marker missing')
+              path.write_text(text)
+          if text.count('base:') > 1:
+              raise SystemExit('duplicate Vite base keys detected')
           PY
 
       - name: Build preview app
@@ -88,19 +95,6 @@ jobs:
           cp -R production-source/dist/. site/
           cp -R preview-source/dist/. site/preview-v2/
           printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/school/preview-v2/"><title>Preview moved</title>' > site/preview.html
-          python3 - <<'PY'
-          from pathlib import Path
-          sw = Path('site/preview-v2/sw.js')
-          if sw.exists():
-              text = sw.read_text()
-              text = text.replace("const CACHE_NAME = 'school-stage3-", "const CACHE_NAME = 'school-preview-stage3-")
-              text = text.replace("const CACHE_PREFIX = 'school-stage3-'", "const CACHE_PREFIX = 'school-preview-stage3-'")
-              text = text.replace(
-                  "const oldCaches = keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)",
-                  "const oldCaches = keys.filter((key) => key.startsWith('school-preview-stage3-') && key !== CACHE_NAME)"
-              )
-              sw.write_text(text)
-          PY
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -128,10 +122,11 @@ jobs:
             html="$(curl -fsSL --retry 2 --retry-delay 1 "${PREVIEW_URL}?sha=${EXPECTED_SHA}&attempt=${attempt}" || true)"
             sw="$(curl -fsSL --retry 2 --retry-delay 1 "${PREVIEW_SW_URL}?sha=${EXPECTED_SHA}&attempt=${attempt}" || true)"
             if printf '%s' "${html}" | grep -Fq 'id="root"' \
-              && ! printf '%s' "${html}" | grep -Fq 'rolled-back-preview' \
-              && printf '%s' "${sw}" | grep -Fq "const DATA_ISOLATION = 'preview-v2-20260831'" \
-              && printf '%s' "${sw}" | grep -Fq "const CACHE_PREFIX = 'school-preview-stage3-'" \
-              && ! printf '%s' "${sw}" | grep -Fq "const CACHE_PREFIX = 'school-stage3-'"; then
+              && printf '%s' "${html}" | grep -Fq '/school/preview-v2/assets/' \
+              && printf '%s' "${sw}" | grep -Fq "const CACHE_NAME = 'school-preview-shell-" \
+              && printf '%s' "${sw}" | grep -Fq "const NOTIFICATION_PROFILE_CACHE = 'school-preview-notification-profile-" \
+              && printf '%s' "${sw}" | grep -Fq "key.startsWith('school-preview-')" \
+              && ! printf '%s' "${sw}" | grep -Fq "const CACHE_NAME = 'school-shell-"; then
               echo "Preview smoke test passed for ${EXPECTED_SHA}"
               exit 0
             fi
