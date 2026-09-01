@@ -46,6 +46,13 @@ test('board unread UI reaches class nav, board segment, and changed post cards',
   assert.match(css, /preview-board-card\.has-unread/)
 })
 
+test('an already open post stays read when a realtime comment or edit arrives', () => {
+  const patch = read('src/preview-board-patch.js')
+  assert.match(patch, /if \(!detailPostId \|\| !boardUnread\.isPostUnread\(detailPostId\)\) return/)
+  assert.match(patch, /boardUnread\.markPostRead\(detailPostId\)/)
+  assert.match(patch, /\[detailPostId, boardUnread\.revision\]/)
+})
+
 test('AI working state keeps board unread class when both nav indicators are active', () => {
   const aiPatch = read('src/preview-ai-background-patch.js')
   assert.match(aiPatch, /boardUnreadNavMarker/)
