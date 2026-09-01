@@ -18,6 +18,14 @@ test('preview study replaces the station placeholder without changing production
   assert.doesNotMatch(patched, /스터디 기능을 넣을 자리만 먼저 확보했어/)
 })
 
+test('preview build preserves the board placeholder until board wiring finishes', () => {
+  const config = read('vite.config.js')
+  const boardAt = config.indexOf('next = patchPreviewBoardSource(next, cleanId)')
+  const studyAt = config.indexOf('next = patchPreviewStudySource(next, cleanId)')
+  assert.ok(boardAt >= 0, 'board patch must remain in preview pipeline')
+  assert.ok(studyAt > boardAt, 'study must replace its placeholder only after board wiring uses that marker')
+})
+
 test('preview study client is isolated to the dedicated study endpoint', () => {
   const client = read('src/preview-study-client.js')
   assert.match(client, /functions\/v1\/class-study/)
