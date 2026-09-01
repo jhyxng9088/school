@@ -6,9 +6,9 @@ import { resolve } from 'node:path'
 const root = process.cwd()
 const text = (path) => readFileSync(resolve(root, path), 'utf8')
 
-test('only the permanent deployment workflow remains', () => {
+test('only the permanent production and isolated preview deployment workflows remain', () => {
   const workflows = readdirSync(resolve(root, '.github/workflows')).filter((name) => /\.ya?ml$/.test(name)).sort()
-  assert.deepEqual(workflows, ['deploy.yml'])
+  assert.deepEqual(workflows, ['deploy.yml', 'preview-pages-deploy.yml'])
   assert.equal(existsSync(resolve(root, '.github/scripts')), false)
 })
 
