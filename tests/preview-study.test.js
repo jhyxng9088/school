@@ -72,8 +72,8 @@ test('study ranking separates class and school and opens a student detail sheet'
   const page = read('src/preview-study.jsx')
   const style = read('src/preview-study-ranking.css')
 
-  assert.match(page, />우리반</)
-  assert.match(page, />전교</)
+  assert.match(page, />\s*우리반\s*</)
+  assert.match(page, />\s*전교\s*</)
   assert.match(page, /loadPreviewStudy\(\{ scope: 'school' \}\)/)
   assert.match(page, /StudyStudentSheet/)
   assert.match(page, /role="dialog"/)
