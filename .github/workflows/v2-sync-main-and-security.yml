@@ -38,26 +38,26 @@ jobs:
           if [ "$merge_status" -ne 0 ]; then
             mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
             printf '%s\n' "${conflicts[@]}" | sort > /tmp/actual-conflicts.txt
-            cat > /tmp/expected-conflicts.txt <<'EOF'
-.github/preview-deploy-trigger.txt
-index.html
-public/sw.js
-push-backend-v2/api/class-roster.js
-push-backend-v2/test/class-roster-repair-api.test.js
-push-backend-v2/vercel.json
-src/preview-ai-reminder-summary-patch.js
-src/preview-polite-copy-additions.js
-src/reminder-section-client.js
-tests/polite-copy-audit.test.js
-tests/preview-ui-regressions.test.js
-tests/reminder-categories.test.js
-tests/s-hub-ai-auth.test.js
-tests/s-hub-ai-hybrid-attachment.test.js
-tests/s-hub-ai-server-route.test.js
-tests/s-hub-ai-shared-cache.test.js
-vite.config.js
-EOF
-            sort -o /tmp/expected-conflicts.txt /tmp/expected-conflicts.txt
+            expected=(
+              '.github/preview-deploy-trigger.txt'
+              'index.html'
+              'public/sw.js'
+              'push-backend-v2/api/class-roster.js'
+              'push-backend-v2/test/class-roster-repair-api.test.js'
+              'push-backend-v2/vercel.json'
+              'src/preview-ai-reminder-summary-patch.js'
+              'src/preview-polite-copy-additions.js'
+              'src/reminder-section-client.js'
+              'tests/polite-copy-audit.test.js'
+              'tests/preview-ui-regressions.test.js'
+              'tests/reminder-categories.test.js'
+              'tests/s-hub-ai-auth.test.js'
+              'tests/s-hub-ai-hybrid-attachment.test.js'
+              'tests/s-hub-ai-server-route.test.js'
+              'tests/s-hub-ai-shared-cache.test.js'
+              'vite.config.js'
+            )
+            printf '%s\n' "${expected[@]}" | sort > /tmp/expected-conflicts.txt
             if ! diff -u /tmp/expected-conflicts.txt /tmp/actual-conflicts.txt; then
               echo "Unexpected main/preview conflict set; refusing automatic resolution."
               git merge --abort || true
