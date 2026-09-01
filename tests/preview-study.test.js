@@ -26,11 +26,15 @@ test('preview build preserves the board placeholder until board wiring finishes'
   assert.ok(studyAt > boardAt, 'study must replace its placeholder only after board wiring uses that marker')
 })
 
-test('preview study client is isolated to the dedicated study endpoint', () => {
+test('preview study client is isolated to the dedicated study endpoint and supports pause lifecycle', () => {
   const client = read('src/preview-study-client.js')
   assert.match(client, /functions\/v1\/class-study/)
   assert.match(client, /ensureSignedIn/)
   assert.match(client, /cache: 'no-store'/)
+  assert.match(client, /export async function pausePreviewStudy/)
+  assert.match(client, /action: 'pause'/)
+  assert.match(client, /export async function resumePreviewStudy/)
+  assert.match(client, /action: 'resume'/)
 })
 
 test('preview study realtime reuses the authenticated class topic and a separate event', () => {
@@ -41,11 +45,31 @@ test('preview study realtime reuses the authenticated class topic and a separate
   assert.match(realtime, /self: false/)
 })
 
-test('study page includes start, stop, live classmates and today totals', () => {
+test('study page includes start, pause, resume, stop, class presence and today totals', () => {
   const page = read('src/preview-study.jsx')
   assert.match(page, /공부 시작/)
+  assert.match(page, /일시정지/)
+  assert.match(page, /계속하기/)
   assert.match(page, /공부 종료/)
-  assert.match(page, /지금 공부 중/)
+  assert.match(page, /현재 스터디/)
   assert.match(page, /오늘 공부 시간/)
   assert.match(page, /runningTodaySeconds/)
+  assert.match(page, /activeSessionSeconds/)
+})
+
+test('study UI uses neutral polite copy instead of casual second-person copy', () => {
+  const page = read('src/preview-study.jsx')
+  const client = read('src/preview-study-client.js')
+  assert.doesNotMatch(page, /할 거야\?|학생이 없어\.|못했어\.|보여주고 있어|· 나/)
+  assert.doesNotMatch(client, /못했어요|올바르지 않아요|사용할 수 있어요/)
+  assert.match(page, /공부할 과목을 선택해 주세요\./)
+  assert.match(page, /학생이 없습니다\./)
+})
+
+test('new study presence rows animate in and respect reduced motion', () => {
+  const style = read('src/preview-study.css')
+  assert.match(style, /animation: preview-study-person-enter/)
+  assert.match(style, /@keyframes preview-study-person-enter/)
+  assert.match(style, /prefers-reduced-motion: reduce/)
+  assert.match(style, /animation: none !important/)
 })
