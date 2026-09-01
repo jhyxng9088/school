@@ -65,23 +65,118 @@
     return localStorage.getItem(UPDATE_TOUR_KEY) !== 'done'
   }
 
+  function iconMarkup(type, className = 'v2-tour-icon') {
+    const common = `class="${className}" viewBox="0 0 24 24" aria-hidden="true"`
+    if (type === 'home') return `<svg ${common}><path d="M4 10.7 12 4l8 6.7v8.1a1.2 1.2 0 0 1-1.2 1.2h-4.4v-5.6H9.6V20H5.2A1.2 1.2 0 0 1 4 18.8Z"/></svg>`
+    if (type === 'class') return `<svg ${common}><circle cx="8" cy="9" r="2.5"/><circle cx="16.2" cy="8.2" r="2.1"/><path d="M3.8 18.8c.4-3.2 2-5 4.6-5 2.7 0 4.3 1.8 4.7 5M13.7 13.5c2.8-.4 5.2 1.3 5.8 4.1"/></svg>`
+    if (type === 'ai') return `<svg ${common}><path d="M12 3.7c.7 4.6 3.1 7 7.6 7.7-4.5.7-6.9 3.1-7.6 7.7-.7-4.6-3.1-7-7.6-7.7 4.5-.7 6.9-3.1 7.6-7.7Z"/><path d="M18.9 3.5c.2 1.4.9 2.1 2.2 2.3-1.3.2-2 1-2.2 2.3-.2-1.3-.9-2.1-2.2-2.3 1.3-.2 2-1 2.2-2.3Z"/></svg>`
+    if (type === 'study') return `<svg ${common}><circle cx="12" cy="12" r="7.7"/><path d="M12 7.8v4.6l3 1.8"/></svg>`
+    if (type === 'calendar') return `<svg ${common}><rect x="4" y="5.8" width="16" height="14" rx="3"/><path d="M8 3.7v4M16 3.7v4M4 10h16"/></svg>`
+    if (type === 'timetable') return `<svg ${common}><rect x="4" y="4.5" width="16" height="15" rx="3"/><path d="M8 4.5v15M12 4.5v15M16 4.5v15M4 9.5h16M4 14.5h16"/></svg>`
+    if (type === 'board') return `<svg ${common}><path d="M6 4.5h12a2 2 0 0 1 2 2v9.2a2 2 0 0 1-2 2h-6l-4.3 2.1.7-2.1H6a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2Z"/><path d="M8 9h8M8 12.5h5.5"/></svg>`
+    if (type === 'people') return `<svg ${common}><circle cx="9" cy="9" r="2.5"/><path d="M4.2 18.6c.4-3.2 2-5 4.8-5 2.7 0 4.4 1.8 4.8 5M14 7.5c2.7-.2 4.1 1.4 4.1 3.2 0 1.3-.7 2.3-1.8 2.8M15.2 14.5c2.5.1 4 1.5 4.5 4.1"/></svg>`
+    if (type === 'reminder') return `<svg ${common}><path d="M7 9.2a5 5 0 0 1 10 0c0 5 2 5.1 2 6.8H5c0-1.7 2-1.8 2-6.8Z"/><path d="M9.8 18.3c.4 1.2 1.1 1.8 2.2 1.8s1.8-.6 2.2-1.8"/></svg>`
+    return `<svg ${common}><circle cx="12" cy="12" r="7"/></svg>`
+  }
+
   function visualMarkup(type) {
     if (type === 'intro') {
-      return '<div class="v2-tour-intro" aria-hidden="true"><i></i><strong>V2</strong><span></span></div>'
+      return `
+        <div class="v2-tour-intro" aria-hidden="true">
+          <span class="v2-tour-intro-halo"></span>
+          <span class="v2-tour-intro-orbit orbit-one"><i></i></span>
+          <span class="v2-tour-intro-orbit orbit-two"><i></i></span>
+          <span class="v2-tour-intro-core"><strong>V2</strong></span>
+          <b class="v2-tour-intro-speck speck-one"></b>
+          <b class="v2-tour-intro-speck speck-two"></b>
+          <b class="v2-tour-intro-speck speck-three"></b>
+        </div>
+      `
     }
     if (type === 'nav') {
-      return '<div class="v2-tour-nav" aria-hidden="true"><i>홈</i><i>우리 반</i><i>AI</i><i>스터디</i><i>일정</i></div>'
+      const items = [
+        ['home', '홈'],
+        ['class', '우리 반'],
+        ['ai', 'AI'],
+        ['study', '스터디'],
+        ['calendar', '일정'],
+      ]
+      return `
+        <div class="v2-tour-nav" aria-hidden="true">
+          ${items.map(([icon, label], index) => `
+            <i class="${icon === 'ai' ? 'is-ai' : ''}" style="--v2-order:${index}">
+              ${iconMarkup(icon)}
+              <span>${label}</span>
+            </i>
+          `).join('')}
+          <b class="v2-tour-nav-indicator"></b>
+        </div>
+      `
     }
     if (type === 'class') {
-      return '<div class="v2-tour-class" aria-hidden="true"><div><strong>우리 반</strong><span>시간표</span><span>게시판</span></div><i></i><i></i><i></i></div>'
+      return `
+        <div class="v2-tour-class" aria-hidden="true">
+          <div class="v2-tour-class-card">
+            <div class="v2-tour-class-head">
+              <span class="v2-tour-class-icon">${iconMarkup('class')}</span>
+              <strong>우리 반</strong>
+              <i class="v2-tour-unread-dot"></i>
+            </div>
+            <div class="v2-tour-class-tabs">
+              <span>${iconMarkup('timetable')}<b>시간표</b></span>
+              <span>${iconMarkup('board')}<b>게시판</b><i class="v2-tour-mini-dot"></i></span>
+            </div>
+          </div>
+          <span class="v2-tour-class-signal signal-one"></span>
+          <span class="v2-tour-class-signal signal-two"></span>
+        </div>
+      `
     }
     if (type === 'study') {
-      return '<div class="v2-tour-study" aria-hidden="true"><div class="v2-tour-study-ring"><b>42:18</b><span>수학</span></div><div class="v2-tour-study-bars"><i></i><i></i><i></i><i></i></div></div>'
+      return `
+        <div class="v2-tour-study" aria-hidden="true">
+          <div class="v2-tour-study-ring">
+            <span class="v2-tour-study-progress"></span>
+            <b>42:18</b>
+            <span>수학</span>
+          </div>
+          <div class="v2-tour-study-side">
+            <div class="v2-tour-study-badge">${iconMarkup('people')}<span>함께 공부 중</span></div>
+            <div class="v2-tour-study-bars"><i></i><i></i><i></i><i></i></div>
+          </div>
+        </div>
+      `
     }
     if (type === 'home') {
-      return '<div class="v2-tour-home" aria-hidden="true"><i><span>우리 반</span><b>7/28명</b></i><i><span>게시판</span><b>2개</b></i><i><span>스터디</span><b>새 활동</b></i><i><span>리마인더</span><b>3개</b></i></div>'
+      const cards = [
+        ['people', '우리 반', '7/28명'],
+        ['board', '게시판', '2개'],
+        ['study', '스터디', '새 활동'],
+        ['reminder', '리마인더', '3개'],
+      ]
+      return `
+        <div class="v2-tour-home" aria-hidden="true">
+          ${cards.map(([icon, label, value], index) => `
+            <i style="--v2-order:${index}">
+              <span class="v2-tour-home-icon">${iconMarkup(icon)}</span>
+              <span>${label}</span>
+              <b>${value}</b>
+            </i>
+          `).join('')}
+        </div>
+      `
     }
-    return '<div class="v2-tour-finish" aria-hidden="true"><span></span><strong>S-Hub</strong><b>V2</b></div>'
+    return `
+      <div class="v2-tour-finish" aria-hidden="true">
+        <div class="v2-tour-finish-mark"><span></span><i class="v2-tour-finish-sheen"></i></div>
+        <strong>S-Hub</strong>
+        <b>V2</b>
+        <div class="v2-tour-finish-tools">
+          <i>${iconMarkup('calendar')}<span>일정</span></i>
+          <i>${iconMarkup('ai')}<span>AI</span></i>
+        </div>
+      </div>
+    `
   }
 
   function slideMarkup(slide, index) {
