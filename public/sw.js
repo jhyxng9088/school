@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-shell-v154'
+const CACHE_NAME = 'school-shell-v155'
 const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
 const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
 const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
@@ -55,6 +55,8 @@ function notificationTarget(tag, body, fallbackUrl = './') {
   const normalizedTag = String(tag || '').toLowerCase()
   const normalizedBody = String(body || '')
 
+  if (normalizedTag.includes('board') || normalizedBody.includes('게시판')) return { url: './?tab=board', tab: 'board' }
+  if (normalizedTag.includes('study') || normalizedBody.includes('스터디') || normalizedBody.includes('공부를 시작')) return { url: './?tab=study', tab: 'study' }
   if (normalizedTag.includes('reminder') || normalizedBody.includes('리마인더')) return { url: './?tab=todo', tab: 'todo' }
   if (normalizedTag.includes('timetable') || normalizedBody.includes('시간표')) return { url: './?tab=timetable', tab: 'timetable' }
   if (normalizedTag.includes('academic') || normalizedBody.includes('학사일정')) return { url: './?tab=academic', tab: 'academic' }
@@ -80,7 +82,7 @@ async function notificationBodyForProfile(body) {
 function tabFromUrl(value) {
   try {
     const tab = new URL(value || './', self.registration.scope).searchParams.get('tab') || ''
-    return ['home', 'todo', 'timetable', 'meal', 'academic'].includes(tab) ? tab : ''
+    return ['home', 'todo', 'timetable', 'board', 'study', 'meal', 'academic'].includes(tab) ? tab : ''
   } catch {
     return ''
   }
