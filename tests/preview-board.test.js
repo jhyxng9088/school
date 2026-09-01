@@ -52,13 +52,15 @@ test('class timetable and board content use keyed directional transition panels'
   assert.match(source, /section === 'board' \? 'is-board' : 'is-timetable'/)
 })
 
-test('board API client authenticates and uses the isolated preview board resource', () => {
+test('board API client authenticates with Firebase but stores board data through S-Hub Supabase', () => {
   const source = read('src/preview-board-client.js')
   assert.match(source, /ensureSignedIn/)
   assert.match(source, /getIdToken/)
   assert.match(source, /authorization: `Bearer \$\{idToken\}`/)
-  assert.match(source, /resource: 'board'/)
-  assert.match(source, /\?resource=board/)
+  assert.match(source, /elhlsqhzjmsfhmawrpqu\.supabase\.co\/functions\/v1\/class-board/)
+  assert.doesNotMatch(source, /class-roster/)
+  assert.doesNotMatch(source, /resource: 'board'/)
+  assert.doesNotMatch(source, /\?resource=board/)
   assert.doesNotMatch(source, /mock|fixture|seedPosts/i)
 })
 
@@ -73,6 +75,16 @@ test('board UI covers writes, comments, resolve, offline and server limits', () 
   assert.match(source, /navigator\.onLine/)
   assert.match(source, /UnifiedBottomSheet/)
   assert.match(source, /window\.addEventListener\('online', revalidate\)/)
+})
+
+test('board layout is centered and refresh control is visually bounded', () => {
+  const theme = read('src/preview-board-theme.css')
+  assert.match(theme, /\.preview-board-page[\s\S]*width: min\(100%, 760px\)/)
+  assert.match(theme, /\.preview-board-page[\s\S]*margin-inline: auto/)
+  assert.match(theme, /\.preview-board-refresh[\s\S]*width: 36px/)
+  assert.match(theme, /\.preview-board-refresh[\s\S]*border: 1px solid var\(--border\)/)
+  assert.match(theme, /\.preview-board-refresh[\s\S]*border-radius: 999px/)
+  assert.match(theme, /\.preview-board-refresh svg[\s\S]*width: 16px/)
 })
 
 test('board motion remains mobile and accessibility safe', () => {
