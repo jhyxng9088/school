@@ -24,7 +24,7 @@ function materialLabel(title) {
   if (!original) return ''
   const cleaned = original
     .replace(/(?:준비물|지참물)\s*[:：-]?\s*/gi, '')
-    .replace(/\s*(?:가져오기|가져오기|챙기기|준비하기|준비|지참하기|지참|가져올\s*것)\s*$/gi, '')
+    .replace(/\s*(?:가져오기|챙기기|준비하기|준비|지참하기|지참|가져올\s*것)\s*$/gi, '')
     .replace(/^[,·•ㆍ\s]+|[,·•ㆍ\s]+$/g, '')
     .trim()
   return cleaned || original
@@ -49,6 +49,7 @@ function mergeMaterialGroup(group) {
     confidence: weakestConfidence(group),
     title: clampText(`준비물: ${joined}`, 80),
     reason: '같은 날짜의 준비물을 한 번에 챙길 수 있게 묶었어.',
+    materialItems: labels.slice(0, 12),
   }
 }
 
@@ -100,8 +101,9 @@ function rangesOverlap(firstStart, firstEnd, secondStart, secondEnd) {
 function sameExamMeaning(firstTitle, secondTitle) {
   const firstFamily = examFamily(firstTitle)
   const secondFamily = examFamily(secondTitle)
-  if (firstFamily && firstFamily === secondFamily) return true
-  return titleSimilarity(firstTitle, secondTitle) >= 0.62
+  if (firstFamily || secondFamily) return Boolean(firstFamily && firstFamily === secondFamily)
+  if (typeof titleSimilarity === 'function') return titleSimilarity(firstTitle, secondTitle) >= 0.62
+  return compactSchoolTitle(firstTitle) === compactSchoolTitle(secondTitle)
 }
 
 function conflictResult(item, existing, existingKind, reason) {
@@ -117,9 +119,17 @@ function conflictResult(item, existing, existingKind, reason) {
   }
 }
 
+function academicEntries(context) {
+  return Array.isArray(context?.academic) ? context.academic : []
+}
+
+function reminderEntries(context) {
+  return Array.isArray(context?.reminders) ? context.reminders : []
+}
+
 function reminderExamAcademicConflict(item, context) {
   if (item?.kind !== 'reminder' || item?.type !== 'exam' || !item?.dueDate) return null
-  for (const existing of context?.academic || []) {
+  for (const existing of academicEntries(context)) {
     if (!dateInside(item.dueDate, existing.startDate, existing.endDate)) continue
     if (!sameExamMeaning(item.title, existing.title)) continue
     return conflictResult(item, existing, 'academic', '같은 시험 일정이 학사일정에 이미 있어.')
@@ -129,7 +139,7 @@ function reminderExamAcademicConflict(item, context) {
 
 function academicAcademicConflict(item, context) {
   if (item?.kind !== 'academic' || !item?.startDate || !item?.endDate) return null
-  for (const existing of context?.academic || []) {
+  for (const existing of academicEntries(context)) {
     if (existing.id === item.id) continue
     if (!rangesOverlap(item.startDate, item.endDate, existing.startDate, existing.endDate)) continue
     if (!sameExamMeaning(item.title, existing.title)) continue
@@ -140,7 +150,7 @@ function academicAcademicConflict(item, context) {
 
 function academicReminderExamConflict(item, context) {
   if (item?.kind !== 'academic' || !item?.startDate || !item?.endDate) return null
-  for (const existing of context?.reminders || []) {
+  for (const existing of reminderEntries(context)) {
     if (existing.type !== 'exam') continue
     if (!dateInside(existing.dueDate, item.startDate, item.endDate)) continue
     if (!sameExamMeaning(item.title, existing.title)) continue
@@ -151,7 +161,7 @@ function academicReminderExamConflict(item, context) {
 
 export function reviewKnownSchoolImportConflicts(items = [], context = {}) {
   const result = {}
-  for (const item of items || []) {
+  for (const item of Array.isArray(items) ? items : []) {
     if (!item?.id || item.valid === false) continue
     const conflict = reminderExamAcademicConflict(item, context)
       || academicAcademicConflict(item, context)
