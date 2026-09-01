@@ -65,7 +65,7 @@ export function patchPreviewBoardSource(source, id = '') {
     next,
     `function PreviewBoardPage() {`,
     `function PreviewStudyPage() {`,
-    `${BOARD_PAGE_COMPONENT}function PreviewStudyPage() {`,
+    BOARD_PAGE_COMPONENT,
     'placeholder board page',
   )
 
