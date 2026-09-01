@@ -39,7 +39,9 @@ function buildBoardMain() {
 test('preview class board replaces the placeholder with the functional board component', () => {
   const source = buildBoardMain()
   assert.match(source, /import \{ PreviewBoard \} from '\.\/preview-board\.jsx'/)
+  assert.match(source, /import '\.\/preview-board-theme\.css'/)
   assert.match(source, /function PreviewBoardPage\(\) \{\s*return <PreviewBoard \/>/)
+  assert.equal(source.match(/function PreviewStudyPage\(\) \{/g)?.length, 1)
   assert.doesNotMatch(source, /게시판 자리까지 먼저 연결/)
 })
 
@@ -75,11 +77,13 @@ test('board UI covers writes, comments, resolve, offline and server limits', () 
 
 test('board motion remains mobile and accessibility safe', () => {
   const css = read('src/preview-board.css')
+  const theme = read('src/preview-board-theme.css')
   assert.match(css, /\.class-station-panel\.is-board[\s\S]*--class-panel-enter-x: 14px/)
   assert.match(css, /\.class-station-panel\.is-timetable[\s\S]*--class-panel-enter-x: -14px/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
   assert.match(css, /html\.school-samsung/)
   assert.match(css, /@media \(max-width: 430px\)/)
+  assert.match(theme, /color: var\(--bg\)/)
 })
 
 test('vite runs board wiring after the class top segment replacement', () => {
