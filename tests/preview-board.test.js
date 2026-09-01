@@ -113,11 +113,12 @@ test('Supabase realtime messages are class-topic scoped and never carry board co
   assert.match(realtime, /sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0/)
   assert.match(realtime, /events\/board_changed/)
   assert.match(realtime, /private: false/)
-  assert.match(realtime, /sectionIds/)
+  assert.match(realtime, /return \{\s*at: Date\.now\(\),\s*kind: String\(source\.kind \|\| 'board'\)\.slice\(0, 20\),\s*sectionIds,\s*\}/s)
+  assert.match(realtime, /body: JSON\.stringify\(safePayload\(payload\)\)/)
   assert.match(realtime, /HEARTBEAT_MS = 25_000/)
   assert.match(realtime, /RECONNECT_MAX_MS = 12_000/)
   assert.doesNotMatch(realtime, /SUPABASE_SERVICE_ROLE|SUPABASE_SECRET_KEYS/)
-  assert.doesNotMatch(realtime, /title:|body:|fileName:|authorName:/)
+  assert.doesNotMatch(realtime, /source\.(?:title|body|fileName|authorName)/)
 })
 
 test('moved posts notify only the old and new sections', () => {
