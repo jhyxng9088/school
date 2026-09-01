@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { patchPreviewBoardSource } from '../src/preview-board-patch.js'
 import { patchPreviewFastCacheSource } from '../src/preview-fast-cache-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -52,9 +53,27 @@ test('board hydrates persistent cache before first visible state and quietly ref
   assert.match(page, /if \(cached\.needsRevalidate\) refresh\(\{ quiet: true/)
 })
 
-test('vite applies fast cache transform only as a preview build layer', () => {
+test('board cache transform survives the real board realtime and unread rewrites', () => {
+  const id = '/workspace/src/preview-board-complete.jsx'
+  const cached = patchPreviewFastCacheSource(read('src/preview-board-complete.jsx'), id)
+  const fullyPatched = patchPreviewBoardSource(cached, id)
+
+  assert.match(fullyPatched, /const boardUnread = usePreviewBoardUnread\(profile\)/)
+  assert.match(fullyPatched, /subscribePreviewBoardRealtime/)
+  assert.match(fullyPatched, /initialCache = useMemo\(\(\) => peekPreviewBoardCache\('general'\), \[\]\)/)
+  assert.match(fullyPatched, /cached\.needsRevalidate/)
+})
+
+test('vite applies fast cache before board runtime rewrites while preserving board-before-study main wiring', () => {
   const config = read('vite.config.js')
-  assert.match(config, /patchPreviewFastCacheSource/)
-  assert.match(config, /next = patchPreviewFastCacheSource\(next, cleanId\)/)
+  const runtimeGuard = config.indexOf('if (boardRuntimeFile)')
+  const cacheAt = config.indexOf('next = patchPreviewFastCacheSource(next, cleanId)', runtimeGuard)
+  const boardAt = config.indexOf('next = patchPreviewBoardSource(next, cleanId)', runtimeGuard)
+  const fallbackBoardAt = config.indexOf('next = patchPreviewBoardSource(next, cleanId)', boardAt + 1)
+  const fallbackStudyAt = config.indexOf('next = patchPreviewStudySource(next, cleanId)', fallbackBoardAt)
+
+  assert.ok(runtimeGuard >= 0)
+  assert.ok(cacheAt > runtimeGuard && boardAt > cacheAt)
+  assert.ok(fallbackBoardAt > boardAt && fallbackStudyAt > fallbackBoardAt)
   assert.match(config, /cleanId\.endsWith\('\/preview-fast-cache-patch\.js'\)/)
 })
