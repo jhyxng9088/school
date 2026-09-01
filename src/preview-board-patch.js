@@ -51,11 +51,12 @@ export function patchPreviewBoardSource(source, id = '') {
 
   let next = String(source || '')
   const boardImport = `import { PreviewBoard } from './preview-board.jsx'`
+  const boardThemeImport = `import './preview-board-theme.css'`
   if (!next.includes(boardImport)) {
     next = replaceRequired(
       next,
       `import { SHubAIOrb } from './s-hub-ai-orb.jsx'`,
-      `import { SHubAIOrb } from './s-hub-ai-orb.jsx'\n${boardImport}`,
+      `import { SHubAIOrb } from './s-hub-ai-orb.jsx'\n${boardImport}\n${boardThemeImport}`,
       'board import',
     )
   }
