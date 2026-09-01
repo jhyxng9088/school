@@ -1,6 +1,7 @@
 import { adminDb } from '../lib/firebase-admin.js'
 import { planClassNotifications } from '../lib/planner.js'
 import { acquireClaim, markClaimSent, releaseClaim } from '../lib/claims.js'
+import { officialImportantAcademicEventsForDates } from '../lib/neis-academic.js'
 import {
   recentScheduleCheckpoints,
   recoverableScheduledPlans,
@@ -16,6 +17,7 @@ import { sendPlan, vapidConfigurationState } from '../lib/push.js'
 const RUNTIME_COLLECTION = 'scheduledPushRuntime'
 const RUNTIME_DOCUMENT = 'reminderScheduled'
 const GET_ALL_CHUNK_SIZE = 200
+const DIAGNOSTIC_RANGE_MS = 7 * 24 * 60 * 60 * 1000
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -30,6 +32,16 @@ function authorized(req) {
   const direct = String(req.headers['x-cron-secret'] || '')
   const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   return direct === secret || bearer === secret
+}
+
+function diagnosticTime(req, dryRun, wallNowMs) {
+  const raw = String(req.query?.atMs || '').trim()
+  if (!dryRun || !raw) return { value: null, error: '' }
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value <= 0 || Math.abs(value - wallNowMs) > DIAGNOSTIC_RANGE_MS) {
+    return { value: null, error: 'invalid_diagnostic_time' }
+  }
+  return { value: Math.trunc(value), error: '' }
 }
 
 function subscriptionFromSnapshot(snapshot) {
@@ -73,6 +85,25 @@ function groupSubscriptionsByClass(subscriptions) {
   return byClass
 }
 
+function dedupeAcademicEvents(events) {
+  const byKey = new Map()
+  for (const event of events || []) {
+    const startDate = String(event?.startDate || '')
+    const title = String(event?.title || '').normalize('NFKC').trim()
+    if (!startDate || !title) continue
+    const key = `${startDate}\u0000${title}`
+    if (!byKey.has(key)) byKey.set(key, event)
+  }
+  return [...byKey.values()]
+}
+
+function planTypeCounts(plans) {
+  return (plans || []).reduce((acc, plan) => {
+    acc[plan.type] = (acc[plan.type] || 0) + 1
+    return acc
+  }, {})
+}
+
 async function stateMapsForCandidates(db, subscriptions, todos) {
   const todoIds = [...new Set((todos || []).map((todo) => String(todo?.id || '')).filter(Boolean))]
   const studentKeys = [...new Set((subscriptions || []).map((item) => String(item?.studentKey || '')).filter(Boolean))]
@@ -111,16 +142,33 @@ export default async function handler(req, res) {
   if (!authorized(req)) return res.status(401).json({ ok: false, error: 'unauthorized' })
 
   const dryRun = String(req.query?.dryRun || '') === '1'
-  const nowMs = Date.now()
+  const wallNowMs = Date.now()
+  const diagnostic = diagnosticTime(req, dryRun, wallNowMs)
+  if (diagnostic.error) return res.status(400).json({ ok: false, error: diagnostic.error })
+  const nowMs = diagnostic.value ?? wallNowMs
 
   try {
     const db = adminDb()
     const runtimeRef = db.collection(RUNTIME_COLLECTION).doc(RUNTIME_DOCUMENT)
-    const runtimeSnapshot = await runtimeRef.get()
-    const lastSuccessMs = Number(runtimeSnapshot.exists ? runtimeSnapshot.data()?.lastSuccessMs : 0)
-    const lookbackMs = scheduleLookbackMs(lastSuccessMs, nowMs)
-    const checkpoints = recentScheduleCheckpoints(nowMs, lookbackMs)
+    let lookbackMs = 0
+    let checkpoints = [nowMs]
+
+    if (diagnostic.value === null) {
+      const runtimeSnapshot = await runtimeRef.get()
+      const lastSuccessMs = Number(runtimeSnapshot.exists ? runtimeSnapshot.data()?.lastSuccessMs : 0)
+      lookbackMs = scheduleLookbackMs(lastSuccessMs, nowMs)
+      checkpoints = recentScheduleCheckpoints(nowMs, lookbackMs)
+    }
+
     const { todoDates, academicDates } = candidateDateKeys(checkpoints)
+    let officialAcademicResult = { events: [], failedDates: [] }
+    if (academicDates.length) {
+      try {
+        officialAcademicResult = await officialImportantAcademicEventsForDates(academicDates)
+      } catch (error) {
+        console.error('official academic schedule fetch failed', { message: error?.message })
+      }
+    }
 
     const subscriptionSnapshot = await db.collectionGroup('pushSubscriptions').get()
     const subscriptions = subscriptionSnapshot.docs.map(subscriptionFromSnapshot).filter(Boolean)
@@ -142,9 +190,12 @@ export default async function handler(req, res) {
       const todos = todoDocs
         .map((snapshot) => ({ id: snapshot.id, ...(snapshot.data() || {}) }))
         .filter((todo) => todoRelevantForCheckpoints(todo, checkpoints))
-      const academicEvents = academicDocs
+      const customAcademicEvents = academicDocs
         .map((snapshot) => ({ id: snapshot.id, ...(snapshot.data() || {}) }))
-        .filter((event) => academicRelevantForCheckpoints(event, checkpoints))
+      const academicEvents = dedupeAcademicEvents([
+        ...customAcademicEvents,
+        ...officialAcademicResult.events,
+      ]).filter((event) => academicRelevantForCheckpoints(event, checkpoints))
 
       if (!todos.length && !academicEvents.length) continue
 
@@ -168,12 +219,14 @@ export default async function handler(req, res) {
     }
 
     const uniquePlans = recoverableScheduledPlans(planned, nowMs)
+    const types = planTypeCounts(uniquePlans)
 
     if (dryRun) {
       const pushState = vapidConfigurationState()
       return res.status(200).json({
         ok: true,
         dryRun: true,
+        diagnosticAtMs: diagnostic.value,
         pushConfigured: pushState.configured,
         vapidKeyPairMatches: pushState.keyPairMatches,
         subscriptions: subscriptions.length,
@@ -181,14 +234,13 @@ export default async function handler(req, res) {
         candidateClasses,
         candidateTodos,
         candidateAcademicEvents,
+        officialAcademicEvents: officialAcademicResult.events.length,
+        officialAcademicFetchFailures: officialAcademicResult.failedDates.length,
         stateDocumentsRequested,
         checkedWindows: checkpoints.length,
         lookbackMinutes: Math.round(lookbackMs / 60_000),
         planned: uniquePlans.length,
-        types: uniquePlans.reduce((acc, plan) => {
-          acc[plan.type] = (acc[plan.type] || 0) + 1
-          return acc
-        }, {}),
+        types,
       })
     }
 
@@ -222,11 +274,24 @@ export default async function handler(req, res) {
       }
     }
 
+    const runtimeSummary = {
+      candidateClasses,
+      candidateTodos,
+      candidateAcademicEvents,
+      officialAcademicEvents: officialAcademicResult.events.length,
+      officialAcademicFetchFailures: officialAcademicResult.failedDates.length,
+      ...totals,
+      types,
+    }
+
     await runtimeRef.set({
       lastSuccessMs: nowMs,
       updatedAt: Date.now(),
       checkedWindows: checkpoints.length,
+      lastSummary: runtimeSummary,
     }, { merge: true })
+
+    console.log('reminder-scheduled summary', runtimeSummary)
 
     return res.status(200).json({
       ok: true,
@@ -235,6 +300,8 @@ export default async function handler(req, res) {
       candidateClasses,
       candidateTodos,
       candidateAcademicEvents,
+      officialAcademicEvents: officialAcademicResult.events.length,
+      officialAcademicFetchFailures: officialAcademicResult.failedDates.length,
       stateDocumentsRequested,
       checkedWindows: checkpoints.length,
       lookbackMinutes: Math.round(lookbackMs / 60_000),
