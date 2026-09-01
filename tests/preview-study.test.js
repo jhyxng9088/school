@@ -37,24 +37,59 @@ test('preview study client is isolated to the dedicated study endpoint and suppo
   assert.match(client, /action: 'resume'/)
 })
 
-test('preview study realtime reuses the authenticated class topic and a separate event', () => {
-  const realtime = read('src/preview-study-realtime.js')
-  assert.match(realtime, /functions\/v1\/board-realtime/)
-  assert.match(realtime, /events\/study_changed/)
-  assert.match(realtime, /broadcast\?\.event !== 'study_changed'/)
-  assert.match(realtime, /self: false/)
+test('preview study client supports class and school snapshots with subject totals', () => {
+  const client = read('src/preview-study-client.js')
+  assert.match(client, /scope === 'school'/)
+  assert.match(client, /scope=\$\{encodeURIComponent\(normalizedScope\)\}/)
+  assert.match(client, /classId/)
+  assert.match(client, /subjectTotals/)
+  assert.match(client, /preview-study-ranking\.css/)
 })
 
-test('study page includes start, pause, resume, stop, class presence and today totals', () => {
+test('preview study realtime reuses the authenticated class topic and broadcasts a school-wide signal', () => {
+  const realtime = read('src/preview-study-realtime.js')
+  assert.match(realtime, /functions\/v1\/board-realtime/)
+  assert.match(realtime, /SCHOOL_STUDY_TOPIC = 'preview-study-school-v1'/)
+  assert.match(realtime, /events\/study_changed/)
+  assert.match(realtime, /broadcast\?\.event !== 'study_changed'/)
+  assert.match(realtime, /broadcast: \{ ack: false, self: false \}/)
+  assert.match(realtime, /subscribePreviewStudyRealtime\(onClassChange, onSchoolChange/)
+})
+
+test('study page includes start, pause, resume, stop, class presence and today ranking', () => {
   const page = read('src/preview-study.jsx')
   assert.match(page, /공부 시작/)
   assert.match(page, /일시정지/)
   assert.match(page, /계속하기/)
   assert.match(page, /공부 종료/)
   assert.match(page, /현재 스터디/)
-  assert.match(page, /오늘 공부 시간/)
+  assert.match(page, /오늘 공부 랭킹/)
   assert.match(page, /runningTodaySeconds/)
   assert.match(page, /activeSessionSeconds/)
+})
+
+test('study ranking separates class and school and opens a student detail sheet', () => {
+  const page = read('src/preview-study.jsx')
+  const style = read('src/preview-study-ranking.css')
+
+  assert.match(page, />우리반</)
+  assert.match(page, />전교</)
+  assert.match(page, /loadPreviewStudy\(\{ scope: 'school' \}\)/)
+  assert.match(page, /StudyStudentSheet/)
+  assert.match(page, /role="dialog"/)
+  assert.match(page, /과목별 공부 시간/)
+  assert.match(page, /studentSubjectTotals/)
+  assert.match(page, /subjectTotals/)
+  assert.match(style, /preview-study-ranking-tabs/)
+  assert.match(style, /preview-study-sheet-backdrop/)
+  assert.match(style, /@keyframes preview-study-sheet-up/)
+})
+
+test('one-second study timer ticks locally without a one-second API reload loop', () => {
+  const page = read('src/preview-study.jsx')
+  assert.match(page, /setInterval\(\(\) => setNowMs\(Date\.now\(\)\), 1000\)/)
+  assert.doesNotMatch(page, /setInterval\([^)]*loadPreviewStudy/)
+  assert.doesNotMatch(page, /setInterval\([^)]*load\(/)
 })
 
 test('study UI uses neutral polite copy instead of casual second-person copy', () => {
