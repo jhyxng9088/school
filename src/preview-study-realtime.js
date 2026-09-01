@@ -12,7 +12,6 @@ const HEARTBEAT_MS = 25_000
 
 let topicPromise = null
 let cachedTopic = ''
-let subscriptionStates = []
 let nextRef = 1
 
 async function firebaseAuthorization() {
@@ -189,13 +188,16 @@ function startSubscription(topic, onChange) {
 export async function subscribePreviewStudyRealtime(onClassChange, onSchoolChange = () => {}) {
   if (typeof onClassChange !== 'function' || typeof window === 'undefined' || typeof WebSocket === 'undefined') return () => {}
   const classTopic = await loadRealtimeTopic()
-  subscriptionStates.forEach(stopSocketState)
-  subscriptionStates = [
+  // Each caller owns its own sockets. The Study page and the global unread
+  // controller therefore coexist instead of replacing one another.
+  const localStates = [
     startSubscription(classTopic, onClassChange),
     startSubscription(SCHOOL_STUDY_TOPIC, typeof onSchoolChange === 'function' ? onSchoolChange : () => {}),
   ]
+  let stopped = false
   return () => {
-    subscriptionStates.forEach(stopSocketState)
-    subscriptionStates = []
+    if (stopped) return
+    stopped = true
+    localStates.forEach(stopSocketState)
   }
 }
