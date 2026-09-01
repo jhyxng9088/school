@@ -83,7 +83,7 @@ function replacePreviewSource(source, id) {
   let next = previewLocalStorageText(source)
   next = next
     .split("'school-sync'").join("'school-sync-preview'")
-    .split('"school-sync"').join('"school-sync-preview')
+    .split('"school-sync"').join('"school-sync-preview"')
 
   if (cleanId.endsWith('/school-sync.js')) {
     const classMarker = "return normalized ? `class-${normalized.classNumber}` : ''"
