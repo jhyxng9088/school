@@ -69,10 +69,10 @@ export async function createPreviewBoardPost({ sectionId = 'general', title, bod
   return response.post
 }
 
-export async function createPreviewBoardSection(label) {
+export async function createPreviewBoardSection(label, color) {
   const response = await requestBoard({
     method: 'POST',
-    payload: { action: 'create-section', label },
+    payload: { action: 'create-section', label, color },
   })
   if (!response.section?.id) throw boardError('board/invalid-section', '새 섹션을 확인하지 못했어요.')
   return response.section
