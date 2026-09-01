@@ -14,7 +14,9 @@ It does **not** replace the existing class-start, lunch, or activity push backen
 - completed reminders are excluded per student
 - hidden/removed reminders are excluded per student
 - reminders deleted from the shared class collection cannot be scheduled because they are not present in the source query
-- only academic events whose stored `detail` begins with the S-Hub important marker are included
+- student-created academic events are included only when their stored `detail` begins with the S-Hub important marker
+- official NEIS academic schedules are filtered to important second-grade exam/evaluation events and merged into the same existing academic notification planner
+- a NEIS fetch failure does not block reminder or student-created academic notifications; known mock-exam fallback data remains available
 - 23:00 reminder previews are grouped per student
 - multiple important academic events are grouped per class
 - duplicate sends are prevented using Firestore-backed scheduled claims
@@ -46,6 +48,8 @@ For a non-sending configuration check, use:
 `GET /api/reminder-scheduled?dryRun=1`
 
 Dry-run returns counts only. It does not create dedupe claims and does not send notifications.
+
+For a non-sending historical diagnostic within seven days of the current time, add `atMs=<unix milliseconds>` together with `dryRun=1`. This evaluates the exact requested scheduler checkpoint and is intended only for auditing missed notification windows.
 
 ## Cron
 
