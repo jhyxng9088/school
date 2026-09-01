@@ -38,14 +38,30 @@ jobs:
         run: |
           test -f dist/v2-update-notice.js
           test -f dist/v2-update-audience.js
-          if grep -R -F "school.preview." dist; then
-            echo "preview browser-storage namespace leaked into production build"
-            exit 1
-          fi
-          if grep -R -F "preview-class-" dist; then
-            echo "preview class identity leaked into production build"
-            exit 1
-          fi
+          python - <<'PY'
+          from pathlib import Path
+          bad = False
+          for needle in ('school.preview.', 'preview-class-'):
+              for p in Path('dist').rglob('*'):
+                  if not p.is_file():
+                      continue
+                  try:
+                      text = p.read_text()
+                  except Exception:
+                      continue
+                  start = 0
+                  while True:
+                      i = text.find(needle, start)
+                      if i < 0:
+                          break
+                      bad = True
+                      left = max(0, i - 180)
+                      right = min(len(text), i + len(needle) + 260)
+                      print(f'FOUND {needle!r} in {p}: {text[left:right]!r}')
+                      start = i + len(needle)
+          if bad:
+              raise SystemExit('preview identity/storage marker leaked into production build')
+          PY
 
       - name: Install backend dependencies
         working-directory: push-backend-v2
