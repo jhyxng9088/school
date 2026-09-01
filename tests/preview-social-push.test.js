@@ -1,13 +1,14 @@
 import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { patchProductionRecoverySource } from '../src/production-recovery-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('social dispatch shares activity endpoint but stays preview scoped and server verified', () => {
+test('social dispatch shares activity endpoint and accepts isolated preview or production class identities', () => {
   const source = read('push-backend-v2/api/activity-dispatch.js')
   assert.match(source, /body\.kind === 'board-post' \|\| body\.kind === 'study-start'/)
-  assert.match(source, /\^preview-class-/)
+  assert.match(source, /\^\(\?:preview-\)\?class-/)
   assert.match(source, /verifyBoardPost/)
   assert.match(source, /authorStudentKey/)
   assert.match(source, /withinFreshWindow/)
@@ -18,10 +19,11 @@ test('social dispatch shares activity endpoint but stays preview scoped and serv
   assert.match(source, /reminderActivityRecipientEligible/)
 })
 
-test('preview social client uses the stable preview branch endpoint, never production social route', () => {
+test('production social client is rewritten to the canonical production backend', () => {
   const source = read('src/preview-social-push.js')
-  assert.match(source, /school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711\.vercel\.app\/api\/activity-dispatch/)
-  assert.doesNotMatch(source, /school-reminder-backend\.vercel\.app\/api\/social-dispatch/)
+  const built = patchProductionRecoverySource(source, '/workspace/src/preview-social-push.js')
+  assert.match(built, /school-reminder-backend\.vercel\.app\/api\/activity-dispatch/)
+  assert.doesNotMatch(built, /school-reminder-backend-git-preview-s-hub-v2/)
 })
 
 test('board sends push only for new post realtime mutation', () => {
