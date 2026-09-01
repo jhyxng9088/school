@@ -26,7 +26,7 @@ test('S-Hub has a multimodal answer route that combines attachments with interna
   assert.match(ai, /attachments,/)
   assert.match(sheet, /classifyAttachmentTextIntent\(input\) === 'answer'/)
   assert.match(sheet, /void askAttachmentQuestion\(\)/)
-  assert.match(sheet, /answerAndAnalyzeSchoolAttachments\(\{ question, files, context, now, signal: controller\.signal \}\)/)
+  assert.match(sheet, /answerAndAnalyzeSchoolAttachments\(\{ question, files, context, conflictContext, now, signal: controller\.signal \}\)/)
 })
 
 test('attachment primary action communicates whether the current request is a question or import', () => {
