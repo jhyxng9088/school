@@ -14,7 +14,7 @@ concurrency:
 jobs:
   sync-and-verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Checkout safety branch
         uses: actions/checkout@v4
@@ -144,6 +144,11 @@ jobs:
           PY
           git add vite.config.js
 
+      - name: Remove temporary validator from the candidate tree
+        run: |
+          rm -f .github/workflows/v2-release-safety-temp.yml .github/v2-release-safety-trigger.txt
+          git add -A
+
       - name: Upgrade Vite to patched 7.3.6
         run: npm install --save-dev --save-exact vite@7.3.6
 
@@ -169,11 +174,32 @@ jobs:
           npm ci
           npm test
 
+      - name: Install temporary browser QA runtime
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium webkit
+
+      - name: Run iPhone iPad Samsung phone tablet and desktop browser QA
+        shell: bash
+        env:
+          V2_QA_URL: http://127.0.0.1:4173/school/
+        run: |
+          npm run preview -- --host 127.0.0.1 > /tmp/s-hub-v2-safety-preview.log 2>&1 &
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/school/ > /dev/null; then
+              node scripts/v2-cross-device-browser-check.mjs
+              exit $?
+            fi
+            sleep 1
+          done
+          cat /tmp/s-hub-v2-safety-preview.log
+          exit 1
+
       - name: Commit validated safety merge to work branch only
         shell: bash
         run: |
           set -euo pipefail
-          git add package.json package-lock.json vite.config.js
+          git add -A
           if git diff --cached --quiet && [ ! -f .git/MERGE_HEAD ]; then
             echo 'No safety sync changes remain.'
             exit 0
