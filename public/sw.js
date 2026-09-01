@@ -1,8 +1,8 @@
-const CACHE_NAME = 'school-shell-v155'
+const CACHE_NAME = 'school-shell-v156'
 const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
 const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
 const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
-const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './feature-tour-sequences.css', './samsung-nav-icon-fixes.css', './school-timetable-motion.js', './school-home-nav.js', './school-home-live.js', './feature-tour-ai-orb.js', './first-run-notice.js', './notification-routing.js', './notification-tone-profile.js']
+const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './feature-tour-sequences.css', './v2-update-notice.css', './samsung-nav-icon-fixes.css', './school-timetable-motion.js', './school-home-nav.js', './school-home-live.js', './feature-tour-ai-orb.js', './first-run-notice.js', './v2-update-notice.js', './notification-routing.js', './notification-tone-profile.js']
 const ROUTINE_PUSH_PAUSE_FROM_MS = Date.parse('2026-09-01T00:00:00+09:00')
 
 self.addEventListener('install', (event) => {
