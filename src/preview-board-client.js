@@ -72,7 +72,10 @@ function updateCachedPost(post) {
   if (!post?.id || !post?.sectionId) return
   const key = String(post.sectionId)
   const current = sectionCache.get(key)
-  if (!current) return
+  if (!current) {
+    sectionCache.set(key, { posts: [post], loadedAt: Date.now() })
+    return
+  }
   const index = current.posts.findIndex((item) => item.id === post.id)
   const posts = index < 0
     ? [post, ...current.posts]
@@ -216,29 +219,19 @@ export async function resolvePreviewBoardQuestion(postId) {
   return response.post
 }
 
-export async function getPreviewBoardAttachmentUrls(postId, attachments = []) {
-  const ids = attachments.map((item) => String(item?.id || '')).filter(Boolean).slice(0, BOARD_ATTACHMENT_LIMIT)
-  const now = Date.now()
-  const resolved = {}
-  const missing = []
-  for (const id of ids) {
-    const cached = attachmentUrlCache.get(id)
-    if (cached && cached.expiresAt - ATTACHMENT_URL_SAFETY_MS > now) resolved[id] = cached.url
-    else missing.push(id)
-  }
-  if (!missing.length) return resolved
+export async function getPreviewBoardAttachmentUrl(postId, attachmentId) {
+  const id = String(attachmentId || '').trim()
+  if (!id) throw boardError('board/attachment-required', '첨부 파일을 찾지 못했어요.')
+  const cached = attachmentUrlCache.get(id)
+  if (cached && cached.expiresAt - ATTACHMENT_URL_SAFETY_MS > Date.now()) return cached.url
 
   const response = await requestBoard({
     method: 'POST',
-    payload: { action: 'attachment-urls', postId, attachmentIds: missing },
+    payload: { action: 'attachment-url', postId, attachmentId: id },
   })
-  for (const item of Array.isArray(response.urls) ? response.urls : []) {
-    const id = String(item?.attachmentId || '')
-    const url = String(item?.url || '')
-    const expiresAt = Number(item?.expiresAt || 0)
-    if (!id || !url || !expiresAt) continue
-    attachmentUrlCache.set(id, { url, expiresAt })
-    resolved[id] = url
-  }
-  return resolved
+  const url = String(response.url || '')
+  const expiresAt = Number(response.expiresAt || 0)
+  if (!url || !expiresAt) throw boardError('board/attachment-url', '원본 파일을 열지 못했어요.')
+  attachmentUrlCache.set(id, { url, expiresAt })
+  return url
 }
