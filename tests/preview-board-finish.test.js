@@ -78,6 +78,17 @@ test('board originals reuse reminder save behavior and load lazily', () => {
   assert.doesNotMatch(client, /attachment-urls/)
 })
 
+test('board original viewer escapes transformed bottom sheets through a body portal', () => {
+  const transformed = patchPreviewBoardSource(
+    read('src/preview-board-attachments.jsx'),
+    '/workspace/src/preview-board-attachments.jsx',
+  )
+  assert.match(transformed, /import \{ createPortal \} from 'react-dom'/)
+  assert.match(transformed, /return createPortal\(/)
+  assert.match(transformed, /document\.body/)
+  assert.match(transformed, /typeof document === 'undefined'/)
+})
+
 test('attachment editor preserves a real zero-slot limit when four originals remain', () => {
   const gallery = read('src/preview-board-attachments.jsx')
   assert.match(gallery, /maxFiles == null \? BOARD_ATTACHMENT_LIMIT : maxFiles/)
@@ -102,4 +113,10 @@ test('post editor and comment controls keep stable compact action geometry', () 
   assert.match(css, /\.preview-board-comment-actions:has\(button\.is-danger\) > button:first-child \{[\s\S]*display: none;/)
   assert.match(css, /\.preview-board-comment-editor > div \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
   assert.match(css, /\.preview-board-comment-form \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 64px;/)
+})
+
+test('post editor primary save button uses the valid inverse background token', () => {
+  const css = read('src/preview-board-complete.css')
+  assert.match(css, /\.preview-board-edit-form \.preview-board-sheet-actions button\.is-primary \{[\s\S]*background: var\(--text\);[\s\S]*color: var\(--bg\);/)
+  assert.doesNotMatch(css, /\.preview-board-edit-form \.preview-board-sheet-actions button\.is-primary \{[\s\S]*color: var\(--background\);/)
 })
