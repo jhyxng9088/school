@@ -12,6 +12,7 @@
 }
 
 .bottom-nav .nav-button,
+.class-top-segment-button[data-unread-key],
 .todo-stage5 [data-reminder-id],
 .todo-page [data-reminder-id] {
   position: relative;
@@ -20,6 +21,18 @@
 .school-unread-dot.is-nav {
   top: 8px;
   left: calc(50% + 8px);
+}
+
+.school-unread-dot.is-segment {
+  top: 50%;
+  left: calc(50% + 27px);
+  width: 5px;
+  height: 5px;
+  transform: translateY(-50%);
+}
+
+.class-top-segment-button[data-unread-key="academic"] .school-unread-dot.is-segment {
+  left: calc(50% + 31px);
 }
 
 .school-unread-dot.is-reminder {
@@ -40,10 +53,29 @@
   }
 }
 
+@keyframes school-unread-segment-breathe {
+  0%, 100% {
+    opacity: 0.45;
+    transform: translateY(-50%) scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.06);
+  }
+}
+
+.school-unread-dot.is-segment {
+  animation-name: school-unread-segment-breathe;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .school-unread-dot {
     animation: none;
     opacity: 0.88;
     transform: none;
+  }
+
+  .school-unread-dot.is-segment {
+    transform: translateY(-50%);
   }
 }
