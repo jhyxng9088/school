@@ -1,0 +1,182 @@
+name: V2 Release Safety Temp
+
+on:
+  push:
+    branches: [work/v2-release-safety-20260901]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v2-release-safety-temp
+  cancel-in-progress: true
+
+jobs:
+  sync-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout safety branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/v2-release-safety-20260901
+          fetch-depth: 0
+
+      - name: Merge current main with guarded resolutions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "S-Hub V2 Safety"
+          git config user.email "s-hub-v2-safety@users.noreply.github.com"
+          git fetch origin main
+
+          set +e
+          git merge --no-commit --no-ff origin/main
+          merge_status=$?
+          set -e
+
+          if [ "$merge_status" -ne 0 ]; then
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+            actual="$(printf '%s\n' "${conflicts[@]}" | sort)"
+            allowed=(
+              '.github/preview-deploy-trigger.txt'
+              'index.html'
+              'public/sw.js'
+              'push-backend-v2/api/class-roster.js'
+              'push-backend-v2/test/class-roster-repair-api.test.js'
+              'push-backend-v2/vercel.json'
+              'src/preview-ai-reminder-summary-patch.js'
+              'src/preview-polite-copy-additions.js'
+              'src/reminder-section-client.js'
+              'tests/polite-copy-audit.test.js'
+              'tests/preview-ui-regressions.test.js'
+              'tests/reminder-categories.test.js'
+              'tests/s-hub-ai-auth.test.js'
+              'tests/s-hub-ai-hybrid-attachment.test.js'
+              'tests/s-hub-ai-server-route.test.js'
+              'tests/s-hub-ai-shared-cache.test.js'
+              'vite.config.js'
+            )
+            allowed_sorted="$(printf '%s\n' "${allowed[@]}" | sort)"
+            unexpected="$(comm -23 <(printf '%s\n' "$actual") <(printf '%s\n' "$allowed_sorted"))"
+            if [ -n "$unexpected" ]; then
+              echo 'Unexpected conflicts:'
+              printf '%s\n' "$unexpected"
+              git merge --abort || true
+              exit 1
+            fi
+
+            for path in \
+              .github/preview-deploy-trigger.txt \
+              index.html \
+              public/sw.js \
+              src/preview-ai-reminder-summary-patch.js \
+              src/preview-polite-copy-additions.js \
+              tests/polite-copy-audit.test.js \
+              tests/preview-ui-regressions.test.js \
+              vite.config.js; do
+              if git diff --name-only --diff-filter=U | grep -Fxq "$path"; then git checkout --ours -- "$path"; fi
+            done
+
+            for path in \
+              push-backend-v2/api/class-roster.js \
+              push-backend-v2/test/class-roster-repair-api.test.js \
+              push-backend-v2/vercel.json \
+              src/reminder-section-client.js \
+              tests/reminder-categories.test.js \
+              tests/s-hub-ai-auth.test.js \
+              tests/s-hub-ai-hybrid-attachment.test.js \
+              tests/s-hub-ai-server-route.test.js \
+              tests/s-hub-ai-shared-cache.test.js; do
+              if git diff --name-only --diff-filter=U | grep -Fxq "$path"; then git checkout --theirs -- "$path"; fi
+            done
+
+            git add -A
+          fi
+
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo 'Unresolved conflicts remain:'
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+
+      - name: Combine main recovery patches with preview isolation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('vite.config.js')
+          s = p.read_text()
+
+          import_marker = "import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'\n"
+          imports = (
+              "import { patchDataSplitV1Source } from './src/data-split-v1-patch.js'\n"
+              "import { patchPresenceSplitSource } from './src/presence-split-patch.js'\n"
+              "import { patchProductionRecoverySource } from './src/production-recovery-patch.js'\n"
+          )
+          if "from './src/data-split-v1-patch.js'" not in s:
+              if import_marker not in s:
+                  raise SystemExit('vite import marker changed')
+              s = s.replace(import_marker, import_marker + imports, 1)
+
+          call_marker = "  next = patchPreviewReminderPolishSource(next, cleanId)\n"
+          calls = (
+              "  next = patchDataSplitV1Source(next, cleanId)\n"
+              "  next = patchPresenceSplitSource(next, cleanId)\n"
+              "  next = patchProductionRecoverySource(next, cleanId)\n"
+          )
+          if "next = patchDataSplitV1Source(next, cleanId)" not in s:
+              if call_marker not in s:
+                  raise SystemExit('vite patch-call marker changed')
+              s = s.replace(call_marker, call_marker + calls, 1)
+
+          skip_marker = "        || cleanId.endsWith('/preview-reminder-polish-patch.js')\n"
+          skips = (
+              "        || cleanId.endsWith('/data-split-v1-patch.js')\n"
+              "        || cleanId.endsWith('/presence-split-patch.js')\n"
+              "        || cleanId.endsWith('/production-recovery-patch.js')\n"
+          )
+          if "cleanId.endsWith('/data-split-v1-patch.js')" not in s:
+              if skip_marker not in s:
+                  raise SystemExit('vite polite-copy skip marker changed')
+              s = s.replace(skip_marker, skip_marker + skips, 1)
+
+          p.write_text(s)
+          PY
+          git add vite.config.js
+
+      - name: Upgrade Vite to patched 7.3.6
+        run: npm install --save-dev --save-exact vite@7.3.6
+
+      - name: Audit high severity dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run root regression suite
+        run: npm test
+
+      - name: Build and reject duplicate AI key warning
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee /tmp/v2-build.log
+          if grep -F 'Duplicate key "ai"' /tmp/v2-build.log; then
+            echo 'Duplicate AI key warning detected.'
+            exit 1
+          fi
+
+      - name: Run push backend regression suite
+        working-directory: push-backend-v2
+        run: |
+          npm ci
+          npm test
+
+      - name: Commit validated safety merge to work branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add package.json package-lock.json vite.config.js
+          if git diff --cached --quiet && [ ! -f .git/MERGE_HEAD ]; then
+            echo 'No safety sync changes remain.'
+            exit 0
+          fi
+          git commit -m "chore(v2): integrate main fixes and secure preview candidate"
+          git push origin HEAD:work/v2-release-safety-20260901
