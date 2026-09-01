@@ -7,6 +7,9 @@
     "api/activity-dispatch.js": {
       "maxDuration": 30
     },
+    "api/social-dispatch.js": {
+      "maxDuration": 30
+    },
     "api/s-hub-ai.js": {
       "maxDuration": 60
     },
