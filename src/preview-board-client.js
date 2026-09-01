@@ -1,6 +1,6 @@
 import { ensureSignedIn } from './school-sync.js'
 
-const BOARD_API_URL = 'https://school-reminder-backend.vercel.app/api/class-roster'
+const BOARD_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-board'
 
 function boardError(code, message) {
   const error = new Error(message)
@@ -37,12 +37,11 @@ async function requestBoard({ method = 'GET', payload = null, signal } = {}) {
     cache: 'no-store',
     signal,
   }
-  if (payload) options.body = JSON.stringify({ resource: 'board', ...payload })
+  if (payload) options.body = JSON.stringify(payload)
 
   let response
   try {
-    const url = method === 'GET' ? `${BOARD_API_URL}?resource=board` : BOARD_API_URL
-    response = await fetch(url, options)
+    response = await fetch(BOARD_API_URL, options)
   } catch (error) {
     if (error?.name === 'AbortError') throw error
     throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')
