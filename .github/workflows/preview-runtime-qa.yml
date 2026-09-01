@@ -1,0 +1,38 @@
+name: Preview Runtime QA
+
+on:
+  push:
+    branches:
+      - preview/s-hub-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout preview
+        uses: actions/checkout@v4
+        with:
+          ref: preview/s-hub-v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Playwright for runtime QA
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium webkit
+
+      - name: Check deployed preview in real browsers
+        env:
+          V2_QA_URL: https://jhyxng9088.github.io/school/preview-v2/
+        run: node scripts/v2-cross-device-browser-check.mjs
