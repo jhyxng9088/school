@@ -6,9 +6,9 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 
 function cssBlock(source, selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = source.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))
-  assert.ok(match, `missing CSS block: ${selector}`)
-  return match[1]
+  const matches = [...source.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g'))]
+  assert.ok(matches.length, `missing CSS block: ${selector}`)
+  return matches.at(-1)[1]
 }
 
 test('study ranking selected pill mirrors the final bottom-nav visible pill layer', () => {
