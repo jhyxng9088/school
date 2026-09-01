@@ -70,7 +70,7 @@ test('board sections are Supabase-backed with shared colors and filter real post
   assert.match(client, /url\.searchParams\.set\('section', sectionId\)/)
   assert.match(client, /createPreviewBoardSection\(label, color\)/)
   assert.match(client, /action: 'create-section', label, color/)
-  assert.match(client, /payload: \{ action: 'create', sectionId, title, body \}/)
+  assert.match(client, /payload: \{ action: 'create', sectionId, title, body, attachments:/)
   assert.match(ui, /REMINDER_CATEGORY_COLORS/)
   assert.match(ui, /id: 'general', label: '일반', color: '#90939a'/)
   assert.match(ui, /id: 'question', label: '질문', color: '#7c83ff'/)
@@ -104,11 +104,14 @@ test('refresh control is text-only with no refresh SVG icon', () => {
 
 test('board layout stays centered and refresh is a compact text button', () => {
   const theme = read('src/preview-board-theme.css')
+  const finish = read('src/preview-board-finish.css')
   assert.match(theme, /\.preview-board-page[\s\S]*width: min\(100%, 760px\)/)
   assert.match(theme, /\.preview-board-page[\s\S]*max-width: 760px/)
   assert.match(theme, /\.preview-board-page[\s\S]*margin-inline: auto/)
-  assert.match(theme, /\.preview-board-refresh[\s\S]*height: 30px/)
-  assert.match(theme, /\.preview-board-refresh[\s\S]*border-radius: 10px/)
+  assert.match(finish, /\.preview-board-refresh[\s\S]*width: auto !important/)
+  assert.match(finish, /\.preview-board-refresh[\s\S]*min-width: 64px !important/)
+  assert.match(finish, /\.preview-board-refresh[\s\S]*height: 30px !important/)
+  assert.match(finish, /\.preview-board-refresh[\s\S]*white-space: nowrap/)
   assert.doesNotMatch(theme, /\.preview-board-refresh::after/)
   assert.doesNotMatch(theme, /\.preview-board-refresh svg/)
 })
@@ -140,6 +143,7 @@ test('new board section sheet mirrors reminder name and color picker controls', 
 test('board motion remains mobile and accessibility safe', () => {
   const css = read('src/preview-board.css')
   const theme = read('src/preview-board-theme.css')
+  const finish = read('src/preview-board-finish.css')
   assert.match(css, /\.class-station-panel\.is-board[\s\S]*--class-panel-enter-x: 14px/)
   assert.match(css, /\.class-station-panel\.is-timetable[\s\S]*--class-panel-enter-x: -14px/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
@@ -147,6 +151,9 @@ test('board motion remains mobile and accessibility safe', () => {
   assert.match(css, /@media \(max-width: 430px\)/)
   assert.match(theme, /html\.school-samsung/)
   assert.match(theme, /@media \(prefers-reduced-motion: reduce\)/)
+  assert.match(finish, /preview-board-section-view-in/)
+  assert.match(finish, /cubic-bezier\(\.16, 1, \.3, 1\)/)
+  assert.match(finish, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
 test('vite runs board wiring after the class top segment replacement', () => {
