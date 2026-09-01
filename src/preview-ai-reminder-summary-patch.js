@@ -5,9 +5,32 @@ function replaceRequired(source, marker, replacement, label) {
 
 export function patchPreviewAIReminderSummarySource(source, id) {
   const cleanId = String(id || '').split('?')[0]
-  if (!cleanId.endsWith('/main.jsx')) return String(source || '')
-
   let next = String(source || '')
+
+  if (cleanId.endsWith('/reminder-summary.jsx')) {
+    next = replaceRequired(
+      next,
+      "import { useEffect, useRef, useState } from 'react'\n",
+      "import { useEffect, useRef, useState } from 'react'\nimport { createPortal } from 'react-dom'\n",
+      'summary portal import',
+    )
+    next = replaceRequired(
+      next,
+      `  return (\n    <div className="reminder-summary-layer" role="presentation">`,
+      `  return createPortal(\n    <div className="reminder-summary-layer" role="presentation">`,
+      'summary portal open',
+    )
+    next = replaceRequired(
+      next,
+      `      {viewer ? <OriginalImageViewer key={viewer.url} original={viewer} onClose={closeViewer} /> : null}\n    </div>\n  )\n}`,
+      `      {viewer ? <OriginalImageViewer key={viewer.url} original={viewer} onClose={closeViewer} /> : null}\n    </div>,\n    document.body,\n  )\n}`,
+      'summary portal close',
+    )
+    return next
+  }
+
+  if (!cleanId.endsWith('/main.jsx')) return next
+
   next = replaceRequired(
     next,
     "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n",
