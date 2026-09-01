@@ -47,6 +47,7 @@ jobs:
               Object.defineProperty(navigator, 'standalone', { configurable: true, value: true })
             } catch {}
             localStorage.setItem('school.preview.installGuideDone', 'true')
+            localStorage.setItem('school.preview.clientDataGeneration', '2')
             localStorage.setItem('school.preview.studentProfile.v1', profile)
             localStorage.setItem('school.preview.featureTour.v1', 'done')
             if (tourDone) localStorage.setItem('school.preview.v2UpdateTour.v1', 'done')
@@ -69,7 +70,7 @@ jobs:
                 statusText: document.body?.innerText?.slice(0, 700) || '',
                 rootLength: document.querySelector('#root')?.innerHTML?.length || 0,
                 appShell: Boolean(document.querySelector('.app-shell')),
-                installGuide: Boolean(document.querySelector('.onboarding-page')),
+                onboarding: Boolean(document.querySelector('.onboarding-page')),
                 tour: Boolean(document.querySelector('.v2-update-tour-layer.is-open')),
                 bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
               }))
