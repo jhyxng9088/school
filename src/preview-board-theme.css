@@ -1,0 +1,7 @@
+.preview-board-write,
+.preview-board-empty-action,
+.preview-board-sheet-actions button.is-primary,
+.preview-board-comment-submit,
+.preview-board-resolve {
+  color: var(--bg);
+}
