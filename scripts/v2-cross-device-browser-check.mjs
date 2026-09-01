@@ -3,13 +3,18 @@ import { chromium, webkit } from 'playwright'
 const baseUrl = process.env.V2_QA_URL || 'http://127.0.0.1:4173/school/'
 const appOrigin = new URL(baseUrl).origin
 const profile = JSON.stringify({ name: 'QA', classNumber: 1, studentNumber: 1 })
+const STORAGE_PREFIX = 'school.preview.'
+const PROFILE_KEY = `${STORAGE_PREFIX}studentProfile.v1`
+const FIRST_TOUR_KEY = `${STORAGE_PREFIX}featureTour.v1`
+const UPDATE_TOUR_KEY = `${STORAGE_PREFIX}v2UpdateTour.v1`
+const UPDATE_STEP_KEY = `${STORAGE_PREFIX}v2UpdateTourStep.v1`
 const legacyStorage = {
   cookies: [],
   origins: [{
     origin: appOrigin,
     localStorage: [
-      { name: 'school.studentProfile.v1', value: profile },
-      { name: 'school.featureTour.v1', value: 'done' },
+      { name: PROFILE_KEY, value: profile },
+      { name: FIRST_TOUR_KEY, value: 'done' },
     ],
   }],
 }
@@ -86,9 +91,9 @@ function fail(name, message) {
 for (const target of targets) {
   const browser = await target.browser.launch({ headless: true })
   try {
-    // Seed the legacy-user state at the browser-context level so the very first
-    // app boot sees the profile and completed V1 tour. This avoids the audience
-    // bootstrap marking a fresh QA context as a post-V2 user before our test runs.
+    // Preview builds deliberately namespace every school.* localStorage key as
+    // school.preview.*. Seed that isolated namespace so the first boot is a true
+    // legacy-user boot without touching or depending on production storage.
     const context = await browser.newContext({ ...target.context, storageState: legacyStorage })
     const page = await context.newPage()
     const consoleErrors = []
@@ -102,16 +107,16 @@ for (const target of targets) {
     try {
       await page.waitForSelector('.v2-update-tour-layer.is-open', { state: 'visible', timeout: 15000 })
     } catch (error) {
-      const debug = await page.evaluate(() => ({
+      const debug = await page.evaluate(({ PROFILE_KEY, FIRST_TOUR_KEY, UPDATE_TOUR_KEY, UPDATE_STEP_KEY }) => ({
         url: location.href,
         readyState: document.readyState,
-        profile: localStorage.getItem('school.studentProfile.v1'),
-        firstTour: localStorage.getItem('school.featureTour.v1'),
-        updateTour: localStorage.getItem('school.v2UpdateTour.v1'),
-        updateStep: localStorage.getItem('school.v2UpdateTourStep.v1'),
+        profile: localStorage.getItem(PROFILE_KEY),
+        firstTour: localStorage.getItem(FIRST_TOUR_KEY),
+        updateTour: localStorage.getItem(UPDATE_TOUR_KEY),
+        updateStep: localStorage.getItem(UPDATE_STEP_KEY),
         layer: document.querySelector('.feature-tour-layer')?.className || '',
         scripts: [...document.scripts].map((script) => script.src).filter(Boolean),
-      }))
+      }), { PROFILE_KEY, FIRST_TOUR_KEY, UPDATE_TOUR_KEY, UPDATE_STEP_KEY })
       console.error(`DEBUG ${target.name}`, JSON.stringify(debug))
       throw error
     }
@@ -192,13 +197,13 @@ for (const target of targets) {
     }
 
     await page.waitForSelector('.v2-update-tour-layer', { state: 'detached', timeout: 5000 })
-    const finished = await page.evaluate(() => ({
-      state: localStorage.getItem('school.v2UpdateTour.v1'),
+    const finished = await page.evaluate(({ UPDATE_TOUR_KEY }) => ({
+      state: localStorage.getItem(UPDATE_TOUR_KEY),
       scrollWidth: document.documentElement.scrollWidth,
       innerWidth: window.innerWidth,
       htmlOverflowY: getComputedStyle(document.documentElement).overflowY,
       clientWidth: document.documentElement.clientWidth,
-    }))
+    }), { UPDATE_TOUR_KEY })
     if (finished.state !== 'done') fail(target.name, `tour completion state is ${finished.state}`)
     if (finished.scrollWidth > finished.innerWidth + 1) fail(target.name, 'horizontal overflow after closing tour')
     if (target.desktop && finished.htmlOverflowY !== 'scroll') fail(target.name, `desktop overflow-y did not restore: ${finished.htmlOverflowY}`)
