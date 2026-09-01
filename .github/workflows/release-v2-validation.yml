@@ -14,6 +14,12 @@ jobs:
       - name: Checkout release candidate
         uses: actions/checkout@v4
 
+      - name: Stage final production repository shape
+        run: |
+          rm -f .github/workflows/preview-pages-deploy.yml
+          rm -f .github/workflows/preview-runtime-qa.yml
+          rm -f .github/workflows/release-v2-validation.yml
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
