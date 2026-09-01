@@ -1,0 +1,195 @@
+name: V2 Sync Main And Security
+
+on:
+  push:
+    branches: [preview/s-hub-v2]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v2-sync-main-and-security
+  cancel-in-progress: true
+
+jobs:
+  sync-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout full preview history
+        uses: actions/checkout@v4
+        with:
+          ref: preview/s-hub-v2
+          fetch-depth: 0
+
+      - name: Merge current main into preview with explicit conflict policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "S-Hub V2 Sync"
+          git config user.email "s-hub-v2-sync@users.noreply.github.com"
+          git fetch origin main
+
+          set +e
+          git merge --no-commit --no-ff origin/main
+          merge_status=$?
+          set -e
+
+          if [ "$merge_status" -ne 0 ]; then
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+            printf '%s\n' "${conflicts[@]}" | sort > /tmp/actual-conflicts.txt
+            cat > /tmp/expected-conflicts.txt <<'EOF'
+.github/preview-deploy-trigger.txt
+index.html
+public/sw.js
+push-backend-v2/api/class-roster.js
+push-backend-v2/test/class-roster-repair-api.test.js
+push-backend-v2/vercel.json
+src/preview-ai-reminder-summary-patch.js
+src/preview-polite-copy-additions.js
+src/reminder-section-client.js
+tests/polite-copy-audit.test.js
+tests/preview-ui-regressions.test.js
+tests/reminder-categories.test.js
+tests/s-hub-ai-auth.test.js
+tests/s-hub-ai-hybrid-attachment.test.js
+tests/s-hub-ai-server-route.test.js
+tests/s-hub-ai-shared-cache.test.js
+vite.config.js
+EOF
+            sort -o /tmp/expected-conflicts.txt /tmp/expected-conflicts.txt
+            if ! diff -u /tmp/expected-conflicts.txt /tmp/actual-conflicts.txt; then
+              echo "Unexpected main/preview conflict set; refusing automatic resolution."
+              git merge --abort || true
+              exit 1
+            fi
+
+            # V2-only runtime/UI isolation stays on the preview side.
+            git checkout --ours -- \
+              .github/preview-deploy-trigger.txt \
+              index.html \
+              public/sw.js \
+              src/preview-ai-reminder-summary-patch.js \
+              src/preview-polite-copy-additions.js \
+              tests/polite-copy-audit.test.js \
+              tests/preview-ui-regressions.test.js \
+              vite.config.js
+
+            # Shared production backend/data fixes and their tests use latest main.
+            git checkout --theirs -- \
+              push-backend-v2/api/class-roster.js \
+              push-backend-v2/test/class-roster-repair-api.test.js \
+              push-backend-v2/vercel.json \
+              src/reminder-section-client.js \
+              tests/reminder-categories.test.js \
+              tests/s-hub-ai-auth.test.js \
+              tests/s-hub-ai-hybrid-attachment.test.js \
+              tests/s-hub-ai-server-route.test.js \
+              tests/s-hub-ai-shared-cache.test.js
+
+            git add \
+              .github/preview-deploy-trigger.txt \
+              index.html \
+              public/sw.js \
+              push-backend-v2/api/class-roster.js \
+              push-backend-v2/test/class-roster-repair-api.test.js \
+              push-backend-v2/vercel.json \
+              src/preview-ai-reminder-summary-patch.js \
+              src/preview-polite-copy-additions.js \
+              src/reminder-section-client.js \
+              tests/polite-copy-audit.test.js \
+              tests/preview-ui-regressions.test.js \
+              tests/reminder-categories.test.js \
+              tests/s-hub-ai-auth.test.js \
+              tests/s-hub-ai-hybrid-attachment.test.js \
+              tests/s-hub-ai-server-route.test.js \
+              tests/s-hub-ai-shared-cache.test.js \
+              vite.config.js
+          fi
+
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo "Unresolved conflicts remain."
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+
+      - name: Combine main data-split recovery patches with V2 preview pipeline
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('vite.config.js')
+          s = p.read_text()
+
+          import_marker = "import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'\n"
+          main_imports = (
+              "import { patchDataSplitV1Source } from './src/data-split-v1-patch.js'\n"
+              "import { patchPresenceSplitSource } from './src/presence-split-patch.js'\n"
+              "import { patchProductionRecoverySource } from './src/production-recovery-patch.js'\n"
+          )
+          if "patchDataSplitV1Source" not in s:
+              if import_marker not in s:
+                  raise SystemExit('vite import marker changed')
+              s = s.replace(import_marker, import_marker + main_imports, 1)
+
+          call_marker = "  next = patchPreviewReminderPolishSource(next, cleanId)\n"
+          main_calls = (
+              "  next = patchDataSplitV1Source(next, cleanId)\n"
+              "  next = patchPresenceSplitSource(next, cleanId)\n"
+              "  next = patchProductionRecoverySource(next, cleanId)\n"
+          )
+          if "next = patchDataSplitV1Source(next, cleanId)" not in s:
+              if call_marker not in s:
+                  raise SystemExit('vite patch-call marker changed')
+              s = s.replace(call_marker, call_marker + main_calls, 1)
+
+          skip_marker = "        || cleanId.endsWith('/preview-nav-spring-patch.js')\n"
+          main_skips = (
+              "        || cleanId.endsWith('/data-split-v1-patch.js')\n"
+              "        || cleanId.endsWith('/presence-split-patch.js')\n"
+              "        || cleanId.endsWith('/production-recovery-patch.js')\n"
+          )
+          if "cleanId.endsWith('/data-split-v1-patch.js')" not in s:
+              if skip_marker not in s:
+                  raise SystemExit('vite polite-copy skip marker changed')
+              s = s.replace(skip_marker, skip_marker + main_skips, 1)
+
+          p.write_text(s)
+          PY
+          git add vite.config.js
+
+      - name: Upgrade Vite security patch without force
+        run: npm install --save-dev --save-exact vite@7.3.6
+
+      - name: Security audit
+        run: npm audit --audit-level=high
+
+      - name: Root regression tests
+        run: npm test
+
+      - name: Root production build and duplicate-key gate
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee /tmp/v2-build.log
+          if grep -F 'Duplicate key "ai"' /tmp/v2-build.log; then
+            echo 'Duplicate AI content key warning returned.'
+            exit 1
+          fi
+
+      - name: Push backend regression tests
+        working-directory: push-backend-v2
+        run: |
+          npm ci
+          npm test
+
+      - name: Commit validated sync to preview only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add package.json package-lock.json vite.config.js
+          if git diff --cached --quiet && [ ! -f .git/MERGE_HEAD ]; then
+            echo 'Preview already contains current main and security update.'
+            exit 0
+          fi
+          git commit -m "chore(v2): sync main fixes and secure preview build"
+          git push origin HEAD:preview/s-hub-v2
