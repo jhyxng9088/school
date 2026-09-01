@@ -4,10 +4,17 @@ import { readStudentProfile, studentKeyFor } from './school-sync.js'
 import {
   addPreviewBoardComment,
   createPreviewBoardPost,
+  createPreviewBoardSection,
   loadPreviewBoard,
   resolvePreviewBoardQuestion,
 } from './preview-board-client.js'
 import './preview-board.css'
+
+const FALLBACK_SECTIONS = [
+  { id: 'general', label: '일반', builtin: true },
+  { id: 'question', label: '질문', builtin: true },
+  { id: 'notes', label: '필기', builtin: true },
+]
 
 function formatBoardTime(value) {
   const timestamp = Number(value || 0)
@@ -26,11 +33,15 @@ function normalizeUiError(error, fallback) {
   return message || fallback
 }
 
+function sectionLabel(sectionId, sections) {
+  return sections.find((section) => section.id === sectionId)?.label || '일반'
+}
+
 function RefreshIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M20 6.8V3.5h-3.3" />
-      <path d="M19.2 8a8 8 0 1 0 .1 7.8" />
+      <path d="M20 11a8 8 0 1 1-2.34-5.66" />
+      <path d="M20 4v5h-5" />
     </svg>
   )
 }
@@ -43,17 +54,47 @@ function PlusIcon() {
   )
 }
 
-function PostBadges({ post }) {
-  if (post.kind !== 'question') return <span className="preview-board-badge">일반</span>
+function PostBadges({ post, sections }) {
+  const label = sectionLabel(post.sectionId, sections)
+  if (post.kind !== 'question') return <span className="preview-board-badge">{label}</span>
   return (
     <>
-      <span className="preview-board-badge is-question">질문</span>
+      <span className="preview-board-badge is-question">{label}</span>
       {post.resolved ? <span className="preview-board-badge is-resolved">해결됨</span> : null}
     </>
   )
 }
 
-function BoardState({ loading, error, onRetry, onWrite }) {
+function BoardSections({ sections, activeSectionId, onSelect, onAdd }) {
+  return (
+    <div className="preview-board-sections-shell">
+      <div className="preview-board-sections" role="tablist" aria-label="게시판 섹션">
+        {sections.map((section) => (
+          <button
+            type="button"
+            role="tab"
+            key={section.id}
+            className={section.id === activeSectionId ? 'is-active' : ''}
+            aria-selected={section.id === activeSectionId}
+            onClick={() => onSelect(section.id)}
+          >
+            {section.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          className="preview-board-section-add"
+          aria-label="게시판 섹션 추가"
+          onClick={onAdd}
+        >
+          <PlusIcon />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function BoardState({ loading, error, sectionName, onRetry, onWrite }) {
   if (loading) {
     return (
       <div className="preview-board-state" role="status" aria-live="polite">
@@ -73,15 +114,82 @@ function BoardState({ loading, error, onRetry, onWrite }) {
   }
   return (
     <div className="preview-board-state">
-      <strong>아직 올라온 글이 없어요</strong>
-      <p>공지할 내용이나 친구들에게 물어볼 게 있으면 첫 글을 올려 보세요.</p>
+      <strong>{sectionName}에 아직 올라온 글이 없어요</strong>
+      <p>같은 반 친구들과 나눌 내용을 첫 글로 올려 보세요.</p>
       <button type="button" className="preview-board-empty-action" onClick={onWrite}>첫 글 쓰기</button>
     </div>
   )
 }
 
-function BoardComposer({ open, onClose, onCreated }) {
-  const [kind, setKind] = useState('general')
+function BoardSectionComposer({ open, onClose, onCreated }) {
+  const [label, setLabel] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+  const canCreate = label.trim().length > 0 && !pending
+
+  useEffect(() => {
+    if (!open) return
+    setLabel('')
+    setError('')
+  }, [open])
+
+  async function submit(event) {
+    event.preventDefault()
+    if (!canCreate) return
+    if (!navigator.onLine) {
+      setError('인터넷 연결을 확인한 뒤 다시 시도해 주세요.')
+      return
+    }
+    setPending(true)
+    setError('')
+    try {
+      const section = await createPreviewBoardSection(label.trim())
+      onCreated(section)
+      onClose()
+    } catch (requestError) {
+      setError(normalizeUiError(requestError, '섹션을 추가하지 못했어요.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <UnifiedBottomSheet
+      open={open}
+      onClose={onClose}
+      title="게시판 섹션 추가"
+      subtitle="추가한 섹션은 같은 반 친구들에게도 보여요."
+      ariaLabel="게시판 섹션 추가"
+      closeDisabled={pending}
+    >
+      <form className="preview-board-form" onSubmit={submit}>
+        <label className="preview-board-field">
+          <span>섹션 이름</span>
+          <input
+            type="text"
+            value={label}
+            maxLength={16}
+            placeholder="예: 수행평가, 자료실"
+            onChange={(event) => setLabel(event.target.value)}
+            disabled={pending}
+            autoFocus
+          />
+          <small className="preview-board-field-count">{label.length}/16</small>
+        </label>
+        {error ? <p className="preview-board-error" role="alert">{error}</p> : null}
+        <div className="preview-board-sheet-actions">
+          <button type="button" onClick={onClose} disabled={pending}>취소</button>
+          <button type="submit" className="is-primary" disabled={!canCreate}>
+            {pending ? '추가 중…' : '추가하기'}
+          </button>
+        </div>
+      </form>
+    </UnifiedBottomSheet>
+  )
+}
+
+function BoardComposer({ open, sections, initialSectionId, onClose, onCreated }) {
+  const [sectionId, setSectionId] = useState(initialSectionId || 'general')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [pending, setPending] = useState(false)
@@ -90,8 +198,10 @@ function BoardComposer({ open, onClose, onCreated }) {
 
   useEffect(() => {
     if (!open) return
+    const safeSection = sections.some((section) => section.id === initialSectionId) ? initialSectionId : 'general'
+    setSectionId(safeSection)
     setError('')
-  }, [open])
+  }, [open, initialSectionId, sections])
 
   async function submit(event) {
     event.preventDefault()
@@ -103,9 +213,8 @@ function BoardComposer({ open, onClose, onCreated }) {
     setPending(true)
     setError('')
     try {
-      const post = await createPreviewBoardPost({ kind, title, body })
+      const post = await createPreviewBoardPost({ sectionId, title, body })
       onCreated(post)
-      setKind('general')
       setTitle('')
       setBody('')
       onClose()
@@ -126,23 +235,19 @@ function BoardComposer({ open, onClose, onCreated }) {
       closeDisabled={pending}
     >
       <form className="preview-board-form" onSubmit={submit}>
-        <div className="preview-board-kind-row" role="group" aria-label="게시글 종류">
-          <button
-            type="button"
-            className={kind === 'general' ? 'is-active' : ''}
-            aria-pressed={kind === 'general'}
-            onClick={() => setKind('general')}
-          >
-            일반
-          </button>
-          <button
-            type="button"
-            className={kind === 'question' ? 'is-active' : ''}
-            aria-pressed={kind === 'question'}
-            onClick={() => setKind('question')}
-          >
-            질문
-          </button>
+        <div className="preview-board-compose-sections" role="group" aria-label="게시할 섹션">
+          {sections.map((section) => (
+            <button
+              type="button"
+              key={section.id}
+              className={sectionId === section.id ? 'is-active' : ''}
+              aria-pressed={sectionId === section.id}
+              onClick={() => setSectionId(section.id)}
+              disabled={pending}
+            >
+              {section.label}
+            </button>
+          ))}
         </div>
 
         <label className="preview-board-field">
@@ -184,7 +289,7 @@ function BoardComposer({ open, onClose, onCreated }) {
   )
 }
 
-function BoardDetail({ post, meKey, open, onClose, onUpdated }) {
+function BoardDetail({ post, sections, meKey, open, onClose, onUpdated }) {
   const [comment, setComment] = useState('')
   const [commentPending, setCommentPending] = useState(false)
   const [resolvePending, setResolvePending] = useState(false)
@@ -199,7 +304,7 @@ function BoardDetail({ post, meKey, open, onClose, onUpdated }) {
   if (!post) return null
   const comments = Array.isArray(post.comments) ? post.comments : []
   const isMine = Boolean(meKey && post.authorStudentKey === meKey)
-  const canResolve = post.kind === 'question' && !post.resolved && isMine
+  const canResolve = post.kind === 'question' && post.sectionId === 'question' && !post.resolved && isMine
 
   async function submitComment(event) {
     event.preventDefault()
@@ -250,7 +355,7 @@ function BoardDetail({ post, meKey, open, onClose, onUpdated }) {
       closeDisabled={commentPending || resolvePending}
     >
       <div className="preview-board-detail">
-        <div className="preview-board-detail-badges"><PostBadges post={post} /></div>
+        <div className="preview-board-detail-badges"><PostBadges post={post} sections={sections} /></div>
         <p className="preview-board-detail-body">{post.body}</p>
         <div className="preview-board-detail-meta">
           <span>{post.authorName || '학생'}</span>
@@ -302,22 +407,27 @@ function BoardDetail({ post, meKey, open, onClose, onUpdated }) {
 
 export function PreviewBoard() {
   const [posts, setPosts] = useState([])
+  const [sections, setSections] = useState(FALLBACK_SECTIONS)
+  const [activeSectionId, setActiveSectionId] = useState('general')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [composerOpen, setComposerOpen] = useState(false)
+  const [sectionComposerOpen, setSectionComposerOpen] = useState(false)
   const [detailPostId, setDetailPostId] = useState('')
   const meKey = useMemo(() => studentKeyFor(readStudentProfile()), [])
   const detailPost = useMemo(
     () => posts.find((post) => post.id === detailPostId) || null,
     [posts, detailPostId],
   )
+  const activeSectionName = sectionLabel(activeSectionId, sections)
 
   const refresh = useCallback(async ({ quiet = false, signal } = {}) => {
     if (!quiet) setRefreshing(true)
     try {
-      const nextPosts = await loadPreviewBoard({ signal })
-      setPosts(nextPosts)
+      const result = await loadPreviewBoard({ signal, sectionId: activeSectionId })
+      setPosts(result.posts)
+      if (result.sections.length) setSections(result.sections)
       setError('')
     } catch (requestError) {
       const message = normalizeUiError(requestError, '게시판을 불러오지 못했어요.')
@@ -326,10 +436,13 @@ export function PreviewBoard() {
       if (!quiet) setRefreshing(false)
       setLoading(false)
     }
-  }, [])
+  }, [activeSectionId])
 
   useEffect(() => {
     const controller = new AbortController()
+    setLoading(true)
+    setPosts([])
+    setDetailPostId('')
     refresh({ quiet: true, signal: controller.signal })
     return () => controller.abort()
   }, [refresh])
@@ -349,7 +462,14 @@ export function PreviewBoard() {
     }
   }, [refresh])
 
+  function selectSection(sectionId) {
+    if (sectionId === activeSectionId) return
+    setError('')
+    setActiveSectionId(sectionId)
+  }
+
   function upsertPost(updated) {
+    if (updated.sectionId !== activeSectionId) return
     setPosts((current) => {
       const index = current.findIndex((post) => post.id === updated.id)
       if (index < 0) return [updated, ...current]
@@ -360,7 +480,19 @@ export function PreviewBoard() {
   }
 
   function addCreatedPost(post) {
+    if (post.sectionId !== activeSectionId) {
+      setPosts([])
+      setActiveSectionId(post.sectionId || 'general')
+      return
+    }
     setPosts((current) => [post, ...current.filter((item) => item.id !== post.id)])
+  }
+
+  function addCreatedSection(section) {
+    setSections((current) => [...current.filter((item) => item.id !== section.id), section])
+    setPosts([])
+    setError('')
+    setActiveSectionId(section.id)
   }
 
   const hasPosts = posts.length > 0
@@ -371,7 +503,7 @@ export function PreviewBoard() {
         <div className="preview-board-header-copy">
           <p className="eyebrow">우리 반</p>
           <h1>게시판</h1>
-          <p className="preview-board-header-note">같은 반 친구들과 공지, 질문을 나눌 수 있어요.</p>
+          <p className="preview-board-header-note">같은 반 친구들과 공지, 질문, 필기를 나눌 수 있어요.</p>
         </div>
         <button type="button" className="preview-board-write" onClick={() => setComposerOpen(true)}>
           <PlusIcon />
@@ -379,8 +511,15 @@ export function PreviewBoard() {
         </button>
       </header>
 
+      <BoardSections
+        sections={sections}
+        activeSectionId={activeSectionId}
+        onSelect={selectSection}
+        onAdd={() => setSectionComposerOpen(true)}
+      />
+
       <div className="preview-board-toolbar">
-        <span>{hasPosts ? `게시글 ${posts.length}개` : '우리 반 게시판'}</span>
+        <span>{hasPosts ? `${activeSectionName} · 게시글 ${posts.length}개` : activeSectionName}</span>
         <button
           type="button"
           className={`preview-board-refresh ${refreshing ? 'is-spinning' : ''}`}
@@ -405,7 +544,7 @@ export function PreviewBoard() {
                 onClick={() => setDetailPostId(post.id)}
               >
                 <div className="preview-board-card-top">
-                  <div className="preview-board-badges"><PostBadges post={post} /></div>
+                  <div className="preview-board-badges"><PostBadges post={post} sections={sections} /></div>
                   <span className="preview-board-time">{formatBoardTime(post.createdAt)}</span>
                 </div>
                 <h2>{post.title}</h2>
@@ -422,6 +561,7 @@ export function PreviewBoard() {
         <BoardState
           loading={loading}
           error={error}
+          sectionName={activeSectionName}
           onRetry={() => refresh()}
           onWrite={() => setComposerOpen(true)}
         />
@@ -431,11 +571,19 @@ export function PreviewBoard() {
 
       <BoardComposer
         open={composerOpen}
+        sections={sections}
+        initialSectionId={activeSectionId}
         onClose={() => setComposerOpen(false)}
         onCreated={addCreatedPost}
       />
+      <BoardSectionComposer
+        open={sectionComposerOpen}
+        onClose={() => setSectionComposerOpen(false)}
+        onCreated={addCreatedSection}
+      />
       <BoardDetail
         post={detailPost}
+        sections={sections}
         meKey={meKey}
         open={Boolean(detailPost)}
         onClose={() => setDetailPostId('')}
