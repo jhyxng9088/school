@@ -30,10 +30,10 @@ async function dispatch(payload) {
   }
 }
 
-export function dispatchPreviewBoardPostPush(post) {
+export function dispatchPreviewBoardPostPush(post = {}) {
   const postId = String(post?.id || '').trim()
   const sectionId = String(post?.sectionId || 'general').trim()
-  if (!postId) return Promise.resolve(null)
+  if (!sectionId) return Promise.resolve(null)
   return dispatch({ kind: 'board-post', postId, sectionId })
 }
 
