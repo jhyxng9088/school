@@ -1,5 +1,16 @@
 const AI_CONTEXT_LAYOUT_CSS = `
 /* Preview AI context layout: reference tools first, composer last. */
+.app-content:has(> .s-hub-ai-page) {
+  min-height: calc(100dvh - var(--nav-bottom) - 64px);
+  display: flex;
+  flex-direction: column;
+  padding-bottom: max(32px, env(safe-area-inset-top));
+}
+
+.app-content:has(> .s-hub-ai-page) > .s-hub-ai-page {
+  margin-block: auto;
+}
+
 .s-hub-ai-page-extra {
   margin-top: 0;
   margin-bottom: 23px;
@@ -13,6 +24,18 @@ const AI_CONTEXT_LAYOUT_CSS = `
   .s-hub-ai-page-extra {
     margin-top: 0;
     margin-bottom: 25px;
+  }
+}
+
+@media (max-height: 760px) {
+  .app-content:has(> .s-hub-ai-page) {
+    min-height: 100dvh;
+    display: block;
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .app-content:has(> .s-hub-ai-page) > .s-hub-ai-page {
+    margin-block: 0;
   }
 }
 
