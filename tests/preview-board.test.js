@@ -64,17 +64,42 @@ test('board API client authenticates with Firebase but stores board data through
   assert.doesNotMatch(source, /mock|fixture|seedPosts/i)
 })
 
+test('board sections are Supabase-backed, class-shared, and filter real posts', () => {
+  const client = read('src/preview-board-client.js')
+  const ui = read('src/preview-board.jsx')
+  assert.match(client, /url\.searchParams\.set\('section', sectionId\)/)
+  assert.match(client, /createPreviewBoardSection/)
+  assert.match(client, /action: 'create-section'/)
+  assert.match(client, /payload: \{ action: 'create', sectionId, title, body \}/)
+  assert.match(ui, /\{ id: 'general', label: '일반', builtin: true \}/)
+  assert.match(ui, /\{ id: 'question', label: '질문', builtin: true \}/)
+  assert.match(ui, /\{ id: 'notes', label: '필기', builtin: true \}/)
+  assert.match(ui, /function BoardSections/)
+  assert.match(ui, /게시판 섹션 추가/)
+  assert.match(ui, /createPreviewBoardSection\(label\.trim\(\)\)/)
+  assert.match(ui, /loadPreviewBoard\(\{ signal, sectionId: activeSectionId \}\)/)
+})
+
 test('board UI covers writes, comments, resolve, offline and server limits', () => {
   const source = read('src/preview-board.jsx')
   assert.match(source, /createPreviewBoardPost/)
   assert.match(source, /addPreviewBoardComment/)
   assert.match(source, /resolvePreviewBoardQuestion/)
+  assert.match(source, /post\.sectionId === 'question'/)
   assert.match(source, /maxLength=\{70\}/)
   assert.match(source, /maxLength=\{1200\}/)
   assert.match(source, /maxLength=\{500\}/)
+  assert.match(source, /maxLength=\{16\}/)
   assert.match(source, /navigator\.onLine/)
   assert.match(source, /UnifiedBottomSheet/)
   assert.match(source, /window\.addEventListener\('online', revalidate\)/)
+})
+
+test('refresh icon uses one continuous circular arrow instead of the broken legacy glyph', () => {
+  const source = read('src/preview-board.jsx')
+  assert.match(source, /<path d="M20 11a8 8 0 1 1-2\.34-5\.66" \/>/)
+  assert.match(source, /<path d="M20 4v5h-5" \/>/)
+  assert.doesNotMatch(source, /M20 6\.8V3\.5h-3\.3/)
 })
 
 test('board layout is centered and refresh control is a clear compact pill', () => {
@@ -88,6 +113,14 @@ test('board layout is centered and refresh control is a clear compact pill', () 
   assert.match(theme, /\.preview-board-refresh[\s\S]*border-radius: 12px/)
   assert.match(theme, /\.preview-board-refresh::after[\s\S]*content: '새로고침'/)
   assert.match(theme, /\.preview-board-refresh\.is-spinning::after[\s\S]*content: '불러오는 중'/)
+})
+
+test('board section controls are horizontally scrollable and mobile safe', () => {
+  const theme = read('src/preview-board-theme.css')
+  assert.match(theme, /\.preview-board-sections,[\s\S]*\.preview-board-compose-sections[\s\S]*overflow-x: auto/)
+  assert.match(theme, /\.preview-board-sections \.preview-board-section-add[\s\S]*border-style: dashed/)
+  assert.match(theme, /html\.school-samsung \.preview-board-sections button/)
+  assert.match(theme, /@media \(max-width: 430px\)/)
 })
 
 test('board motion remains mobile and accessibility safe', () => {
