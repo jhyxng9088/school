@@ -78,7 +78,7 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
   return `${source.slice(0, start)}${replacement}${source.slice(end)}`
 }
 
-const UNIFIED_STUDENT_SHEET = String.raw`function StudyStudentSheet({ student, meId, nowMs, onClose }) {
+const UNIFIED_STUDENT_SHEET = `function StudyStudentSheet({ student, meId, nowMs, onClose }) {
   const id = studentIdentity(student)
   const totalSeconds = studentTodaySeconds(student, nowMs)
   const subjects = studentSubjectTotals(student, nowMs)
