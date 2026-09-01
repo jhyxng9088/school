@@ -139,6 +139,46 @@ const AI_PAGE_CSS = `
   min-height: 188px;
 }
 
+.s-hub-ai-item-summary {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.s-hub-ai-item-summary > span {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-weight: 720;
+  letter-spacing: -.01em;
+}
+
+.s-hub-ai-item-summary > p,
+.s-hub-ai-item-summary-section > p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.48;
+  letter-spacing: -.015em;
+  white-space: normal;
+}
+
+.s-hub-ai-item-summary-section {
+  display: grid;
+  gap: 2px;
+  padding-top: 4px;
+  border-top: 1px solid var(--divider);
+}
+
+.s-hub-ai-item-summary-section > b {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 720;
+}
+
 @media (max-width: 560px) {
   .s-hub-ai-page-hero {
     grid-template-columns: auto minmax(0, 1fr);
@@ -192,6 +232,13 @@ function patchAISheetSource(source) {
     `  function close() {\n    if (saving) return\n    cancelAIRequest()\n    onClose()\n  }`,
     `  function close() {\n    if (saving) return\n    cancelAIRequest()\n    if (inline) {\n      startOver()\n      return\n    }\n    onClose()\n  }`,
     'inline completion behavior',
+  )
+
+  next = replaceRequired(
+    next,
+    `                        {meta ? <small>{meta}</small> : null}\n                        {reviewLabel ? <em>{reviewLabel}</em> : null}`,
+    `                        {meta ? <small>{meta}</small> : null}\n                        {item.kind === 'reminder' && item.previewSummary?.overview ? (\n                          <div className="s-hub-ai-item-summary">\n                            <span>AI 요약</span>\n                            <p>{item.previewSummary.overview}</p>\n                            {Array.isArray(item.previewSummary.sections) ? item.previewSummary.sections.slice(0, 3).map((section, summaryIndex) => (\n                              <div className="s-hub-ai-item-summary-section" key={\`${'${item.id}'}-summary-${'${summaryIndex}'}\`}>\n                                <b>{section.heading}</b>\n                                <p>{Array.isArray(section.items) ? section.items.slice(0, 6).join(' · ') : ''}</p>\n                              </div>\n                            )) : null}\n                          </div>\n                        ) : null}\n                        {reviewLabel ? <em>{reviewLabel}</em> : null}`,
+    'pre-save reminder summary',
   )
 
   const returnStartMarker = `  return (\n    <UnifiedBottomSheet`
