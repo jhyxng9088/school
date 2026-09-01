@@ -41,16 +41,19 @@ test('V2 update tour preserves the existing card-news interaction model and poli
 
   assert.match(index, /first-run-notice\.js[\s\S]*v2-update-notice\.js/)
   assert.match(index, /v2-update-notice\.css\?v=2/)
+  assert.match(index, /v2-update-device-fixes\.css\?v=1/)
   assert.match(index, /v2-update-notice\.js\?v=2/)
-  assert.match(sw, /school-shell-v155-v2-update2/)
+  assert.match(sw, /school-shell-v155-v2-update3/)
   assert.match(sw, /\.\/v2-update-audience\.js/)
   assert.match(sw, /\.\/v2-update-notice\.css/)
+  assert.match(sw, /\.\/v2-update-device-fixes\.css/)
   assert.match(sw, /\.\/v2-update-notice\.js/)
 })
 
 test('V2 update tour adds restrained iconography and per-slide motion without image dependencies', () => {
   const source = read('public/v2-update-notice.js')
   const css = read('public/v2-update-notice.css')
+  const deviceCss = read('public/v2-update-device-fixes.css')
 
   assert.match(source, /function iconMarkup\(type/)
   assert.match(source, /v2-tour-icon/)
@@ -67,5 +70,7 @@ test('V2 update tour adds restrained iconography and per-slide motion without im
   assert.match(css, /@keyframes v2-dot-pulse/)
   assert.match(css, /@keyframes v2-study-progress/)
   assert.match(css, /@keyframes v2-finish-sheen/)
+  assert.match(deviceCss, /@keyframes v2-nav-indicator-tour/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
+  assert.match(deviceCss, /@media \(prefers-reduced-motion: reduce\)/)
 })
