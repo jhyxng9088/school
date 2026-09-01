@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import { readStudentProfile, studentKeyFor } from './school-sync.js'
+import { REMINDER_CATEGORY_COLORS } from './reminder-categories.js'
 import {
   addPreviewBoardComment,
   createPreviewBoardPost,
@@ -11,9 +12,9 @@ import {
 import './preview-board.css'
 
 const FALLBACK_SECTIONS = [
-  { id: 'general', label: '일반', builtin: true },
-  { id: 'question', label: '질문', builtin: true },
-  { id: 'notes', label: '필기', builtin: true },
+  { id: 'general', label: '일반', color: '#90939a', builtin: true },
+  { id: 'question', label: '질문', color: '#7c83ff', builtin: true },
+  { id: 'notes', label: '필기', color: '#56a781', builtin: true },
 ]
 
 function formatBoardTime(value) {
@@ -33,17 +34,12 @@ function normalizeUiError(error, fallback) {
   return message || fallback
 }
 
-function sectionLabel(sectionId, sections) {
-  return sections.find((section) => section.id === sectionId)?.label || '일반'
+function sectionFor(sectionId, sections) {
+  return sections.find((section) => section.id === sectionId) || FALLBACK_SECTIONS[0]
 }
 
-function RefreshIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M20 11a8 8 0 1 1-2.34-5.66" />
-      <path d="M20 4v5h-5" />
-    </svg>
-  )
+function sectionLabel(sectionId, sections) {
+  return sectionFor(sectionId, sections).label || '일반'
 }
 
 function PlusIcon() {
@@ -54,13 +50,28 @@ function PlusIcon() {
   )
 }
 
+function SectionDot({ section, className = 'preview-board-section-dot' }) {
+  if (!section?.color) return null
+  return (
+    <span
+      className={className}
+      style={{ '--preview-board-section-color': section.color }}
+      aria-hidden="true"
+    />
+  )
+}
+
 function PostBadges({ post, sections }) {
-  const label = sectionLabel(post.sectionId, sections)
-  if (post.kind !== 'question') return <span className="preview-board-badge">{label}</span>
+  const section = sectionFor(post.sectionId, sections)
   return (
     <>
-      <span className="preview-board-badge is-question">{label}</span>
-      {post.resolved ? <span className="preview-board-badge is-resolved">해결됨</span> : null}
+      <span className={`preview-board-badge ${post.kind === 'question' ? 'is-question' : ''}`}>
+        <SectionDot section={section} className="preview-board-badge-dot" />
+        {section.label}
+      </span>
+      {post.kind === 'question' && post.resolved ? (
+        <span className="preview-board-badge is-resolved">해결됨</span>
+      ) : null}
     </>
   )
 }
@@ -78,7 +89,8 @@ function BoardSections({ sections, activeSectionId, onSelect, onAdd }) {
             aria-selected={section.id === activeSectionId}
             onClick={() => onSelect(section.id)}
           >
-            {section.label}
+            <SectionDot section={section} />
+            <span>{section.label}</span>
           </button>
         ))}
         <button
@@ -87,7 +99,7 @@ function BoardSections({ sections, activeSectionId, onSelect, onAdd }) {
           aria-label="게시판 섹션 추가"
           onClick={onAdd}
         >
-          <PlusIcon />
+          <span aria-hidden="true">+</span>
         </button>
       </div>
     </div>
@@ -121,17 +133,27 @@ function BoardState({ loading, error, sectionName, onRetry, onWrite }) {
   )
 }
 
-function BoardSectionComposer({ open, onClose, onCreated }) {
+function BoardSectionComposer({ open, sections, onClose, onCreated }) {
   const [label, setLabel] = useState('')
+  const [color, setColor] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
-  const canCreate = label.trim().length > 0 && !pending
+  const usedColors = useMemo(
+    () => new Set(sections.map((section) => String(section.color || '').toLowerCase()).filter(Boolean)),
+    [sections],
+  )
+  const availableColors = useMemo(
+    () => REMINDER_CATEGORY_COLORS.filter((item) => !usedColors.has(item.id)),
+    [usedColors],
+  )
+  const canCreate = label.trim().length > 0 && Boolean(color) && !pending
 
   useEffect(() => {
     if (!open) return
     setLabel('')
+    setColor(availableColors[0]?.id || '')
     setError('')
-  }, [open])
+  }, [open, availableColors])
 
   async function submit(event) {
     event.preventDefault()
@@ -143,11 +165,14 @@ function BoardSectionComposer({ open, onClose, onCreated }) {
     setPending(true)
     setError('')
     try {
-      const section = await createPreviewBoardSection(label.trim())
+      const section = await createPreviewBoardSection(label.trim(), color)
       onCreated(section)
       onClose()
     } catch (requestError) {
-      setError(normalizeUiError(requestError, '섹션을 추가하지 못했어요.'))
+      const code = String(requestError?.code || '')
+      if (code === 'board/section-duplicate') setError('같은 이름의 섹션이 이미 있어요.')
+      else if (code === 'board/section-color-duplicate') setError('이미 사용 중인 색상이에요.')
+      else setError(normalizeUiError(requestError, '섹션을 추가하지 못했어요.'))
     } finally {
       setPending(false)
     }
@@ -157,30 +182,57 @@ function BoardSectionComposer({ open, onClose, onCreated }) {
     <UnifiedBottomSheet
       open={open}
       onClose={onClose}
-      title="게시판 섹션 추가"
-      subtitle="추가한 섹션은 같은 반 친구들에게도 보여요."
-      ariaLabel="게시판 섹션 추가"
+      title="새 섹션"
+      subtitle="게시판을 구분할 이름과 색상을 골라 주세요."
+      ariaLabel="게시판 새 섹션"
       closeDisabled={pending}
+      className="preview-board-section-sheet"
     >
-      <form className="preview-board-form" onSubmit={submit}>
-        <label className="preview-board-field">
+      <form className="preview-board-section-form" onSubmit={submit}>
+        <label className="preview-board-section-name-field">
           <span>섹션 이름</span>
           <input
             type="text"
             value={label}
             maxLength={16}
-            placeholder="예: 수행평가, 자료실"
+            placeholder="예: 자료실"
             onChange={(event) => setLabel(event.target.value)}
             disabled={pending}
+            autoComplete="off"
+            spellCheck="false"
             autoFocus
           />
-          <small className="preview-board-field-count">{label.length}/16</small>
         </label>
+
+        <fieldset className="preview-board-section-colors">
+          <legend>색상</legend>
+          <div>
+            {REMINDER_CATEGORY_COLORS.map((item) => {
+              const used = usedColors.has(item.id)
+              return (
+                <button
+                  type="button"
+                  className={color === item.id ? 'is-selected' : ''}
+                  aria-label={`${item.label}${used ? ', 사용 중' : ''}`}
+                  aria-pressed={color === item.id}
+                  disabled={used || pending}
+                  onClick={() => setColor(item.id)}
+                  key={item.id}
+                >
+                  <span style={{ '--preview-board-section-color': item.id }} aria-hidden="true" />
+                </button>
+              )
+            })}
+          </div>
+        </fieldset>
+
+        {!availableColors.length ? <p className="preview-board-error">추가할 수 있는 색상이 없어요.</p> : null}
         {error ? <p className="preview-board-error" role="alert">{error}</p> : null}
-        <div className="preview-board-sheet-actions">
+
+        <div className="preview-board-section-actions">
           <button type="button" onClick={onClose} disabled={pending}>취소</button>
           <button type="submit" className="is-primary" disabled={!canCreate}>
-            {pending ? '추가 중…' : '추가하기'}
+            {pending ? '추가 중…' : '추가'}
           </button>
         </div>
       </form>
@@ -245,7 +297,8 @@ function BoardComposer({ open, sections, initialSectionId, onClose, onCreated })
               onClick={() => setSectionId(section.id)}
               disabled={pending}
             >
-              {section.label}
+              <SectionDot section={section} />
+              <span>{section.label}</span>
             </button>
           ))}
         </div>
@@ -522,12 +575,12 @@ export function PreviewBoard() {
         <span>{hasPosts ? `${activeSectionName} · 게시글 ${posts.length}개` : activeSectionName}</span>
         <button
           type="button"
-          className={`preview-board-refresh ${refreshing ? 'is-spinning' : ''}`}
+          className="preview-board-refresh"
           onClick={() => refresh()}
           disabled={refreshing || loading}
           aria-label="게시판 새로고침"
         >
-          <RefreshIcon />
+          새로고침
         </button>
       </div>
 
@@ -578,6 +631,7 @@ export function PreviewBoard() {
       />
       <BoardSectionComposer
         open={sectionComposerOpen}
+        sections={sections}
         onClose={() => setSectionComposerOpen(false)}
         onCreated={addCreatedSection}
       />
