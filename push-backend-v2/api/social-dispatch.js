@@ -52,7 +52,10 @@ async function verifyBoardPost({ token, postId, sectionId, actorStudentKey }) {
   url.searchParams.set('section', sectionId)
   url.searchParams.set('sections', '0')
   const body = await verifiedJson(url.toString(), token)
-  const post = Array.isArray(body?.posts) ? body.posts.find((item) => String(item?.id || '') === postId) : null
+  const posts = Array.isArray(body?.posts) ? body.posts : []
+  const post = postId
+    ? posts.find((item) => String(item?.id || '') === postId)
+    : posts.find((item) => safeText(item?.authorStudentKey, 80) === actorStudentKey && withinFreshWindow(item?.createdAt))
   if (!post) return null
   if (safeText(post.authorStudentKey, 80) !== actorStudentKey) return null
   if (!withinFreshWindow(post.createdAt)) return null
@@ -113,16 +116,17 @@ export default async function handler(req, res) {
     if (kind === 'board-post') {
       const postId = safeText(body.postId, 80)
       const sectionId = safeText(body.sectionId || 'general', 32).toLowerCase()
-      if (!/^[0-9a-f-]{36}$/i.test(postId) || !/^(?:general|question|notes|custom-[0-9a-f]{6})$/.test(sectionId)) {
+      if ((postId && !/^[0-9a-f-]{36}$/i.test(postId)) || !/^(?:general|question|notes|custom-[0-9a-f]{6})$/.test(sectionId)) {
         return res.status(400).json({ ok: false, error: 'invalid_board_event' })
       }
       const post = await verifyBoardPost({ token, postId, sectionId, actorStudentKey })
       if (!post) return res.status(409).json({ ok: false, error: 'board_event_unverified' })
-      claimId = `social-board-${postId}`
+      const verifiedPostId = safeText(post.id, 80)
+      claimId = `social-board-${verifiedPostId}`
       payload = {
         title: 'S-Hub',
         body: `${actorName}님이 게시판에 새 글을 올렸어요.`,
-        tag: `board-post-${postId}`,
+        tag: `board-post-${verifiedPostId}`,
         url: './?tab=board',
       }
     } else if (kind === 'study-start') {
