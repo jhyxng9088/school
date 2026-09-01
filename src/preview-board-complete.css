@@ -276,7 +276,7 @@
 .preview-board-edit-form .preview-board-sheet-actions button.is-primary {
   border-color: transparent;
   background: var(--text);
-  color: var(--background);
+  color: var(--bg);
 }
 
 .preview-board-comment-actions {
