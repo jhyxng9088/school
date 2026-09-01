@@ -76,6 +76,7 @@
 
 .preview-study-subjects button:active,
 .preview-study-primary-button:active,
+.preview-study-pause-button:active,
 .preview-study-stop-button:active,
 .preview-study-load-error button:active {
   transform: scale(.975);
@@ -110,19 +111,32 @@
 }
 
 .preview-study-primary-button,
+.preview-study-pause-button,
 .preview-study-stop-button {
-  width: 100%;
   min-height: 50px;
-  margin-top: 16px;
   border: 0;
   border-radius: 16px;
   font: inherit;
   font-size: 14px;
   font-weight: 720;
-  transition: transform 150ms var(--motion-ease), opacity 180ms ease;
+  transition: transform 150ms var(--motion-ease), opacity 180ms ease, background 220ms var(--motion-soft);
 }
 
 .preview-study-primary-button {
+  width: 100%;
+  margin-top: 16px;
+  background: var(--text);
+  color: var(--bg);
+}
+
+.preview-study-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.preview-study-pause-button {
   background: var(--text);
   color: var(--bg);
 }
@@ -134,6 +148,7 @@
 }
 
 .preview-study-primary-button:disabled,
+.preview-study-pause-button:disabled,
 .preview-study-stop-button:disabled {
   opacity: .42;
 }
@@ -151,6 +166,12 @@
   border-radius: 50%;
   background: #34c759;
   box-shadow: 0 0 0 4px color-mix(in srgb, #34c759 13%, transparent);
+  transition: background 220ms var(--motion-soft), box-shadow 220ms var(--motion-soft), opacity 220ms var(--motion-soft);
+}
+
+.preview-study-live-dot.is-paused {
+  background: var(--text-secondary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-secondary) 11%, transparent);
 }
 
 .preview-study-active-subject {
@@ -167,6 +188,10 @@
   font-weight: 680;
   line-height: 1.04;
   letter-spacing: -.055em;
+}
+
+.preview-study-active-card.is-paused .preview-study-running-time {
+  opacity: .68;
 }
 
 .preview-study-today-summary {
@@ -222,10 +247,16 @@
   align-items: center;
   gap: 11px;
   padding: 11px 14px;
+  animation: preview-study-person-enter 340ms var(--motion-soft) both;
+  transform-origin: 50% 0;
 }
 
 .preview-study-live-person {
   grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.preview-study-live-person.is-paused {
+  opacity: .72;
 }
 
 .preview-study-today-person {
@@ -331,6 +362,17 @@
   padding: 0 3px;
 }
 
+@keyframes preview-study-person-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 html.school-samsung .preview-study-card,
 html.school-samsung .preview-study-live-list,
 html.school-samsung .preview-study-today-list {
@@ -369,8 +411,14 @@ html.school-samsung .preview-study-today-list {
 @media (prefers-reduced-motion: reduce) {
   .preview-study-subjects button,
   .preview-study-primary-button,
+  .preview-study-pause-button,
   .preview-study-stop-button,
   .preview-study-load-error button {
     transition-duration: .01ms !important;
+  }
+
+  .preview-study-live-person,
+  .preview-study-today-person {
+    animation: none !important;
   }
 }
