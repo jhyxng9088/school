@@ -15,8 +15,8 @@ test('V2 unread parents aggregate their visible child sections', () => {
 test('opening a parent station does not erase unread siblings', () => {
   const source = read('src/unread-indicators-v2.js')
   assert.match(source, /if \(tab && !\['class', 'schedule'\]\.includes\(tab\)\) markTabSeen\(tab\)/)
-  assert.match(source, /class-top-segment-button\.is-active\[data-unread-key\]/)
-  assert.match(source, /station-schedule-page .*class-top-segment-button\.is-active\[data-unread-key\]/)
+  assert.ok(source.includes(".class-station-page .class-top-segment-button.is-active[data-unread-key]"))
+  assert.ok(source.includes(".station-schedule-page .class-top-segment-button.is-active[data-unread-key]"))
 })
 
 test('board section visit and unopened post state are separate cursors', () => {
