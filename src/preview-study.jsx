@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   loadPreviewStudy,
+  pausePreviewStudy,
+  resumePreviewStudy,
   startPreviewStudy,
   stopPreviewStudy,
 } from './preview-study-client.js'
@@ -37,9 +39,20 @@ export function formatStudyDuration(totalSeconds, { clock = false } = {}) {
   return seconds > 0 ? `${seconds}초` : '0분'
 }
 
+export function activeSessionSeconds(active, nowMs = Date.now()) {
+  if (!active) return 0
+  const saved = Math.max(0, Math.floor(Number(active.sessionSeconds || 0)))
+  if (active.isPaused) return saved
+  const segmentStartedAt = Number(active.segmentStartedAt || active.startedAt || 0)
+  if (!Number.isFinite(segmentStartedAt) || segmentStartedAt <= 0) return saved
+  return saved + Math.max(0, Math.floor((nowMs - segmentStartedAt) / 1000))
+}
+
 function studentTodaySeconds(student, nowMs) {
-  return Math.max(0, Number(student?.totalSeconds || 0))
-    + (student?.active ? runningTodaySeconds(student.active.startedAt, nowMs) : 0)
+  const recorded = Math.max(0, Number(student?.totalSeconds || 0))
+  const active = student?.active
+  if (!active || active.isPaused) return recorded
+  return recorded + runningTodaySeconds(active.segmentStartedAt || active.startedAt, nowMs)
 }
 
 function StudyStartCard({ selectedSubject, customSubject, onSubject, onCustomSubject, onStart, saving, error }) {
@@ -49,7 +62,7 @@ function StudyStartCard({ selectedSubject, customSubject, onSubject, onCustomSub
       <div className="preview-study-card-heading">
         <div>
           <p>공부 시작</p>
-          <h2>무슨 과목 할 거야?</h2>
+          <h2>공부할 과목을 선택해 주세요.</h2>
         </div>
       </div>
 
@@ -93,16 +106,16 @@ function StudyStartCard({ selectedSubject, customSubject, onSubject, onCustomSub
   )
 }
 
-function StudyActiveCard({ active, todaySeconds, nowMs, onStop, saving, error }) {
-  const elapsed = Math.max(0, Math.floor((nowMs - Number(active.startedAt || 0)) / 1000))
+function StudyActiveCard({ active, todaySeconds, nowMs, onPause, onResume, onStop, saving, error }) {
+  const elapsed = activeSessionSeconds(active, nowMs)
   return (
-    <section className="preview-study-card preview-study-active-card">
+    <section className={`preview-study-card preview-study-active-card${active.isPaused ? ' is-paused' : ''}`}>
       <div className="preview-study-live-row">
-        <span className="preview-study-live-dot" aria-hidden="true" />
-        <span>공부 중</span>
+        <span className={`preview-study-live-dot${active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
+        <span>{active.isPaused ? '일시정지' : '공부 중'}</span>
       </div>
       <strong className="preview-study-active-subject">{active.subject}</strong>
-      <div className="preview-study-running-time" aria-label={`현재 공부 시간 ${formatStudyDuration(elapsed)}`}>
+      <div className="preview-study-running-time" aria-label={`현재 스터디 시간 ${formatStudyDuration(elapsed)}`}>
         {formatStudyDuration(elapsed, { clock: true })}
       </div>
       <div className="preview-study-today-summary">
@@ -110,14 +123,24 @@ function StudyActiveCard({ active, todaySeconds, nowMs, onStop, saving, error })
         <strong>{formatStudyDuration(todaySeconds)}</strong>
       </div>
       {error ? <p className="preview-study-error" role="alert">{error}</p> : null}
-      <button
-        type="button"
-        className="preview-study-stop-button"
-        onClick={onStop}
-        disabled={saving}
-      >
-        {saving ? '종료 중…' : '공부 종료'}
-      </button>
+      <div className="preview-study-action-row">
+        <button
+          type="button"
+          className="preview-study-pause-button"
+          onClick={active.isPaused ? onResume : onPause}
+          disabled={saving}
+        >
+          {saving ? '처리 중…' : active.isPaused ? '계속하기' : '일시정지'}
+        </button>
+        <button
+          type="button"
+          className="preview-study-stop-button"
+          onClick={onStop}
+          disabled={saving}
+        >
+          {saving ? '처리 중…' : '공부 종료'}
+        </button>
+      </div>
     </section>
   )
 }
@@ -125,24 +148,25 @@ function StudyActiveCard({ active, todaySeconds, nowMs, onStop, saving, error })
 function ActiveClassmates({ students, meKey, nowMs }) {
   const active = students
     .filter((student) => student.active)
-    .sort((a, b) => Number(a.active.startedAt || 0) - Number(b.active.startedAt || 0))
+    .sort((a, b) => Number(a.active.isPaused) - Number(b.active.isPaused)
+      || Number(a.active.startedAt || 0) - Number(b.active.startedAt || 0))
 
   return (
     <section className="preview-study-section">
       <div className="preview-study-section-heading">
-        <h2>지금 공부 중</h2>
+        <h2>현재 스터디</h2>
         <span>{active.length}명</span>
       </div>
       {active.length ? (
         <div className="preview-study-live-list">
           {active.map((student) => {
-            const elapsed = Math.max(0, Math.floor((nowMs - Number(student.active.startedAt || 0)) / 1000))
+            const elapsed = activeSessionSeconds(student.active, nowMs)
             return (
-              <div className="preview-study-live-person" key={student.studentKey}>
-                <span className="preview-study-live-dot" aria-hidden="true" />
+              <div className={`preview-study-live-person${student.active.isPaused ? ' is-paused' : ''}`} key={student.studentKey}>
+                <span className={`preview-study-live-dot${student.active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
                 <div>
-                  <strong>{student.name}{student.studentKey === meKey ? ' · 나' : ''}</strong>
-                  <span>{student.active.subject}</span>
+                  <strong>{student.name}{student.studentKey === meKey ? ' · 본인' : ''}</strong>
+                  <span>{student.active.subject}{student.active.isPaused ? ' · 일시정지' : ' · 공부 중'}</span>
                 </div>
                 <time>{formatStudyDuration(elapsed)}</time>
               </div>
@@ -150,7 +174,7 @@ function ActiveClassmates({ students, meKey, nowMs }) {
           })}
         </div>
       ) : (
-        <div className="preview-study-empty">지금 공부 중인 학생이 없어.</div>
+        <div className="preview-study-empty">현재 스터디 중인 학생이 없습니다.</div>
       )}
     </section>
   )
@@ -172,17 +196,19 @@ function TodayStudyList({ students, meKey, nowMs }) {
         <div className="preview-study-today-list">
           {ranked.map((student, index) => (
             <div className="preview-study-today-person" key={student.studentKey}>
-              <span className="preview-study-rank" aria-label={`${index + 1}번째`}>{index + 1}</span>
+              <span className="preview-study-rank" aria-label={`${index + 1}위`}>{index + 1}</span>
               <div>
-                <strong>{student.name}{student.studentKey === meKey ? ' · 나' : ''}</strong>
-                {student.active ? <span>{student.active.subject} 공부 중</span> : <span>오늘 기록</span>}
+                <strong>{student.name}{student.studentKey === meKey ? ' · 본인' : ''}</strong>
+                {student.active ? (
+                  <span>{student.active.subject}{student.active.isPaused ? ' · 일시정지' : ' · 공부 중'}</span>
+                ) : <span>오늘 기록</span>}
               </div>
               <time>{formatStudyDuration(student.displaySeconds)}</time>
             </div>
           ))}
         </div>
       ) : (
-        <div className="preview-study-empty">오늘 기록된 공부 시간이 없어.</div>
+        <div className="preview-study-empty">오늘 기록된 공부 시간이 없습니다.</div>
       )}
     </section>
   )
@@ -210,7 +236,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       setLoadError('')
     } catch (error) {
       if (requestId !== requestIdRef.current) return
-      setLoadError(error?.message || '스터디 정보를 불러오지 못했어.')
+      setLoadError(error?.message || '스터디 정보를 불러오지 못했습니다.')
     } finally {
       if (requestId === requestIdRef.current && !silent) setLoading(false)
     }
@@ -273,41 +299,63 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     [me, nowMs],
   )
 
-  async function start() {
-    const subject = selectedSubject === '기타' ? customSubject.trim() : selectedSubject
-    if (!subject || saving) return
-    if (!requireOnline('스터디를 시작')) return
+  async function runAction({ onlineLabel, action, broadcastAction, fallbackMessage }) {
+    if (saving || !requireOnline(onlineLabel)) return
     setSaving(true)
     setActionError('')
     try {
-      await startPreviewStudy(subject)
-      await broadcastPreviewStudyRealtime('start')
+      await action()
+      await broadcastPreviewStudyRealtime(broadcastAction)
       await load({ silent: true })
-      setSelectedSubject('')
-      setCustomSubject('')
       setNowMs(Date.now())
     } catch (error) {
-      setActionError(error?.message || '공부를 시작하지 못했어.')
+      setActionError(error?.message || fallbackMessage)
     } finally {
       setSaving(false)
     }
   }
 
+  async function start() {
+    const subject = selectedSubject === '기타' ? customSubject.trim() : selectedSubject
+    if (!subject || saving) return
+    await runAction({
+      onlineLabel: '스터디를 시작',
+      action: () => startPreviewStudy(subject),
+      broadcastAction: 'start',
+      fallbackMessage: '공부를 시작하지 못했습니다.',
+    })
+    setSelectedSubject('')
+    setCustomSubject('')
+  }
+
+  async function pause() {
+    if (!myActive || myActive.isPaused) return
+    await runAction({
+      onlineLabel: '스터디를 일시정지',
+      action: pausePreviewStudy,
+      broadcastAction: 'pause',
+      fallbackMessage: '스터디를 일시정지하지 못했습니다.',
+    })
+  }
+
+  async function resume() {
+    if (!myActive || !myActive.isPaused) return
+    await runAction({
+      onlineLabel: '스터디를 계속',
+      action: resumePreviewStudy,
+      broadcastAction: 'resume',
+      fallbackMessage: '스터디를 계속하지 못했습니다.',
+    })
+  }
+
   async function stop() {
-    if (!myActive || saving) return
-    if (!requireOnline('스터디를 종료')) return
-    setSaving(true)
-    setActionError('')
-    try {
-      await stopPreviewStudy()
-      await broadcastPreviewStudyRealtime('stop')
-      await load({ silent: true })
-      setNowMs(Date.now())
-    } catch (error) {
-      setActionError(error?.message || '공부를 종료하지 못했어.')
-    } finally {
-      setSaving(false)
-    }
+    if (!myActive) return
+    await runAction({
+      onlineLabel: '스터디를 종료',
+      action: stopPreviewStudy,
+      broadcastAction: 'stop',
+      fallbackMessage: '공부를 종료하지 못했습니다.',
+    })
   }
 
   return (
@@ -321,7 +369,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       </header>
 
       {loading && !snapshot ? (
-        <div className="preview-study-loading">스터디 기록 불러오는 중…</div>
+        <div className="preview-study-loading">스터디 기록을 불러오는 중…</div>
       ) : null}
 
       {loadError && !snapshot ? (
@@ -338,6 +386,8 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
               active={myActive}
               todaySeconds={myTodaySeconds}
               nowMs={nowMs}
+              onPause={pause}
+              onResume={resume}
               onStop={stop}
               saving={saving}
               error={actionError}
@@ -361,7 +411,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
             />
           )}
 
-          {loadError ? <p className="preview-study-inline-warning">실시간 새로고침이 잠시 끊겼어. 마지막으로 받은 기록을 보여주고 있어.</p> : null}
+          {loadError ? <p className="preview-study-inline-warning">실시간 새로고침이 일시적으로 중단되었습니다. 마지막으로 불러온 기록을 표시합니다.</p> : null}
           <ActiveClassmates students={snapshot.students} meKey={meKey} nowMs={nowMs} />
           <TodayStudyList students={snapshot.students} meKey={meKey} nowMs={nowMs} />
         </div>
