@@ -204,15 +204,17 @@ function patchMain(source) {
 
   const plainNavMarker = `            data-tab={tab.id}\n            className={\`nav-button ${'${activeTab === tab.id ? \'active\' : \'\'}'}\`}`
   const boardUnreadNavMarker = `            data-tab={tab.id}\n            className={\`nav-button ${'${activeTab === tab.id ? \'active\' : \'\'}'} ${'${tab.id === \'class\' && boardUnread.hasUnread ? \'has-board-unread\' : \'\'}'}\`}`
-  const navMarker = next.includes(boardUnreadNavMarker) ? boardUnreadNavMarker : plainNavMarker
-  const boardUnreadClassLine = next.includes(boardUnreadNavMarker)
+  const hasBoardUnreadNav = next.includes(boardUnreadNavMarker)
+  const navMarker = hasBoardUnreadNav ? boardUnreadNavMarker : plainNavMarker
+  const boardUnreadClassLine = hasBoardUnreadNav
     ? `\n              tab.id === 'class' && boardUnread.hasUnread ? 'has-board-unread' : '',`
     : ''
+  const navReplacement = `            data-tab={tab.id}\n            className={[\n              'nav-button',\n              activeTab === tab.id ? 'active' : '',\n              tab.id === 'ai' && aiWorking ? 'is-ai-working' : '',` + boardUnreadClassLine + `\n            ].filter(Boolean).join(' ')}`
 
   next = replaceRequired(
     next,
     navMarker,
-    `            data-tab={tab.id}\n            className={[\n              'nav-button',\n              activeTab === tab.id ? 'active' : '',\n              tab.id === 'ai' && aiWorking ? 'is-ai-working' : '',${'${boardUnreadClassLine}'}\n            ].filter(Boolean).join(' ')}`,
+    navReplacement,
     'AI nav working state',
   )
 
