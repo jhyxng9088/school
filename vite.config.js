@@ -14,6 +14,7 @@ import { patchPreviewReminderPolishSource } from './src/preview-reminder-polish-
 import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'
 import { patchPreviewStationNavSource } from './src/preview-station-nav-patch.js'
 import { patchPreviewStudySource } from './src/preview-study-patch.js'
+import { patchPreviewFastCacheSource } from './src/preview-fast-cache-patch.js'
 import { patchPreviewStationNavRefinementSource } from './src/preview-station-nav-refine-patch.js'
 import { patchPreviewStationJellyMotionSource } from './src/preview-station-jelly-motion-patch.js'
 import { patchPreviewNestedStationReactionSource } from './src/preview-nested-station-reaction-patch.js'
@@ -106,6 +107,7 @@ function replacePreviewSource(source, id) {
   next = patchPreviewClassTopSegmentStyleSource(next, cleanId)
   next = patchPreviewBoardSource(next, cleanId)
   next = patchPreviewStudySource(next, cleanId)
+  next = patchPreviewFastCacheSource(next, cleanId)
   next = patchPreviewScheduleTopSegmentSource(next, cleanId)
   next = patchPreviewAIPageSource(next, cleanId)
   next = patchPreviewAIDensitySource(next, cleanId)
@@ -177,6 +179,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-reminder-polish-patch.js')
         || cleanId.endsWith('/preview-station-nav-patch.js')
         || cleanId.endsWith('/preview-study-patch.js')
+        || cleanId.endsWith('/preview-fast-cache-patch.js')
         || cleanId.endsWith('/preview-station-nav-refine-patch.js')
         || cleanId.endsWith('/preview-station-jelly-motion-patch.js')
         || cleanId.endsWith('/preview-nested-station-reaction-patch.js')
