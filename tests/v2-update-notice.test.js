@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('V2 update tour only targets existing users who already completed the original tour', () => {
+test('V2 update tour only targets users who already existed before V2 onboarding', () => {
   const source = read('public/v2-update-notice.js')
+  const audience = read('public/v2-update-audience.js')
+  const index = read('index.html')
 
   assert.match(source, /const PROFILE_KEY = 'school\.studentProfile\.v1'/)
   assert.match(source, /const FIRST_TOUR_KEY = 'school\.featureTour\.v1'/)
@@ -13,6 +15,11 @@ test('V2 update tour only targets existing users who already completed the origi
   assert.match(source, /localStorage\.getItem\(FIRST_TOUR_KEY\) !== 'done'/)
   assert.match(source, /localStorage\.getItem\(UPDATE_TOUR_KEY\) !== 'done'/)
   assert.match(source, /localStorage\.setItem\(UPDATE_TOUR_KEY, 'done'\)/)
+
+  assert.match(audience, /const PROFILE_KEY = 'school\.studentProfile\.v1'/)
+  assert.match(audience, /const UPDATE_TOUR_KEY = 'school\.v2UpdateTour\.v1'/)
+  assert.match(audience, /if \(!hasExistingProfile\) localStorage\.setItem\(UPDATE_TOUR_KEY, 'done'\)/)
+  assert.match(index, /v2-update-audience\.js[\s\S]*first-run-notice\.js[\s\S]*v2-update-notice\.js/)
 })
 
 test('V2 update tour preserves the existing card-news interaction model and polite copy', () => {
@@ -32,7 +39,8 @@ test('V2 update tour preserves the existing card-news interaction model and poli
 
   assert.match(index, /first-run-notice\.js[\s\S]*v2-update-notice\.js/)
   assert.match(index, /v2-update-notice\.css/)
-  assert.match(sw, /school-shell-v156/)
+  assert.match(sw, /school-shell-v155-v2-update1/)
+  assert.match(sw, /\.\/v2-update-audience\.js/)
   assert.match(sw, /\.\/v2-update-notice\.css/)
   assert.match(sw, /\.\/v2-update-notice\.js/)
 })
