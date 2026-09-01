@@ -1,4 +1,5 @@
 import { ensureSignedIn } from './school-sync.js'
+import './preview-study-ranking.css'
 
 const STUDY_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-study'
 
