@@ -33,6 +33,11 @@
   border-radius: 24px;
 }
 
+.preview-study-control-content {
+  min-height: 158px;
+  animation: preview-study-control-content-enter 360ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
 .preview-study-card-heading p,
 .preview-study-live-row,
 .preview-study-today-summary span {
@@ -147,10 +152,92 @@
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
+.preview-study-action-dock {
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-top: 16px;
+  overflow: hidden;
+  transition: gap 520ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.preview-study-action-dock .preview-study-morph-primary,
+.preview-study-action-dock .preview-study-morph-stop {
+  box-sizing: border-box;
+  min-width: 0;
+  margin-top: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  will-change: width, opacity, transform;
+}
+
+.preview-study-action-dock .preview-study-morph-primary {
+  width: 100%;
+  flex: 0 0 auto;
+  transition:
+    width 520ms cubic-bezier(.16, 1, .3, 1),
+    transform 180ms var(--motion-ease),
+    opacity 220ms ease,
+    background 360ms var(--motion-soft),
+    color 360ms var(--motion-soft),
+    border-radius 520ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.preview-study-action-dock .preview-study-morph-stop {
+  width: 0;
+  max-width: 0;
+  flex: 0 0 auto;
+  padding-inline: 0;
+  opacity: 0;
+  transform: translate3d(-10px, 0, 0) scale(.94);
+  pointer-events: none;
+  transition:
+    width 520ms cubic-bezier(.16, 1, .3, 1),
+    max-width 520ms cubic-bezier(.16, 1, .3, 1),
+    padding 440ms cubic-bezier(.16, 1, .3, 1),
+    opacity 260ms ease,
+    transform 520ms cubic-bezier(.16, 1, .3, 1),
+    background 360ms var(--motion-soft),
+    color 360ms var(--motion-soft);
+}
+
+.preview-study-action-dock.is-active {
+  gap: 8px;
+}
+
+.preview-study-action-dock.is-active .preview-study-morph-primary,
+.preview-study-action-dock.is-active .preview-study-morph-stop {
+  width: calc(50% - 4px);
+}
+
+.preview-study-action-dock.is-active .preview-study-morph-stop {
+  max-width: calc(50% - 4px);
+  padding-inline: 12px;
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  pointer-events: auto;
+}
+
+.preview-study-action-dock.is-paused .preview-study-morph-primary {
+  border-radius: 18px;
+}
+
+.preview-study-action-label {
+  display: inline-block;
+  transform-origin: 50% 60%;
+  animation: preview-study-action-label-enter 260ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
 .preview-study-primary-button:disabled,
 .preview-study-pause-button:disabled,
 .preview-study-stop-button:disabled {
   opacity: .42;
+}
+
+.preview-study-action-dock.is-saving .preview-study-morph-primary,
+.preview-study-action-dock.is-saving .preview-study-morph-stop {
+  cursor: progress;
 }
 
 .preview-study-live-row {
@@ -188,10 +275,12 @@
   font-weight: 680;
   line-height: 1.04;
   letter-spacing: -.055em;
+  transition: opacity 300ms var(--motion-soft), transform 300ms var(--motion-soft);
 }
 
-.preview-study-active-card.is-paused .preview-study-running-time {
+.preview-study-control-card.is-paused .preview-study-running-time {
   opacity: .68;
+  transform: scale(.992);
 }
 
 .preview-study-today-summary {
@@ -362,6 +451,30 @@
   padding: 0 3px;
 }
 
+@keyframes preview-study-control-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(.994);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes preview-study-action-label-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(.98);
+    filter: blur(1.5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
 @keyframes preview-study-person-enter {
   from {
     opacity: 0;
@@ -413,10 +526,16 @@ html.school-samsung .preview-study-today-list {
   .preview-study-primary-button,
   .preview-study-pause-button,
   .preview-study-stop-button,
-  .preview-study-load-error button {
+  .preview-study-load-error button,
+  .preview-study-action-dock,
+  .preview-study-action-dock .preview-study-morph-primary,
+  .preview-study-action-dock .preview-study-morph-stop,
+  .preview-study-running-time {
     transition-duration: .01ms !important;
   }
 
+  .preview-study-control-content,
+  .preview-study-action-label,
   .preview-study-live-person,
   .preview-study-today-person {
     animation: none !important;
