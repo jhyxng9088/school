@@ -16,8 +16,9 @@ test('V2 home overview reuses existing unread controllers and local app data', (
   assert.doesNotMatch(component, /loadPreviewStudy\(/)
   assert.doesNotMatch(component, /loadPreviewBoard/)
 
-  assert.match(patch, /<PreviewHomeSignals profile=\{profile\} presence=\{presence\} todos=\{todoData\.todos\} \/>/)
+  assert.match(patch, /<PreviewHomeSignals profile=\{profile\} presence=\{presence\} todos=\{todoData\.todos\} onNavigate=\{onNavigate\} \/>/)
   assert.match(patch, /function Home\(\{ profile, name, now/)
+  assert.match(patch, /onNavigate=\{navigateHomeSignal\}/)
   assert.match(vite, /patchPreviewHomeInfoSource/)
 })
 
