@@ -81,12 +81,6 @@ html.school-samsung .preview-home-signal {
   -webkit-backdrop-filter: none;
 }
 
-@media (min-width: 760px) {
-  .preview-home-signals-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 360px) {
   .preview-home-signals-grid {
     gap: 8px;
