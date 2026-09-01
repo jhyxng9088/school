@@ -298,8 +298,8 @@ function patchAISheet(source) {
 
   next = replaceRequired(
     next,
-    `            <SHubAIOrb size={56} active />\n            <p className={\`s-hub-ai-thinking-copy ${workingMessageFading ? 'is-fading' : ''}\`.trim()}>{workingMessage}</p>`,
-    `            {!inline ? <SHubAIOrb size={56} active /> : null}\n            {inline ? (\n              <span className="s-hub-ai-working-sr">{workingMessage}</span>\n            ) : (\n              <p className={\`s-hub-ai-thinking-copy ${workingMessageFading ? 'is-fading' : ''}\`.trim()}>{workingMessage}</p>\n            )}`,
+    "            <SHubAIOrb size={56} active />\n            <p className={`s-hub-ai-thinking-copy ${workingMessageFading ? 'is-fading' : ''}`.trim()}>{workingMessage}</p>",
+    "            {!inline ? <SHubAIOrb size={56} active /> : null}\n            {inline ? (\n              <span className=\"s-hub-ai-working-sr\">{workingMessage}</span>\n            ) : (\n              <p className={['s-hub-ai-thinking-copy', workingMessageFading ? 'is-fading' : ''].filter(Boolean).join(' ')}>{workingMessage}</p>\n            )}",
     'remove duplicate inline working orb',
   )
 
