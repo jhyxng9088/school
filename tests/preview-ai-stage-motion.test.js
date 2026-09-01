@@ -15,52 +15,65 @@ function builtAISheet() {
   return source
 }
 
-test('AI page body remounts by working/mode state and marks compose separately', () => {
+function builtAICss() {
+  let css = read('src/s-hub-ai.css')
+  css = patchPreviewAIPageSource(css, '/workspace/src/s-hub-ai.css')
+  css = patchPreviewAIDensitySource(css, '/workspace/src/s-hub-ai.css')
+  css = patchPreviewAIStageMotionSource(css, '/workspace/src/s-hub-ai.css')
+  return css
+}
+
+test('AI page keeps one persistent stage instead of remounting on every state change', () => {
   const source = builtAISheet()
-  assert.match(source, /className=\{'s-hub-ai-page-stage ' \+ \(working \? 'is-working' : 'is-' \+ state\.mode\)\} key=\{working \? 'working' : state\.mode\}/)
+  assert.match(source, /className=\{'s-hub-ai-page-stage ' \+ \(working \? 'is-working' : 'is-' \+ state\.mode\)\}/)
+  assert.doesNotMatch(source, /key=\{working \? 'working' : state\.mode\}/)
   assert.ok(source.indexOf('s-hub-ai-page-stage') < source.indexOf('s-hub-ai-page-capabilities'))
   assert.ok(source.indexOf('s-hub-ai-page-extra') < source.lastIndexOf('</div>\n      </section>'))
 })
 
-test('AI compose entry cascades through visible blocks with intentional overlap', () => {
-  let css = read('src/s-hub-ai.css')
-  css = patchPreviewAIPageSource(css, '/workspace/src/s-hub-ai.css')
-  css = patchPreviewAIDensitySource(css, '/workspace/src/s-hub-ai.css')
-  css = patchPreviewAIStageMotionSource(css, '/workspace/src/s-hub-ai.css')
+test('inline working state uses one enlarged hero orb and minimal status copy', () => {
+  const source = builtAISheet()
+  assert.match(source, /s-hub-ai-page-hero ' \+ \(working \? 'is-working' : 'is-idle'\)/)
+  assert.match(source, /<SHubAIOrb size=\{working \? 96 : 42\} active=\{working\} \/>/)
+  assert.match(source, /\{!inline \? <SHubAIOrb size=\{56\} active \/> : null\}/)
+  assert.match(source, /s-hub-ai-working-sr/)
+  assert.match(source, /\{working \? '처리 중' : 'AI'\}/)
+  assert.match(source, /\{working \? workingMessage : '학교 정보를 묻고/)
+})
 
-  assert.doesNotMatch(css, /\.s-hub-ai-page-stage\s*\{[^}]*animation\s*:/)
-  assert.match(css, /\.s-hub-ai-page-stage:not\(\.is-compose\) \{[^}]*animation: content-in 980ms cubic-bezier\(0\.16, 1, 0\.3, 1\) both/)
+test('AI compose entry keeps the existing S-Hub stagger rhythm', () => {
+  const css = builtAICss()
   assert.match(css, /@keyframes s-hub-ai-piece-in/)
   assert.match(css, /animation: s-hub-ai-piece-in 720ms cubic-bezier\(0\.16, 1, 0\.3, 1\) both/)
   assert.match(css, /\.s-hub-ai-page-hero \{ animation-delay: 30ms; \}/)
   assert.match(css, /capability:nth-child\(1\) \{ animation-delay: 90ms; \}/)
-  assert.match(css, /capability:nth-child\(2\) \{ animation-delay: 130ms; \}/)
-  assert.match(css, /capability:nth-child\(3\) \{ animation-delay: 170ms; \}/)
-  assert.match(css, /section:nth-child\(1\) > \.s-hub-ai-page-extra-head \{ animation-delay: 230ms; \}/)
-  assert.match(css, /quick:nth-child\(1\) \{ animation-delay: 290ms; \}/)
   assert.match(css, /quick:nth-child\(4\) \{ animation-delay: 410ms; \}/)
-  assert.match(css, /section:nth-child\(2\) > \.s-hub-ai-page-extra-head \{ animation-delay: 470ms; \}/)
-  assert.match(css, /context-item:nth-child\(1\) \{ animation-delay: 530ms; \}/)
   assert.match(css, /context-item:nth-child\(4\) \{ animation-delay: 650ms; \}/)
   assert.match(css, /> \.s-hub-ai-content \{ animation-delay: 710ms; \}/)
 })
 
-test('AI working and result states keep the existing calm state transition', () => {
-  let css = read('src/s-hub-ai.css')
-  css = patchPreviewAIPageSource(css, '/workspace/src/s-hub-ai.css')
-  css = patchPreviewAIDensitySource(css, '/workspace/src/s-hub-ai.css')
-  css = patchPreviewAIStageMotionSource(css, '/workspace/src/s-hub-ai.css')
-  assert.match(css, /html\.school-mobile-compat \.s-hub-ai-page-stage:not\(\.is-compose\) \{[\s\S]*animation-duration: 760ms/)
-  assert.match(css, /html\.school-mobile-compat \.s-hub-ai-page-hero,[\s\S]*animation-duration: 620ms/)
-  assert.match(css, /\.s-hub-ai-page-stage \.s-hub-ai-answer,[\s\S]*animation: none/)
+test('working hero grows smoothly without adding a second visible orb', () => {
+  const css = builtAICss()
+  assert.match(css, /\.s-hub-ai-page-hero\.is-working[\s\S]*min-height: 142px/)
+  assert.match(css, /\.s-hub-ai-page-hero\.is-working \.s-hub-ai-page-mark[\s\S]*width: 108px;[\s\S]*height: 108px/)
+  assert.match(css, /\.s-hub-ai-page-stage\.is-working[\s\S]*s-hub-ai-working-flow-in 700ms/)
+  assert.match(css, /\.s-hub-ai-page-stage\.is-working \.s-hub-ai-thinking-stage[\s\S]*min-height: 24px !important/)
 })
 
-test('reduced motion removes both duration and cascade delay', () => {
-  let css = read('src/s-hub-ai.css')
-  css = patchPreviewAIPageSource(css, '/workspace/src/s-hub-ai.css')
-  css = patchPreviewAIDensitySource(css, '/workspace/src/s-hub-ai.css')
-  css = patchPreviewAIStageMotionSource(css, '/workspace/src/s-hub-ai.css')
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation-duration: 0\.01ms !important;[\s\S]*animation-delay: 0ms !important;/)
+test('answer and import results stream in from top to bottom', () => {
+  const css = builtAICss()
+  assert.match(css, /@keyframes s-hub-ai-stream-in/)
+  assert.match(css, /\.s-hub-ai-page-stage\.is-answer \.s-hub-ai-answer,[\s\S]*animation: s-hub-ai-stream-in 760ms/)
+  assert.match(css, /\.s-hub-ai-page-stage\.is-import \.s-hub-ai-result-head \{ animation-delay: 95ms; \}/)
+  assert.match(css, /\.s-hub-ai-page-stage\.is-import \.s-hub-ai-item:nth-child\(1\) \{ animation-delay: 145ms; \}/)
+  assert.match(css, /\.s-hub-ai-page-stage\.is-import \.s-hub-ai-item:nth-child\(6\) \{ animation-delay: 345ms; \}/)
+  assert.match(css, /\.s-hub-ai-page-stage\.is-import \.s-hub-ai-save-result \{ animation-delay: 430ms; \}/)
+})
+
+test('mobile and reduced-motion modes keep the transition safe', () => {
+  const css = builtAICss()
+  assert.match(css, /html\.school-mobile-compat \.s-hub-ai-page-hero\.is-working \.s-hub-ai-page-mark[\s\S]*width: 96px/)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation-duration: 0\.01ms !important;[\s\S]*transition-duration: 0\.01ms !important;/)
 })
 
 test('vite applies state motion after AI page and density layers', () => {
