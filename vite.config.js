@@ -14,6 +14,7 @@ import { patchPreviewReminderPolishSource } from './src/preview-reminder-polish-
 import { patchPreviewSHubV2Source } from './src/preview-s-hub-v2-patch.js'
 import { patchPreviewStationNavSource } from './src/preview-station-nav-patch.js'
 import { patchPreviewStudySource } from './src/preview-study-patch.js'
+import { patchPreviewStudyUnifiedUISource } from './src/preview-study-unified-ui-patch.js'
 import { patchPreviewFastCacheSource } from './src/preview-fast-cache-patch.js'
 import { patchPreviewStationNavRefinementSource } from './src/preview-station-nav-refine-patch.js'
 import { patchPreviewStationJellyMotionSource } from './src/preview-station-jelly-motion-patch.js'
@@ -82,7 +83,7 @@ function replacePreviewSource(source, id) {
   let next = previewLocalStorageText(source)
   next = next
     .split("'school-sync'").join("'school-sync-preview'")
-    .split('"school-sync"').join('"school-sync-preview"')
+    .split('"school-sync"').join('"school-sync-preview')
 
   if (cleanId.endsWith('/school-sync.js')) {
     const classMarker = "return normalized ? `class-${normalized.classNumber}` : ''"
@@ -125,6 +126,7 @@ function replacePreviewSource(source, id) {
   next = patchPreviewAIBackgroundSource(next, cleanId)
   next = patchPreviewHomeInfoSource(next, cleanId)
   next = patchPreviewBoardAllSource(next, cleanId)
+  next = patchPreviewStudyUnifiedUISource(next, cleanId)
   return next
 }
 
@@ -191,6 +193,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-reminder-polish-patch.js')
         || cleanId.endsWith('/preview-station-nav-patch.js')
         || cleanId.endsWith('/preview-study-patch.js')
+        || cleanId.endsWith('/preview-study-unified-ui-patch.js')
         || cleanId.endsWith('/preview-fast-cache-patch.js')
         || cleanId.endsWith('/preview-station-nav-refine-patch.js')
         || cleanId.endsWith('/preview-station-jelly-motion-patch.js')
