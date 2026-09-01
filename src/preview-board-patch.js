@@ -13,8 +13,45 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
   return `${source.slice(0, start)}${replacement}${source.slice(end)}`
 }
 
-const BOARD_PAGE_COMPONENT = String.raw`function PreviewBoardPage({ profile, activitySignal }) {
-  return <PreviewBoard profile={profile} activitySignal={activitySignal} />
+function patchCompletedBoardRealtime(source) {
+  let next = String(source || '')
+  if (next.includes('subscribePreviewBoardRealtime')) return next
+
+  next = replaceRequired(
+    next,
+    `import { useCallback, useEffect, useMemo, useRef, useState } from 'react'`,
+    `import { useCallback, useEffect, useMemo, useState } from 'react'`,
+    'complete board react imports',
+  )
+  next = replaceRequired(
+    next,
+    `import { recordClassActivity } from './class-activity.js'`,
+    `import { broadcastPreviewBoardRealtime, subscribePreviewBoardRealtime } from './preview-board-realtime.js'`,
+    'Supabase realtime import',
+  )
+  next = replaceRequired(
+    next,
+    `export function PreviewBoard({ profile = null, activitySignal = null }) {`,
+    `export function PreviewBoard({ profile = null }) {`,
+    'complete board props',
+  )
+  next = replaceRequired(
+    next,
+    `  const activityReadyRef = useRef(false)\n  const lastActivityAtRef = useRef(0)\n`,
+    ``,
+    'remove Firestore realtime refs',
+  )
+
+  const oldEffect = `  useEffect(() => {\n    const updatedAt = Number(activitySignal?.updatedAt || 0)\n    if (!activityReadyRef.current) {\n      activityReadyRef.current = true\n      lastActivityAtRef.current = updatedAt\n      return undefined\n    }\n    if (!updatedAt || updatedAt <= lastActivityAtRef.current) return undefined\n    lastActivityAtRef.current = updatedAt\n    if (activitySignal?.actorStudentKey && activitySignal.actorStudentKey === meKey) return undefined\n    if (!navigator.onLine) return undefined\n    const timer = window.setTimeout(() => {\n      invalidatePreviewBoardSection(activeSectionId)\n      refresh({ quiet: true, forceSections: String(activitySignal?.entityId || '').startsWith('section:') })\n    }, 160)\n    return () => window.clearTimeout(timer)\n  }, [activitySignal?.updatedAt, activitySignal?.actorStudentKey, activitySignal?.entityId, activeSectionId, meKey, refresh])\n\n  function announceMutation(entityId, action = 'edited') {\n    if (!profile || !entityId) return\n    recordClassActivity(profile, 'board', entityId, action).catch((activityError) => console.error('Board realtime signal failed:', activityError))\n  }`
+
+  const realtimeEffect = `  useEffect(() => {\n    let disposed = false\n    let unsubscribe = () => {}\n    subscribePreviewBoardRealtime((event) => {\n      if (disposed || !navigator.onLine) return\n      const sectionHint = String(event?.sectionId || '')\n      if (sectionHint && sectionHint !== activeSectionId && event?.kind !== 'section') return\n      invalidatePreviewBoardSection(activeSectionId)\n      refresh({ quiet: true, forceSections: event?.kind === 'section' })\n    }).then((stop) => {\n      if (disposed) stop()\n      else unsubscribe = stop\n    }).catch((realtimeError) => {\n      console.warn('S-Hub board realtime subscription unavailable:', realtimeError)\n    })\n    return () => {\n      disposed = true\n      unsubscribe()\n    }\n  }, [activeSectionId, refresh])\n\n  function announceMutation(entityId, action = 'edited', sectionId = activeSectionId) {\n    if (!entityId) return\n    const kind = String(entityId).startsWith('section:') ? 'section' : action === 'added' ? 'post' : 'board'\n    void broadcastPreviewBoardRealtime({ kind, sectionId })\n  }`
+
+  next = replaceRequired(next, oldEffect, realtimeEffect, 'replace Firestore board realtime')
+  return next
+}
+
+const BOARD_PAGE_COMPONENT = String.raw`function PreviewBoardPage({ profile }) {
+  return <PreviewBoard profile={profile} />
 }
 
 `
@@ -53,6 +90,7 @@ export function patchPreviewBoardSource(source, id = '') {
   if (cleanId.endsWith('/preview-board.jsx')) {
     return patchPreviewBoardCompleteSource(patchPreviewBoardFinishSource(source, id), id)
   }
+  if (cleanId.endsWith('/preview-board-complete.jsx')) return patchCompletedBoardRealtime(source)
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
 
   let next = String(source || '')
@@ -75,27 +113,7 @@ export function patchPreviewBoardSource(source, id = '') {
     'placeholder board page',
   )
 
-  next = replaceRequired(
-    next,
-    CLASS_STATION_PAGE_MARKER,
-    CLASS_STATION_PAGE_WITH_MOTION,
-    'class station transition',
-  )
-
-  const timetableRevisionMarker = `  const timetableActivityRevision = useMemo(() => Object.values(activity || {}).reduce((latest, item) => (\n    item?.entityType === 'timetable' ? Math.max(latest, Number(item.updatedAt || 0)) : latest\n  ), 0), [activity])`
-  next = replaceRequired(
-    next,
-    timetableRevisionMarker,
-    `${timetableRevisionMarker}\n  const boardActivitySignal = useMemo(() => Object.values(activity || {}).reduce((latest, item) => {\n    if (item?.entityType !== 'board') return latest\n    if (!latest || Number(item.updatedAt || 0) > Number(latest.updatedAt || 0)) return item\n    return latest\n  }, null), [activity])`,
-    'board activity signal',
-  )
-
-  next = replaceRequired(
-    next,
-    `<PreviewBoardPage />`,
-    `<PreviewBoardPage profile={profile} activitySignal={boardActivitySignal} />`,
-    'board page realtime props',
-  )
-
+  next = replaceRequired(next, CLASS_STATION_PAGE_MARKER, CLASS_STATION_PAGE_WITH_MOTION, 'class station transition')
+  next = replaceRequired(next, `<PreviewBoardPage />`, `<PreviewBoardPage profile={profile} />`, 'board page profile props')
   return next
 }
