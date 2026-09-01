@@ -28,8 +28,8 @@ test('AI compose entry cascades through visible blocks instead of moving as one 
   css = patchPreviewAIDensitySource(css, '/workspace/src/s-hub-ai.css')
   css = patchPreviewAIStageMotionSource(css, '/workspace/src/s-hub-ai.css')
 
-  assert.doesNotMatch(css, /\.s-hub-ai-page-stage \{[\s\S]{0,120}animation: content-in/)
-  assert.match(css, /\.s-hub-ai-page-stage:not\(\.is-compose\) \{[\s\S]*animation: content-in 980ms cubic-bezier\(0\.16, 1, 0\.3, 1\) both/)
+  assert.doesNotMatch(css, /\.s-hub-ai-page-stage\s*\{[^}]*animation\s*:/)
+  assert.match(css, /\.s-hub-ai-page-stage:not\(\.is-compose\) \{[^}]*animation: content-in 980ms cubic-bezier\(0\.16, 1, 0\.3, 1\) both/)
   assert.match(css, /@keyframes s-hub-ai-piece-in/)
   assert.match(css, /\.s-hub-ai-page-hero \{ animation-delay: 35ms; \}/)
   assert.match(css, /capability:nth-child\(1\) \{ animation-delay: 115ms; \}/)
