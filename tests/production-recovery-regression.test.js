@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
+import { patchPreviewStudySource } from '../src/preview-study-patch.js'
 import { patchProductionRecoverySource } from '../src/production-recovery-patch.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -46,4 +47,24 @@ test('section editor keeps the current sheet open when a quota-limited edit is q
   assert.match(source, /const result = await saveReminderSectionChange/)
   assert.match(source, /if \(result\?\.pendingSync\)/)
   assert.match(source, /서버 사용량 제한으로 이 기기에 임시 저장했어요/)
+})
+
+test('study ranking waits for a completed tap and keeps vertical scrolling available', () => {
+  const pageId = path.join(root, 'src/preview-study.jsx')
+  const previewPage = patchPreviewStudySource(read('src/preview-study.jsx'), pageId)
+  const page = patchProductionRecoverySource(previewPage, pageId)
+  assert.doesNotMatch(page, /onPointerDown=/)
+  assert.doesNotMatch(page, /touchIntentRef/)
+  assert.doesNotMatch(page, /performance\.now\(\) - intent\.at/)
+  assert.match(page, /onClick=\{\(\) => selectScope\('class'\)\}/)
+  assert.match(page, /onClick=\{\(\) => selectScope\('school'\)\}/)
+
+  const rankingStyleId = path.join(root, 'src/preview-study-ranking.css')
+  const previewRankingStyle = patchPreviewStudySource(read('src/preview-study-ranking.css'), rankingStyleId)
+  const rankingStyle = patchProductionRecoverySource(previewRankingStyle, rankingStyleId)
+  assert.doesNotMatch(rankingStyle, /touch-action: manipulation/)
+  assert.equal((rankingStyle.match(/touch-action: pan-y;/g) || []).length, 2)
+
+  const pageStyle = recover('src/preview-study.css')
+  assert.match(pageStyle, /\.preview-study-page \{[\s\S]*?touch-action: pan-y;/)
 })
