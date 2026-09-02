@@ -132,16 +132,10 @@ function patchStudyRankingGesture(source) {
 
 function patchStudyPageTouchAction(source) {
   const before = `.preview-study-page {
-  width: 100%;
-  min-width: 0;
-  display: grid;
-  gap: 6px;
+  padding-top: 2px;
 }`
   const after = `.preview-study-page {
-  width: 100%;
-  min-width: 0;
-  display: grid;
-  gap: 6px;
+  padding-top: 2px;
   touch-action: pan-y;
 }`
   return replaceExact(source, before, after, 'study page vertical pan')
