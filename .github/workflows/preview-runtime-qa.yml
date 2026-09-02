@@ -19,6 +19,9 @@ jobs:
         with:
           ref: preview/s-hub-v2
 
+      - name: Remove preview-only workflows from test workspace
+        run: rm -f .github/workflows/preview-pages-deploy.yml .github/workflows/preview-runtime-qa.yml
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
