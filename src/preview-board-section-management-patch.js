@@ -289,8 +289,8 @@ function patchBoardComplete(source) {
 
   next = replaceRequired(
     next,
-    `    setSectionEditorId('')\n    announceMutation(\`section:${section.id}\`, 'edited')`,
-    `    setSectionEditorId('')\n    setSectionActionId('')\n    announceMutation(\`section:${section.id}\`, 'edited')`,
+    "    setSectionEditorId('')\n    announceMutation(`section:${section.id}`, 'edited')",
+    "    setSectionEditorId('')\n    setSectionActionId('')\n    announceMutation(`section:${section.id}`, 'edited')",
     'clear section action after update',
   )
 
