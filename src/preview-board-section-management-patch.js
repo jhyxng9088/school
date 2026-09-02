@@ -72,7 +72,7 @@ const BOARD_SECTIONS = String.raw`function BoardSections({ sections, activeSecti
               key={section.id}
               className={section.id === activeSectionId ? 'is-active' : ''}
               aria-selected={section.id === activeSectionId}
-              aria-label={manageable ? `${section.label}, 길게 눌러 편집` : section.label}
+              aria-label={manageable ? section.label + ', 길게 눌러 편집' : section.label}
               onPointerDown={(event) => beginPress(section, event)}
               onPointerUp={finishPress}
               onPointerCancel={finishPress}
@@ -221,7 +221,7 @@ function BoardSectionEditor({ section, sections, open, onClose, onUpdated }) {
                 <button
                   type="button"
                   className={color === item.id ? 'is-selected' : ''}
-                  aria-label={`${item.label}${used ? ', 사용 중' : ''}`}
+                  aria-label={item.label + (used ? ', 사용 중' : '')}
                   aria-pressed={color === item.id}
                   disabled={used || pending}
                   onClick={() => setColor(item.id)}
