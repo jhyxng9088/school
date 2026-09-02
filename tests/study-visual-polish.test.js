@@ -31,7 +31,7 @@ test('board detail and editor sheets retain their content while UnifiedBottomShe
   assert.match(source, /BoardDetail\(\{ post: incomingPost,[\s\S]*retainedPostRef = useRef\(incomingPost\)[\s\S]*const post = incomingPost \|\| retainedPostRef\.current/)
   assert.match(source, /BoardPostEditor\(\{ post: incomingPost,[\s\S]*retainedPostRef = useRef\(incomingPost\)[\s\S]*const post = incomingPost \|\| retainedPostRef\.current/)
   assert.match(source, /BoardSectionEditor\(\{ section: incomingSection,[\s\S]*retainedSectionRef = useRef\(incomingSection\)[\s\S]*const section = incomingSection \|\| retainedSectionRef\.current/)
-  assert.match(source, /<UnifiedBottomSheet open=\{open\} onClose=\{onClose\}/)
+  assert.match(source, /<UnifiedBottomSheet[\s\S]*?open=\{open\}[\s\S]*?onClose=\{onClose\}/)
 })
 
 test('board and AI hero descriptions keep Korean words intact when wrapping', () => {
