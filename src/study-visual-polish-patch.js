@@ -10,6 +10,12 @@ function replaceExact(source, marker, replacement, label) {
   return String(source || '').replace(marker, replacement)
 }
 
+function replaceOnceOrKeep(source, marker, replacement, label) {
+  const current = String(source || '')
+  if (current.includes(replacement)) return current
+  return replaceExact(current, marker, replacement, label)
+}
+
 function appendOnce(source, marker, addition) {
   const current = String(source || '')
   if (current.includes(marker)) return current
@@ -22,14 +28,14 @@ function patchStudyNavIcon(source) {
   }`
 
   const after = `  if (type === 'study') {
-    return <svg {...common}><path d="M3.3 5.8c3.1-.7 6 .2 8.7 2.4v10.9c-2.7-2.2-5.6-3.1-8.7-2.4V5.8Z"/><path d="M20.7 5.8c-3.1-.7-6 .2-8.7 2.4v10.9c2.7-2.2 5.6-3.1 8.7-2.4V5.8Z"/><path d="M12 8.2v10.9"/></svg>
+    return <svg {...common}><path d="M2.8 5.2c3.6-.9 6.7.1 9.2 2.8v11.2c-2.5-2.7-5.6-3.7-9.2-2.8V5.2Z"/><path d="M21.2 5.2c-3.6-.9-6.7.1-9.2 2.8v11.2c2.5-2.7 5.6-3.7 9.2-2.8V5.2Z"/><path d="M12 8v11.2"/></svg>
   }`
 
-  return replaceExact(source, before, after, 'study open-book navigation icon')
+  return replaceOnceOrKeep(source, before, after, 'study open-book navigation icon')
 }
 
 function patchStudyHeader(source) {
-  return replaceExact(
+  return replaceOnceOrKeep(
     source,
     '<p className="eyebrow">S-Hub V2</p>',
     '<p className="eyebrow">공부 기록</p>',
@@ -61,10 +67,47 @@ function patchAICopyWrapping(source) {
   )
 }
 
+function patchBoardModalCloseMotion(source) {
+  let next = String(source || '')
+
+  next = replaceOnceOrKeep(
+    next,
+    'function BoardPostEditor({ post, sections, open, onClose, onUpdated, onDeleted }) {',
+    `function BoardPostEditor({ post: incomingPost, sections, open, onClose, onUpdated, onDeleted }) {
+  const retainedPostRef = useRef(incomingPost)
+  if (incomingPost) retainedPostRef.current = incomingPost
+  const post = incomingPost || retainedPostRef.current`,
+    'board post editor retained close state',
+  )
+
+  next = replaceOnceOrKeep(
+    next,
+    'function BoardSectionEditor({ section, sections, open, onClose, onUpdated, onDeleted }) {',
+    `function BoardSectionEditor({ section: incomingSection, sections, open, onClose, onUpdated, onDeleted }) {
+  const retainedSectionRef = useRef(incomingSection)
+  if (incomingSection) retainedSectionRef.current = incomingSection
+  const section = incomingSection || retainedSectionRef.current`,
+    'board section editor retained close state',
+  )
+
+  next = replaceOnceOrKeep(
+    next,
+    'function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPost, onMutated }) {',
+    `function BoardDetail({ post: incomingPost, sections, meKey, open, onClose, onUpdated, onEditPost, onMutated }) {
+  const retainedPostRef = useRef(incomingPost)
+  if (incomingPost) retainedPostRef.current = incomingPost
+  const post = incomingPost || retainedPostRef.current`,
+    'board detail retained close state',
+  )
+
+  return next
+}
+
 export function patchStudyVisualPolishSource(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/main.jsx')) return patchStudyNavIcon(source)
   if (cleanId.endsWith('/src/preview-study.jsx')) return patchStudyHeader(source)
+  if (cleanId.endsWith('/src/preview-board-complete.jsx')) return patchBoardModalCloseMotion(source)
   if (cleanId.endsWith('/src/preview-board.css')) return patchBoardCopyWrapping(source)
   if (cleanId.endsWith('/src/s-hub-ai.css')) return patchAICopyWrapping(source)
   return String(source || '')
