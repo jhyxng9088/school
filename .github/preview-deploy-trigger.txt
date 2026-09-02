@@ -1,2 +1,2 @@
-S-Hub preview deployment trigger.
-Redeploy scroll reset, class-scoped section management, section-to-general migration, polite-copy audit, guarded shared backend route within the 12-function limit, preserved roster repair regression guard, S-Hub AI photo reminder summary enrichment, Node-compatible preview regression tests, the 2026-09-01 home overview card navigation fix after CI regression cleanup, the home overview class-card roster modal behavior, and the synchronized AI background regression assertion.
+S-Hub V2 production deployment trigger.
+Production candidate passed frontend tests, production build, preview-isolation checks, and backend tests before main promotion on 2026-09-02.
