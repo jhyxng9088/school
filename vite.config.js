@@ -33,6 +33,7 @@ import { patchPreviewAIStageMotionSource } from './src/preview-ai-stage-motion-p
 import { patchPreviewAIBackgroundSource } from './src/preview-ai-background-patch.js'
 import { patchPreviewHomeInfoSource } from './src/preview-home-info-patch.js'
 import { patchPreviewBoardAllSource } from './src/preview-board-all-patch.js'
+import { patchPreviewBoardSectionManagementSource } from './src/preview-board-section-management-patch.js'
 import { patchPreviewAILiveContextSource } from './src/preview-ai-live-context-patch.js'
 
 const AI_PROMPT_MARKERS = [
@@ -127,6 +128,7 @@ function replacePreviewSource(source, id) {
   next = patchPreviewAIBackgroundSource(next, cleanId)
   next = patchPreviewHomeInfoSource(next, cleanId)
   next = patchPreviewBoardAllSource(next, cleanId)
+  next = patchPreviewBoardSectionManagementSource(next, cleanId)
   next = patchPreviewStudyUnifiedUISource(next, cleanId)
   next = patchPreviewAILiveContextSource(next, cleanId)
   return next
@@ -208,6 +210,7 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-class-top-segment-style-patch.js')
         || cleanId.endsWith('/preview-board-patch.js')
         || cleanId.endsWith('/preview-board-all-patch.js')
+        || cleanId.endsWith('/preview-board-section-management-patch.js')
         || cleanId.endsWith('/preview-schedule-top-segment-patch.js')
         || cleanId.endsWith('/preview-ai-page-patch.js')
         || cleanId.endsWith('/preview-ai-density-patch.js')
