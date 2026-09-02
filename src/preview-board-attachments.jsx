@@ -9,6 +9,7 @@ import './preview-board-finish.css'
 import './reminder-summary.css'
 
 const DOWNLOAD_GESTURE_LOCK_MS = 700
+const BOARD_ORIGINAL_VIEWER_Z_INDEX = 10030
 
 function formatFileSize(value) {
   const bytes = Math.max(0, Number(value || 0))
@@ -115,7 +116,13 @@ function BoardOriginalViewer({ original, onClose }) {
   const image = String(original.mimeType || original.blob?.type || '').startsWith('image/')
 
   return (
-    <div className={`reminder-original-viewer ${closing ? 'is-closing' : ''}`.trim()} role="dialog" aria-modal="true" aria-label="원본 파일">
+    <div
+      className={`reminder-original-viewer ${closing ? 'is-closing' : ''}`.trim()}
+      style={{ zIndex: BOARD_ORIGINAL_VIEWER_Z_INDEX }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="원본 파일"
+    >
       <button className="reminder-original-backdrop" type="button" aria-label="원본 파일 닫기" onClick={requestClose} />
       <div className="reminder-original-panel">
         <header>
