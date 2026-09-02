@@ -108,7 +108,7 @@ test('adding the name of a hidden built-in section restores it instead of creati
   assert.match(client, /current\.hidden/)
 })
 
-test('class-scoped section overrides use the production endpoint with a hard preview-class server guard', () => {
+test('class-scoped section overrides use the production endpoint for authenticated production and preview classes', () => {
   const sync = read('src/school-sync.js')
   const todo = read('src/todo.jsx')
   const rules = read('firestore.rules')
@@ -122,21 +122,20 @@ test('class-scoped section overrides use the production endpoint with a hard pre
   assert.equal(new Set(REMINDER_CATEGORY_COLORS.map((item) => item.id)).size, REMINDER_CATEGORY_COLORS.length)
   assert.equal(usedReminderCategoryColors([]).size, BUILTIN_REMINDER_TYPE_COUNT)
 
-  // The already-published Firestore rules still validate direct custom additions only.
+  // Direct Firestore writes remain restricted; built-in/all section mutations go through the authenticated server.
   assert.match(rules, /categoryId\.matches\('\^custom-\[0-9a-f\]\{6\}\$'\)/)
   assert.doesNotMatch(rules, /categoryId in \['all', 'task', 'performance', 'exam', 'material'\]/)
   assert.doesNotMatch(rules, /request\.resource\.data\.get\('hidden', false\) is bool/)
 
-  // Built-in/all edits, deletes, and restores share the existing authenticated production function.
-  // The server accepts this mode only for preview-class-* identities, so production class-* data cannot be changed here.
+  // V2 production and isolated preview classes share the same authenticated function while retaining distinct class IDs.
   assert.match(client, /school-reminder-backend\.vercel\.app\/api\/reminder-sections/)
   assert.doesNotMatch(client, /school-reminder-backend-git-preview-s-hub-v2/)
   assert.match(client, /ensureSignedIn\(\)/)
   assert.match(classApi, /const reminderSectionMode = String\(req\.query\?\.mode \|\| ''\)\.trim\(\) === 'reminder-sections'/)
-  assert.match(classApi, /function isPreviewClassId/)
-  assert.match(classApi, /\^preview-class-/)
-  assert.match(classApi, /if \(!isPreviewClassId\(classId\)\)/)
-  assert.match(classApi, /reminder-section\/preview-class-required/)
+  assert.match(classApi, /function isReminderSectionClassId/)
+  assert.match(classApi, /\^\(\?:preview-\)\?class-/)
+  assert.match(classApi, /if \(!isReminderSectionClassId\(classId\)\)/)
+  assert.match(classApi, /reminder-section\/invalid-class/)
   assert.match(classApi, /collection\('reminderCategories'\)/)
   assert.match(classApi, /collection\('todos'\)\.where\('type', '==', sectionId\)/)
   assert.match(classApi, /collection\('reminderSectionArchives'\)/)
