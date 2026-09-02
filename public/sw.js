@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-shell-v158-board-motion-study-book'
+const CACHE_NAME = 'school-shell-v159-study-ranking-period'
 const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
 const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
 const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
