@@ -53,10 +53,12 @@ test('the seven question examples remain deliberately informal', () => {
   preserved.forEach((text) => assert.equal(sources.includes(text), false))
 })
 
-test('production service worker cache is bumped so V2 replaces stale PWA shell files', () => {
+test('production service worker cache is bumped and active installed clients refresh onto the new shell', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v155-v2-update4'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v156-study-book'/)
   assert.doesNotMatch(sw, /school-preview-shell-/)
+  assert.match(sw, /self\.clients\.matchAll\(\{ type: 'window', includeUncontrolled: true \}\)/)
+  assert.match(sw, /await client\.navigate\(client\.url\)/)
 })
 
 test('production V2 config applies feature patches without preview identity rewrites', () => {
