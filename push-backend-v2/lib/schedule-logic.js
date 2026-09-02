@@ -1,3 +1,5 @@
+import { cleanNotificationLabel } from './notification-copy.js'
+
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000
 export const IMPORTANT_PREFIX = '\u2063school-important\u2063'
 export const WINDOW_MS = 10 * 60 * 1000
@@ -77,14 +79,14 @@ export function isImportantAcademic(event) {
 }
 
 export function reminderHourBody(title) {
-  const clean = String(title || '').trim().slice(0, 80)
+  const clean = cleanNotificationLabel(title)
   return clean ? `${clean} 했나요?` : '할 일을 확인했나요?'
 }
 
 export function reminderTomorrowBody(todos) {
   const list = Array.isArray(todos) ? todos.filter(Boolean) : []
   if (!list.length) return ''
-  const first = String(list[0]?.title || '할 일').trim().slice(0, 80) || '할 일'
+  const first = cleanNotificationLabel(list[0]?.title, '할 일')
   if (list.length === 1) return `내일 ${first} 있어요. 확인해 주세요.`
   return `내일 ${first} 외 ${list.length - 1}개의 할 일이 있어요. 확인해 주세요.`
 }
@@ -92,7 +94,7 @@ export function reminderTomorrowBody(todos) {
 export function academicTomorrowBody(events) {
   const list = Array.isArray(events) ? events.filter(Boolean) : []
   if (!list.length) return ''
-  const first = String(list[0]?.title || '중요 일정').trim().slice(0, 80) || '중요 일정'
-  if (list.length === 1) return `내일 ${first}가 있어요.`
+  const first = cleanNotificationLabel(list[0]?.title, '중요 일정')
+  if (list.length === 1) return `내일 ${first} 예정이에요.`
   return `내일 ${first} 외 ${list.length - 1}개의 중요 일정이 있어요.`
 }
