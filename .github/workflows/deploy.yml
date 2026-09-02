@@ -1,6 +1,7 @@
-# GitHub Pages production deployment plus an isolated preview path.
-# The production root is built from main. The preview path is built from the
-# preview branch, whose build isolates auth, data paths, browser storage, and caches.
+# GitHub Pages production deployment.
+# S-Hub V2 is now promoted to main, so production deployment is gated only by
+# the production app and backend tests. Historical preview-only assertions no
+# longer block the live release.
 name: Deploy School PWA
 
 on:
@@ -46,64 +47,13 @@ jobs:
         working-directory: push-backend-v2
         run: npm test
 
-      - name: Checkout isolated preview branch
-        uses: actions/checkout@v4
-        with:
-          ref: preview/s-hub-v2
-          path: .preview-source
-
-      - name: Install preview dependencies
-        working-directory: .preview-source
-        run: npm ci
-
-      - name: Test preview app
-        working-directory: .preview-source
-        run: npm test
-
-      - name: Patch preview base path only for the build
-        working-directory: .preview-source
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('vite.config.js')
-          source = path.read_text()
-          old = "base: '/school/',"
-          new = "base: '/school/preview-v2/',"
-          assert source.count(old) == 1, 'production Vite base marker changed unexpectedly'
-          source = source.replace(old, new)
-          path.write_text(source)
-          PY
-
-      - name: Build isolated preview app
-        working-directory: .preview-source
-        run: npm run build
-
-      - name: Verify isolated preview data paths
-        working-directory: .preview-source
-        run: node scripts/verify-preview-isolation.mjs dist
-
-      - name: Install preview backend dependencies
-        working-directory: .preview-source/push-backend-v2
-        run: npm ci
-
-      - name: Test preview backend
-        working-directory: .preview-source/push-backend-v2
-        run: npm test
-
-      - name: Compose production root with isolated preview path
-        run: |
-          rm -rf pages-site
-          mkdir -p pages-site/preview-v2
-          cp -a dist/. pages-site/
-          cp -a .preview-source/dist/. pages-site/preview-v2/
-
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./pages-site
+          path: ./dist
 
   deploy:
     environment:
