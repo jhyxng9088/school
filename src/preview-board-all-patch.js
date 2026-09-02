@@ -58,6 +58,20 @@ function patchBoardComplete(source) {
 
   next = replaceRequired(
     next,
+    `  const [detailPostId, setDetailPostId] = useState('')\n  const [postEditorId, setPostEditorId] = useState('')`,
+    `  const [detailPostId, setDetailPostId] = useState('')\n  const [postEditorId, setPostEditorId] = useState('')\n  const [retainedDetailPost, setRetainedDetailPost] = useState(null)`,
+    'retain board detail during close',
+  )
+
+  next = replaceRequired(
+    next,
+    `  const detailPost = useMemo(() => posts.find((post) => post.id === detailPostId) || null, [posts, detailPostId])`,
+    `  const detailPost = useMemo(() => posts.find((post) => post.id === detailPostId) || retainedDetailPost, [posts, detailPostId, retainedDetailPost])`,
+    'board detail retained data',
+  )
+
+  next = replaceRequired(
+    next,
     `    const currentIndex = Math.max(0, sections.findIndex((section) => section.id === activeSectionId))\n    const nextIndex = Math.max(0, sections.findIndex((section) => section.id === sectionId))`,
     `    const filterSections = [ALL_BOARD_SECTION, ...sections]\n    const currentIndex = Math.max(0, filterSections.findIndex((section) => section.id === activeSectionId))\n    const nextIndex = Math.max(0, filterSections.findIndex((section) => section.id === sectionId))`,
     'all section transition ordering',
@@ -86,9 +100,23 @@ function patchBoardComplete(source) {
 
   next = replaceRequired(
     next,
+    `setDetailPostId(post.id)`,
+    `setRetainedDetailPost(post); setDetailPostId(post.id)`,
+    'retain board detail on open',
+  )
+
+  next = replaceRequired(
+    next,
     `      <BoardComposer open={composerOpen} sections={sections} initialSectionId={activeSectionId} onClose={() => setComposerOpen(false)} onCreated={addCreatedPost} />`,
     `      <BoardComposer open={composerOpen} sections={sections} initialSectionId={activeSectionId === 'all' ? 'general' : activeSectionId} onClose={() => setComposerOpen(false)} onCreated={addCreatedPost} />`,
     'aggregate composer fallback',
+  )
+
+  next = replaceRequired(
+    next,
+    `      <BoardDetail post={detailPost} sections={sections} meKey={meKey} open={Boolean(detailPost)} onClose={() => setDetailPostId('')} onUpdated={upsertPost} onEditPost={() => setPostEditorId(detailPost?.id || '')} onMutated={announceMutation} />`,
+    `      <BoardDetail post={detailPost} sections={sections} meKey={meKey} open={Boolean(detailPostId && detailPost)} onClose={() => setDetailPostId('')} onUpdated={upsertPost} onEditPost={() => setPostEditorId(detailPost?.id || '')} onMutated={announceMutation} />`,
+    'board detail close state separation',
   )
 
   const realtimeFilter = `      if (sectionHints.length && !sectionHints.includes(activeSectionId) && event?.kind !== 'section') return`
