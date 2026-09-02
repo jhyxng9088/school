@@ -24,6 +24,15 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install preview dependencies
+        run: npm ci
+
+      - name: Test preview source
+        run: npm test
+
+      - name: Build preview source
+        run: npm run build
+
       - name: Install Playwright Chromium
         run: |
           npm install --no-save playwright@1.55.0
