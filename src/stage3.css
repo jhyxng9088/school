@@ -12,13 +12,13 @@
 
 /* Keep the existing React icon geometry out of layout for these two tabs,
    then draw icons that are clearly distinct from the timetable calendar. */
-.bottom-nav .nav-button:nth-of-type(4) svg,
-.bottom-nav .nav-button:nth-of-type(5) svg {
+.bottom-nav .nav-button[data-tab="meal"] svg,
+.bottom-nav .nav-button[data-tab="academic"] svg {
   display: none;
 }
 
-.bottom-nav .nav-button:nth-of-type(4)::before,
-.bottom-nav .nav-button:nth-of-type(5)::before {
+.bottom-nav .nav-button[data-tab="meal"]::before,
+.bottom-nav .nav-button[data-tab="academic"]::before {
   content: "";
   width: 22px;
   height: 22px;
@@ -33,13 +33,13 @@
 }
 
 /* Spoon + chopsticks */
-.bottom-nav .nav-button:nth-of-type(4)::before {
+.bottom-nav .nav-button[data-tab="meal"]::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='7' cy='6.3' rx='2.5' ry='3.3'/%3E%3Cpath d='M7 9.6V21'/%3E%3Cpath d='M14 3.5 12.8 21'/%3E%3Cpath d='M18.3 3.5 17.1 21'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='7' cy='6.3' rx='2.5' ry='3.3'/%3E%3Cpath d='M7 9.6V21'/%3E%3Cpath d='M14 3.5 12.8 21'/%3E%3Cpath d='M18.3 3.5 17.1 21'/%3E%3C/svg%3E");
 }
 
 /* Checklist / planner — intentionally not another calendar grid. */
-.bottom-nav .nav-button:nth-of-type(5)::before {
+.bottom-nav .nav-button[data-tab="academic"]::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.5 4.5h10a2 2 0 0 1 2 2v13H6a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2h1.5Z'/%3E%3Cpath d='m7 10 1.4 1.4L11 8.8'/%3E%3Cpath d='M13.5 10h3'/%3E%3Cpath d='m7 15.3 1.4 1.4 2.6-2.6'/%3E%3Cpath d='M13.5 15.3h3'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.5 4.5h10a2 2 0 0 1 2 2v13H6a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2h1.5Z'/%3E%3Cpath d='m7 10 1.4 1.4L11 8.8'/%3E%3Cpath d='M13.5 10h3'/%3E%3Cpath d='m7 15.3 1.4 1.4 2.6-2.6'/%3E%3Cpath d='M13.5 15.3h3'/%3E%3C/svg%3E");
 }
@@ -593,12 +593,12 @@
 
 /* Samsung Internet can render currentColor SVG masks as solid black. Use the
    actual React SVG icons on Samsung while keeping the existing icon design elsewhere. */
-html.school-samsung .bottom-nav .nav-button:nth-of-type(4) svg,
-html.school-samsung .bottom-nav .nav-button:nth-of-type(5) svg {
+html.school-samsung .bottom-nav .nav-button[data-tab="meal"] svg,
+html.school-samsung .bottom-nav .nav-button[data-tab="academic"] svg {
   display: block;
 }
 
-html.school-samsung .bottom-nav .nav-button:nth-of-type(4)::before,
-html.school-samsung .bottom-nav .nav-button:nth-of-type(5)::before {
+html.school-samsung .bottom-nav .nav-button[data-tab="meal"]::before,
+html.school-samsung .bottom-nav .nav-button[data-tab="academic"]::before {
   display: none;
 }

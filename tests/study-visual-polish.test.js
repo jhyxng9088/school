@@ -19,6 +19,15 @@ test('study bottom navigation uses an unmistakable minimal open-book icon', () =
   assert.doesNotMatch(source, /<circle cx="12" cy="13" r="7\.2"\/>/)
 })
 
+test('legacy meal artwork cannot replace the study icon by button position', () => {
+  const styles = read('src/stage3.css')
+
+  assert.match(styles, /\.nav-button\[data-tab="meal"\]::before/)
+  assert.match(styles, /\.nav-button\[data-tab="academic"\]::before/)
+  assert.doesNotMatch(styles, /\.nav-button:nth-of-type\(4\)/)
+  assert.doesNotMatch(styles, /\.nav-button:nth-of-type\(5\)/)
+})
+
 test('study header uses neutral study-specific copy instead of the V2 product label', () => {
   const source = patchStudyVisualPolishSource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
   assert.match(source, /<p className="eyebrow">공부 기록<\/p>/)
