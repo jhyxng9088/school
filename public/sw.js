@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-shell-v156-study-book'
+const CACHE_NAME = 'school-shell-v157-study-openbook'
 const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
 const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
 const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
@@ -14,25 +14,13 @@ self.addEventListener('install', (event) => {
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys()
-    await Promise.all(keys
-      .filter((key) => ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))
-      .map((key) => caches.delete(key)))
-
-    await self.clients.claim()
-
-    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-    await Promise.all(clients.map(async (client) => {
-      if (!client.url.startsWith(self.registration.scope) || typeof client.navigate !== 'function') return
-      try {
-        await client.navigate(client.url)
-      } catch {
-        // iOS may reject navigation while the PWA is backgrounded; the new worker
-        // still owns the client and the next foreground navigation will fetch fresh assets.
-      }
-    }))
-  })())
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys
+        .filter((key) => ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))
+        .map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
+  )
 })
 
 async function saveNotificationToneProfile(studentKey) {
