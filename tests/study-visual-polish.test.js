@@ -12,9 +12,9 @@ test('study bottom navigation uses an unmistakable minimal open-book icon', () =
   source = patchPreviewStationNavSource(source, '/workspace/src/main.jsx')
   source = patchStudyVisualPolishSource(source, '/workspace/src/main.jsx')
 
-  assert.match(source, /M3\.3 5\.8c3\.1-\.7 6 \.2 8\.7 2\.4/)
-  assert.match(source, /M20\.7 5\.8c-3\.1-\.7-6 \.2-8\.7 2\.4/)
-  assert.match(source, /M12 8\.2v10\.9/)
+  assert.match(source, /M2\.8 5\.2c3\.6-\.9 6\.7\.1 9\.2 2\.8/)
+  assert.match(source, /M21\.2 5\.2c-3\.6-\.9-6\.7\.1-9\.2 2\.8/)
+  assert.match(source, /M12 8v11\.2/)
   assert.doesNotMatch(source, /M4\.2 5\.1h5\.5/)
   assert.doesNotMatch(source, /<circle cx="12" cy="13" r="7\.2"\/>/)
 })
@@ -23,6 +23,15 @@ test('study header uses neutral study-specific copy instead of the V2 product la
   const source = patchStudyVisualPolishSource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
   assert.match(source, /<p className="eyebrow">공부 기록<\/p>/)
   assert.doesNotMatch(source, /<p className="eyebrow">S-Hub V2<\/p>/)
+})
+
+test('board detail and editor sheets retain their content while UnifiedBottomSheet runs its close animation', () => {
+  const source = patchStudyVisualPolishSource(read('src/preview-board-complete.jsx'), '/workspace/src/preview-board-complete.jsx')
+
+  assert.match(source, /BoardDetail\(\{ post: incomingPost,[\s\S]*retainedPostRef = useRef\(incomingPost\)[\s\S]*const post = incomingPost \|\| retainedPostRef\.current/)
+  assert.match(source, /BoardPostEditor\(\{ post: incomingPost,[\s\S]*retainedPostRef = useRef\(incomingPost\)[\s\S]*const post = incomingPost \|\| retainedPostRef\.current/)
+  assert.match(source, /BoardSectionEditor\(\{ section: incomingSection,[\s\S]*retainedSectionRef = useRef\(incomingSection\)[\s\S]*const section = incomingSection \|\| retainedSectionRef\.current/)
+  assert.match(source, /<UnifiedBottomSheet open=\{open\} onClose=\{onClose\}/)
 })
 
 test('board and AI hero descriptions keep Korean words intact when wrapping', () => {
