@@ -35,6 +35,18 @@ test('aggregate board keeps posts visible when their category changes or new pos
   assert.match(source, /const moved = activeSectionId !== 'all' && updated\.sectionId !== activeSectionId/)
 })
 
+test('board post detail keeps its data mounted while the unified sheet plays the close transition', () => {
+  const source = patchPreviewBoardAllSource(read('src/preview-board-complete.jsx'), '/src/preview-board-complete.jsx')
+  const unifiedSheet = read('src/unified-sheet.jsx')
+
+  assert.match(source, /const \[retainedDetailPost, setRetainedDetailPost\] = useState\(null\)/)
+  assert.match(source, /posts\.find\(\(post\) => post\.id === detailPostId\) \|\| retainedDetailPost/)
+  assert.match(source, /setRetainedDetailPost\(post\); setDetailPostId\(post\.id\)/)
+  assert.match(source, /open=\{Boolean\(detailPostId && detailPost\)\}/)
+  assert.doesNotMatch(source, /<BoardDetail[^\n]+open=\{Boolean\(detailPost\)\}/)
+  assert.match(unifiedSheet, /setClosing\(true\)[\s\S]*setVisualOpen\(false\)[\s\S]*setTimeout\(\(\) => \{[\s\S]*setRendered\(false\)/)
+})
+
 test('legacy React board nav markers use section-seen semantics, matching the unified unread engine', () => {
   const input = "hasBoardUnread={boardUnread.hasUnread}\n" +
     "tab.id === 'class' && boardUnread.hasUnread ? 'has-board-unread' : ''"
