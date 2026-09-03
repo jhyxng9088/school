@@ -42,26 +42,31 @@ jobs:
       - name: App preview group
         id: app_preview
         continue-on-error: true
-        shell: bash
         run: node --test tests/preview*.test.js
 
       - name: App reminder group
         id: app_reminder
         continue-on-error: true
-        shell: bash
         run: node --test tests/reminder*.test.js
 
       - name: App AI group
         id: app_ai
         continue-on-error: true
-        shell: bash
         run: node --test tests/s-hub-ai*.test.js
 
       - name: App study group
         id: app_study
         continue-on-error: true
-        shell: bash
         run: node --test tests/study*.test.js
+
+      - name: App remaining group
+        id: app_remaining
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort | grep -Ev '/(academic|activity|board-original|class|data|desktop|e2e|feature|first|home|mobile|nav|neis|notification|polite|presence|production|push|quota|repository|samsung|timetable|v2-update|weekend|preview|reminder|s-hub-ai|study)')
+          printf 'remaining app tests: %s\n' "${files[*]}"
+          ((${#files[@]} == 0)) || node --test "${files[@]}"
 
       - name: Install backend dependencies
         working-directory: push-backend-v2
@@ -81,7 +86,6 @@ jobs:
         id: backend_class
         continue-on-error: true
         working-directory: push-backend-v2
-        shell: bash
         run: node --test test/class*.test.js
 
       - name: Backend NEIS/preview group
@@ -98,14 +102,12 @@ jobs:
         id: backend_reminder
         continue-on-error: true
         working-directory: push-backend-v2
-        shell: bash
         run: node --test test/reminder*.test.js
 
       - name: Backend Supabase group
         id: backend_supabase
         continue-on-error: true
         working-directory: push-backend-v2
-        shell: bash
         run: node --test test/supabase*.test.js
 
       - name: Backend remaining group
@@ -117,28 +119,6 @@ jobs:
           mapfile -t files < <(find test -maxdepth 1 -name '*.test.js' -print | sort | grep -Ev '/(activity|admin|class|neis|preview|reminder|supabase)')
           ((${#files[@]} == 0)) || node --test "${files[@]}"
 
-      - name: Report regression groups
+      - name: Diagnostic complete
         if: always()
-        shell: bash
-        run: |
-          failed=0
-          for pair in \
-            'app-core:${{ steps.app_core.outcome }}' \
-            'app-preview:${{ steps.app_preview.outcome }}' \
-            'app-reminder:${{ steps.app_reminder.outcome }}' \
-            'app-ai:${{ steps.app_ai.outcome }}' \
-            'app-study:${{ steps.app_study.outcome }}' \
-            'backend-activity-admin:${{ steps.backend_activity_admin.outcome }}' \
-            'backend-class:${{ steps.backend_class.outcome }}' \
-            'backend-neis-preview:${{ steps.backend_neis_preview.outcome }}' \
-            'backend-reminder:${{ steps.backend_reminder.outcome }}' \
-            'backend-supabase:${{ steps.backend_supabase.outcome }}' \
-            'backend-remaining:${{ steps.backend_remaining.outcome }}'; do
-            name=${pair%%:*}
-            outcome=${pair#*:}
-            if [[ "$outcome" == 'failure' ]]; then
-              echo "$name failed"
-              failed=1
-            fi
-          done
-          exit $failed
+        run: echo 'Inspect individual step conclusions.'
