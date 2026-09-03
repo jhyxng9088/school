@@ -60,7 +60,7 @@ export function patchSharedSegmentSpringOwnerSource(source, id) {
     return replaceFunction(
       next,
       'function useClassTopSegmentSpring(activeIndex) {',
-      'function ClassTopSegment({ section, onSectionChange }) {',
+      '\nfunction ClassTopSegment',
       CLASS_WRAPPER,
       'class segment spring',
     )
@@ -72,7 +72,7 @@ export function patchSharedSegmentSpringOwnerSource(source, id) {
     return replaceFunction(
       next,
       'function useStudyRankingScopeSpring(activeIndex) {',
-      'function StudyRanking({',
+      '\nfunction StudyRanking',
       STUDY_WRAPPER,
       'study ranking segment spring',
     )
