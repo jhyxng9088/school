@@ -77,6 +77,10 @@ test('home and notification routing share one semantic navigation bridge', () =>
   assert.doesNotMatch(notifications, /new MutationObserver/)
   assert.doesNotMatch(notifications, /\.click\(\)/)
 
-  assert.match(bridge, /function tryLegacyDomRoute\(route\)/)
-  assert.match(bridge, /new MutationObserver\(scheduleFlush\)/)
+  assert.match(bridge, /pendingRoute = route/)
+  assert.match(bridge, /handler\(route\)/)
+  assert.doesNotMatch(bridge, /tryLegacyDomRoute/)
+  assert.doesNotMatch(bridge, /new MutationObserver/)
+  assert.doesNotMatch(bridge, /\.click\(\)/)
+  assert.doesNotMatch(bridge, /querySelector/)
 })
