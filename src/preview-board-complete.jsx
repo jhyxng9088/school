@@ -573,10 +573,15 @@ function BoardSectionEditor({ section, sections, open, onClose, onUpdated, onDel
 
 function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPost, onMutated }) {
   const [comment, setComment] = useState('')
+  const [commentFiles, setCommentFiles] = useState([])
+  const [commentProgress, setCommentProgress] = useState('')
   const [commentPending, setCommentPending] = useState(false)
   const [resolvePending, setResolvePending] = useState(false)
   const [editingCommentId, setEditingCommentId] = useState('')
   const [editingCommentBody, setEditingCommentBody] = useState('')
+  const [editingCommentKeptAttachmentIds, setEditingCommentKeptAttachmentIds] = useState([])
+  const [editingCommentFiles, setEditingCommentFiles] = useState([])
+  const [editingCommentProgress, setEditingCommentProgress] = useState('')
   const [commentActionId, setCommentActionId] = useState('')
   const [deleteCommentId, setDeleteCommentId] = useState('')
   const [error, setError] = useState('')
@@ -584,8 +589,13 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
   useEffect(() => {
     if (!open) return
     setComment('')
+    setCommentFiles([])
+    setCommentProgress('')
     setEditingCommentId('')
     setEditingCommentBody('')
+    setEditingCommentKeptAttachmentIds([])
+    setEditingCommentFiles([])
+    setEditingCommentProgress('')
     setCommentActionId('')
     setDeleteCommentId('')
     setError('')
@@ -598,6 +608,26 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
   const canResolve = post.kind === 'question' && post.sectionId === 'question' && !post.resolved && isMine
   const actionPending = commentPending || resolvePending || Boolean(commentActionId)
 
+  function resetCommentEditor() {
+    setEditingCommentId('')
+    setEditingCommentBody('')
+    setEditingCommentKeptAttachmentIds([])
+    setEditingCommentFiles([])
+    setEditingCommentProgress('')
+  }
+
+  async function uploadCommentFiles(files, setProgress) {
+    const selected = Array.isArray(files) ? files : []
+    const uploaded = []
+    if (!selected.length) return uploaded
+    const draftId = newPreviewBoardAttachmentDraftId()
+    for (let index = 0; index < selected.length; index += 1) {
+      setProgress(`첨부 ${index + 1}/${selected.length} 올리는 중…`)
+      uploaded.push(await uploadPreviewBoardAttachment(selected[index], draftId))
+    }
+    return uploaded
+  }
+
   async function submitComment(event) {
     event.preventDefault()
     const nextComment = comment.trim()
@@ -608,14 +638,21 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
     }
     setCommentPending(true)
     setError('')
+    setCommentProgress('')
+    let uploaded = []
     try {
-      const updated = await addPreviewBoardComment(post.id, nextComment)
+      uploaded = await uploadCommentFiles(commentFiles, setCommentProgress)
+      setCommentProgress(commentFiles.length ? '댓글을 저장하는 중…' : '')
+      const updated = await addPreviewBoardComment(post.id, nextComment, uploaded)
       onUpdated(updated)
       onMutated(post.id, 'edited')
       setComment('')
+      setCommentFiles([])
     } catch (requestError) {
+      if (uploaded.length) discardPreviewBoardAttachments(uploaded.map((item) => item.storagePath))
       setError(normalizeUiError(requestError, '댓글을 등록하지 못했어요.'))
     } finally {
+      setCommentProgress('')
       setCommentPending(false)
     }
   }
@@ -623,17 +660,29 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
   async function saveComment(commentId) {
     const nextBody = editingCommentBody.trim()
     if (!nextBody || actionPending) return
+    if (!navigator.onLine) {
+      setError('인터넷 연결을 확인한 뒤 다시 시도해 주세요.')
+      return
+    }
     setCommentActionId(commentId)
+    setEditingCommentProgress('')
     setError('')
+    let uploaded = []
     try {
-      const updated = await editPreviewBoardComment(post.id, commentId, nextBody)
+      uploaded = await uploadCommentFiles(editingCommentFiles, setEditingCommentProgress)
+      setEditingCommentProgress(editingCommentFiles.length ? '댓글을 저장하는 중…' : '')
+      const updated = await editPreviewBoardComment(post.id, commentId, nextBody, {
+        keepAttachmentIds: editingCommentKeptAttachmentIds,
+        attachments: uploaded,
+      })
       onUpdated(updated)
       onMutated(post.id, 'edited')
-      setEditingCommentId('')
-      setEditingCommentBody('')
+      resetCommentEditor()
     } catch (requestError) {
+      if (uploaded.length) discardPreviewBoardAttachments(uploaded.map((item) => item.storagePath))
       setError(normalizeUiError(requestError, '댓글을 수정하지 못했어요.'))
     } finally {
+      setEditingCommentProgress('')
       setCommentActionId('')
     }
   }
@@ -644,6 +693,10 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
       return
     }
     if (actionPending) return
+    if (!navigator.onLine) {
+      setError('인터넷 연결을 확인한 뒤 다시 시도해 주세요.')
+      return
+    }
     setCommentActionId(commentId)
     setError('')
     try {
@@ -651,7 +704,7 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
       onUpdated(updated)
       onMutated(post.id, 'edited')
       setDeleteCommentId('')
-      if (editingCommentId === commentId) setEditingCommentId('')
+      if (editingCommentId === commentId) resetCommentEditor()
     } catch (requestError) {
       setError(normalizeUiError(requestError, '댓글을 삭제하지 못했어요.'))
     } finally {
@@ -698,6 +751,12 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
             const mine = Boolean(meKey && item.authorStudentKey === meKey)
             const editing = editingCommentId === item.id
             const pending = commentActionId === item.id
+            const itemAttachments = Array.isArray(item.attachments) ? item.attachments : []
+            const keptAttachments = itemAttachments.filter((attachment) => editingCommentKeptAttachmentIds.includes(attachment.id))
+            const remainingEditSlots = Math.max(0, BOARD_ATTACHMENT_LIMIT - keptAttachments.length)
+            const canSaveComment = editingCommentBody.trim().length > 0
+              && keptAttachments.length + editingCommentFiles.length <= BOARD_ATTACHMENT_LIMIT
+              && !pending
             return (
               <article className="preview-board-comment" key={item.id}>
                 <div className="preview-board-comment-head">
@@ -707,15 +766,59 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
                 {editing ? (
                   <div className="preview-board-comment-editor">
                     <textarea value={editingCommentBody} maxLength={500} rows={2} onChange={(event) => setEditingCommentBody(event.target.value)} disabled={pending} />
-                    <div>
-                      <button type="button" onClick={() => { setEditingCommentId(''); setEditingCommentBody('') }} disabled={pending}>취소</button>
-                      <button type="button" className="is-primary" onClick={() => saveComment(item.id)} disabled={!editingCommentBody.trim() || pending}>{pending ? '저장 중…' : '저장'}</button>
+                    {keptAttachments.length ? (
+                      <section className="preview-board-existing-attachments" aria-label="댓글 현재 첨부 파일">
+                        <div className="preview-board-existing-head"><strong>현재 첨부</strong><span>{keptAttachments.length}개</span></div>
+                        {keptAttachments.map((attachment) => (
+                          <div className="preview-board-existing-file" key={attachment.id}>
+                            <span><strong>{attachment.fileName}</strong><small>댓글에 유지됨</small></span>
+                            <button
+                              type="button"
+                              onClick={() => setEditingCommentKeptAttachmentIds((current) => current.filter((id) => id !== attachment.id))}
+                              disabled={pending}
+                            >
+                              제거
+                            </button>
+                          </div>
+                        ))}
+                      </section>
+                    ) : null}
+                    <BoardAttachmentPicker
+                      files={editingCommentFiles}
+                      onChange={setEditingCommentFiles}
+                      onError={setError}
+                      disabled={pending}
+                      maxFiles={remainingEditSlots}
+                      ownerLabel="댓글"
+                    />
+                    {editingCommentProgress ? <p className="preview-board-upload-progress" role="status">{editingCommentProgress}</p> : null}
+                    <div className="preview-board-comment-editor-actions">
+                      <button type="button" onClick={resetCommentEditor} disabled={pending}>취소</button>
+                      <button type="button" className="is-primary" onClick={() => saveComment(item.id)} disabled={!canSaveComment}>{pending ? '저장 중…' : '저장'}</button>
                     </div>
                   </div>
-                ) : <p>{item.body}</p>}
+                ) : (
+                  <>
+                    <p>{item.body}</p>
+                    <BoardAttachmentGallery post={post} attachments={itemAttachments} compact ariaLabel="댓글 첨부 파일" />
+                  </>
+                )}
                 {mine && !editing ? (
                   <div className="preview-board-comment-actions">
-                    <button type="button" onClick={() => { setEditingCommentId(item.id); setEditingCommentBody(item.body); setDeleteCommentId('') }} disabled={actionPending}>수정</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCommentId(item.id)
+                        setEditingCommentBody(item.body)
+                        setEditingCommentKeptAttachmentIds(itemAttachments.map((attachment) => attachment.id).filter(Boolean))
+                        setEditingCommentFiles([])
+                        setEditingCommentProgress('')
+                        setDeleteCommentId('')
+                      }}
+                      disabled={actionPending}
+                    >
+                      수정
+                    </button>
                     <button type="button" className={deleteCommentId === item.id ? 'is-danger' : ''} onClick={() => removeComment(item.id)} disabled={actionPending}>{pending ? '처리 중…' : deleteCommentId === item.id ? '삭제 확인' : '삭제'}</button>
                     {deleteCommentId === item.id ? <button type="button" onClick={() => setDeleteCommentId('')} disabled={actionPending}>취소</button> : null}
                   </div>
@@ -725,8 +828,12 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
           }) : <p className="preview-board-comments-empty">아직 댓글이 없어요.</p>}
         </section>
         <form className="preview-board-comment-form" onSubmit={submitComment}>
-          <textarea value={comment} maxLength={500} rows={1} placeholder="댓글을 입력해 주세요" aria-label="댓글 내용" disabled={actionPending} onChange={(event) => setComment(event.target.value)} />
-          <button type="submit" className="preview-board-comment-submit" disabled={!comment.trim() || actionPending}>{commentPending ? '등록 중' : '등록'}</button>
+          <div className="preview-board-comment-compose-row">
+            <textarea value={comment} maxLength={500} rows={1} placeholder="댓글을 입력해 주세요" aria-label="댓글 내용" disabled={actionPending} onChange={(event) => setComment(event.target.value)} />
+            <button type="submit" className="preview-board-comment-submit" disabled={!comment.trim() || actionPending}>{commentPending ? '등록 중' : '등록'}</button>
+          </div>
+          <BoardAttachmentPicker files={commentFiles} onChange={setCommentFiles} onError={setError} disabled={actionPending} ownerLabel="댓글" />
+          {commentProgress ? <p className="preview-board-upload-progress" role="status">{commentProgress}</p> : null}
         </form>
         {error ? <p className="preview-board-error" role="alert">{error}</p> : null}
       </div>

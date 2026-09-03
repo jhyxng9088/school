@@ -303,7 +303,8 @@
   order: 2;
 }
 
-.preview-board-comment-editor > div {
+.preview-board-comment-editor > div,
+.preview-board-comment-editor-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
@@ -313,9 +314,26 @@
   min-height: 34px;
 }
 
+.preview-board-comment-editor .preview-board-attachment-picker,
+.preview-board-comment-form .preview-board-attachment-picker {
+  min-width: 0;
+}
+
+.preview-board-comment .preview-board-attachment-gallery.is-compact {
+  margin-top: 9px;
+}
+
 .preview-board-comment-form {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 10px;
+}
+
+.preview-board-comment-compose-row {
+  display: grid;
   grid-template-columns: minmax(0, 1fr) 64px;
   align-items: stretch;
+  gap: 8px;
 }
 
 .preview-board-comment-submit {
