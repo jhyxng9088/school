@@ -19,13 +19,19 @@ test('home cards use semantic V2 destinations through the shared navigation owne
   assert.doesNotMatch(source, /station-schedule-switcher/)
 })
 
-test('study touch scope changes wait for click and ranking transforms are disabled', () => {
+test('study ranking waits for React click ownership while ranking transforms stay disabled', () => {
   const source = read('public/school-home-nav.js')
+  const recovery = read('src/production-recovery-patch.js')
 
-  assert.match(source, /pointerType === 'mouse'/)
-  assert.match(source, /공부 랭킹 범위/)
-  assert.match(source, /event\.stopPropagation\(\)/)
+  assert.doesNotMatch(source, /pointerType === 'mouse'/)
+  assert.doesNotMatch(source, /공부 랭킹 범위/)
+  assert.doesNotMatch(source, /event\.stopPropagation\(\)/)
+  assert.doesNotMatch(source, /addEventListener\('pointerdown'/)
   assert.match(source, /preview-study-ranking-stage\[data-direction\]/)
   assert.match(source, /animation: none !important/)
   assert.match(source, /preview-study-ranking-stage \.preview-study-today-person/)
+
+  assert.match(recovery, /onClick=\{\(\) => selectScope\('class'\)\}/)
+  assert.match(recovery, /onClick=\{\(\) => selectScope\('school'\)\}/)
+  assert.match(recovery, /touch-action: pan-y/)
 })
