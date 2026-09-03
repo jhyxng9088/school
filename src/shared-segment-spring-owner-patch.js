@@ -55,6 +55,7 @@ export function patchSharedSegmentSpringOwnerSource(source, id) {
   let next = String(source || '')
 
   if (cleanId.endsWith('/src/main.jsx')) {
+    if (!next.includes('function useClassTopSegmentSpring(activeIndex) {')) return next
     next = ensureImport(next)
     return replaceFunction(
       next,
@@ -66,6 +67,7 @@ export function patchSharedSegmentSpringOwnerSource(source, id) {
   }
 
   if (cleanId.endsWith('/src/preview-study.jsx')) {
+    if (!next.includes('function useStudyRankingScopeSpring(activeIndex) {')) return next
     next = ensureImport(next)
     return replaceFunction(
       next,
