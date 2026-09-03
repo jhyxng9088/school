@@ -16,15 +16,18 @@ export function normalizeSupabaseRosterIdentities(payload, expectedClassId = '')
     const name = cleanText(value?.name, 20)
     if (studentKey.length < 16 || !name) continue
     const verifiedAt = Math.max(0, Number(value?.verifiedAt || 0))
-    const updatedAt = Math.max(0, Number(value?.updatedAt || verifiedAt || 0))
+    const cacheUpdatedAt = Math.max(0, Number(value?.updatedAt || verifiedAt || 0))
     const existing = byStudentKey.get(studentKey)
-    if (!existing || updatedAt >= existing.updatedAt) {
+    if (!existing || cacheUpdatedAt >= existing.cacheUpdatedAt) {
       byStudentKey.set(studentKey, {
         classId,
         studentKey,
         name,
-        createdAt: verifiedAt,
-        updatedAt,
+        // Supabase is an identity cache, not the source of truth for roster chronology.
+        // Keep ordering timestamps neutral so cached rows can never outrank Firestore rows.
+        createdAt: 0,
+        updatedAt: 0,
+        cacheUpdatedAt,
       })
     }
   }
