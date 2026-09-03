@@ -30,6 +30,18 @@ test('final motion ownership replaces the generated study spring with the same s
   assert.match(next, /fallbackPadding: 4/)
 })
 
+test('final motion ownership is a no-op when an upstream segment patch is intentionally absent', () => {
+  const source = `import React from 'react'\nfunction Icon() { return null }\n`
+  assert.equal(
+    patchSharedSegmentSpringOwnerSource(source, '/workspace/src/main.jsx'),
+    source,
+  )
+  assert.equal(
+    patchSharedSegmentSpringOwnerSource(source, '/workspace/src/preview-study.jsx'),
+    source,
+  )
+})
+
 test('schedule continues to reuse the class segment spring wrapper', () => {
   const schedulePatch = read('src/preview-schedule-top-segment-patch.js')
   assert.match(schedulePatch, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
