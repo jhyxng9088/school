@@ -23,8 +23,9 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
 
     let stopped = false
     let refreshTimer = null
+    let supabasePresence = null
     let realtimePresence = null
-    let fallbackActive = false
+    let fallbackLevel = 'supabase'
     let stopActiveTransport = () => {}
     const classId = classKeyFor(profile)
     const studentKey = studentKeyFor(profile)
@@ -80,7 +81,7 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
           await refreshMemberTotal()
         }
       } catch (error) {
-        // A Firestore quota outage must not prevent the independent presence transport.
+        // Firestore membership bookkeeping is independent from the live presence transport.
         console.error('Class member count refresh failed:', error)
       }
     }
@@ -115,7 +116,7 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
           await recountOnline()
           void refreshMemberTotal().catch((error) => console.error('Class member count refresh failed:', error))
         } catch (error) {
-          console.error('Class presence refresh failed:', error)
+          console.error('Class presence Firestore fallback failed:', error)
         }
       }
 
@@ -138,62 +139,85 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
       }
     }
 
-    const activateFallback = (reason) => {
-      if (stopped || fallbackActive) return
-      fallbackActive = true
+    const activateFirestoreFallback = (reason) => {
+      if (stopped || fallbackLevel === 'firestore') return
+      fallbackLevel = 'firestore'
       stopActiveTransport()
       stopActiveTransport = () => {}
+      supabasePresence?.stop()
+      supabasePresence = null
       realtimePresence?.stop()
       realtimePresence = null
-      if (reason) console.warn('Realtime presence unavailable; using Firestore fallback.', reason)
+      if (reason) console.warn('External presence unavailable; using Firestore fallback.', reason)
       stopActiveTransport = startFirestoreFallback()
+    }
+
+    const activateRealtimeFallback = (reason) => {
+      if (stopped || fallbackLevel !== 'supabase') return
+      fallbackLevel = 'rtdb'
+      supabasePresence?.stop()
+      supabasePresence = null
+      if (reason) console.warn('Supabase presence unavailable; trying Realtime Database.', reason)
+
+      if (realtimePresenceConfigured()) {
+        realtimePresence = startRealtimePresence({
+          app: syncApp,
+          classId,
+          uid: auth.currentUser?.uid,
+          onOnlineCount: (online) => {
+            if (!stopped && fallbackLevel === 'rtdb') setCounts((current) => ({ ...current, online }))
+          },
+          onError: (error) => console.error('Realtime Database presence failed:', error),
+          onUnavailable: activateFirestoreFallback,
+        })
+      }
+
+      if (!realtimePresence) {
+        activateFirestoreFallback(reason)
+        return
+      }
+
+      const handleVisibility = () => {
+        if (document.hidden) void realtimePresence?.leave()
+        else void realtimePresence?.enter()
+      }
+      document.addEventListener('visibilitychange', handleVisibility)
+      window.addEventListener('focus', handleVisibility)
+      stopActiveTransport = () => {
+        document.removeEventListener('visibilitychange', handleVisibility)
+        window.removeEventListener('focus', handleVisibility)
+      }
     }
 
     ensureSignedIn()
       .then((user) => {
         if (stopped) return
 
-        // Membership registration and total count are Firestore concerns. Run them in
-        // parallel so a Firestore quota outage cannot block RTDB online presence.
+        // Registration/total are low-frequency Firestore bookkeeping. Live presence is
+        // Supabase-first so normal 30-45 second heartbeats do not spend Firestore reads.
         void ensureMemberBestEffort()
 
-        if (realtimePresenceConfigured()) {
-          realtimePresence = startRealtimePresence({
-            app: syncApp,
-            classId,
-            uid: user.uid,
-            onOnlineCount: (online) => {
-              if (!stopped && !fallbackActive) setCounts((current) => ({ ...current, online }))
-            },
-            onError: (error) => console.error('Realtime presence failed:', error),
-            onUnavailable: activateFallback,
-          })
-        }
+        supabasePresence = startSupabasePresence({
+          user,
+          classId,
+          onOnlineCount: (online) => {
+            if (!stopped && fallbackLevel === 'supabase') setCounts((current) => ({ ...current, online }))
+          },
+          onError: (error) => console.error('Supabase presence failed:', error),
+          onUnavailable: activateRealtimeFallback,
+        })
 
-        if (!realtimePresence) {
-          activateFallback()
-          return
-        }
-
-        const handleVisibility = () => {
-          if (document.hidden) void realtimePresence?.leave()
-          else void realtimePresence?.enter()
-        }
-        document.addEventListener('visibilitychange', handleVisibility)
-        window.addEventListener('focus', handleVisibility)
-        stopActiveTransport = () => {
-          document.removeEventListener('visibilitychange', handleVisibility)
-          window.removeEventListener('focus', handleVisibility)
-        }
+        if (!supabasePresence) activateRealtimeFallback()
       })
       .catch((error) => {
         console.error('Class presence connection failed:', error)
-        activateFallback(error)
+        activateRealtimeFallback(error)
       })
 
     return () => {
       stopped = true
       stopActiveTransport()
+      supabasePresence?.stop()
       realtimePresence?.stop()
     }
   }, [signature])
@@ -210,7 +234,7 @@ export function patchPresenceSplitSource(source, id) {
   next = replaceExact(
     next,
     "import { publishClassLiveData } from './class-live-data.js'",
-    "import { publishClassLiveData } from './class-live-data.js'\nimport { realtimePresenceConfigured, startRealtimePresence } from './presence-rtdb.js'",
+    "import { publishClassLiveData } from './class-live-data.js'\nimport { realtimePresenceConfigured, startRealtimePresence } from './presence-rtdb.js'\nimport { startSupabasePresence } from './supabase-presence.js'",
   )
   next = replaceBetween(
     next,
