@@ -30,95 +30,28 @@ jobs:
       - name: Hide temporary verification workflow from repository-structure test
         run: mv .github/workflows/branch-verify.yml /tmp/branch-verify.yml
 
-      - name: App core group
-        id: app_core
-        continue-on-error: true
-        shell: bash
-        run: |
-          shopt -s nullglob
-          files=(tests/academic*.test.js tests/activity*.test.js tests/board-original*.test.js tests/class*.test.js tests/data*.test.js tests/desktop*.test.js tests/e2e*.test.js tests/feature*.test.js tests/first*.test.js tests/home*.test.js tests/mobile*.test.js tests/nav*.test.js tests/neis*.test.js tests/notification*.test.js tests/polite*.test.js tests/presence*.test.js tests/production*.test.js tests/push*.test.js tests/quota*.test.js tests/repository*.test.js tests/samsung*.test.js tests/timetable*.test.js tests/v2-update*.test.js tests/weekend*.test.js)
-          ((${#files[@]} == 0)) || node --test "${files[@]}"
+      - name: Test app
+        run: npm test
 
-      - name: App preview group
-        id: app_preview
-        continue-on-error: true
-        run: node --test tests/preview*.test.js
+      - name: Build board sheet E2E harness
+        run: npm run build -- --config vite.e2e.config.js
 
-      - name: App reminder group
-        id: app_reminder
-        continue-on-error: true
-        run: node --test tests/reminder*.test.js
+      - name: Install Playwright test runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
 
-      - name: App AI group
-        id: app_ai
-        continue-on-error: true
-        run: node --test tests/s-hub-ai*.test.js
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
-      - name: App study group
-        id: app_study
-        continue-on-error: true
-        run: node --test tests/study*.test.js
+      - name: Run Chromium and WebKit UI regression tests
+        run: npx playwright test
 
-      - name: App remaining group
-        id: app_remaining
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort | grep -Ev '/(academic|activity|board-original|class|data|desktop|e2e|feature|first|home|mobile|nav|neis|notification|polite|presence|production|push|quota|repository|samsung|timetable|v2-update|weekend|preview|reminder|s-hub-ai|study)')
-          printf 'remaining app tests: %s\n' "${files[*]}"
-          ((${#files[@]} == 0)) || node --test "${files[@]}"
+      - name: Build production app
+        run: npm run build
 
       - name: Install backend dependencies
         working-directory: push-backend-v2
         run: npm ci
 
-      - name: Backend activity/admin group
-        id: backend_activity_admin
-        continue-on-error: true
+      - name: Test backend
         working-directory: push-backend-v2
-        shell: bash
-        run: |
-          shopt -s nullglob
-          files=(test/activity*.test.js test/admin*.test.js)
-          ((${#files[@]} == 0)) || node --test "${files[@]}"
-
-      - name: Backend class group
-        id: backend_class
-        continue-on-error: true
-        working-directory: push-backend-v2
-        run: node --test test/class*.test.js
-
-      - name: Backend NEIS/preview group
-        id: backend_neis_preview
-        continue-on-error: true
-        working-directory: push-backend-v2
-        shell: bash
-        run: |
-          shopt -s nullglob
-          files=(test/neis*.test.js test/preview*.test.js)
-          ((${#files[@]} == 0)) || node --test "${files[@]}"
-
-      - name: Backend reminder group
-        id: backend_reminder
-        continue-on-error: true
-        working-directory: push-backend-v2
-        run: node --test test/reminder*.test.js
-
-      - name: Backend Supabase group
-        id: backend_supabase
-        continue-on-error: true
-        working-directory: push-backend-v2
-        run: node --test test/supabase*.test.js
-
-      - name: Backend remaining group
-        id: backend_remaining
-        continue-on-error: true
-        working-directory: push-backend-v2
-        shell: bash
-        run: |
-          mapfile -t files < <(find test -maxdepth 1 -name '*.test.js' -print | sort | grep -Ev '/(activity|admin|class|neis|preview|reminder|supabase)')
-          ((${#files[@]} == 0)) || node --test "${files[@]}"
-
-      - name: Diagnostic complete
-        if: always()
-        run: echo 'Inspect individual step conclusions.'
+        run: npm test
