@@ -15,25 +15,27 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
 
 function patchBoardAttachmentViewer(source) {
   let next = String(source || '')
-  if (next.includes("import { createPortal } from 'react-dom'") && next.includes('document.body')) return next
+  if (next.includes("import { OriginalFileViewer } from './original-file-viewer.jsx'")) return next
 
   next = replaceRequired(
     next,
     `import { useEffect, useMemo, useRef, useState } from 'react'`,
-    `import { useEffect, useMemo, useRef, useState } from 'react'\nimport { createPortal } from 'react-dom'`,
-    'board original viewer portal import',
+    `import { useEffect, useMemo, useRef, useState } from 'react'\nimport { OriginalFileViewer } from './original-file-viewer.jsx'`,
+    'board shared original viewer import',
+  )
+  next = replaceRequired(next, `const DOWNLOAD_GESTURE_LOCK_MS = 700\n\n`, ``, 'remove duplicate download gesture lock')
+  next = spliceRequired(
+    next,
+    `function isAppleTouchDevice() {`,
+    `export function BoardAttachmentPicker`,
+    ``,
+    'remove duplicate board original viewer implementation',
   )
   next = replaceRequired(
     next,
-    `  return (\n    <div className={\`reminder-original-viewer \${closing ? 'is-closing' : ''}\`.trim()} role="dialog" aria-modal="true" aria-label="원본 파일">`,
-    `  if (typeof document === 'undefined') return null\n\n  return createPortal(\n    <div className={\`reminder-original-viewer \${closing ? 'is-closing' : ''}\`.trim()} role="dialog" aria-modal="true" aria-label="원본 파일">`,
-    'board original viewer portal open',
-  )
-  next = replaceRequired(
-    next,
-    `      </div>\n    </div>\n  )\n}\n\nexport function BoardAttachmentPicker`,
-    `      </div>\n    </div>,\n    document.body,\n  )\n}\n\nexport function BoardAttachmentPicker`,
-    'board original viewer portal close',
+    `<BoardOriginalViewer original={viewer} onClose={closeViewer} />`,
+    `<OriginalFileViewer\n        original={viewer}\n        onClose={closeViewer}\n        formatSize={formatFileSize}\n        portal\n        saveErrorLabel="Board original save failed:"\n      />`,
+    'board shared original viewer usage',
   )
   return next
 }
