@@ -1,12 +1,6 @@
 (() => {
   let frame = 0
 
-  const SCHEDULE_LABELS = {
-    todo: '리마인더',
-    academic: '학사일정',
-    meal: '급식',
-  }
-
   function homeRouteFor(item) {
     if (!(item instanceof Element)) return null
     if (item.matches('.current-class-card')) {
@@ -27,52 +21,9 @@
     return null
   }
 
-  function activateTab(tab) {
-    const button = document.querySelector(`.bottom-nav .nav-button[data-tab="${tab}"]`)
-    if (!button) return false
-    button.click()
-    return true
-  }
-
-  function activateClassSection(section) {
-    if (section !== 'timetable') return false
-    const button = document.querySelector('.class-nav-subbutton[aria-label="우리 반 시간표"]')
-    if (!button) return false
-    button.click()
-    return true
-  }
-
-  function activateScheduleSection(section) {
-    const label = SCHEDULE_LABELS[section]
-    if (!label) return false
-    const buttons = [...document.querySelectorAll('.station-schedule-switcher button')]
-    const button = buttons.find((candidate) => candidate.textContent.trim() === label)
-    if (!button) return false
-    button.click()
-    return true
-  }
-
-  function afterReactCommit(callback) {
-    let attempts = 0
-    function run() {
-      attempts += 1
-      if (callback() || attempts >= 6) return
-      window.requestAnimationFrame(run)
-    }
-    window.requestAnimationFrame(run)
-  }
-
   function navigateHome(route) {
-    if (!route || !activateTab(route.tab)) return
-
-    if (route.tab === 'class') {
-      afterReactCommit(() => activateClassSection(route.section))
-      return
-    }
-
-    if (route.tab === 'schedule') {
-      afterReactCommit(() => activateScheduleSection(route.section))
-    }
+    if (!route) return
+    window.SHubNavigation?.navigate(route)
   }
 
   function interactiveDescendant(target, item) {

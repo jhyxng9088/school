@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('home cards use semantic V2 destinations instead of positional nav indexes', () => {
+test('home cards use semantic V2 destinations through the shared navigation owner', () => {
   const source = read('public/school-home-nav.js')
 
   assert.doesNotMatch(source, /navIndex/)
@@ -13,9 +13,10 @@ test('home cards use semantic V2 destinations instead of positional nav indexes'
   assert.match(source, /\.academic-preview/)
   assert.match(source, /\.meal-preview/)
   assert.match(source, /\.period-strip, \.today-timetable-empty/)
-  assert.ok(source.includes('.bottom-nav .nav-button[data-tab="${tab}"]'))
-  assert.match(source, /우리 반 시간표/)
-  assert.match(source, /station-schedule-switcher/)
+  assert.match(source, /SHubNavigation\?\.navigate\(route\)/)
+  assert.doesNotMatch(source, /\.bottom-nav \.nav-button/)
+  assert.doesNotMatch(source, /afterReactCommit/)
+  assert.doesNotMatch(source, /station-schedule-switcher/)
 })
 
 test('study touch scope changes wait for click and ranking transforms are disabled', () => {

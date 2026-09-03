@@ -40,7 +40,7 @@ test('semantic navigation accepts explicit station routes but rejects invalid se
   )
 })
 
-test('semantic navigation preserves the latest request until React registers its owner', () => {
+test('semantic navigation preserves the latest request until an owner can receive it', () => {
   const navigation = loadNavigation()
   const received = []
 
@@ -56,4 +56,27 @@ test('semantic navigation preserves the latest request until React registers its
   unregister()
   navigation.navigate('meal')
   assert.equal(received.length, 2)
+})
+
+test('home and notification routing share one semantic navigation bridge', () => {
+  const index = read('index.html')
+  const home = read('public/school-home-nav.js')
+  const notifications = read('public/notification-routing.js')
+  const bridge = read('public/s-hub-navigation.js')
+
+  const bridgeIndex = index.indexOf('./s-hub-navigation.js')
+  assert.ok(bridgeIndex >= 0)
+  assert.ok(bridgeIndex < index.indexOf('./school-home-nav.js'))
+  assert.ok(bridgeIndex < index.indexOf('./notification-routing.js'))
+
+  assert.match(home, /SHubNavigation\?\.navigate\(route\)/)
+  assert.doesNotMatch(home, /\.bottom-nav \.nav-button/)
+  assert.doesNotMatch(home, /afterReactCommit/)
+
+  assert.match(notifications, /SHubNavigation\?\.navigate\(tab\)/)
+  assert.doesNotMatch(notifications, /new MutationObserver/)
+  assert.doesNotMatch(notifications, /\.click\(\)/)
+
+  assert.match(bridge, /function tryLegacyDomRoute\(route\)/)
+  assert.match(bridge, /new MutationObserver\(scheduleFlush\)/)
 })
