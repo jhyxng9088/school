@@ -77,7 +77,8 @@
   }
 
   const observer = new MutationObserver(syncPriority)
-  observer.observe(document.documentElement, {
+  const appRoot = document.getElementById('root') || document.documentElement
+  observer.observe(appRoot, {
     childList: true,
     subtree: true,
   })
