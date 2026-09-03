@@ -90,6 +90,17 @@ test('first roster open paints cached data immediately without forced pointer fo
   assert.match(css, /\.class-roster-row\.is-static[\s\S]*animation: none/)
 })
 
+test('class roster modal cannot reschedule its own observer forever while visible', () => {
+  const source = read('src/class-roster-ui-v2.js')
+
+  assert.match(source, /const nextSummary = `\$\{cachedRoster\.registeredTotal \|\| cachedRoster\.total\}명 · 현재 \$\{currentRosterOnline\(\)\}명 접속`/)
+  assert.match(source, /if \(modalState\.summary\.textContent !== nextSummary\) modalState\.summary\.textContent = nextSummary/)
+  assert.match(source, /function isRosterInternalMutation\(mutation\)/)
+  assert.match(source, /element\?\.closest\?\.\('\.class-roster-layer'\)/)
+  assert.match(source, /mutations\.length && mutations\.every\(isRosterInternalMutation\)/)
+  assert.doesNotMatch(source, /const observer = new MutationObserver\(queueCounterSync\)/)
+})
+
 test('class roster modal keeps restrained open-close motion and reduced-motion fallback', () => {
   const css = read('src/class-roster.css')
 
