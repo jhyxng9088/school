@@ -19,17 +19,22 @@ test('home cards use semantic V2 destinations through the shared navigation owne
   assert.doesNotMatch(source, /station-schedule-switcher/)
 })
 
-test('study ranking waits for React click ownership while ranking transforms stay disabled', () => {
+test('study ranking keeps the existing scroll-stability rules without runtime style injection', () => {
   const source = read('public/school-home-nav.js')
+  const refinements = read('public/school-refinements.css')
   const recovery = read('src/production-recovery-patch.js')
 
   assert.doesNotMatch(source, /pointerType === 'mouse'/)
   assert.doesNotMatch(source, /공부 랭킹 범위/)
   assert.doesNotMatch(source, /event\.stopPropagation\(\)/)
   assert.doesNotMatch(source, /addEventListener\('pointerdown'/)
-  assert.match(source, /preview-study-ranking-stage\[data-direction\]/)
-  assert.match(source, /animation: none !important/)
-  assert.match(source, /preview-study-ranking-stage \.preview-study-today-person/)
+  assert.doesNotMatch(source, /document\.createElement\('style'\)/)
+  assert.doesNotMatch(source, /installStudyScrollStability/)
+
+  assert.match(refinements, /preview-study-ranking-stage\[data-direction\]/)
+  assert.match(refinements, /animation: none !important/)
+  assert.match(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
+  assert.match(refinements, /will-change: auto !important/)
 
   assert.match(recovery, /onClick=\{\(\) => selectScope\('class'\)\}/)
   assert.match(recovery, /onClick=\{\(\) => selectScope\('school'\)\}/)
