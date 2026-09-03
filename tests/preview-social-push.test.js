@@ -41,14 +41,21 @@ test('study sends push on start but not pause resume or stop', () => {
   assert.doesNotMatch(rest, /dispatchPreviewStudyStartPush/)
 })
 
-test('notification click routing knows V2 nested board schedule and study destinations', () => {
+test('notification click routing delegates V2 nested destinations to the shared semantic owner', () => {
   const routing = read('public/notification-routing.js')
+  const navigation = read('public/s-hub-navigation.js')
   const sw = read('public/sw.js')
-  assert.match(routing, /board: 'class'/)
-  assert.match(routing, /todo: 'schedule'/)
-  assert.match(routing, /academic: 'schedule'/)
-  assert.match(routing, /meal: 'schedule'/)
-  assert.match(routing, /tab === 'study'/)
+
+  assert.match(routing, /SHubNavigation\?\.navigate\(tab\)/)
+  assert.doesNotMatch(routing, /new MutationObserver/)
+  assert.doesNotMatch(routing, /\.click\(\)/)
+
+  assert.match(navigation, /board:\s*\{ tab: 'class', section: 'board' \}/)
+  assert.match(navigation, /todo:\s*\{ tab: 'schedule', section: 'todo' \}/)
+  assert.match(navigation, /academic:\s*\{ tab: 'schedule', section: 'academic' \}/)
+  assert.match(navigation, /meal:\s*\{ tab: 'schedule', section: 'meal' \}/)
+  assert.match(navigation, /study:\s*\{ tab: 'study' \}/)
+
   assert.match(sw, /\?tab=board/)
   assert.match(sw, /\?tab=study/)
   assert.match(sw, /'board', 'study'/)
