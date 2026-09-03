@@ -173,6 +173,16 @@ export async function recordPreviewStudyStartEvent(active) {
   })
 }
 
+async function requestStudyTransition(action, reconciledCodes = []) {
+  try {
+    return await requestStudy({ method: 'POST', payload: { action } })
+  } catch (error) {
+    const code = String(error?.code || '')
+    if (!reconciledCodes.includes(code)) throw error
+    return { ok: true, reconciled: true, code, generatedAt: Date.now() }
+  }
+}
+
 export async function startPreviewStudy(subject) {
   const cleanSubject = String(subject || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, 24)
   if (!cleanSubject) throw studyError('study/subject-required', '공부할 과목을 선택해 주세요.')
@@ -189,13 +199,21 @@ export async function startPreviewStudy(subject) {
 }
 
 export async function pausePreviewStudy() {
-  return requestStudy({ method: 'POST', payload: { action: 'pause' } })
+  return requestStudyTransition('pause', [
+    'study/not-active',
+    'study/already-paused',
+    'study/state-changed',
+  ])
 }
 
 export async function resumePreviewStudy() {
-  return requestStudy({ method: 'POST', payload: { action: 'resume' } })
+  return requestStudyTransition('resume', [
+    'study/not-active',
+    'study/not-paused',
+    'study/state-changed',
+  ])
 }
 
 export async function stopPreviewStudy() {
-  return requestStudy({ method: 'POST', payload: { action: 'stop' } })
+  return requestStudyTransition('stop', ['study/not-active'])
 }
