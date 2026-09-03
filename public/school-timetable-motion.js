@@ -159,14 +159,16 @@
     }
   })
 
-  const appRoot = document.getElementById('root') || document.documentElement
-  observer.observe(appRoot, {
-    subtree: true,
-    childList: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: ['class'],
-  })
+  const appRoot = document.getElementById('root')
+  if (appRoot) {
+    observer.observe(appRoot, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    })
+  }
 
   document.querySelectorAll(TIMETABLE_PAGE_SELECTOR).forEach(schedulePageReady)
 })()
