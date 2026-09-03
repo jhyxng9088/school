@@ -17,7 +17,7 @@ test('comment compose, display, and edit reuse the shared board attachment compo
   const board = read('src/preview-board-complete.jsx')
 
   assert.match(board, /<BoardAttachmentPicker[\s\S]*ownerLabel="댓글"/)
-  assert.match(board, /<BoardAttachmentGallery post=\{post\} attachments=\{itemAttachments\} compact ariaLabel="댓글 첨부 파일" \/>/)
+  assert.match(board, /<BoardAttachmentGallery\s+post=\{post\}\s+attachments=\{itemAttachments\}\s+compact\s+ariaLabel="댓글 첨부 파일"\s*\/>/)
   assert.match(board, /discardPreviewBoardAttachments\(uploaded\.map\(\(item\) => item\.storagePath\)\)/)
   assert.match(board, /editingCommentKeptAttachmentIds/)
 })
