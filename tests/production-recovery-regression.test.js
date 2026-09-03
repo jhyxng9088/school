@@ -26,7 +26,7 @@ test('home presence indicator stays visible when online count is known and is em
   assert.match(source, /presence\.total > 0 \? `\$\{presence\.online\}\/\$\{presence\.total\}` : presence\.online > 0 \? `\$\{presence\.online\}명`/)
   assert.match(source, /<button[\s\S]*type="button"[\s\S]*class-presence-count is-roster-button/)
   assert.match(source, /onClick=\{\(event\) => openClassRoster\(\{ keyboard: event\.detail === 0 \}\)\}/)
-  assert.doesNotMatch(source, /<span[\s\S]*class-presence-count/)
+  assert.doesNotMatch(source, /<span[^>]*class-presence-count/)
 })
 
 test('section edits use only the production backend and never reload the PWA on save failure', () => {
