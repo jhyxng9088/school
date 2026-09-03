@@ -2,6 +2,7 @@ import { adminAuth, adminDb } from '../lib/firebase-admin.js'
 import {
   buildClassRoster,
   classNumberFromId,
+  inferStudentNumber,
   recoverClassRosterUsers,
 } from '../lib/class-roster.js'
 import {
@@ -58,6 +59,28 @@ function cacheCanServeRoster({ cache, memberKeys, result }) {
   if (!cache?.available || !supabaseRosterCacheCoversMembers(cache.users, memberKeys)) return false
   if (unresolvedCount(result) > 0) return false
   return !result.roster.members.some((member) => member.conflict)
+}
+
+function rosterMembersWithStudentKeys(classId, result) {
+  const keysByNumber = new Map()
+  for (const user of Array.isArray(result?.recovery?.users) ? result.recovery.users : []) {
+    const studentKey = String(user?.studentKey || '').trim()
+    const name = String(user?.name || '').trim()
+    const studentNumber = inferStudentNumber({ classId, studentKey, name })
+    if (!studentNumber || !studentKey) continue
+    if (!keysByNumber.has(studentNumber)) keysByNumber.set(studentNumber, new Set())
+    keysByNumber.get(studentNumber).add(studentKey)
+  }
+
+  return result.roster.members.map((member) => {
+    const keys = [...(keysByNumber.get(member.studentNumber) || [])]
+    return {
+      ...member,
+      // Used only by the authenticated client to merge live presence into the cached roster.
+      // A conflict never receives a key because it cannot be mapped safely to one row.
+      studentKey: !member.conflict && keys.length === 1 ? keys[0] : '',
+    }
+  })
 }
 
 async function recoverFromClassHistory({ classRef, classId, memberKeys, users, presence, nowMs }) {
@@ -186,7 +209,7 @@ export default async function handler(req, res) {
       online: result.roster.online,
       unresolved,
       recoveredFromHistory: result.recovery.recoveredFromHistory.length,
-      members: result.roster.members,
+      members: rosterMembersWithStudentKeys(classId, result),
       generatedAt: nowMs,
       cache: {
         identitySource,
