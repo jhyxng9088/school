@@ -30,69 +30,34 @@ jobs:
       - name: Hide temporary verification workflow from repository-structure test
         run: mv .github/workflows/branch-verify.yml /tmp/branch-verify.yml
 
-      - name: First half 1-45
-        id: first_half
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test --test-concurrency=1 "${files[@]:0:45}"
+      - name: Test app pass 1
+        run: npm test
 
-      - name: Second half 46-91
-        id: second_half
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test --test-concurrency=1 "${files[@]:45}"
+      - name: Test app pass 2
+        run: npm test
 
-      - name: Prefix 1-60
-        id: prefix_60
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test --test-concurrency=1 "${files[@]:0:60}"
+      - name: Test app pass 3
+        run: npm test
 
-      - name: Prefix 1-70
-        id: prefix_70
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test --test-concurrency=1 "${files[@]:0:70}"
+      - name: Build board sheet E2E harness
+        run: npm run build -- --config vite.e2e.config.js
 
-      - name: Suffix 21-91
-        id: suffix_21
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test --test-concurrency=1 "${files[@]:20}"
+      - name: Install Playwright test runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
 
-      - name: Suffix 31-91
-        id: suffix_31
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test --test-concurrency=1 "${files[@]:30}"
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
-      - name: Full app suite
-        id: full_suite
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test --test-concurrency=1 "${files[@]}"
+      - name: Run Chromium and WebKit UI regression tests
+        run: npx playwright test
 
-      - name: Diagnostic summary
-        if: always()
-        run: |
-          echo "first-half=${{ steps.first_half.outcome }}"
-          echo "second-half=${{ steps.second_half.outcome }}"
-          echo "prefix-60=${{ steps.prefix_60.outcome }}"
-          echo "prefix-70=${{ steps.prefix_70.outcome }}"
-          echo "suffix-21=${{ steps.suffix_21.outcome }}"
-          echo "suffix-31=${{ steps.suffix_31.outcome }}"
-          echo "full=${{ steps.full_suite.outcome }}"
+      - name: Build production app
+        run: npm run build
+
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test backend
+        working-directory: push-backend-v2
+        run: npm test
