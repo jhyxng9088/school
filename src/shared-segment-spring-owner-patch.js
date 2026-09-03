@@ -1,4 +1,6 @@
 const SHARED_IMPORT = "import { useSHubSegmentSpring } from './s-hub-segment-spring.js'"
+const SEGMENT_BUTTON_KEY_MARKER = `          key={item.id}\n          type="button"\n          className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '')}`
+const SEGMENT_BUTTON_KEY_REPLACEMENT = `          key={item.id}\n          type="button"\n          data-unread-key={item.id}\n          className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '')}`
 
 function countOccurrences(source, marker) {
   return marker ? String(source || '').split(marker).length - 1 : 0
@@ -28,6 +30,13 @@ function replaceFunction(source, startMarker, endMarker, replacement, label) {
   return `${current.slice(0, start)}${replacement}${current.slice(end)}`
 }
 
+function exposeSegmentUnreadKeys(source) {
+  const current = String(source || '')
+  if (current.includes('data-unread-key={item.id}')) return current
+  if (!current.includes(SEGMENT_BUTTON_KEY_MARKER)) return current
+  return current.split(SEGMENT_BUTTON_KEY_MARKER).join(SEGMENT_BUTTON_KEY_REPLACEMENT)
+}
+
 const CLASS_WRAPPER = `function useClassTopSegmentSpring(activeIndex) {
   return useSHubSegmentSpring(activeIndex, {
     paddingProperty: '--segment-padding',
@@ -55,6 +64,7 @@ export function patchSharedSegmentSpringOwnerSource(source, id) {
   let next = String(source || '')
 
   if (cleanId.endsWith('/src/main.jsx')) {
+    next = exposeSegmentUnreadKeys(next)
     if (!next.includes('function useClassTopSegmentSpring(activeIndex) {')) return next
     next = ensureImport(next)
     return replaceFunction(
