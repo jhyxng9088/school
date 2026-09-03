@@ -30,63 +30,31 @@ jobs:
       - name: Hide temporary verification workflow from repository-structure test
         run: mv .github/workflows/branch-verify.yml /tmp/branch-verify.yml
 
-      - name: Full default concurrency
-        id: default_full
-        continue-on-error: true
-        run: node --test tests/*.test.js
+      - name: Test app
+        run: npm test
 
-      - name: Full concurrency 32
-        id: c32
-        continue-on-error: true
-        run: node --test --test-concurrency=32 tests/*.test.js
+      - name: Repeat app tests for flake check
+        run: npm test
 
-      - name: Full concurrency 16
-        id: c16
-        continue-on-error: true
-        run: node --test --test-concurrency=16 tests/*.test.js
+      - name: Build board sheet E2E harness
+        run: npm run build -- --config vite.e2e.config.js
 
-      - name: Full concurrency 8
-        id: c8
-        continue-on-error: true
-        run: node --test --test-concurrency=8 tests/*.test.js
+      - name: Install Playwright test runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
 
-      - name: Full concurrency 4
-        id: c4
-        continue-on-error: true
-        run: node --test --test-concurrency=4 tests/*.test.js
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
-      - name: First 70 default concurrency
-        id: first70
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test "${files[@]:0:70}"
+      - name: Run Chromium and WebKit UI regression tests
+        run: npx playwright test
 
-      - name: First 80 default concurrency
-        id: first80
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test "${files[@]:0:80}"
+      - name: Build production app
+        run: npm run build
 
-      - name: First 85 default concurrency
-        id: first85
-        continue-on-error: true
-        shell: bash
-        run: |
-          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
-          node --test "${files[@]:0:85}"
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
 
-      - name: Diagnostic summary
-        if: always()
-        run: |
-          echo "default-full=${{ steps.default_full.outcome }}"
-          echo "c32=${{ steps.c32.outcome }}"
-          echo "c16=${{ steps.c16.outcome }}"
-          echo "c8=${{ steps.c8.outcome }}"
-          echo "c4=${{ steps.c4.outcome }}"
-          echo "first70=${{ steps.first70.outcome }}"
-          echo "first80=${{ steps.first80.outcome }}"
-          echo "first85=${{ steps.first85.outcome }}"
+      - name: Test backend
+        working-directory: push-backend-v2
+        run: npm test
