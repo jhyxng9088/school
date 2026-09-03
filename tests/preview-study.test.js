@@ -37,6 +37,16 @@ test('preview study client is isolated to the dedicated study endpoint and suppo
   assert.match(client, /action: 'resume'/)
 })
 
+test('study transitions reconcile stale server state before the page reloads its snapshot', () => {
+  const client = read('src/preview-study-client.js')
+
+  assert.match(client, /async function requestStudyTransition\(action, reconciledCodes = \[\]\)/)
+  assert.match(client, /return \{ ok: true, reconciled: true, code, generatedAt: Date\.now\(\) \}/)
+  assert.match(client, /requestStudyTransition\('pause',[\s\S]*'study\/not-active'[\s\S]*'study\/already-paused'[\s\S]*'study\/state-changed'/)
+  assert.match(client, /requestStudyTransition\('resume',[\s\S]*'study\/not-active'[\s\S]*'study\/not-paused'[\s\S]*'study\/state-changed'/)
+  assert.match(client, /requestStudyTransition\('stop', \['study\/not-active'\]\)/)
+})
+
 test('preview study client supports class and school snapshots with subject totals', () => {
   const client = read('src/preview-study-client.js')
   assert.match(client, /scope === 'school'/)
