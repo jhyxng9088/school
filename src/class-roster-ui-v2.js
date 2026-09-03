@@ -21,7 +21,6 @@ let modalState = null
 let modalWarmupScheduled = false
 let closeTimerId = 0
 let syncQueued = false
-const enhancedCounters = new WeakSet()
 
 function profileClassNumber() {
   const profile = readStudentProfile()
@@ -268,9 +267,7 @@ function applyRosterCounter(counter) {
     }
   }
 
-  counter.classList.add('is-roster-button')
-  counter.setAttribute('role', 'button')
-  counter.setAttribute('tabindex', '0')
+  // The React control owns button semantics. This module only keeps its live label in sync.
   counter.setAttribute('aria-hidden', 'false')
 
   if (!cachedRoster) {
@@ -509,7 +506,7 @@ function scheduleModalWarmup() {
   }
 }
 
-function openModal({ keyboard = false } = {}) {
+export function openClassRoster({ keyboard = false } = {}) {
   hydrateRosterCache()
   const modal = ensureModal()
   clearCloseTimer()
@@ -531,23 +528,11 @@ function openModal({ keyboard = false } = {}) {
   void refreshModal({ force: false, showLoading: false })
 }
 
-function enhanceCounter(counter) {
-  if (!counter || enhancedCounters.has(counter)) return
-  enhancedCounters.add(counter)
-  counter.addEventListener('click', () => openModal())
-  counter.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
-    openModal({ keyboard: true })
-  })
-}
-
 function syncCounter() {
   syncQueued = false
   hydrateRosterCache()
   const counter = document.querySelector('.class-presence-count')
   if (!counter) return
-  enhanceCounter(counter)
   scheduleModalWarmup()
   applyRosterCounter(counter)
 }
