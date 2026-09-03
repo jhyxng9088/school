@@ -26,7 +26,9 @@ test('Supabase roster cache rejects cross-class and malformed identity rows', ()
   assert.equal(users[0].classId, 'class-3')
   assert.equal(users[0].studentKey, 'student-1234567890123456')
   assert.equal(users[0].name, '김 학생')
-  assert.equal(users[0].updatedAt, 30)
+  assert.equal(users[0].createdAt, 0)
+  assert.equal(users[0].updatedAt, 0)
+  assert.equal(users[0].cacheUpdatedAt, 30)
 })
 
 test('Supabase roster cache is complete only when every registered member key is covered', () => {
