@@ -30,22 +30,31 @@ jobs:
       - name: Hide temporary verification workflow from repository-structure test
         run: mv .github/workflows/branch-verify.yml /tmp/branch-verify.yml
 
-      - name: Run app suite 5 times and capture TAP
-        shell: bash
-        run: |
-          set +e
-          mkdir -p /tmp/app-test-output
-          for i in 1 2 3 4 5; do
-            node --test --test-reporter=tap tests/*.test.js > "/tmp/app-test-output/run-${i}.tap" 2>&1
-            code=$?
-            echo "$code" > "/tmp/app-test-output/run-${i}.code"
-            echo "run-$i exit=$code"
-          done
-          exit 0
+      - name: Test app
+        run: npm test
 
-      - name: Upload app test diagnostics
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-test-diagnostics
-          path: /tmp/app-test-output
-          retention-days: 1
+      - name: Repeat app tests
+        run: npm test
+
+      - name: Build board sheet E2E harness
+        run: npm run build -- --config vite.e2e.config.js
+
+      - name: Install Playwright test runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run Chromium and WebKit UI regression tests
+        run: npx playwright test
+
+      - name: Build production app
+        run: npm run build
+
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test backend
+        working-directory: push-backend-v2
+        run: npm test
