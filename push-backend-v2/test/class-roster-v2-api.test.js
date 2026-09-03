@@ -12,21 +12,23 @@ test('quota-safe roster endpoint derives class identity only from the bearer tok
   assert.match(source, /if \(req\.method !== 'GET'\)/)
 })
 
-test('normal roster reads do not scan activity or academic history', () => {
-  const initialReads = source.match(/const \[membersSnapshot, presenceSnapshot, supabaseCache\] = await Promise\.all\(\[[\s\S]*?\n    \]\)/)?.[0] || ''
+test('normal roster reads use Supabase presence and do not scan history', () => {
+  const initialReads = source.match(/const \[membersSnapshot, supabaseCache, supabasePresence\] = await Promise\.all\(\[[\s\S]*?\n    \]\)/)?.[0] || ''
   assert.match(initialReads, /classRef\.collection\('members'\)\.get\(\)/)
-  assert.match(initialReads, /classRef\.collection\('presence'\)\.get\(\)/)
   assert.match(initialReads, /loadSupabaseRosterIdentities\(\{ token, classId \}\)/)
+  assert.match(initialReads, /loadSupabaseClassPresence\(\{ token, classId \}\)/)
+  assert.doesNotMatch(initialReads, /collection\('presence'\)\.get\(\)/)
   assert.doesNotMatch(initialReads, /activity/)
   assert.doesNotMatch(initialReads, /academicEvents/)
 
+  assert.match(source, /if \(!presence\) \{[\s\S]*classRef\.collection\('presence'\)\.get\(\)/)
   assert.match(source, /if \(unresolvedCount\(result\) > 0\) \{[\s\S]*recoverFromClassHistory/)
   assert.match(source, /async function recoverFromClassHistory/)
   assert.match(source, /classRef\.collection\('activity'\)\.get\(\)/)
   assert.match(source, /classRef\.collection\('academicEvents'\)\.get\(\)/)
 })
 
-test('Supabase identity cache can bypass the expensive class-wide users query only when complete and conflict-free', () => {
+test('Supabase identity cache bypasses the class-wide users query only when complete and conflict-free', () => {
   assert.match(source, /supabaseRosterCacheCoversMembers\(cache\.users, memberKeys\)/)
   assert.match(source, /result\.roster\.members\.some\(\(member\) => member\.conflict\)/)
   assert.match(source, /if \(!cacheCanServeRoster\(\{ cache: supabaseCache, memberKeys, result \}\)\) \{/)
@@ -34,7 +36,7 @@ test('Supabase identity cache can bypass the expensive class-wide users query on
   assert.match(source, /mergeRosterUsers\(firestoreUsers, supabaseCache\.users\)/)
 })
 
-test('quota-safe roster endpoint preserves unresolved and repair-facing response fields', () => {
+test('quota-safe roster endpoint preserves response compatibility and reports cache sources', () => {
   for (const marker of [
     'legacyMemberCount',
     'total: result.roster.total',
@@ -42,6 +44,9 @@ test('quota-safe roster endpoint preserves unresolved and repair-facing response
     'unresolved,',
     'recoveredFromHistory',
     'members: result.roster.members',
+    'identitySource,',
+    'presenceSource,',
+    'historicalRecoveryUsed,',
   ]) assert.match(source, new RegExp(marker))
   assert.match(source, /Cache-Control', 'no-store'/)
   assert.match(source, /error: 'missing_auth'/)
