@@ -1,7 +1,6 @@
 # GitHub Pages production deployment.
-# S-Hub V2 is now promoted to main, so production deployment is gated only by
-# the production app and backend tests. Historical preview-only assertions no
-# longer block the live release.
+# Production is gated by source tests, browser-level UI regression checks,
+# the production build, and backend tests before Pages deployment.
 name: Deploy School PWA
 
 on:
@@ -35,6 +34,29 @@ jobs:
 
       - name: Test production app
         run: npm test
+
+      - name: Build board sheet E2E harness
+        run: npm run build -- --config vite.e2e.config.js
+
+      - name: Install Playwright test runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Test board sheet lifecycle in Chromium and WebKit
+        run: npx playwright test
+
+      - name: Upload Playwright diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-sheet-playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Build production app
         run: npm run build
