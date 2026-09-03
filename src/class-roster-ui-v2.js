@@ -57,7 +57,7 @@ function normalizeRoster(payload) {
   return {
     classNumber: Number(payload.classNumber || 0),
     total: Number(payload.total || members.length),
-    registeredTotal: Number(payload.legacyMemberCount || payload.total || members.length),
+    registeredTotal: Number(payload.legacyMemberCount || payload.registeredTotal || payload.total || members.length),
     online: Number(payload.online || 0),
     unresolved: Number(payload.unresolved || 0),
     members,
