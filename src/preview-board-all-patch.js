@@ -26,6 +26,17 @@ function patchBoardClient(source) {
 
 function patchBoardComplete(source) {
   let next = String(source || '')
+  if (
+    next.includes('useRef(')
+    && next.includes(`import { useCallback, useEffect, useMemo, useState } from 'react'`)
+  ) {
+    next = replaceRequired(
+      next,
+      `import { useCallback, useEffect, useMemo, useState } from 'react'`,
+      `import { useCallback, useEffect, useMemo, useRef, useState } from 'react'`,
+      'board useRef React import',
+    )
+  }
   if (next.includes('const ALL_BOARD_SECTION =')) return next
 
   next = replaceRequired(

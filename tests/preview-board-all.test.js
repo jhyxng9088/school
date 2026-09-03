@@ -47,6 +47,18 @@ test('board post detail keeps its data mounted while the unified sheet plays the
   assert.match(unifiedSheet, /setClosing\(true\)[\s\S]*setVisualOpen\(false\)[\s\S]*setTimeout\(\(\) => \{[\s\S]*setRendered\(false\)/)
 })
 
+test('board aggregate patch restores the React useRef binding before browser bundling', () => {
+  const source = [
+    "import { useCallback, useEffect, useMemo, useState } from 'react'",
+    'const orphanedRef = useRef(false)',
+    'const ALL_BOARD_SECTION = {}',
+  ].join('\n')
+  const output = patchPreviewBoardAllSource(source, '/src/preview-board-complete.jsx')
+
+  assert.match(output, /import \{ useCallback, useEffect, useMemo, useRef, useState \} from 'react'/)
+  assert.match(output, /orphanedRef = useRef\(false\)/)
+})
+
 test('legacy React board nav markers use section-seen semantics, matching the unified unread engine', () => {
   const input = "hasBoardUnread={boardUnread.hasUnread}\n" +
     "tab.id === 'class' && boardUnread.hasUnread ? 'has-board-unread' : ''"
