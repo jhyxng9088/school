@@ -5,6 +5,7 @@ import {
   recoverClassRosterUsers,
 } from '../lib/class-roster.js'
 import { repairClassRoster } from '../lib/class-roster-repair-service.js'
+import handleClassRosterV2 from '../lib/class-roster-v2-handler.js'
 import { handlePreviewV2, isPreviewV2Resource } from '../lib/preview-v2-service.js'
 import {
   ReminderSectionError,
@@ -198,10 +199,13 @@ async function handleReminderSectionRequest({ db, classId, body }) {
 
 export default async function handler(req, res) {
   setCors(res)
+
+  const mode = String(req.query?.mode || '').trim()
+  if (mode === 'v2') return handleClassRosterV2(req, res)
   if (req.method === 'OPTIONS') return res.status(204).end()
 
-  const repairMode = String(req.query?.mode || '').trim() === 'repair'
-  const reminderSectionMode = String(req.query?.mode || '').trim() === 'reminder-sections'
+  const repairMode = mode === 'repair'
+  const reminderSectionMode = mode === 'reminder-sections'
   if ((repairMode || reminderSectionMode) && req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'method_not_allowed' })
   }
