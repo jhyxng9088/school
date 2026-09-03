@@ -44,6 +44,7 @@ function normalizeRoster(payload) {
   const members = payload.members
     .map((member) => ({
       studentNumber: Number(member?.studentNumber),
+      studentKey: String(member?.studentKey || '').trim().slice(0, 120),
       name: String(member?.name || '').trim().slice(0, 20),
       online: Boolean(member?.online),
       conflict: Boolean(member?.conflict),
@@ -74,6 +75,7 @@ function rosterSignature(roster) {
     roster.unresolved,
     ...roster.members.map((member) => [
       member.studentNumber,
+      member.studentKey,
       member.name,
       member.online ? 1 : 0,
       member.conflict ? 1 : 0,
@@ -215,6 +217,43 @@ function currentRosterOnline(roster = cachedRoster) {
 function updateModalSummary() {
   if (!modalState?.summary || !cachedRoster || !modalState.layer?.classList.contains('is-visible')) return
   modalState.summary.textContent = `${cachedRoster.registeredTotal || cachedRoster.total}명 · 현재 ${currentRosterOnline()}명 접속`
+}
+
+function applyLivePresenceSnapshot(detail) {
+  const classNumber = profileClassNumber()
+  if (!classNumber || String(detail?.classId || '') !== `class-${classNumber}`) return
+
+  const online = Number(detail?.online)
+  if (Number.isInteger(online) && online >= 0) liveOnline = online
+  const activeKeys = new Set(
+    (Array.isArray(detail?.activeStudentKeys) ? detail.activeStudentKeys : [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean),
+  )
+
+  if (cachedRoster && activeKeys.size >= 0) {
+    let changed = false
+    const members = cachedRoster.members.map((member) => {
+      if (!member.studentKey || member.conflict) return member
+      const nextOnline = activeKeys.has(member.studentKey)
+      if (nextOnline === member.online) return member
+      changed = true
+      return { ...member, online: nextOnline }
+    })
+    if (changed || (Number.isInteger(liveOnline) && cachedRoster.online !== liveOnline)) {
+      cachedRoster = {
+        ...cachedRoster,
+        online: Number.isInteger(liveOnline) ? liveOnline : cachedRoster.online,
+        members,
+      }
+      if (modalState?.layer?.classList.contains('is-visible')) {
+        renderRoster({ animateRows: false, force: true })
+      }
+    }
+  }
+
+  updateModalSummary()
+  queueCounterSync()
 }
 
 function applyRosterCounter(counter) {
@@ -528,6 +567,10 @@ document.addEventListener('keydown', (event) => {
 window.addEventListener('focus', () => {
   syncCounter()
   if (modalState?.layer?.classList.contains('is-visible')) void refreshModal({ force: false, showLoading: false })
+})
+
+window.addEventListener('school:class-presence', (event) => {
+  applyLivePresenceSnapshot(event?.detail)
 })
 
 window.addEventListener('school:student-profile-saved', () => {
