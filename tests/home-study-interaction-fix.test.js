@@ -13,7 +13,7 @@ test('home cards use semantic V2 destinations instead of positional nav indexes'
   assert.match(source, /\.academic-preview/)
   assert.match(source, /\.meal-preview/)
   assert.match(source, /\.period-strip, \.today-timetable-empty/)
-  assert.match(source, /data-tab=\\"\$\{tab\}\\"/)
+  assert.ok(source.includes('.bottom-nav .nav-button[data-tab="${tab}"]'))
   assert.match(source, /우리 반 시간표/)
   assert.match(source, /station-schedule-switcher/)
 })
