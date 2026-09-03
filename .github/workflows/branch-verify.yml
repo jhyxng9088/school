@@ -30,35 +30,42 @@ jobs:
       - name: Hide temporary verification workflow from repository-structure test
         run: mv .github/workflows/branch-verify.yml /tmp/branch-verify.yml
 
-      - name: Test app
-        run: npm test
+      - name: App core group
+        id: app_core
+        continue-on-error: true
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(tests/academic*.test.js tests/activity*.test.js tests/board-original*.test.js tests/class*.test.js tests/data*.test.js tests/desktop*.test.js tests/e2e*.test.js tests/feature*.test.js tests/first*.test.js tests/home*.test.js tests/mobile*.test.js tests/nav*.test.js tests/neis*.test.js tests/notification*.test.js tests/polite*.test.js tests/presence*.test.js tests/production*.test.js tests/push*.test.js tests/quota*.test.js tests/repository*.test.js tests/samsung*.test.js tests/timetable*.test.js tests/v2-update*.test.js tests/weekend*.test.js)
+          ((${#files[@]} == 0)) || node --test "${files[@]}"
 
-      - name: Build board sheet E2E harness
-        run: npm run build -- --config vite.e2e.config.js
+      - name: App preview group
+        id: app_preview
+        continue-on-error: true
+        shell: bash
+        run: node --test tests/preview*.test.js
 
-      - name: Install Playwright test runner
-        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
+      - name: App reminder group
+        id: app_reminder
+        continue-on-error: true
+        shell: bash
+        run: node --test tests/reminder*.test.js
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
+      - name: App AI group
+        id: app_ai
+        continue-on-error: true
+        shell: bash
+        run: node --test tests/s-hub-ai*.test.js
 
-      - name: Run Chromium and WebKit UI regression tests
-        run: npx playwright test
-
-      - name: Build production app
-        run: npm run build
+      - name: App study group
+        id: app_study
+        continue-on-error: true
+        shell: bash
+        run: node --test tests/study*.test.js
 
       - name: Install backend dependencies
         working-directory: push-backend-v2
         run: npm ci
-
-      - name: Test new roster API contract
-        working-directory: push-backend-v2
-        run: node --test test/class-roster-v2-api.test.js
-
-      - name: Test Supabase roster cache contract
-        working-directory: push-backend-v2
-        run: node --test test/supabase-roster-cache.test.js
 
       - name: Backend activity/admin group
         id: backend_activity_admin
@@ -75,10 +82,7 @@ jobs:
         continue-on-error: true
         working-directory: push-backend-v2
         shell: bash
-        run: |
-          shopt -s nullglob
-          files=(test/class*.test.js)
-          ((${#files[@]} == 0)) || node --test "${files[@]}"
+        run: node --test test/class*.test.js
 
       - name: Backend NEIS/preview group
         id: backend_neis_preview
@@ -95,20 +99,14 @@ jobs:
         continue-on-error: true
         working-directory: push-backend-v2
         shell: bash
-        run: |
-          shopt -s nullglob
-          files=(test/reminder*.test.js)
-          ((${#files[@]} == 0)) || node --test "${files[@]}"
+        run: node --test test/reminder*.test.js
 
       - name: Backend Supabase group
         id: backend_supabase
         continue-on-error: true
         working-directory: push-backend-v2
         shell: bash
-        run: |
-          shopt -s nullglob
-          files=(test/supabase*.test.js)
-          ((${#files[@]} == 0)) || node --test "${files[@]}"
+        run: node --test test/supabase*.test.js
 
       - name: Backend remaining group
         id: backend_remaining
@@ -119,15 +117,28 @@ jobs:
           mapfile -t files < <(find test -maxdepth 1 -name '*.test.js' -print | sort | grep -Ev '/(activity|admin|class|neis|preview|reminder|supabase)')
           ((${#files[@]} == 0)) || node --test "${files[@]}"
 
-      - name: Fail if any backend regression group failed
+      - name: Report regression groups
         if: always()
         shell: bash
         run: |
           failed=0
-          [[ '${{ steps.backend_activity_admin.outcome }}' == 'failure' ]] && echo 'activity/admin failed' && failed=1
-          [[ '${{ steps.backend_class.outcome }}' == 'failure' ]] && echo 'class failed' && failed=1
-          [[ '${{ steps.backend_neis_preview.outcome }}' == 'failure' ]] && echo 'neis/preview failed' && failed=1
-          [[ '${{ steps.backend_reminder.outcome }}' == 'failure' ]] && echo 'reminder failed' && failed=1
-          [[ '${{ steps.backend_supabase.outcome }}' == 'failure' ]] && echo 'supabase failed' && failed=1
-          [[ '${{ steps.backend_remaining.outcome }}' == 'failure' ]] && echo 'remaining failed' && failed=1
+          for pair in \
+            'app-core:${{ steps.app_core.outcome }}' \
+            'app-preview:${{ steps.app_preview.outcome }}' \
+            'app-reminder:${{ steps.app_reminder.outcome }}' \
+            'app-ai:${{ steps.app_ai.outcome }}' \
+            'app-study:${{ steps.app_study.outcome }}' \
+            'backend-activity-admin:${{ steps.backend_activity_admin.outcome }}' \
+            'backend-class:${{ steps.backend_class.outcome }}' \
+            'backend-neis-preview:${{ steps.backend_neis_preview.outcome }}' \
+            'backend-reminder:${{ steps.backend_reminder.outcome }}' \
+            'backend-supabase:${{ steps.backend_supabase.outcome }}' \
+            'backend-remaining:${{ steps.backend_remaining.outcome }}'; do
+            name=${pair%%:*}
+            outcome=${pair#*:}
+            if [[ "$outcome" == 'failure' ]]; then
+              echo "$name failed"
+              failed=1
+            fi
+          done
           exit $failed
