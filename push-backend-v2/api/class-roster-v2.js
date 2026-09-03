@@ -8,6 +8,7 @@ import {
   loadSupabaseRosterIdentities,
   supabaseRosterCacheCoversMembers,
 } from '../lib/supabase-roster-cache.js'
+import { loadSupabaseClassPresence } from '../lib/supabase-presence-cache.js'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -116,10 +117,10 @@ export default async function handler(req, res) {
 
     const nowMs = Date.now()
     const classRef = db.collection('classes').doc(classId)
-    const [membersSnapshot, presenceSnapshot, supabaseCache] = await Promise.all([
+    const [membersSnapshot, supabaseCache, supabasePresence] = await Promise.all([
       classRef.collection('members').get(),
-      classRef.collection('presence').get(),
       loadSupabaseRosterIdentities({ token, classId }),
+      loadSupabaseClassPresence({ token, classId }),
     ])
 
     const memberKeys = new Set(
@@ -127,7 +128,14 @@ export default async function handler(req, res) {
         .map((snapshot) => String(snapshot.id || '').trim())
         .filter(Boolean),
     )
-    const presence = presenceSnapshot.docs.map((snapshot) => snapshot.data() || {})
+
+    let presence = supabasePresence?.presence || null
+    let presenceSource = 'supabase'
+    if (!presence) {
+      const presenceSnapshot = await classRef.collection('presence').get()
+      presence = presenceSnapshot.docs.map((snapshot) => snapshot.data() || {})
+      presenceSource = 'firestore-fallback'
+    }
 
     let result = rosterFromUsers({
       classId,
@@ -182,6 +190,7 @@ export default async function handler(req, res) {
       generatedAt: nowMs,
       cache: {
         identitySource,
+        presenceSource,
         historicalRecoveryUsed,
       },
     })
