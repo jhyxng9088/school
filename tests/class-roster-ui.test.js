@@ -60,6 +60,20 @@ test('roster reads are demand-driven, locally cached, and never polled every min
   assert.doesNotMatch(syncCounter, /fetchRoster\(/)
 })
 
+test('live per-student presence stays visible without restoring roster polling', () => {
+  const source = read('src/class-roster-ui-v2.js')
+  const presence = read('src/supabase-presence.js')
+
+  assert.match(source, /studentKey: String\(member\?\.studentKey/)
+  assert.match(source, /function applyLivePresenceSnapshot\(detail\)/)
+  assert.match(source, /activeKeys\.has\(member\.studentKey\)/)
+  assert.match(source, /window\.addEventListener\('school:class-presence'/)
+  assert.match(source, /renderRoster\(\{ animateRows: false, force: true \}\)/)
+  assert.match(presence, /activeStudentKeys/)
+  assert.match(presence, /dispatchPresenceSnapshot\(classId, online, activeStudentKeys\)/)
+  assert.doesNotMatch(source, /window\.setInterval\(/)
+})
+
 test('first roster open paints cached data immediately without forced pointer focus or refresh replay', () => {
   const source = read('src/class-roster-ui-v2.js')
   const css = read('src/class-roster.css')
