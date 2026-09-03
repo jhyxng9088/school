@@ -4,28 +4,33 @@ import { readFileSync } from 'node:fs'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('home presence counter loads the authenticated class roster modal without changing main home logic', () => {
+test('home presence counter owns its button semantics in React and opens the authenticated class roster directly', () => {
   const index = read('index.html')
   const source = read('src/class-roster-ui-v2.js')
-  const main = read('src/main.jsx')
+  const recovery = read('src/production-recovery-patch.js')
+  const css = read('src/class-roster.css')
 
   assert.match(index, /<script type="module" src="\/src\/class-roster-ui-v2\.js"><\/script>/)
   assert.doesNotMatch(index, /src="\/src\/class-roster-ui\.js"/)
   assert.match(source, /import \{ ensureSignedIn, readStudentProfile \} from '\.\/school-sync'/)
   assert.match(source, /school-reminder-backend\.vercel\.app\/api\/class-roster-v2/)
   assert.match(source, /Authorization: `Bearer \$\{idToken\}`/)
-  assert.match(source, /counter\.classList\.add\('is-roster-button'\)/)
-  assert.match(source, /counter\.setAttribute\('role', 'button'\)/)
-  assert.match(source, /counter\.addEventListener\('click', \(\) => openModal\(\)\)/)
-  assert.match(source, /event\.key !== 'Enter' && event\.key !== ' '/)
+  assert.match(source, /export function openClassRoster\(\{ keyboard = false \} = \{\}\)/)
+  assert.doesNotMatch(source, /enhancedCounters/)
+  assert.doesNotMatch(source, /function enhanceCounter/)
+  assert.doesNotMatch(source, /counter\.setAttribute\('role', 'button'\)/)
+  assert.doesNotMatch(source, /counter\.setAttribute\('tabindex', '0'\)/)
+  assert.doesNotMatch(source, /counter\.addEventListener\('click'/)
   assert.match(source, /class-roster-modal/)
   assert.match(source, /class-roster-title/)
   assert.match(source, /등록 확인 필요/)
   assert.match(source, /잘못된 인원으로 합치지 않고 따로 보류했어요/)
 
-  // Keep the existing React presence counter intact; the roster UI enhances it externally.
-  assert.match(main, /className=\{`class-presence-count \$\{presence\.total > 0 \? 'is-ready' : ''\}`\}/)
-  assert.match(main, /\{presence\.online\}\/\{presence\.total\}/)
+  assert.match(recovery, /<button/)
+  assert.match(recovery, /type="button"/)
+  assert.match(recovery, /class-presence-count is-roster-button/)
+  assert.match(recovery, /onClick=\{\(event\) => openClassRoster\(\{ keyboard: event\.detail === 0 \}\)\}/)
+  assert.match(css, /\.class-presence-count\.is-roster-button[\s\S]*border: 0;[\s\S]*background: transparent;/)
 })
 
 test('roster orphan cleanup stays authenticated and explicitly revalidates after an archive', () => {
