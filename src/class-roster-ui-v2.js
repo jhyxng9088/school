@@ -216,7 +216,8 @@ function currentRosterOnline(roster = cachedRoster) {
 
 function updateModalSummary() {
   if (!modalState?.summary || !cachedRoster || !modalState.layer?.classList.contains('is-visible')) return
-  modalState.summary.textContent = `${cachedRoster.registeredTotal || cachedRoster.total}명 · 현재 ${currentRosterOnline()}명 접속`
+  const nextSummary = `${cachedRoster.registeredTotal || cachedRoster.total}명 · 현재 ${currentRosterOnline()}명 접속`
+  if (modalState.summary.textContent !== nextSummary) modalState.summary.textContent = nextSummary
 }
 
 function applyLivePresenceSnapshot(detail) {
@@ -557,7 +558,16 @@ function queueCounterSync() {
   queueMicrotask(syncCounter)
 }
 
-const observer = new MutationObserver(queueCounterSync)
+function isRosterInternalMutation(mutation) {
+  const target = mutation?.target
+  const element = target?.nodeType === 3 ? target.parentElement : target
+  return Boolean(element?.closest?.('.class-roster-layer'))
+}
+
+const observer = new MutationObserver((mutations) => {
+  if (mutations.length && mutations.every(isRosterInternalMutation)) return
+  queueCounterSync()
+})
 observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true })
 
 document.addEventListener('keydown', (event) => {
