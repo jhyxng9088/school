@@ -146,7 +146,7 @@ const BOARD_SECTION_ACTION_SHEET = String.raw`function BoardSectionActionSheet({
   )
 }
 
-function BoardSectionEditor({ section, sections, open, onClose, onUpdated }) {
+function BoardSectionEditor({ section, sections, open, onClose, onUpdated, onDeleted }) {
   const [label, setLabel] = useState(section?.label || '')
   const [color, setColor] = useState(section?.color || '')
   const [pending, setPending] = useState(false)
@@ -320,7 +320,7 @@ function patchBoardComplete(source) {
   next = replaceRequired(
     next,
     `<BoardSectionComposer open={sectionComposerOpen} sections={sections} onClose={() => setSectionComposerOpen(false)} onCreated={addCreatedSection} />\n      <BoardSectionEditor section={sectionEditor} sections={sections} open={Boolean(sectionEditor)} onClose={() => setSectionEditorId('')} onUpdated={handleSectionUpdated} onDeleted={handleSectionDeleted} />`,
-    `<BoardSectionComposer open={sectionComposerOpen} sections={sections} onClose={() => setSectionComposerOpen(false)} onCreated={addCreatedSection} />\n      <BoardSectionActionSheet section={sectionAction} open={Boolean(sectionAction)} onClose={() => setSectionActionId('')} onEdit={openSectionEditFromAction} onDeleted={handleSectionDeleted} />\n      <BoardSectionEditor section={sectionEditor} sections={sections} open={Boolean(sectionEditor)} onClose={() => setSectionEditorId('')} onUpdated={handleSectionUpdated} />`,
+    `<BoardSectionComposer open={sectionComposerOpen} sections={sections} onClose={() => setSectionComposerOpen(false)} onCreated={addCreatedSection} />\n      <BoardSectionActionSheet section={sectionAction} open={Boolean(sectionAction)} onClose={() => setSectionActionId('')} onEdit={openSectionEditFromAction} onDeleted={handleSectionDeleted} />\n      <BoardSectionEditor section={sectionEditor} sections={sections} open={Boolean(sectionEditor)} onClose={() => setSectionEditorId('')} onUpdated={handleSectionUpdated} onDeleted={handleSectionDeleted} />`,
     'section action and editor sheets',
   )
 
