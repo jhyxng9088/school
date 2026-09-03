@@ -26,7 +26,7 @@ export function patchPreviewAIReminderSummarySource(source, id) {
       next,
       `function isAppleTouchDevice() {`,
       `export function SummarySheet`,
-      `export function SummarySheet`,
+      ``,
       'remove duplicate original viewer implementation',
     )
     next = replaceRequired(
