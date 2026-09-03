@@ -65,7 +65,7 @@ function patchCompletedBoardRealtime(source) {
   next = replaceRequired(
     next,
     `import { useCallback, useEffect, useMemo, useRef, useState } from 'react'`,
-    `import { useCallback, useEffect, useMemo, useState } from 'react'`,
+    `import { useCallback, useEffect, useMemo, useRef, useState } from 'react'`,
     'complete board react imports',
   )
   next = replaceRequired(
