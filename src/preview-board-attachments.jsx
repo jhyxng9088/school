@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { OriginalFileViewer } from './original-file-viewer.jsx'
 import {
   BOARD_ATTACHMENT_ACCEPT,
   BOARD_ATTACHMENT_LIMIT,
@@ -8,8 +9,6 @@ import {
 import './preview-board-finish.css'
 import './reminder-summary.css'
 import './preview-board-original-layer.css'
-
-const DOWNLOAD_GESTURE_LOCK_MS = 700
 
 function formatFileSize(value) {
   const bytes = Math.max(0, Number(value || 0))
@@ -38,110 +37,14 @@ function AttachmentIcon({ image = false }) {
   )
 }
 
-function isAppleTouchDevice() {
-  const userAgent = navigator.userAgent
-  return /iPhone|iPad|iPod/i.test(userAgent) || (
-    /Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1
-  )
-}
-
-function downloadOriginal(original) {
-  const anchor = document.createElement('a')
-  anchor.href = original.url
-  anchor.download = original.name || '원본-파일'
-  anchor.rel = 'noopener'
-  anchor.hidden = true
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-}
-
-function BoardOriginalViewer({ original, onClose }) {
-  const [saving, setSaving] = useState(false)
-  const [closing, setClosing] = useState(false)
-  const closeTimerRef = useRef(null)
-  const downloadLockTimerRef = useRef(null)
-  const savingRef = useRef(false)
-
-  useEffect(() => {
-    savingRef.current = false
-    setSaving(false)
-    setClosing(false)
-    return () => {
-      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
-      if (downloadLockTimerRef.current) window.clearTimeout(downloadLockTimerRef.current)
-    }
-  }, [original?.url])
-
-  function requestClose() {
-    if (closing) return
-    setClosing(true)
-    closeTimerRef.current = window.setTimeout(onClose, 280)
-  }
-
-  async function saveOriginal() {
-    if (!original?.blob || savingRef.current) return
-    savingRef.current = true
-    setSaving(true)
-    let downloadedDirectly = false
-    try {
-      if (isAppleTouchDevice()) {
-        const file = new File([original.blob], original.name || '원본 파일', {
-          type: original.blob.type || original.mimeType || 'application/octet-stream',
-        })
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: original.name || '원본 파일' })
-          return
-        }
-      }
-      downloadOriginal(original)
-      downloadedDirectly = true
-    } catch (error) {
-      if (error?.name !== 'AbortError') console.error('Board original save failed:', error)
-    } finally {
-      if (downloadedDirectly) {
-        downloadLockTimerRef.current = window.setTimeout(() => {
-          downloadLockTimerRef.current = null
-          savingRef.current = false
-          setSaving(false)
-        }, DOWNLOAD_GESTURE_LOCK_MS)
-      } else {
-        savingRef.current = false
-        setSaving(false)
-      }
-    }
-  }
-
-  if (!original) return null
-  const image = String(original.mimeType || original.blob?.type || '').startsWith('image/')
-
-  return (
-    <div className={`reminder-original-viewer ${closing ? 'is-closing' : ''}`.trim()} role="dialog" aria-modal="true" aria-label="원본 파일">
-      <button className="reminder-original-backdrop" type="button" aria-label="원본 파일 닫기" onClick={requestClose} />
-      <div className="reminder-original-panel">
-        <header>
-          <strong>{original.name || '원본 파일'}</strong>
-          <button className="reminder-summary-close" type="button" aria-label="닫기" onClick={requestClose}>×</button>
-        </header>
-        {image ? (
-          <div className="reminder-original-image-wrap">
-            <img src={original.url} alt={original.name || '원본 사진'} draggable="false" />
-          </div>
-        ) : (
-          <div className="reminder-original-file-info">
-            <strong>{original.name || '원본 파일'}</strong>
-            <span>{formatFileSize(original.size)}{original.mimeType ? ` · ${original.mimeType}` : ''}</span>
-          </div>
-        )}
-        <button className="reminder-original-save" type="button" onClick={saveOriginal} disabled={saving}>
-          {saving ? '준비 중…' : '원본 저장'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-export function BoardAttachmentPicker({ files, onChange, onError, disabled = false, maxFiles = BOARD_ATTACHMENT_LIMIT }) {
+export function BoardAttachmentPicker({
+  files,
+  onChange,
+  onError,
+  disabled = false,
+  maxFiles = BOARD_ATTACHMENT_LIMIT,
+  ownerLabel = '게시글',
+}) {
   const inputRef = useRef(null)
   const selected = Array.isArray(files) ? files : []
   const safeLimit = Math.max(0, Math.min(
@@ -176,7 +79,7 @@ export function BoardAttachmentPicker({ files, onChange, onError, disabled = fal
       <div className="preview-board-attachment-picker-head">
         <div>
           <strong>사진·파일</strong>
-          <span>사진, PDF, 한글·오피스 파일 등을 게시글당 최대 {BOARD_ATTACHMENT_LIMIT}개까지 올릴 수 있어요.</span>
+          <span>사진, PDF, 한글·오피스 파일 등을 {ownerLabel}당 최대 {BOARD_ATTACHMENT_LIMIT}개까지 올릴 수 있어요.</span>
         </div>
         <button
           type="button"
@@ -225,8 +128,16 @@ export function BoardAttachmentPicker({ files, onChange, onError, disabled = fal
   )
 }
 
-export function BoardAttachmentGallery({ post }) {
-  const attachments = useMemo(() => Array.isArray(post?.attachments) ? post.attachments.slice(0, BOARD_ATTACHMENT_LIMIT) : [], [post])
+export function BoardAttachmentGallery({
+  post,
+  attachments: providedAttachments = null,
+  compact = false,
+  ariaLabel = '첨부 파일',
+}) {
+  const attachments = useMemo(() => {
+    const source = providedAttachments == null ? post?.attachments : providedAttachments
+    return Array.isArray(source) ? source.slice(0, BOARD_ATTACHMENT_LIMIT) : []
+  }, [post, providedAttachments])
   const [openingId, setOpeningId] = useState('')
   const [viewer, setViewer] = useState(null)
   const [error, setError] = useState('')
@@ -279,11 +190,13 @@ export function BoardAttachmentGallery({ post }) {
 
   return (
     <>
-      <section className="preview-board-attachment-gallery" aria-label={`첨부 파일 ${attachments.length}개`}>
-        <div className="preview-board-attachment-gallery-head">
-          <strong>첨부 파일</strong>
-          <span>{attachments.length}개</span>
-        </div>
+      <section className={`preview-board-attachment-gallery ${compact ? 'is-compact' : ''}`.trim()} aria-label={`${ariaLabel} ${attachments.length}개`}>
+        {!compact ? (
+          <div className="preview-board-attachment-gallery-head">
+            <strong>첨부 파일</strong>
+            <span>{attachments.length}개</span>
+          </div>
+        ) : null}
         <div className="preview-board-attachment-grid">
           {attachments.map((attachment) => {
             const image = Boolean(attachment.isImage || String(attachment.mimeType || '').startsWith('image/'))
@@ -310,7 +223,13 @@ export function BoardAttachmentGallery({ post }) {
         </div>
         {error ? <p className="preview-board-attachment-error" role="alert">{error}</p> : null}
       </section>
-      <BoardOriginalViewer original={viewer} onClose={closeViewer} />
+      <OriginalFileViewer
+        original={viewer}
+        onClose={closeViewer}
+        formatSize={formatFileSize}
+        portal
+        saveErrorLabel="Board original save failed:"
+      />
     </>
   )
 }
