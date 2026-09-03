@@ -47,3 +47,10 @@ test('segment unread keys are rendered semantically without a text-inference obs
   assert.match(owner, /SEGMENT_BUTTON_KEY_MARKER/)
   assert.match(css, /school-unread-dot\.is-segment/)
 })
+
+test('unread DOM observer watches only the React app root', () => {
+  const source = read('src/unread-indicators-v2.js')
+  assert.match(source, /const observerRoot = document\.getElementById\('root'\)/)
+  assert.match(source, /if \(observerRoot\) \{[\s\S]*domObserver\.observe\(observerRoot,/)
+  assert.doesNotMatch(source, /domObserver\.observe\(document\.documentElement/)
+})
