@@ -2,7 +2,11 @@ import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
+import { patchPreviewFastCacheSource } from '../src/preview-fast-cache-patch.js'
+import { patchPreviewStudySource } from '../src/preview-study-patch.js'
+import { patchPreviewStudyUnifiedUISource } from '../src/preview-study-unified-ui-patch.js'
 import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
+import { patchProductionRecoverySource } from '../src/production-recovery-patch.js'
 import { patchStudyVisualPolishSource } from '../src/study-visual-polish-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -28,6 +32,32 @@ test('study ranking client sends today/all period without changing the existing 
   assert.match(source, /period: source\.period === 'all' \? 'all' : 'today'/)
   assert.match(source, /requestStudy\(\{ signal, scope, period \}\)/)
   assert.match(source, /functions\/v1\/class-study/)
+})
+
+test('study ranking period survives the real preceding Vite transforms without polluting today cache', () => {
+  const pageId = '/workspace/src/preview-study.jsx'
+  let page = read('src/preview-study.jsx')
+  page = patchPreviewStudySource(page, pageId)
+  page = patchPreviewFastCacheSource(page, pageId)
+  page = patchPreviewStudyUnifiedUISource(page, pageId)
+  page = patchProductionRecoverySource(page, pageId)
+  page = patchStudyVisualPolishSource(page, pageId)
+
+  assert.match(page, /aria-label="공부 랭킹 기간"/)
+  assert.match(page, /ref=\{scopeSpring\.containerRef\} className="preview-study-ranking-tabs"/)
+  assert.match(page, /data-direction=\{stageDirection\} key=\{\[scope, period\]\.join\(':'\)\}/)
+  assert.match(page, /schoolCacheValidatedRef\.current = true/)
+  assert.match(page, /rankingPeriod !== 'today'/)
+
+  const clientId = '/workspace/src/preview-study-client.js'
+  let client = read('src/preview-study-client.js')
+  client = patchPreviewFastCacheSource(client, clientId)
+  client = patchProductionRecoverySource(client, clientId)
+  client = patchStudyVisualPolishSource(client, clientId)
+
+  assert.match(client, /requestStudy\(\{ signal, scope: normalizedScope, period: normalizedPeriod \}\)/)
+  assert.match(client, /if \(normalizedPeriod === 'today'\) writePreviewPersistentCache/)
+  assert.doesNotMatch(client, /\n  writePreviewPersistentCache\('study', normalizedScope, snapshot\)\n  return snapshot\n\}/)
 })
 
 test('study ranking keeps class/school scope and adds an independent today/all period selector', () => {

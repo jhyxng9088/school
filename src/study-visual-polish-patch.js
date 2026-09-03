@@ -72,14 +72,34 @@ function patchStudyRankingClient(source) {
     'study ranking period snapshot normalization',
   )
 
+  const loaderUsesPersistentCache = next.includes('writePreviewPersistentCache(\'study\', normalizedScope, snapshot)')
+  const loaderMarker = loaderUsesPersistentCache
+    ? `export async function loadPreviewStudy({ signal, scope = 'class' } = {}) {
+  const normalizedScope = scope === 'school' ? 'school' : 'class'
+  const snapshot = normalizePreviewStudySnapshot(await requestStudy({ signal, scope: normalizedScope }))
+  writePreviewPersistentCache('study', normalizedScope, snapshot)
+  return snapshot
+}`
+    : `export async function loadPreviewStudy({ signal, scope = 'class' } = {}) {
+  return normalizePreviewStudySnapshot(await requestStudy({ signal, scope }))
+}`
+  const loaderReplacement = loaderUsesPersistentCache
+    ? `export async function loadPreviewStudy({ signal, scope = 'class', period = 'today' } = {}) {
+  const normalizedScope = scope === 'school' ? 'school' : 'class'
+  const normalizedPeriod = period === 'all' ? 'all' : 'today'
+  const snapshot = normalizePreviewStudySnapshot(
+    await requestStudy({ signal, scope: normalizedScope, period: normalizedPeriod }),
+  )
+  if (normalizedPeriod === 'today') writePreviewPersistentCache('study', normalizedScope, snapshot)
+  return snapshot
+}`
+    : `export async function loadPreviewStudy({ signal, scope = 'class', period = 'today' } = {}) {
+  return normalizePreviewStudySnapshot(await requestStudy({ signal, scope, period }))
+}`
   next = replaceOnceOrKeep(
     next,
-    `export async function loadPreviewStudy({ signal, scope = 'class' } = {}) {
-  return normalizePreviewStudySnapshot(await requestStudy({ signal, scope }))
-}`,
-    `export async function loadPreviewStudy({ signal, scope = 'class', period = 'today' } = {}) {
-  return normalizePreviewStudySnapshot(await requestStudy({ signal, scope, period }))
-}`,
+    loaderMarker,
+    loaderReplacement,
     'study ranking period loader',
   )
 
@@ -88,6 +108,19 @@ function patchStudyRankingClient(source) {
 
 function patchStudyRankingPage(source) {
   let next = String(source || '')
+
+  next = replaceOnceOrKeep(
+    next,
+    `function classLabel(classId) {
+  const match = /^preview-class-(\\d+)$/.exec(String(classId || ''))
+  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
+}`,
+    `function classLabel(classId) {
+  const match = /^(?:preview-)?class-(\\d+)$/.exec(String(classId || ''))
+  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
+}`,
+    'study class label normalization',
+  )
 
   next = replaceOnceOrKeep(
     next,
@@ -104,7 +137,7 @@ function studentIdentity(student) {
 }
 
 function classLabel(classId) {
-  const match = /^preview-class-(\\d+)$/.exec(String(classId || ''))
+  const match = /^(?:preview-)?class-(\\d+)$/.exec(String(classId || ''))
   return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
 }
 
@@ -164,7 +197,7 @@ function studentIdentity(student) {
 }
 
 function classLabel(classId) {
-  const match = /^preview-class-(\\d+)$/.exec(String(classId || ''))
+  const match = /^(?:preview-)?class-(\\d+)$/.exec(String(classId || ''))
   return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
 }
 
@@ -244,10 +277,13 @@ function rankedStudents(students, nowMs, period = 'today') {
     'study ranking period heading',
   )
 
-  next = replaceOnceOrKeep(
-    next,
-    `      <div className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">`,
-    `      <div className="preview-study-ranking-filters">
+  const scopeTabsHaveSpring = next.includes(
+    `      <div ref={scopeSpring.containerRef} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">`,
+  )
+  const scopeTabsMarker = scopeTabsHaveSpring
+    ? `      <div ref={scopeSpring.containerRef} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">`
+    : `      <div className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">`
+  const scopeTabsReplacement = `      <div className="preview-study-ranking-filters">
         <div className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 기간">
           <button
             type="button"
@@ -267,19 +303,32 @@ function rankedStudents(students, nowMs, period = 'today') {
           </button>
         </div>
 
-        <div className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">`,
+        <div${scopeTabsHaveSpring ? ' ref={scopeSpring.containerRef}' : ''} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">`
+  next = replaceOnceOrKeep(
+    next,
+    scopeTabsMarker,
+    scopeTabsReplacement,
     'study ranking period tabs',
   )
 
+  const rankingStageHasDirection = next.includes(
+    `      <div className="preview-study-ranking-stage" data-direction={stageDirection} key={scope}>`,
+  )
+  const rankingStageMarker = rankingStageHasDirection
+    ? `      <div className="preview-study-ranking-stage" data-direction={stageDirection} key={scope}>`
+    : `      <div className="preview-study-ranking-stage" key={scope}>`
+  const rankingStageReplacement = rankingStageHasDirection
+    ? `      <div className="preview-study-ranking-stage" data-direction={stageDirection} key={[scope, period].join(':')}>`
+    : `      <div className="preview-study-ranking-stage" key={[scope, period].join(':')}>`
   next = replaceOnceOrKeep(
     next,
     `      </div>
 
-      <div className="preview-study-ranking-stage" key={scope}>`,
+${rankingStageMarker}`,
     `        </div>
       </div>
 
-      <div className="preview-study-ranking-stage" key={[scope, period].join(':')}>`,
+${rankingStageReplacement}`,
     'study ranking filter wrapper',
   )
 
@@ -432,16 +481,31 @@ function rankedStudents(students, nowMs, period = 'today') {
     'study ranking all loader',
   )
 
-  next = replaceOnceOrKeep(
-    next,
-    `  useEffect(() => {
+  const schoolLoadUsesCacheValidation = next.includes('schoolCacheValidatedRef.current = true')
+  const schoolLoadMarker = schoolLoadUsesCacheValidation
+    ? `  useEffect(() => {
+    if (rankingScope !== 'school' || schoolLoading || schoolCacheValidatedRef.current) return
+    schoolCacheValidatedRef.current = true
+    loadSchool({ silent: Boolean(schoolSnapshot) })
+  }, [rankingScope, schoolSnapshot, schoolLoading, loadSchool])`
+    : `  useEffect(() => {
     if (rankingScope !== 'school' || schoolSnapshot || schoolLoading) return
     loadSchool()
-  }, [rankingScope, schoolSnapshot, schoolLoading, loadSchool])`,
-    `  useEffect(() => {
+  }, [rankingScope, schoolSnapshot, schoolLoading, loadSchool])`
+  const schoolLoadReplacement = schoolLoadUsesCacheValidation
+    ? `  useEffect(() => {
+    if (rankingPeriod !== 'today' || rankingScope !== 'school' || schoolLoading || schoolCacheValidatedRef.current) return
+    schoolCacheValidatedRef.current = true
+    loadSchool({ silent: Boolean(schoolSnapshot) })
+  }, [rankingPeriod, rankingScope, schoolSnapshot, schoolLoading, loadSchool])`
+    : `  useEffect(() => {
     if (rankingPeriod !== 'today' || rankingScope !== 'school' || schoolSnapshot || schoolLoading) return
     loadSchool()
-  }, [rankingPeriod, rankingScope, schoolSnapshot, schoolLoading, loadSchool])
+  }, [rankingPeriod, rankingScope, schoolSnapshot, schoolLoading, loadSchool])`
+  next = replaceOnceOrKeep(
+    next,
+    schoolLoadMarker,
+    `${schoolLoadReplacement}
 
   useEffect(() => {
     if (rankingPeriod !== 'all' || allLoading) return
