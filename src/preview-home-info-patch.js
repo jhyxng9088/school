@@ -12,7 +12,7 @@ export function patchPreviewHomeInfoSource(source, id) {
   next = replaceRequired(
     next,
     "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n",
-    "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\nimport { PreviewHomeSignals } from './preview-home-signals.jsx'\n",
+    "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\nimport { PreviewHomeSignals } from './preview-home-signals.jsx'\nimport { openClassRoster } from './class-roster-ui-v2.js'\n",
     'home signals import',
   )
 
@@ -33,7 +33,7 @@ export function patchPreviewHomeInfoSource(source, id) {
   next = replaceRequired(
     next,
     '  const content = {\n    home: (',
-    `  function navigateHomeSignal(target) {\n    if (target === 'class') {\n      document.querySelector('.class-presence-count')?.click()\n      return\n    }\n    if (target === 'board') {\n      setClassSection('board')\n      changeTab('class')\n      return\n    }\n    if (target === 'study') {\n      changeTab('study')\n      return\n    }\n    if (target === 'reminder') {\n      setScheduleSection('todo')\n      changeTab('schedule')\n    }\n  }\n\n  const content = {\n    home: (`,
+    `  function navigateHomeSignal(target) {\n    if (target === 'class') {\n      openClassRoster()\n      return\n    }\n    if (target === 'board') {\n      setClassSection('board')\n      changeTab('class')\n      return\n    }\n    if (target === 'study') {\n      changeTab('study')\n      return\n    }\n    if (target === 'reminder') {\n      setScheduleSection('todo')\n      changeTab('schedule')\n    }\n  }\n\n  const content = {\n    home: (`,
     'home signal navigation',
   )
 
