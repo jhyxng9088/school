@@ -1,3 +1,5 @@
+import { patchSharedSegmentSpringOwnerSource } from './shared-segment-spring-owner-patch.js'
+
 const ICON_IMPORT = "import { SHubIcon } from './s-hub-icon.jsx'"
 const ICON_IMPORT_ANCHOR = "import { SHubAIOrb } from './s-hub-ai-orb.jsx'"
 const ICON_FUNCTION_START = 'function Icon({ type, size = 22 }) {'
@@ -40,6 +42,7 @@ function patchIconFunction(source) {
 
 export function patchSharedIconOwnerSource(source, id) {
   const cleanId = String(id || '').split('?')[0]
-  if (!cleanId.endsWith('/src/main.jsx')) return String(source || '')
-  return patchIconFunction(patchIconImport(source))
+  let next = patchSharedSegmentSpringOwnerSource(source, cleanId)
+  if (!cleanId.endsWith('/src/main.jsx')) return next
+  return patchIconFunction(patchIconImport(next))
 }
