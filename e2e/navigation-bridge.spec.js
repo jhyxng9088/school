@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 
 const navigationSource = readFileSync(new URL('../public/s-hub-navigation.js', import.meta.url), 'utf8')
 
-async function installLegacyHarness(page) {
+async function installNavigationHarness(page) {
   await page.setContent(`
     <nav class="bottom-nav">
       <button class="nav-button" data-tab="home" aria-current="page">Home</button>
@@ -22,41 +22,32 @@ async function installLegacyHarness(page) {
     </div>
     <script>
       window.__routeClicks = []
-      document.querySelectorAll('.bottom-nav .nav-button').forEach((button) => {
-        button.addEventListener('click', () => {
-          document.querySelectorAll('.bottom-nav .nav-button').forEach((item) => item.removeAttribute('aria-current'))
-          button.setAttribute('aria-current', 'page')
-          window.__routeClicks.push('tab:' + button.dataset.tab)
-        })
-      })
-      document.querySelectorAll('.class-nav-subbutton, .station-schedule-switcher button').forEach((button) => {
-        button.addEventListener('click', () => window.__routeClicks.push('leaf:' + button.textContent.trim()))
+      document.querySelectorAll('button').forEach((button) => {
+        button.addEventListener('click', () => window.__routeClicks.push(button.textContent.trim()))
       })
     </script>
   `)
   await page.addScriptTag({ content: navigationSource })
 }
 
-test('legacy fallback resolves nested board and schedule routes through one bridge', async ({ page }) => {
-  await installLegacyHarness(page)
+test('route requested before React mount is delivered to the registered owner without DOM clicks', async ({ page }) => {
+  await installNavigationHarness(page)
 
   await page.evaluate(() => window.SHubNavigation.navigate('board'))
-  await expect.poll(() => page.evaluate(() => window.__routeClicks)).toEqual([
-    'tab:class',
-    'leaf:Board',
-  ])
 
-  await page.evaluate(() => window.SHubNavigation.navigate('meal'))
-  await expect.poll(() => page.evaluate(() => window.__routeClicks)).toEqual([
-    'tab:class',
-    'leaf:Board',
-    'tab:schedule',
-    'leaf:급식',
+  await page.evaluate(() => {
+    window.__ownedRoutes = []
+    window.SHubNavigation.register((route) => window.__ownedRoutes.push(route))
+  })
+
+  await expect.poll(() => page.evaluate(() => window.__ownedRoutes)).toEqual([
+    { tab: 'class', section: 'board' },
   ])
+  await expect.poll(() => page.evaluate(() => window.__routeClicks)).toEqual([])
 })
 
-test('registered owner takes precedence without synthetic DOM clicks', async ({ page }) => {
-  await installLegacyHarness(page)
+test('registered owner receives semantic routes without synthetic DOM clicks', async ({ page }) => {
+  await installNavigationHarness(page)
 
   await page.evaluate(() => {
     window.__ownedRoutes = []
@@ -72,5 +63,20 @@ test('registered owner takes precedence without synthetic DOM clicks', async ({ 
     { tab: 'class', section: 'board' },
     { tab: 'schedule', section: 'academic' },
   ])
+  await expect.poll(() => page.evaluate(() => window.__routeClicks)).toEqual([])
+})
+
+test('invalid routes are rejected before reaching the owner', async ({ page }) => {
+  await installNavigationHarness(page)
+
+  await page.evaluate(() => {
+    window.__ownedRoutes = []
+    window.SHubNavigation.register((route) => window.__ownedRoutes.push(route))
+  })
+
+  const result = await page.evaluate(() => window.SHubNavigation.navigate({ tab: 'missing', section: 'board' }))
+
+  expect(result).toBe(false)
+  await expect.poll(() => page.evaluate(() => window.__ownedRoutes)).toEqual([])
   await expect.poll(() => page.evaluate(() => window.__routeClicks)).toEqual([])
 })
