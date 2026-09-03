@@ -68,3 +68,14 @@ test('study ranking waits for a completed tap and keeps vertical scrolling avail
   const pageStyle = recover('src/preview-study.css')
   assert.match(pageStyle, /\.preview-study-page \{[\s\S]*?touch-action: pan-y;/)
 })
+
+test('student identity sync survives transient Firestore outages without weakening hard identity mismatches', () => {
+  const source = recover('src/school-sync.js')
+  assert.match(source, /STUDENT_IDENTITY_SYNC_KEY = 'school\.studentIdentitySync\.v1'/)
+  assert.match(source, /identitySyncMarkerMatches\(cacheKey\)/)
+  assert.match(source, /code === 'resource-exhausted' \|\| code === 'unavailable' \|\| code === 'deadline-exceeded'/)
+  assert.match(source, /if \(transientIdentityReadError\(error\)\) \{[\s\S]*?return user/)
+  assert.match(source, /rememberIdentitySync\(cacheKey\)/)
+  assert.match(source, /저장된 학생 정보와 로그인 정보가 달라/)
+  assert.doesNotMatch(source.slice(source.indexOf('function transientIdentityReadError'), source.indexOf('async function ensureStoredProfileIdentity')), /permission-denied/)
+})
