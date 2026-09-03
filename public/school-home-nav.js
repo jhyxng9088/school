@@ -69,7 +69,8 @@
   }
 
   const observer = new MutationObserver(scheduleEnhance)
-  observer.observe(document.documentElement, { childList: true, subtree: true })
+  const appRoot = document.getElementById('root') || document.documentElement
+  observer.observe(appRoot, { childList: true, subtree: true })
 
   window.addEventListener('pagehide', () => {
     observer.disconnect()
