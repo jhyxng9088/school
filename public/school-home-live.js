@@ -77,11 +77,13 @@
   }
 
   const observer = new MutationObserver(syncPriority)
-  const appRoot = document.getElementById('root') || document.documentElement
-  observer.observe(appRoot, {
-    childList: true,
-    subtree: true,
-  })
+  const appRoot = document.getElementById('root')
+  if (appRoot) {
+    observer.observe(appRoot, {
+      childList: true,
+      subtree: true,
+    })
+  }
 
   const timer = window.setInterval(syncPriority, 15000)
   window.addEventListener('resize', syncPriority)
