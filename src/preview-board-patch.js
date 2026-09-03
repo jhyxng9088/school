@@ -28,7 +28,7 @@ function patchBoardAttachmentViewer(source) {
     next,
     `function isAppleTouchDevice() {`,
     `export function BoardAttachmentPicker`,
-    `export function BoardAttachmentPicker`,
+    ``,
     'remove duplicate board original viewer implementation',
   )
   next = replaceRequired(
