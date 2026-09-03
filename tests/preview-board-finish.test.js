@@ -78,15 +78,19 @@ test('board originals reuse reminder save behavior and load lazily', () => {
   assert.doesNotMatch(client, /attachment-urls/)
 })
 
-test('board original viewer escapes transformed bottom sheets through a body portal', () => {
+test('board original viewer escapes transformed bottom sheets through the shared body portal owner', () => {
   const transformed = patchPreviewBoardSource(
     read('src/preview-board-attachments.jsx'),
     '/workspace/src/preview-board-attachments.jsx',
   )
-  assert.match(transformed, /import \{ createPortal \} from 'react-dom'/)
-  assert.match(transformed, /return createPortal\(/)
-  assert.match(transformed, /document\.body/)
-  assert.match(transformed, /typeof document === 'undefined'/)
+  const sharedViewer = read('src/original-file-viewer.jsx')
+
+  assert.match(transformed, /import \{ OriginalFileViewer \} from '\.\/original-file-viewer\.jsx'/)
+  assert.match(transformed, /<OriginalFileViewer[\s\S]*?portal/)
+  assert.doesNotMatch(transformed, /function BoardOriginalViewer/)
+  assert.match(sharedViewer, /import \{ createPortal \} from 'react-dom'/)
+  assert.match(sharedViewer, /return createPortal\(content, document\.body\)/)
+  assert.match(sharedViewer, /typeof document === 'undefined'/)
 })
 
 test('attachment editor preserves a real zero-slot limit when four originals remain', () => {
