@@ -76,34 +76,21 @@
     animateReorder(stack, before)
   }
 
-  function syncLiveClass() {
-    const card = document.querySelector('.current-class-card')
-    if (!card) return
-    const label = card.querySelector('.current-class-label')?.textContent || ''
-    card.classList.toggle('is-live-glow', label.includes('진행 중'))
-  }
-
-  function sync() {
-    syncPriority()
-    syncLiveClass()
-  }
-
-  const observer = new MutationObserver(sync)
+  const observer = new MutationObserver(syncPriority)
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
-    characterData: true,
   })
 
-  const timer = window.setInterval(sync, 15000)
-  window.addEventListener('resize', sync)
-  window.addEventListener('orientationchange', sync)
-  PHONE_PORTRAIT.addEventListener?.('change', sync)
+  const timer = window.setInterval(syncPriority, 15000)
+  window.addEventListener('resize', syncPriority)
+  window.addEventListener('orientationchange', syncPriority)
+  PHONE_PORTRAIT.addEventListener?.('change', syncPriority)
 
   window.addEventListener('pagehide', () => {
     window.clearInterval(timer)
     observer.disconnect()
   }, { once: true })
 
-  sync()
+  syncPriority()
 })()
