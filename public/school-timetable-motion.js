@@ -159,7 +159,8 @@
     }
   })
 
-  observer.observe(document.documentElement, {
+  const appRoot = document.getElementById('root') || document.documentElement
+  observer.observe(appRoot, {
     subtree: true,
     childList: true,
     characterData: true,
