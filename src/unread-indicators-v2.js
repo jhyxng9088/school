@@ -522,12 +522,15 @@ async function startUnreadIndicators() {
 
   document.addEventListener('click', handleClick, true)
   const domObserver = new MutationObserver(scheduleRender)
-  domObserver.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['class'],
-  })
+  const observerRoot = document.getElementById('root')
+  if (observerRoot) {
+    domObserver.observe(observerRoot, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    })
+  }
 
   const mealTimer = window.setInterval(() => {
     const available = hasTodayMealInCache()
