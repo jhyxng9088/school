@@ -30,6 +30,15 @@ test('custom board sections reuse reminder long-press and context-menu managemen
   assert.match(source, /if \(suppressClickRef\.current\)/)
 })
 
+test('desktop context menu does not swallow the next normal section click', () => {
+  const source = buildBoardSource()
+  const handler = source.match(/function handleContextMenu\(event, section\) \{([\s\S]*?)\n  \}/)?.[1] || ''
+
+  assert.match(handler, /event\.preventDefault\(\)/)
+  assert.match(handler, /onManage\(section\.id\)/)
+  assert.doesNotMatch(handler, /suppressClickRef\.current = true/)
+})
+
 test('only owned custom board sections expose the reminder-style action sheet', () => {
   const source = buildBoardSource()
 
