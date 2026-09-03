@@ -30,18 +30,69 @@ jobs:
       - name: Hide temporary verification workflow from repository-structure test
         run: mv .github/workflows/branch-verify.yml /tmp/branch-verify.yml
 
-      - name: Test app with failure annotations
+      - name: First half 1-45
+        id: first_half
+        continue-on-error: true
         shell: bash
         run: |
-          set +e
-          node --test --test-concurrency=1 --test-reporter=tap tests/*.test.js 2>&1 | tee /tmp/app-tests.tap
-          code=${PIPESTATUS[0]}
-          if (( code != 0 )); then
-            while IFS= read -r line; do
-              safe=${line//'%'/'%25'}
-              safe=${safe//$'\r'/'%0D'}
-              safe=${safe//$'\n'/'%0A'}
-              echo "::error title=App test failure::$safe"
-            done < <(grep -E '^not ok [0-9]+ - ' /tmp/app-tests.tap || true)
-          fi
-          exit "$code"
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
+          node --test --test-concurrency=1 "${files[@]:0:45}"
+
+      - name: Second half 46-91
+        id: second_half
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
+          node --test --test-concurrency=1 "${files[@]:45}"
+
+      - name: Prefix 1-60
+        id: prefix_60
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
+          node --test --test-concurrency=1 "${files[@]:0:60}"
+
+      - name: Prefix 1-70
+        id: prefix_70
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
+          node --test --test-concurrency=1 "${files[@]:0:70}"
+
+      - name: Suffix 21-91
+        id: suffix_21
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
+          node --test --test-concurrency=1 "${files[@]:20}"
+
+      - name: Suffix 31-91
+        id: suffix_31
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
+          node --test --test-concurrency=1 "${files[@]:30}"
+
+      - name: Full app suite
+        id: full_suite
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' -print | sort)
+          node --test --test-concurrency=1 "${files[@]}"
+
+      - name: Diagnostic summary
+        if: always()
+        run: |
+          echo "first-half=${{ steps.first_half.outcome }}"
+          echo "second-half=${{ steps.second_half.outcome }}"
+          echo "prefix-60=${{ steps.prefix_60.outcome }}"
+          echo "prefix-70=${{ steps.prefix_70.outcome }}"
+          echo "suffix-21=${{ steps.suffix_21.outcome }}"
+          echo "suffix-31=${{ steps.suffix_31.outcome }}"
+          echo "full=${{ steps.full_suite.outcome }}"
