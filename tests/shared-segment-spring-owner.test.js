@@ -20,6 +20,13 @@ test('final motion ownership replaces the generated class spring with a shared h
   assert.match(next, /paddingProperty: '--segment-padding'/)
 })
 
+test('class spring migration survives downstream ClassTopSegment prop changes', () => {
+  const source = `import React, { useLayoutEffect } from 'react'\nfunction useClassTopSegmentSpring(activeIndex) {\n  const duplicated = true\n  return duplicated\n}\n\nfunction ClassTopSegment({ section, onSectionChange, unread, touchIntentRef }) {\n  return null\n}\n`
+  const next = patchSharedSegmentSpringOwnerSource(source, '/workspace/src/main.jsx')
+  assert.match(next, /return useSHubSegmentSpring/)
+  assert.match(next, /function ClassTopSegment\(\{ section, onSectionChange, unread, touchIntentRef \}\)/)
+})
+
 test('final motion ownership replaces the generated study spring with the same shared hook', () => {
   const source = `import React, { useLayoutEffect } from 'react'\nfunction useStudyRankingScopeSpring(activeIndex) {\n  const duplicated = true\n  return duplicated\n}\n\nfunction StudyRanking({ scope }) {\n  return scope\n}\n`
   const next = patchSharedSegmentSpringOwnerSource(source, '/workspace/src/preview-study.jsx')
