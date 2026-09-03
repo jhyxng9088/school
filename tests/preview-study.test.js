@@ -32,9 +32,9 @@ test('preview study client is isolated to the dedicated study endpoint and suppo
   assert.match(client, /ensureSignedIn/)
   assert.match(client, /cache: 'no-store'/)
   assert.match(client, /export async function pausePreviewStudy/)
-  assert.match(client, /action: 'pause'/)
+  assert.match(client, /requestStudyTransition\('pause'/)
   assert.match(client, /export async function resumePreviewStudy/)
-  assert.match(client, /action: 'resume'/)
+  assert.match(client, /requestStudyTransition\('resume'/)
 })
 
 test('study transitions reconcile stale server state before the page reloads its snapshot', () => {
