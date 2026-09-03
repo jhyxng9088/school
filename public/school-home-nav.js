@@ -60,23 +60,6 @@
     })
   }
 
-  function installStudyScrollStability() {
-    if (document.querySelector('style[data-study-scroll-stability]')) return
-    const style = document.createElement('style')
-    style.dataset.studyScrollStability = 'true'
-    style.textContent = `
-      .preview-study-ranking-stage[data-direction] {
-        animation: none !important;
-        will-change: auto !important;
-      }
-      .preview-study-ranking-stage .preview-study-today-person {
-        animation: none !important;
-        will-change: auto !important;
-      }
-    `
-    document.head.appendChild(style)
-  }
-
   function scheduleEnhance() {
     if (frame) return
     frame = window.requestAnimationFrame(() => {
@@ -87,7 +70,6 @@
 
   const observer = new MutationObserver(scheduleEnhance)
   observer.observe(document.documentElement, { childList: true, subtree: true })
-  installStudyScrollStability()
 
   window.addEventListener('pagehide', () => {
     observer.disconnect()
