@@ -56,7 +56,6 @@ const BOARD_SECTIONS = String.raw`function BoardSections({ sections, activeSecti
     if (!canManage(section)) return
     event.preventDefault()
     clearPressTimer()
-    suppressClickRef.current = true
     onManage(section.id)
   }
 
