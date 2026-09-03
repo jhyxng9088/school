@@ -36,6 +36,13 @@ test('Supabase identity cache bypasses the class-wide users query only when comp
   assert.match(source, /mergeRosterUsers\(firestoreUsers, supabaseCache\.users\)/)
 })
 
+test('roster response keeps a safe live-presence key only for unambiguous rows', () => {
+  assert.match(source, /inferStudentNumber\(\{ classId, studentKey, name \}\)/)
+  assert.match(source, /function rosterMembersWithStudentKeys\(classId, result\)/)
+  assert.match(source, /studentKey: !member\.conflict && keys\.length === 1 \? keys\[0\] : ''/)
+  assert.match(source, /members: rosterMembersWithStudentKeys\(classId, result\)/)
+})
+
 test('quota-safe roster endpoint preserves response compatibility and reports cache sources', () => {
   for (const marker of [
     'legacyMemberCount',
@@ -43,7 +50,7 @@ test('quota-safe roster endpoint preserves response compatibility and reports ca
     'online: result.roster.online',
     'unresolved,',
     'recoveredFromHistory',
-    'members: result.roster.members',
+    'members: rosterMembersWithStudentKeys',
     'identitySource,',
     'presenceSource,',
     'historicalRecoveryUsed,',
