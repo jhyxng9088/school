@@ -7,8 +7,9 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 test('timetable motion observer stays inside the React app root', () => {
   const source = read('public/school-timetable-motion.js')
 
-  assert.match(source, /const appRoot = document\.getElementById\('root'\) \|\| document\.documentElement/)
-  assert.match(source, /observer\.observe\(appRoot,/)
+  assert.match(source, /const appRoot = document\.getElementById\('root'\)/)
+  assert.match(source, /if \(appRoot\) \{[\s\S]*observer\.observe\(appRoot,/)
+  assert.doesNotMatch(source, /document\.getElementById\('root'\) \|\| document\.documentElement/)
   assert.doesNotMatch(source, /observer\.observe\(document\.documentElement,/)
 })
 
