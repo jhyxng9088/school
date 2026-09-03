@@ -3,6 +3,13 @@ function replaceRequired(source, marker, replacement, label) {
   return source.replace(marker, replacement)
 }
 
+function spliceRequired(source, startMarker, endMarker, replacement, label) {
+  const start = source.indexOf(startMarker)
+  const end = source.indexOf(endMarker, start + startMarker.length)
+  if (start < 0 || end < 0) throw new Error(`Preview AI reminder summary patch range missing: ${label}`)
+  return `${source.slice(0, start)}${replacement}${source.slice(end)}`
+}
+
 export function patchPreviewAIReminderSummarySource(source, id) {
   const cleanId = String(id || '').split('?')[0]
   let next = String(source || '')
@@ -11,8 +18,22 @@ export function patchPreviewAIReminderSummarySource(source, id) {
     next = replaceRequired(
       next,
       "import { useEffect, useRef, useState } from 'react'\n",
-      "import { useEffect, useRef, useState } from 'react'\nimport { createPortal } from 'react-dom'\n",
-      'summary portal import',
+      "import { useEffect, useRef, useState } from 'react'\nimport { createPortal } from 'react-dom'\nimport { OriginalFileViewer } from './original-file-viewer.jsx'\n",
+      'summary shared viewer imports',
+    )
+    next = replaceRequired(next, `const DOWNLOAD_GESTURE_LOCK_MS = 700\n\n`, ``, 'remove duplicate download gesture lock')
+    next = spliceRequired(
+      next,
+      `function isAppleTouchDevice() {`,
+      `export function SummarySheet`,
+      `export function SummarySheet`,
+      'remove duplicate original viewer implementation',
+    )
+    next = replaceRequired(
+      next,
+      `{viewer ? <OriginalImageViewer key={viewer.url} original={viewer} onClose={closeViewer} /> : null}`,
+      `{viewer ? (\n        <OriginalFileViewer\n          key={viewer.url}\n          original={viewer}\n          onClose={closeViewer}\n          formatSize={fileSizeLabel}\n          fallbackName="원본 사진"\n          shareMimeFallback="image/jpeg"\n          saveErrorLabel="Original image save failed:"\n        />\n      ) : null}`,
+      'summary shared original viewer',
     )
     next = replaceRequired(
       next,
@@ -22,8 +43,8 @@ export function patchPreviewAIReminderSummarySource(source, id) {
     )
     next = replaceRequired(
       next,
-      `      {viewer ? <OriginalImageViewer key={viewer.url} original={viewer} onClose={closeViewer} /> : null}\n    </div>\n  )\n}`,
-      `      {viewer ? <OriginalImageViewer key={viewer.url} original={viewer} onClose={closeViewer} /> : null}\n    </div>,\n    document.body,\n  )\n}`,
+      `    </div>\n  )\n}`,
+      `    </div>,\n    document.body,\n  )\n}`,
       'summary portal close',
     )
     return next
