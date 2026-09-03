@@ -27,7 +27,7 @@ test('feature tour first card uses the same S-Hub AI thinking motion profiles', 
   assert.match(runtime, /host\.replaceChildren\(\)/)
   assert.match(runtime, /mountThinkingOrb\(canvas, \{ size: hostSize \}\)/)
   assert.match(index, /feature-tour-ai-orb\.js[\s\S]*first-run-notice\.js/)
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v159-study-ranking-period'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v160-class-board-stability'/)
   assert.match(sw, /\.\/feature-tour-ai-orb\.js/)
 })
 

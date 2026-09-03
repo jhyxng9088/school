@@ -43,7 +43,7 @@ test('V2 update tour preserves the existing card-news interaction model and poli
   assert.match(index, /v2-update-notice\.css\?v=2/)
   assert.match(index, /v2-update-device-fixes\.css\?v=1/)
   assert.match(index, /v2-update-notice\.js\?v=2/)
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v159-study-ranking-period'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v160-class-board-stability'/)
   assert.match(sw, /\.\/v2-update-audience\.js/)
   assert.match(sw, /\.\/v2-update-notice\.css/)
   assert.match(sw, /\.\/v2-update-device-fixes\.css/)

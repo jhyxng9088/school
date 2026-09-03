@@ -44,6 +44,11 @@ test('study ranking period survives the real preceding Vite transforms without p
   page = patchStudyVisualPolishSource(page, pageId)
 
   assert.match(page, /aria-label="공부 랭킹 기간"/)
+  assert.match(page, /const periodSpring = useStudyRankingScopeSpring\(period === 'all' \? 1 : 0\)/)
+  assert.match(page, /ref=\{periodSpring\.containerRef\} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 기간"/)
+  assert.match(page, /ref=\{periodSpring\.indicatorRef\} className="preview-study-ranking-pill"/)
+  assert.match(page, /periodSpring\.buttonRefs\.current\[0\] = node/)
+  assert.match(page, /periodSpring\.buttonRefs\.current\[1\] = node/)
   assert.match(page, /ref=\{scopeSpring\.containerRef\} className="preview-study-ranking-tabs"/)
   assert.match(page, /data-direction=\{stageDirection\} key=\{\[scope, period\]\.join\(':'\)\}/)
   assert.match(page, /schoolCacheValidatedRef\.current = true/)

@@ -313,6 +313,17 @@ html.school-samsung .preview-board-attachment-card {
   -webkit-backdrop-filter: none;
 }
 
+/* The station host already owns the mobile page entrance. Avoid promoting the
+   full board, its section view, and every cached card into nested compositor
+   layers at the same time; WebKit/Chromium PWAs can otherwise black-frame or
+   terminate while opening a long class board. */
+html.school-mobile-compat .class-station-panel.is-board,
+html.school-mobile-compat .class-station-panel.is-board .preview-board-page,
+html.school-mobile-compat .class-station-panel.is-board .preview-board-section-view,
+html.school-mobile-compat .class-station-panel.is-board .preview-board-card {
+  animation: none;
+}
+
 @media (max-width: 430px) {
   .preview-board-attachment-picker-head {
     gap: 8px;

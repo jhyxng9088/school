@@ -277,15 +277,40 @@ function rankedStudents(students, nowMs, period = 'today') {
     'study ranking period heading',
   )
 
+  const scopeSpringStateMarker = `  const scopeSpring = useStudyRankingScopeSpring(scope === 'school' ? 1 : 0)`
+  if (next.includes(scopeSpringStateMarker)) {
+    next = replaceExact(
+      next,
+      scopeSpringStateMarker,
+      `${scopeSpringStateMarker}
+  const periodSpring = useStudyRankingScopeSpring(period === 'all' ? 1 : 0)`,
+      'study ranking period spring',
+    )
+  }
+
   const scopeTabsHaveSpring = next.includes(
     `      <div ref={scopeSpring.containerRef} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">`,
   )
   const scopeTabsMarker = scopeTabsHaveSpring
     ? `      <div ref={scopeSpring.containerRef} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">`
     : `      <div className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">`
+  const periodSpringContainerRef = scopeTabsHaveSpring ? ' ref={periodSpring.containerRef}' : ''
+  const periodSpringIndicator = scopeTabsHaveSpring
+    ? `
+          <span ref={periodSpring.indicatorRef} className="preview-study-ranking-pill" aria-hidden="true" />`
+    : ''
+  const periodSpringFirstButtonRef = scopeTabsHaveSpring
+    ? `
+            ref={(node) => { periodSpring.buttonRefs.current[0] = node }}`
+    : ''
+  const periodSpringSecondButtonRef = scopeTabsHaveSpring
+    ? `
+            ref={(node) => { periodSpring.buttonRefs.current[1] = node }}`
+    : ''
   const scopeTabsReplacement = `      <div className="preview-study-ranking-filters">
-        <div className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 기간">
+        <div${periodSpringContainerRef} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 기간">${periodSpringIndicator}
           <button
+${periodSpringFirstButtonRef}
             type="button"
             className={period === 'today' ? 'is-selected' : ''}
             aria-pressed={period === 'today'}
@@ -294,6 +319,7 @@ function rankedStudents(students, nowMs, period = 'today') {
             오늘
           </button>
           <button
+${periodSpringSecondButtonRef}
             type="button"
             className={period === 'all' ? 'is-selected' : ''}
             aria-pressed={period === 'all'}

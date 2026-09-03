@@ -55,7 +55,7 @@ test('the seven question examples remain deliberately informal', () => {
 
 test('production service worker cache is bumped so installed PWAs receive the fresh UI shell', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v159-study-ranking-period'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v160-class-board-stability'/)
   assert.doesNotMatch(sw, /school-preview-shell-/)
   assert.match(sw, /self\.skipWaiting\(\)/)
   assert.match(sw, /self\.clients\.claim\(\)/)
