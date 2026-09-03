@@ -55,6 +55,24 @@ jobs:
         working-directory: push-backend-v2
         run: npm ci
 
-      - name: Test backend
-        working-directory: push-backend-v2
-        run: npm test
+      - name: Test backend and capture output
+        shell: bash
+        run: |
+          set +e
+          cd push-backend-v2
+          npm test 2>&1 | tee ../backend-test.log
+          status=${PIPESTATUS[0]}
+          echo "$status" > ../backend-test-status
+          exit 0
+
+      - name: Upload backend diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-diagnostics
+          path: |
+            backend-test.log
+            backend-test-status
+
+      - name: Enforce backend test result
+        shell: bash
+        run: test "$(cat backend-test-status)" = "0"
