@@ -52,6 +52,14 @@ jobs:
         working-directory: push-backend-v2
         run: npm ci
 
+      - name: Test new roster API contract
+        working-directory: push-backend-v2
+        run: node --test test/class-roster-v2-api.test.js
+
+      - name: Test Supabase roster cache contract
+        working-directory: push-backend-v2
+        run: node --test test/supabase-roster-cache.test.js
+
       - name: Test backend
         working-directory: push-backend-v2
         run: npm test
