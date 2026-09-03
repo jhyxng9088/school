@@ -7,7 +7,7 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 test('final mobile fixes stylesheet is loaded after other static polish styles', () => {
   const html = read('index.html')
   const fixes = html.indexOf('mobile-layout-fixes.css?v=2')
-  const samsung = html.indexOf('samsung-nav-icon-fixes.css?v=4')
+  const samsung = html.indexOf('samsung-nav-icon-fixes.css?v=5')
   assert.ok(fixes > samsung)
 })
 
@@ -23,4 +23,22 @@ test('original viewer compensates for transformed centered ancestors on mobile',
   assert.match(css, /html\.school-mobile-compat \.reminder-original-viewer \{[\s\S]*width: 100vw !important;/)
   assert.match(css, /html\.school-mobile-compat \.reminder-original-panel \{[\s\S]*max-width: calc\(100vw - 28px\);/)
   assert.doesNotMatch(css, /^\.reminder-original-viewer\s*\{/m)
+})
+
+test('mobile class station keeps one five-column layout owner during nested pill motion', () => {
+  const css = read('public/mobile-layout-fixes.css')
+  const nested = read('src/preview-nested-geometry-coupling-patch.js')
+
+  assert.match(
+    css,
+    /html\.school-mobile-compat \.bottom-nav\[data-class-layout-spring="true"\]\[data-nested-geometry-follow="true"\] \{[\s\S]*grid-template-columns:[\s\S]*var\(--station-side-current\)[\s\S]*var\(--station-class-current\)[\s\S]*var\(--station-side-current\)[\s\S]*var\(--station-side-current\)[\s\S]*var\(--station-side-current\) !important;/,
+  )
+  assert.doesNotMatch(
+    css,
+    /html\.school-mobile-compat \.bottom-nav\[data-class-layout-spring="true"\]\[data-nested-geometry-follow="true"\][\s\S]*var\(--station-class-actual/,
+  )
+
+  // Preserve the nested pill spring and visible pressure/indicator reaction.
+  assert.match(nested, /nav\.addEventListener\('classminiphysics', handleMiniPhysics\)/)
+  assert.match(nested, /function syncOuterIndicatorNow\(actualLeftWidth, actualClassWidth\)/)
 })
