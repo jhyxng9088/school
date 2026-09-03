@@ -16,6 +16,9 @@
     "api/class-roster.js": {
       "maxDuration": 30
     },
+    "api/class-roster-v2.js": {
+      "maxDuration": 30
+    },
     "api/admin-bootstrap.js": {
       "maxDuration": 30
     },
