@@ -31,6 +31,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/class-roster-v2",
+      "destination": "/api/class-roster?mode=v2"
+    },
+    {
       "source": "/api/class-roster-repair",
       "destination": "/api/class-roster?mode=repair"
     },

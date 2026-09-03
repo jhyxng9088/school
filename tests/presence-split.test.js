@@ -14,18 +14,31 @@ function transformedSchoolSync() {
   return patchPresenceSplitSource(patchDataSplitV1Source(raw, path), path)
 }
 
-test('presence prefers Realtime Database when explicitly configured but preserves an idempotent Firestore fallback', () => {
+test('presence prefers Supabase and keeps RTDB then Firestore as failure-only fallbacks', () => {
   const source = transformedSchoolSync()
+  assert.match(source, /import \{ startSupabasePresence \} from '\.\/supabase-presence\.js'/)
+  assert.match(source, /supabasePresence = startSupabasePresence\(\{/)
+  assert.match(source, /fallbackLevel = 'supabase'/)
+  assert.match(source, /const activateRealtimeFallback = \(reason\) =>/)
   assert.match(source, /realtimePresenceConfigured\(\)/)
   assert.match(source, /startRealtimePresence\(\{/)
-  assert.match(source, /app: syncApp/)
-  assert.match(source, /const activateFallback = \(reason\) =>/)
-  assert.match(source, /if \(stopped \|\| fallbackActive\) return/)
+  assert.match(source, /const activateFirestoreFallback = \(reason\) =>/)
   assert.match(source, /stopActiveTransport = startFirestoreFallback\(\)/)
-  assert.match(source, /onUnavailable: activateFallback/)
-  assert.match(source, /setDoc\(classPresenceRef\(profile\)/)
-  assert.match(source, /getCountFromServer\(query\(/)
-  assert.match(source, /30 \* 1000/)
+  assert.match(source, /onUnavailable: activateRealtimeFallback/)
+  assert.match(source, /onUnavailable: activateFirestoreFallback/)
+})
+
+test('normal Supabase presence heartbeat does not read or write Firestore presence', () => {
+  const source = read('../src/supabase-presence.js')
+  assert.match(source, /functions\/v1\/class-presence/)
+  assert.match(source, /PRESENCE_REFRESH_MS = 45_000/)
+  assert.match(source, /body: JSON\.stringify\(\{ action \}\)/)
+  assert.match(source, /requestPresence\(user, classId, 'heartbeat'/)
+  assert.match(source, /requestPresence\(user, classId, 'leave'/)
+  assert.match(source, /school:class-presence/)
+  assert.doesNotMatch(source, /firebase\/firestore/)
+  assert.doesNotMatch(source, /setDoc\(/)
+  assert.doesNotMatch(source, /getCountFromServer/)
 })
 
 test('member total is cached and cannot block the active presence transport', () => {
@@ -35,44 +48,29 @@ test('member total is cached and cannot block the active presence transport', ()
   assert.match(source, /cacheMemberCount\(total\)/)
   assert.match(source, /getCountFromServer\(classMembersCollection\(profile\)\)/)
   assert.match(source, /void ensureMemberBestEffort\(\)/)
-  assert.match(source, /A Firestore quota outage must not prevent the independent presence transport/)
+  assert.match(source, /Firestore membership bookkeeping is independent from the live presence transport/)
   assert.doesNotMatch(source, /Promise\.all\(\[\s*getCountFromServer\(classMembersCollection/)
 })
 
-test('RTDB presence is explicit opt-in so unverified database rules cannot disable online presence', () => {
+test('RTDB stays as a secondary fallback without inventing an unverified database URL', () => {
   const source = read('../src/presence-rtdb.js')
   assert.match(source, /VITE_FIREBASE_DATABASE_URL \|\| ''/)
   assert.doesNotMatch(source, /-default-rtdb\.asia-southeast1\.firebasedatabase\.app/)
-})
-
-test('RTDB presence uses connection state, onDisconnect cleanup, and reports runtime permission failures', () => {
-  const source = read('../src/presence-rtdb.js')
   assert.match(source, /ref\(database, '\.info\/connected'\)/)
   assert.match(source, /onDisconnect\(ownPresence\)/)
   assert.match(source, /await disconnect\.remove\(\)/)
-  assert.match(source, /remove\(ownPresence\)/)
-  assert.match(source, /onValue\(classPresence/)
-  assert.match(source, /function reportUnavailable\(error\)/)
-  assert.match(source, /onUnavailable\(error\)/)
-  assert.match(source, /onValue\(classPresence,[\s\S]*reportUnavailable\)/)
 })
 
-test('RTDB stores no student identity payload beyond the Firebase uid path', () => {
-  const source = read('../src/presence-rtdb.js')
-  assert.doesNotMatch(source, /studentKey/)
-  assert.match(source, /await set\(ownPresence, \{\s*connectedAt: serverTimestamp\(\)/)
+test('Firestore presence remains an idempotent last-resort fallback', () => {
+  const source = transformedSchoolSync()
+  assert.match(source, /if \(stopped \|\| fallbackLevel === 'firestore'\) return/)
+  assert.match(source, /setDoc\(classPresenceRef\(profile\)/)
+  assert.match(source, /getCountFromServer\(query\(/)
+  assert.match(source, /window\.setInterval\(refreshPresence, 30 \* 1000\)/)
+  assert.match(source, /External presence unavailable; using Firestore fallback/)
 })
 
-test('RTDB remains safe when unavailable because Firestore fallback is preserved', () => {
-  const source = read('../src/presence-rtdb.js')
-  assert.match(source, /if \(!realtimePresenceConfigured\(\) \|\| !app\) return null/)
-  const school = transformedSchoolSync()
-  assert.match(school, /if \(!realtimePresence\) \{\s*activateFallback\(\)/)
-  assert.match(school, /stopActiveTransport = startFirestoreFallback\(\)/)
-  assert.match(school, /onUnavailable: activateFallback/)
-})
-
-test('firebase config retains the locked RTDB rules file for a later verified deployment', () => {
+test('firebase config retains the locked RTDB rules file for emergency fallback', () => {
   const config = JSON.parse(read('../firebase.json'))
   assert.equal(config.database?.rules, 'database.rules.json')
 })
