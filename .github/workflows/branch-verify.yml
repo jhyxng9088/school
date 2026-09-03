@@ -30,28 +30,18 @@ jobs:
       - name: Hide temporary verification workflow from repository-structure test
         run: mv .github/workflows/branch-verify.yml /tmp/branch-verify.yml
 
-      - name: Test app serially
-        run: node --test --test-concurrency=1 tests/*.test.js
-
-      - name: Build board sheet E2E harness
-        run: npm run build -- --config vite.e2e.config.js
-
-      - name: Install Playwright test runner
-        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
-
-      - name: Run Chromium and WebKit UI regression tests
-        run: npx playwright test
-
-      - name: Build production app
-        run: npm run build
-
-      - name: Install backend dependencies
-        working-directory: push-backend-v2
-        run: npm ci
-
-      - name: Test backend
-        working-directory: push-backend-v2
-        run: npm test
+      - name: Test app with failure annotations
+        shell: bash
+        run: |
+          set +e
+          node --test --test-concurrency=1 --test-reporter=tap tests/*.test.js 2>&1 | tee /tmp/app-tests.tap
+          code=${PIPESTATUS[0]}
+          if (( code != 0 )); then
+            while IFS= read -r line; do
+              safe=${line//'%'/'%25'}
+              safe=${safe//$'\r'/'%0D'}
+              safe=${safe//$'\n'/'%0A'}
+              echo "::error title=App test failure::$safe"
+            done < <(grep -E '^not ok [0-9]+ - ' /tmp/app-tests.tap || true)
+          fi
+          exit "$code"
