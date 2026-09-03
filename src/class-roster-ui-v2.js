@@ -553,7 +553,8 @@ const observer = new MutationObserver((mutations) => {
   if (mutations.length && mutations.every(isRosterInternalMutation)) return
   queueCounterSync()
 })
-observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true })
+const appRoot = document.getElementById('root') || document.documentElement
+observer.observe(appRoot, { childList: true, subtree: true, characterData: true })
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && modalState?.layer?.classList.contains('is-open')) closeModal()
