@@ -30,8 +30,8 @@ jobs:
       - name: Hide temporary verification workflow from repository-structure test
         run: mv .github/workflows/branch-verify.yml /tmp/branch-verify.yml
 
-      - name: Test app
-        run: npm test
+      - name: Test app serially
+        run: node --test --test-concurrency=1 tests/*.test.js
 
       - name: Build board sheet E2E harness
         run: npm run build -- --config vite.e2e.config.js
