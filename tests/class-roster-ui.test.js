@@ -6,12 +6,13 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 
 test('home presence counter loads the authenticated class roster modal without changing main home logic', () => {
   const index = read('index.html')
-  const source = read('src/class-roster-ui.js')
+  const source = read('src/class-roster-ui-v2.js')
   const main = read('src/main.jsx')
 
-  assert.match(index, /<script type="module" src="\/src\/class-roster-ui\.js"><\/script>/)
+  assert.match(index, /<script type="module" src="\/src\/class-roster-ui-v2\.js"><\/script>/)
+  assert.doesNotMatch(index, /src="\/src\/class-roster-ui\.js"/)
   assert.match(source, /import \{ ensureSignedIn, readStudentProfile \} from '\.\/school-sync'/)
-  assert.match(source, /school-reminder-backend\.vercel\.app\/api\/class-roster'/)
+  assert.match(source, /school-reminder-backend\.vercel\.app\/api\/class-roster-v2/)
   assert.match(source, /Authorization: `Bearer \$\{idToken\}`/)
   assert.match(source, /counter\.classList\.add\('is-roster-button'\)/)
   assert.match(source, /counter\.setAttribute\('role', 'button'\)/)
@@ -27,8 +28,8 @@ test('home presence counter loads the authenticated class roster modal without c
   assert.match(main, /\{presence\.online\}\/\{presence\.total\}/)
 })
 
-test('roster orphan cleanup is authenticated, POST-only, and revalidates after an archive', () => {
-  const source = read('src/class-roster-ui.js')
+test('roster orphan cleanup stays authenticated and explicitly revalidates after an archive', () => {
+  const source = read('src/class-roster-ui-v2.js')
 
   assert.match(source, /CLASS_ROSTER_REPAIR_API_URL = 'https:\/\/school-reminder-backend\.vercel\.app\/api\/class-roster-repair'/)
   assert.match(source, /async function repairRosterIfNeeded\(\)/)
@@ -39,15 +40,35 @@ test('roster orphan cleanup is authenticated, POST-only, and revalidates after a
   assert.match(source, /await fetchRoster\(\{ force: true \}\)/)
 })
 
-test('first roster open avoids duplicate loading paint, forced pointer focus, and refresh animation replay', () => {
-  const source = read('src/class-roster-ui.js')
+test('roster reads are demand-driven, locally cached, and never polled every minute', () => {
+  const source = read('src/class-roster-ui-v2.js')
+
+  assert.match(source, /ROSTER_FRESH_MS = 2 \* 60_000/)
+  assert.match(source, /ROSTER_STALE_CACHE_MS = 24 \* 60 \* 60_000/)
+  assert.match(source, /ROSTER_CACHE_PREFIX = 'school\.classRoster\.v2\.'/)
+  assert.match(source, /function hydrateRosterCache\(\)/)
+  assert.match(source, /localStorage\.getItem\(key\)/)
+  assert.match(source, /localStorage\.setItem\(key, JSON\.stringify\(\{ checkedAt: lastFetchedAt, roster: cachedRoster \}\)\)/)
+  assert.match(source, /void refreshModal\(\{ force: false, showLoading: false \}\)/)
+  assert.doesNotMatch(source, /window\.setInterval\(/)
+  assert.doesNotMatch(source, /Initial class roster load failed/)
+  assert.doesNotMatch(source, /Class roster periodic refresh failed/)
+
+  const syncCounter = source.match(/function syncCounter\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(syncCounter, /hydrateRosterCache\(\)/)
+  assert.match(syncCounter, /applyRosterCounter\(counter\)/)
+  assert.doesNotMatch(syncCounter, /fetchRoster\(/)
+})
+
+test('first roster open paints cached data immediately without forced pointer focus or refresh replay', () => {
+  const source = read('src/class-roster-ui-v2.js')
   const css = read('src/class-roster.css')
 
   assert.match(source, /function scheduleModalWarmup\(\)/)
   assert.match(source, /requestIdleCallback/)
   assert.match(source, /if \(modal\.layer\.classList\.contains\('is-visible'\)\) return/)
   assert.match(source, /if \(cachedRoster\) renderRoster\(\{ animateRows: true, force: true \}\)\n  else renderRoster\(\{ loading: true \}\)/)
-  assert.match(source, /void refreshModal\(\{ force: true, showLoading: false \}\)/)
+  assert.match(source, /void refreshModal\(\{ force: false, showLoading: false \}\)/)
   assert.match(source, /window\.requestAnimationFrame\(\(\) => \{/)
   assert.doesNotMatch(source, /requestAnimationFrame\(\(\) => requestAnimationFrame/)
   assert.match(source, /if \(keyboard\) modal\.close\?\.focus\(\{ preventScroll: true \}\)/)
