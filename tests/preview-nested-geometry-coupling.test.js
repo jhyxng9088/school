@@ -76,6 +76,21 @@ test('outer class pill follows actual geometry directly only while class owns th
   assert.match(source, /physics\.baseWidth = classWidth/)
 })
 
+test('nested pill follows parent class spring without per-frame DOM geometry reads', () => {
+  const source = buildFinalMain()
+  const start = source.indexOf('    const syncWithParentStation = () => {')
+  const end = source.indexOf('    const handleResize = () => {', start)
+  assert.ok(start >= 0)
+  assert.ok(end > start)
+  const syncBlock = source.slice(start, end)
+
+  assert.match(syncBlock, /stationHost\?\.style\.getPropertyValue\('--station-class-current'\)/)
+  assert.match(syncBlock, /const slotWidth = Math\.max\(0, \(stationClassWidth - inset \* 2\) \/ 2\)/)
+  assert.match(syncBlock, /physics\.targetX = inset \+ slotWidth \* activeIndex/)
+  assert.match(syncBlock, /physics\.baseWidth = slotWidth/)
+  assert.doesNotMatch(syncBlock, /getBoundingClientRect\(/)
+})
+
 test('old decorative middle-shell transform is neutralized in the final geometry layer', () => {
   const finalCss = patchPreviewNestedGeometryCouplingSource(read('src/styles.css'), '/workspace/src/styles.css')
   assert.match(finalCss, /data-nested-geometry-follow="true"[\s\S]*\.nav-indicator::after[\s\S]*transform: none !important/)

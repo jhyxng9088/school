@@ -171,6 +171,17 @@ function patchMainSource(source) {
     'main indicator uses cached nested geometry',
   )
 
+  /* The nested timetable/board pill lives in a fixed two-column capsule whose current
+     width is already known by the class-width spring. Reuse that inline geometry instead
+     of forcing layout twice on every parent station frame. Initial mount/resize measurement
+     still uses real DOM rects, so responsive geometry remains authoritative. */
+  next = replaceRequired(
+    next,
+    `    const syncWithParentStation = () => {\n      const movingTarget = buttonRefs.current[activeIndex]\n      if (!movingTarget) return\n      const containerRect = container.getBoundingClientRect()\n      const buttonRect = movingTarget.getBoundingClientRect()\n      physics.targetX = buttonRect.left - containerRect.left\n      physics.baseWidth = buttonRect.width`,
+    `    const syncWithParentStation = () => {\n      const movingTarget = buttonRefs.current[activeIndex]\n      if (!movingTarget) return\n      const stationClassWidth = Number.parseFloat(stationHost?.style.getPropertyValue('--station-class-current') || '')\n      if (!Number.isFinite(stationClassWidth) || stationClassWidth <= 10) return\n      const inset = 5\n      const slotWidth = Math.max(0, (stationClassWidth - inset * 2) / 2)\n      physics.targetX = inset + slotWidth * activeIndex\n      physics.baseWidth = slotWidth`,
+    'nested pill uses cached class geometry',
+  )
+
   return next
 }
 
