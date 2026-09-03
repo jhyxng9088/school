@@ -60,19 +60,74 @@ jobs:
         working-directory: push-backend-v2
         run: node --test test/supabase-roster-cache.test.js
 
-      - name: Diagnose backend test files
+      - name: Backend activity/admin group
+        id: backend_activity_admin
+        continue-on-error: true
         working-directory: push-backend-v2
         shell: bash
         run: |
-          set +e
+          shopt -s nullglob
+          files=(test/activity*.test.js test/admin*.test.js)
+          ((${#files[@]} == 0)) || node --test "${files[@]}"
+
+      - name: Backend class group
+        id: backend_class
+        continue-on-error: true
+        working-directory: push-backend-v2
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(test/class*.test.js)
+          ((${#files[@]} == 0)) || node --test "${files[@]}"
+
+      - name: Backend NEIS/preview group
+        id: backend_neis_preview
+        continue-on-error: true
+        working-directory: push-backend-v2
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(test/neis*.test.js test/preview*.test.js)
+          ((${#files[@]} == 0)) || node --test "${files[@]}"
+
+      - name: Backend reminder group
+        id: backend_reminder
+        continue-on-error: true
+        working-directory: push-backend-v2
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(test/reminder*.test.js)
+          ((${#files[@]} == 0)) || node --test "${files[@]}"
+
+      - name: Backend Supabase group
+        id: backend_supabase
+        continue-on-error: true
+        working-directory: push-backend-v2
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(test/supabase*.test.js)
+          ((${#files[@]} == 0)) || node --test "${files[@]}"
+
+      - name: Backend remaining group
+        id: backend_remaining
+        continue-on-error: true
+        working-directory: push-backend-v2
+        shell: bash
+        run: |
+          mapfile -t files < <(find test -maxdepth 1 -name '*.test.js' -print | sort | grep -Ev '/(activity|admin|class|neis|preview|reminder|supabase)')
+          ((${#files[@]} == 0)) || node --test "${files[@]}"
+
+      - name: Fail if any backend regression group failed
+        if: always()
+        shell: bash
+        run: |
           failed=0
-          for file in test/*.test.js; do
-            echo "=== $file ==="
-            node --test "$file"
-            status=$?
-            if [ $status -ne 0 ]; then
-              echo "::error file=push-backend-v2/$file,title=Backend regression failed::$file failed with exit code $status"
-              failed=1
-            fi
-          done
+          [[ '${{ steps.backend_activity_admin.outcome }}' == 'failure' ]] && echo 'activity/admin failed' && failed=1
+          [[ '${{ steps.backend_class.outcome }}' == 'failure' ]] && echo 'class failed' && failed=1
+          [[ '${{ steps.backend_neis_preview.outcome }}' == 'failure' ]] && echo 'neis/preview failed' && failed=1
+          [[ '${{ steps.backend_reminder.outcome }}' == 'failure' ]] && echo 'reminder failed' && failed=1
+          [[ '${{ steps.backend_supabase.outcome }}' == 'failure' ]] && echo 'supabase failed' && failed=1
+          [[ '${{ steps.backend_remaining.outcome }}' == 'failure' ]] && echo 'remaining failed' && failed=1
           exit $failed
