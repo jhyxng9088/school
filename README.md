@@ -60,6 +60,20 @@
 6. 일회성 패치 스크립트/워크플로는 작업이 끝난 뒤 저장소에 남기지 않는다.
 7. 배포 전에 프론트 테스트, 프로덕션 빌드, 알림 백엔드 테스트를 모두 통과해야 한다.
 
+## Architecture & 안정화 기준
+
+S-Hub의 UI/기능을 수정하거나 새 기능을 추가하기 전에는 아래 문서를 먼저 확인한다.
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): single-owner 원칙과 shared primitive 사용 규칙
+- [`docs/STABILITY-PLAN.md`](docs/STABILITY-PLAN.md): 안정화 완료 항목과 남은 migration 순서
+- [`docs/UPDATE-CHECKLIST.md`](docs/UPDATE-CHECKLIST.md): 업데이트 전/중/후 검증 체크리스트
+- [`docs/ADR/`](docs/ADR/): navigation, shared UI, PWA lifecycle, build patch 정책의 결정 기록
+- [`docs/data-architecture-v1.md`](docs/data-architecture-v1.md): 데이터 구조
+
+핵심 원칙은 **같은 책임에는 주인을 하나만 두는 것**이다. 새 기능은 기존 Navigation, Icon, Overlay, Viewer, Motion, Data owner를 먼저 재사용하고, 내부 React DOM을 synthetic click이나 사후 MutationObserver로 연결하는 새 우회 구조를 만들지 않는다.
+
+여러 작업이 동시에 저장소를 수정할 수 있으므로 항상 **최신 `main` HEAD 확인 -> 최근 커밋 확인 -> 관련 파일 재확인 -> 최소 수정 -> 테스트/build/E2E -> Actions/deploy 확인** 순서를 지킨다.
+
 ## 검증
 
 ```bash
