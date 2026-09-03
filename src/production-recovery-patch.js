@@ -184,7 +184,8 @@ function rememberIdentitySync(cacheKey) {
 }
 
 function transientIdentityReadError(error) {
-  const code = String(error?.code || '').replace(/^firestore\//, '')
+  const rawCode = String(error?.code || '')
+  const code = rawCode.startsWith('firestore/') ? rawCode.slice('firestore/'.length) : rawCode
   return code === 'resource-exhausted' || code === 'unavailable' || code === 'deadline-exceeded'
 }`,
     'student identity sync helpers',
@@ -243,13 +244,13 @@ function transientIdentityReadError(error) {
 
   next = replaceExact(
     next,
-    `      }
-      return user
-    })().catch((error) => {`,
-    `      }
+    `        throw new Error('저장된 학생 정보와 로그인 정보가 달라. 앱 데이터를 초기화한 뒤 다시 등록해줘.')
+      }
+      return user`,
+    `        throw new Error('저장된 학생 정보와 로그인 정보가 달라. 앱 데이터를 초기화한 뒤 다시 등록해줘.')
+      }
       rememberIdentitySync(cacheKey)
-      return user
-    })().catch((error) => {`,
+      return user`,
     'student identity verified marker',
   )
 
