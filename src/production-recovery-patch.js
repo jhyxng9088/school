@@ -156,6 +156,106 @@ function patchSocialPushEndpoint(source) {
   return replaceExact(source, before, after, 'production social push endpoint')
 }
 
+function patchStudentIdentitySync(source) {
+  let next = String(source || '')
+
+  next = replaceExact(
+    next,
+    `let authPromise = null
+const identitySyncPromises = new Map()`,
+    `let authPromise = null
+const identitySyncPromises = new Map()
+const STUDENT_IDENTITY_SYNC_KEY = 'school.studentIdentitySync.v1'
+
+function identitySyncMarkerMatches(cacheKey) {
+  try {
+    return localStorage.getItem(STUDENT_IDENTITY_SYNC_KEY) === cacheKey
+  } catch {
+    return false
+  }
+}
+
+function rememberIdentitySync(cacheKey) {
+  try {
+    localStorage.setItem(STUDENT_IDENTITY_SYNC_KEY, cacheKey)
+  } catch {
+    // The in-memory promise still prevents duplicate checks for this session.
+  }
+}
+
+function transientIdentityReadError(error) {
+  const code = String(error?.code || '').replace(/^firestore\//, '')
+  return code === 'resource-exhausted' || code === 'unavailable' || code === 'deadline-exceeded'
+}`,
+    'student identity sync helpers',
+  )
+
+  next = replaceExact(
+    next,
+    `  const cacheKey = \`\${user.uid}|\${signature}\`
+  if (!identitySyncPromises.has(cacheKey)) {`,
+    `  const cacheKey = \`\${user.uid}|\${signature}\`
+  if (identitySyncMarkerMatches(cacheKey)) return user
+
+  if (!identitySyncPromises.has(cacheKey)) {`,
+    'student identity persistent marker check',
+  )
+
+  next = replaceExact(
+    next,
+    `      const identity = doc(db, 'users', user.uid)
+      const snapshot = await getDoc(identity)`,
+    `      const identity = doc(db, 'users', user.uid)
+      let snapshot
+      try {
+        snapshot = await getDoc(identity)
+      } catch (error) {
+        if (transientIdentityReadError(error)) {
+          console.warn('Student identity verification temporarily unavailable; continuing with existing auth session.', error)
+          return user
+        }
+        throw error
+      }`,
+    'student identity transient lookup fallback',
+  )
+
+  next = replaceExact(
+    next,
+    `        await setDoc(identity, {
+          classId,
+          studentKey,
+          name: profile.name,
+          createdAt: now,
+          updatedAt: now,
+        })
+        return user`,
+    `        await setDoc(identity, {
+          classId,
+          studentKey,
+          name: profile.name,
+          createdAt: now,
+          updatedAt: now,
+        })
+        rememberIdentitySync(cacheKey)
+        return user`,
+    'student identity create marker',
+  )
+
+  next = replaceExact(
+    next,
+    `      }
+      return user
+    })().catch((error) => {`,
+    `      }
+      rememberIdentitySync(cacheKey)
+      return user
+    })().catch((error) => {`,
+    'student identity verified marker',
+  )
+
+  return next
+}
+
 export function patchProductionRecoverySource(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/main.jsx')) return patchMainPresence(source)
@@ -164,5 +264,6 @@ export function patchProductionRecoverySource(source, id) {
   if (cleanId.endsWith('/src/preview-study.css')) return patchStudyPageTouchAction(source)
   if (cleanId.endsWith('/src/preview-study-ranking.css')) return patchStudyRankingTouchAction(source)
   if (cleanId.endsWith('/src/preview-social-push.js')) return patchSocialPushEndpoint(source)
+  if (cleanId.endsWith('/src/school-sync.js')) return patchStudentIdentitySync(source)
   return String(source || '')
 }
