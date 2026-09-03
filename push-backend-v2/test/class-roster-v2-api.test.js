@@ -1,8 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 
-const source = readFileSync(new URL('../api/class-roster-v2.js', import.meta.url), 'utf8')
+const source = readFileSync(new URL('../lib/class-roster-v2-handler.js', import.meta.url), 'utf8')
+const entrypoint = readFileSync(new URL('../api/class-roster.js', import.meta.url), 'utf8')
+const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'))
+const oldEntrypointUrl = new URL('../api/class-roster-v2.js', import.meta.url)
 
 test('quota-safe roster endpoint derives class identity only from the bearer token', () => {
   assert.match(source, /verifyIdToken\(token\)/)
@@ -57,4 +60,19 @@ test('quota-safe roster endpoint preserves response compatibility and reports ca
   ]) assert.match(source, new RegExp(marker))
   assert.match(source, /Cache-Control', 'no-store'/)
   assert.match(source, /error: 'missing_auth'/)
+})
+
+test('public class-roster-v2 URL is preserved without creating a thirteenth Vercel function', () => {
+  const rewrite = vercel.rewrites.find((item) => item.source === '/api/class-roster-v2')
+  assert.deepEqual(rewrite, {
+    source: '/api/class-roster-v2',
+    destination: '/api/class-roster?mode=v2',
+  })
+  assert.match(entrypoint, /import handleClassRosterV2 from '\.\.\/lib\/class-roster-v2-handler\.js'/)
+  assert.match(entrypoint, /if \(mode === 'v2'\) return handleClassRosterV2\(req, res\)/)
+  assert.equal(existsSync(oldEntrypointUrl), false)
+
+  const apiFiles = readdirSync(new URL('../api/', import.meta.url))
+    .filter((name) => name.endsWith('.js'))
+  assert.ok(apiFiles.length <= 12, `Hobby deployment would contain ${apiFiles.length} serverless functions`)
 })
