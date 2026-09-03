@@ -7,8 +7,9 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 test('home runtime observers stay scoped to the React app root', () => {
   for (const path of ['public/school-home-nav.js', 'public/school-home-live.js']) {
     const source = read(path)
-    assert.match(source, /const appRoot = document\.getElementById\('root'\) \|\| document\.documentElement/)
+    assert.match(source, /const appRoot = document\.getElementById\('root'\)/)
     assert.match(source, /observer\.observe\(appRoot,/)
+    assert.doesNotMatch(source, /document\.getElementById\('root'\) \|\| document\.documentElement/)
     assert.doesNotMatch(source, /observer\.observe\(document\.documentElement,/)
   }
 })
