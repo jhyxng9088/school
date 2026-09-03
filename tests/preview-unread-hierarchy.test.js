@@ -37,12 +37,13 @@ test('study unread reacts to new starts only and realtime supports parallel cons
   assert.doesNotMatch(realtime, /subscriptionStates\.forEach\(stopSocketState\)/)
 })
 
-test('segment keys load before the unread renderer and CSS supports segment dots', () => {
+test('segment unread keys are rendered semantically without a text-inference observer', () => {
   const html = read('index.html')
   const css = read('src/unread-indicators.css')
-  const keys = read('src/preview-unread-dom-keys.js')
-  assert.ok(html.indexOf('preview-unread-dom-keys.js') < html.indexOf('unread-indicators-v2.js'))
-  assert.match(keys, /'게시판': 'board'/)
-  assert.match(keys, /'학사일정': 'academic'/)
+  const owner = read('src/shared-segment-spring-owner-patch.js')
+  assert.doesNotMatch(html, /preview-unread-dom-keys\.js/)
+  assert.match(html, /unread-indicators-v2\.js/)
+  assert.match(owner, /data-unread-key=\{item\.id\}/)
+  assert.match(owner, /SEGMENT_BUTTON_KEY_MARKER/)
   assert.match(css, /school-unread-dot\.is-segment/)
 })
