@@ -6,11 +6,23 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 
 test('Study ranking input is owned by its React control, not a document pointer interceptor', () => {
   const homeNav = read('public/school-home-nav.js')
+  const refinements = read('public/school-refinements.css')
+  const recovery = read('src/production-recovery-patch.js')
 
   assert.doesNotMatch(homeNav, /deferStudyScopeTouchToClick/)
   assert.doesNotMatch(homeNav, /addEventListener\('pointerdown'/)
   assert.doesNotMatch(homeNav, /removeEventListener\('pointerdown'/)
-  assert.match(homeNav, /data-study-scroll-stability/)
+  assert.doesNotMatch(homeNav, /data-study-scroll-stability/)
+  assert.doesNotMatch(homeNav, /document\.createElement\('style'\)/)
+
+  assert.match(refinements, /preview-study-ranking-stage\[data-direction\]/)
+  assert.match(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
+  assert.match(refinements, /animation: none !important/)
+  assert.match(refinements, /will-change: auto !important/)
+
+  assert.match(recovery, /onClick=\{\(\) => selectScope\('class'\)\}/)
+  assert.match(recovery, /onClick=\{\(\) => selectScope\('school'\)\}/)
+  assert.match(recovery, /touch-action: pan-y/)
 })
 
 test('class roster input is owned by a real React button, not a runtime DOM enhancer', () => {
