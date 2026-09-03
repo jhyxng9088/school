@@ -61,36 +61,20 @@
   }
 
   function installStudyScrollStability() {
-    if (!document.querySelector('style[data-study-scroll-stability]')) {
-      const style = document.createElement('style')
-      style.dataset.studyScrollStability = 'true'
-      style.textContent = `
-        .preview-study-ranking-stage[data-direction] {
-          animation: none !important;
-          will-change: auto !important;
-        }
-        .preview-study-ranking-stage .preview-study-today-person {
-          animation: none !important;
-          will-change: auto !important;
-        }
-      `
-      document.head.appendChild(style)
-    }
-
-    document.addEventListener('pointerdown', deferStudyScopeTouchToClick, true)
-  }
-
-  function deferStudyScopeTouchToClick(event) {
-    if (event.pointerType === 'mouse') return
-    const target = event.target instanceof Element ? event.target : null
-    const button = target?.closest('.preview-study-ranking-tabs[aria-label="공부 랭킹 범위"] button')
-    if (!button) return
-
-    // The React scope control also changes state on pointerdown. On touch devices
-    // that mutates the ranking DOM before the gesture has fully settled, which can
-    // fight WebKit scroll momentum. Let the normal click handler perform the same
-    // state change after pointerup instead.
-    event.stopPropagation()
+    if (document.querySelector('style[data-study-scroll-stability]')) return
+    const style = document.createElement('style')
+    style.dataset.studyScrollStability = 'true'
+    style.textContent = `
+      .preview-study-ranking-stage[data-direction] {
+        animation: none !important;
+        will-change: auto !important;
+      }
+      .preview-study-ranking-stage .preview-study-today-person {
+        animation: none !important;
+        will-change: auto !important;
+      }
+    `
+    document.head.appendChild(style)
   }
 
   function scheduleEnhance() {
@@ -107,7 +91,6 @@
 
   window.addEventListener('pagehide', () => {
     observer.disconnect()
-    document.removeEventListener('pointerdown', deferStudyScopeTouchToClick, true)
     if (frame) window.cancelAnimationFrame(frame)
   }, { once: true })
 
