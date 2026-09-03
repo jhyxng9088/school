@@ -294,20 +294,37 @@ export async function deletePreviewBoardSection(sectionId) {
   return { sectionId: String(response.sectionId), movedCount: Number(response.movedCount || 0) }
 }
 
-export async function addPreviewBoardComment(postId, body) {
+export async function addPreviewBoardComment(postId, body, attachments = []) {
   const response = await requestBoard({
     method: 'POST',
-    payload: { action: 'comment', postId, body },
+    payload: {
+      action: 'comment',
+      postId,
+      body,
+      attachments: attachments.slice(0, BOARD_ATTACHMENT_LIMIT),
+    },
   })
   if (!response.post?.id) throw boardError('board/invalid-post', '댓글이 반영된 게시글을 확인하지 못했어요.')
   updateCachedPost(response.post)
   return response.post
 }
 
-export async function editPreviewBoardComment(postId, commentId, body) {
+export async function editPreviewBoardComment(
+  postId,
+  commentId,
+  body,
+  { keepAttachmentIds = [], attachments = [] } = {},
+) {
   const response = await requestBoard({
     method: 'POST',
-    payload: { action: 'edit-comment', postId, commentId, body },
+    payload: {
+      action: 'edit-comment',
+      postId,
+      commentId,
+      body,
+      keepAttachmentIds: keepAttachmentIds.slice(0, BOARD_ATTACHMENT_LIMIT),
+      attachments: attachments.slice(0, BOARD_ATTACHMENT_LIMIT),
+    },
   })
   if (!response.post?.id) throw boardError('board/invalid-post', '수정된 댓글을 확인하지 못했어요.')
   updateCachedPost(response.post)
