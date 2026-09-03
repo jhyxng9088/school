@@ -32,3 +32,18 @@ html.school-mobile-compat .reminder-original-image-wrap,
 html.school-mobile-compat .reminder-original-save {
   min-width: 0;
 }
+
+/*
+ * Mobile PWA stability: the outer class-station spring is the single owner of
+ * the five-column nav layout. The nested timetable/board pill keeps its own
+ * spring and visible pressure/indicator reaction, but its overshoot must not
+ * trigger a second full grid reflow on every inner-pill animation frame.
+ */
+html.school-mobile-compat .bottom-nav[data-class-layout-spring="true"][data-nested-geometry-follow="true"] {
+  grid-template-columns:
+    var(--station-side-current)
+    var(--station-class-current)
+    var(--station-side-current)
+    var(--station-side-current)
+    var(--station-side-current) !important;
+}
