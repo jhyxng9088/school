@@ -5,6 +5,7 @@ import { patchPreviewFastCacheSource } from '../src/preview-fast-cache-patch.js'
 import { patchPreviewBoardSource } from '../src/preview-board-patch.js'
 import { patchPreviewBoardAllSource } from '../src/preview-board-all-patch.js'
 import { patchPreviewBoardSectionManagementSource } from '../src/preview-board-section-management-patch.js'
+import { patchStudyVisualPolishSource } from '../src/study-visual-polish-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -80,4 +81,12 @@ test('board section management styling matches the compact reminder action sheet
 test('board section management transform accepts the current main React import', () => {
   const source = buildBoardSource()
   assert.match(source, /import \{ useCallback, useEffect, useMemo, useRef, useState \} from 'react'/)
+})
+
+test('board section editor keeps the downstream close-motion patch contract', () => {
+  const source = buildBoardSource()
+  const polished = patchStudyVisualPolishSource(source, '/src/preview-board-complete.jsx')
+
+  assert.match(polished, /function BoardSectionEditor\(\{ section: incomingSection, sections, open, onClose, onUpdated, onDeleted \}\)/)
+  assert.match(polished, /const retainedSectionRef = useRef\(incomingSection\)/)
 })
