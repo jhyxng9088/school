@@ -102,6 +102,18 @@ body:has(.period-item.is-current) .current-class-label::before {
   }
 }
 
+/* Preserve the current Study ranking scroll-stability behavior without
+   creating a runtime <style> node from school-home-nav.js. */
+.preview-study-ranking-stage[data-direction] {
+  animation: none !important;
+  will-change: auto !important;
+}
+
+.preview-study-ranking-stage .preview-study-today-person {
+  animation: none !important;
+  will-change: auto !important;
+}
+
 /* Keep the five home sections entering in sequence, and reserve the normal
    academic-summary footprint so NEIS data cannot push the page after load. */
 .home-stack > :nth-child(5) {
