@@ -70,15 +70,6 @@
     <script defer src="./v2-update-notice.js?v=2"></script>
     <script defer src="./notification-routing.js"></script>
     <script defer src="./notification-tone-profile.js"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.getRegistration().then((registration) => {
-            registration?.update().catch(() => {})
-          }).catch(() => {})
-        })
-      }
-    </script>
     <script type="module" src="/src/main.jsx"></script>
     <script type="module" src="/src/neis-timetable-sync.js"></script>
     <script type="module" src="/src/device-profile-sync.js"></script>
