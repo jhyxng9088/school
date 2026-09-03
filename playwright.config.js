@@ -38,7 +38,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'S_HUB_E2E=1 npm run preview -- --host 127.0.0.1 --port 4173',
+    command: 'npm run preview -- --config vite.e2e.config.js --host 127.0.0.1 --port 4173',
     url: 'http://127.0.0.1:4173/school/e2e-board-sheet.html',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
