@@ -39,8 +39,8 @@ test('board unread UI reaches class nav, board segment, and changed post cards',
   const unifiedCss = read('src/unread-indicators.css')
 
   assert.match(patch, /const boardUnread = usePreviewBoardUnread\(profile\)/)
-  assert.match(patch, /hasBoardUnread=\{boardUnread\.hasUnread\}/)
-  assert.match(patch, /tab\.id === 'class' && boardUnread\.hasUnread/)
+  assert.match(patch, /hasBoardUnread=\{boardUnread\.hasSectionUnread\}/)
+  assert.match(patch, /tab\.id === 'class' && boardUnread\.hasSectionUnread/)
   assert.match(patch, /boardUnread\.isPostUnread\(post\.id\)/)
   assert.match(patch, /boardUnread\.markPostRead\(post\.id\)/)
   assert.match(patch, /preview-board-unread-dot/)
@@ -68,7 +68,7 @@ test('an already open post stays read when a realtime comment or edit arrives', 
 test('AI working state keeps board unread class when both nav indicators are active', () => {
   const aiPatch = read('src/preview-ai-background-patch.js')
   assert.match(aiPatch, /boardUnreadNavMarker/)
-  assert.match(aiPatch, /tab\.id === 'class' && boardUnread\.hasUnread \? 'has-board-unread' : ''/)
+  assert.match(aiPatch, /tab\.id === 'class' && boardUnread\.hasSectionUnread \? 'has-board-unread' : ''/)
   assert.match(aiPatch, /tab\.id === 'ai' && aiWorking \? 'is-ai-working' : ''/)
   assert.match(aiPatch, /s-hub-ai-nav-progress/)
 })
