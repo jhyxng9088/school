@@ -61,7 +61,7 @@ jobs:
           npm test
           npm run build
 
-      - name: Test untouched preview source
+      - name: Install and test preview source
         working-directory: preview-source
         run: |
           npm ci
