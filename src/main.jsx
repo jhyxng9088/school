@@ -36,6 +36,7 @@ import { activityKey, activityLabel, recordClassActivities, useClassActivity, us
 import { SchoolAISheet } from './s-hub-ai-sheet.jsx'
 import { SHubAIOrb } from './s-hub-ai-orb.jsx'
 import { buildSchoolAIContext } from './s-hub-ai-core.js'
+import { openClassRoster } from './class-roster-ui-v2.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
