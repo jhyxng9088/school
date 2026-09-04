@@ -3,6 +3,7 @@ import { ensureSignedIn, readStudentProfile } from './school-sync'
 const DEVICE_API = 'https://school-reminder-backend.vercel.app/api/device-register'
 const CACHE_KEY = 'school.deviceProfile.v1'
 let syncing = false
+let syncTimer = 0
 
 function detectBrowser(ua) {
   if (/SamsungBrowser/i.test(ua)) return 'samsung'
@@ -59,7 +60,11 @@ async function syncDeviceProfile() {
 }
 
 function scheduleSync() {
-  window.setTimeout(() => { void syncDeviceProfile() }, 1200)
+  if (syncTimer) return
+  syncTimer = window.setTimeout(() => {
+    syncTimer = 0
+    void syncDeviceProfile()
+  }, 1200)
 }
 
 window.addEventListener('online', scheduleSync)
