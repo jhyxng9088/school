@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { HomeNavAction } from './home-nav-action.jsx'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -63,7 +64,8 @@ export default function HomeMealPreview({ now, schoolData }) {
         : `${dateLabel(targetDate)} 급식이 등록되지 않았어요.`
 
   return (
-    <section className="home-section meal-preview stage3-home-block">
+    <section className="home-section meal-preview stage3-home-block home-nav-native-surface" data-home-nav-ready="true">
+      <HomeNavAction tab="schedule" section="meal" label="급식 열기" />
       <div className="section-heading">
         <h2>{title}</h2>
       </div>
