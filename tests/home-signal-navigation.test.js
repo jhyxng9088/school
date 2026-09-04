@@ -21,12 +21,16 @@ test('home overview cards route to the correct V2 destination without proxy-clic
   assert.match(patch, /onNavigate=\{onNavigate\}/)
 })
 
-test('home roster import patch is migration-safe before source ownership moves to main', () => {
+test('home roster import is source-owned while the migration patch stays duplicate-safe', () => {
+  const main = read('src/main.jsx')
   const polite = "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n"
   const signals = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
   const roster = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
+  const aiCore = "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n"
   const canonical = `${polite}${signals}${roster}`
 
+  assert.equal(main.split(roster).length - 1, 1)
+  assert.ok(main.includes(`${aiCore}${roster}`))
   assert.equal(patchPreviewHomeInfoImports(polite), canonical)
   assert.equal(patchPreviewHomeInfoImports(`${polite}${roster}`), canonical)
   assert.equal(patchPreviewHomeInfoImports(canonical), canonical)
