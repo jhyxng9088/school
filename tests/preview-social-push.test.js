@@ -24,6 +24,8 @@ test('production social client is rewritten to the canonical production backend'
   const built = patchProductionRecoverySource(source, '/workspace/src/preview-social-push.js')
   assert.match(built, /school-reminder-backend\.vercel\.app\/api\/activity-dispatch/)
   assert.doesNotMatch(built, /school-reminder-backend-git-preview-s-hub-v2/)
+  const rebuilt = patchProductionRecoverySource(built, '/workspace/src/preview-social-push.js')
+  assert.equal(rebuilt, built)
 })
 
 test('board sends push only for new post realtime mutation', () => {
