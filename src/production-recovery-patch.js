@@ -155,7 +155,13 @@ function patchStudyRankingTouchAction(source) {
 function patchSocialPushEndpoint(source) {
   const before = "const SOCIAL_PUSH_URL = 'https://school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711.vercel.app/api/activity-dispatch'"
   const after = "const SOCIAL_PUSH_URL = 'https://school-reminder-backend.vercel.app/api/activity-dispatch'"
-  return replaceExact(source, before, after, 'production social push endpoint')
+  const beforeCount = countOccurrences(source, before)
+  const afterCount = countOccurrences(source, after)
+  if (beforeCount === 0 && afterCount === 1) return String(source || '')
+  if (beforeCount !== 1 || afterCount !== 0) {
+    throw new Error(`S-Hub production recovery patch drift: expected exactly one preview or canonical social push endpoint, found preview=${beforeCount}, canonical=${afterCount}: production social push endpoint`)
+  }
+  return String(source || '').replace(before, after)
 }
 
 function patchStudentIdentitySync(source) {
