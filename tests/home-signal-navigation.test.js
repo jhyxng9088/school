@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { patchPreviewHomeInfoImports } from '../src/preview-home-info-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -18,6 +19,17 @@ test('home overview cards route to the correct V2 destination without proxy-clic
   assert.ok(patch.includes("if (target === 'reminder') {\\n      setScheduleSection('todo')\\n      changeTab('schedule')"))
   assert.match(patch, /onNavigate=\{navigateHomeSignal\}/)
   assert.match(patch, /onNavigate=\{onNavigate\}/)
+})
+
+test('home roster import patch is migration-safe before source ownership moves to main', () => {
+  const polite = "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n"
+  const signals = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
+  const roster = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
+  const canonical = `${polite}${signals}${roster}`
+
+  assert.equal(patchPreviewHomeInfoImports(polite), canonical)
+  assert.equal(patchPreviewHomeInfoImports(`${polite}${roster}`), canonical)
+  assert.equal(patchPreviewHomeInfoImports(canonical), canonical)
 })
 
 test('home overview section opts out of the legacy whole-section navigation handler', () => {
