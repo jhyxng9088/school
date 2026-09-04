@@ -1,8 +1,8 @@
 import { studentKeyFor } from './school-sync.js'
-import { loadPreviewStudy, loadPreviewStudyEvents } from './preview-study-client.js'
+import { loadPreviewStudy, loadPreviewStudyEvents, savePreviewStudySeen } from './preview-study-client.js'
 import { subscribePreviewStudyRealtime } from './preview-study-realtime.js'
 
-const STORAGE_PREFIX = 'school.studyUnread.v1:'
+const STORAGE_PREFIX = 'school.studyUnread.v2:'
 const controllers = new Map()
 
 function identityKey(profile) {
@@ -14,7 +14,15 @@ function storageKey(key) {
 }
 
 function blankState() {
-  return { initialized: false, latestAt: 0, seenAt: 0, eventCursor: 0, revision: 0 }
+  return {
+    initialized: false,
+    latestAt: 0,
+    seenAt: 0,
+    eventCursor: 0,
+    pendingSeenAt: 0,
+    pendingSeenCursor: 0,
+    revision: 0,
+  }
 }
 
 function loadStored(key) {
@@ -26,6 +34,8 @@ function loadStored(key) {
       latestAt: Math.max(0, Number(parsed?.latestAt || 0)),
       seenAt: Math.max(0, Number(parsed?.seenAt || 0)),
       eventCursor: Math.max(0, Math.floor(Number(parsed?.eventCursor || 0))),
+      pendingSeenAt: Math.max(0, Number(parsed?.pendingSeenAt || 0)),
+      pendingSeenCursor: Math.max(0, Math.floor(Number(parsed?.pendingSeenCursor || 0))),
       revision: 0,
     }
   } catch {
@@ -41,6 +51,8 @@ function persist(controller) {
       latestAt: controller.state.latestAt,
       seenAt: controller.state.seenAt,
       eventCursor: controller.state.eventCursor,
+      pendingSeenAt: controller.state.pendingSeenAt,
+      pendingSeenCursor: controller.state.pendingSeenCursor,
     }))
   } catch {
     // Keep the live state even when storage is unavailable.
@@ -83,38 +95,94 @@ function latestOtherEvent(events, myStudentKey) {
   return latest
 }
 
-async function loadEventCatchup(startCursor) {
-  let cursor = Math.max(0, Math.floor(Number(startCursor || 0)))
-  let latestCursor = cursor
-  let latestOtherAt = 0
-  let guard = 0
-  do {
-    const page = await loadPreviewStudyEvents({ since: cursor })
-    latestOtherAt = Math.max(latestOtherAt, latestOtherEvent(page.events, ''))
-    const nextCursor = Math.max(cursor, Number(page.cursor || 0))
-    latestCursor = Math.max(latestCursor, Number(page.latestCursor || 0), nextCursor)
-    if (!page.hasMore || nextCursor <= cursor) return { cursor: latestCursor, latestOtherAt, events: page.events }
-    cursor = nextCursor
-    guard += 1
-  } while (guard < 20)
-  return { cursor: latestCursor, latestOtherAt, events: [] }
+function applyServerReadState(controller, readState, currentLatest, eventLatest, latestCursor) {
+  if (readState?.initialized !== true) return false
+  const nextSeenAt = Math.max(
+    0,
+    Number(readState.seenAt || 0),
+    Number(controller.state.pendingSeenAt || 0),
+  )
+  const nextLatestAt = Math.max(
+    0,
+    Number(readState.latestAt || 0),
+    Number(currentLatest || 0),
+    Number(eventLatest || 0),
+  )
+  const nextCursor = Math.max(
+    0,
+    Number(readState.seenCursor || 0),
+    Number(latestCursor || 0),
+    Number(controller.state.pendingSeenCursor || 0),
+  )
+  const changed = !controller.state.initialized
+    || nextSeenAt !== controller.state.seenAt
+    || nextLatestAt !== controller.state.latestAt
+    || nextCursor !== controller.state.eventCursor
+
+  controller.state.initialized = true
+  controller.state.seenAt = nextSeenAt
+  controller.state.latestAt = nextLatestAt
+  controller.state.eventCursor = nextCursor
+  if (changed) {
+    persist(controller)
+    notify(controller)
+  }
+  return true
+}
+
+function hasPendingWrite(controller) {
+  return Number(controller.state.pendingSeenAt || 0) > 0
+    || Number(controller.state.pendingSeenCursor || 0) > 0
+}
+
+async function flushPending(controller) {
+  if (controller.flushPromise) return controller.flushPromise
+  if (!hasPendingWrite(controller)) return true
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false
+
+  controller.flushPromise = (async () => {
+    const seenAt = Math.max(0, Number(controller.state.pendingSeenAt || 0))
+    const seenCursor = Math.max(0, Number(controller.state.pendingSeenCursor || 0))
+    try {
+      await savePreviewStudySeen(seenAt, seenCursor)
+      if (Number(controller.state.pendingSeenAt || 0) <= seenAt) controller.state.pendingSeenAt = 0
+      if (Number(controller.state.pendingSeenCursor || 0) <= seenCursor) controller.state.pendingSeenCursor = 0
+      persist(controller)
+      return !hasPendingWrite(controller)
+    } catch (error) {
+      console.warn('S-Hub study read-state sync unavailable:', error)
+      return false
+    }
+  })().finally(() => {
+    controller.flushPromise = null
+  })
+  return controller.flushPromise
 }
 
 async function syncController(controller) {
   if (controller.syncPromise) return controller.syncPromise
   controller.syncPromise = (async () => {
     try {
+      const flushed = await flushPending(controller)
+      if (!flushed && hasPendingWrite(controller)) return
+
       const [current, firstPage] = await Promise.all([
         loadPreviewStudy({ scope: 'class' }),
         loadPreviewStudyEvents({ since: controller.state.eventCursor }),
       ])
       const currentLatest = latestOtherStart(current, controller.identityKey)
+      const eventLatest = latestOtherEvent(firstPage.events, controller.identityKey)
+      const latestCursor = Math.max(
+        Number(firstPage.latestCursor || 0),
+        Number(firstPage.cursor || 0),
+      )
 
+      if (applyServerReadState(controller, firstPage.readState, currentLatest, eventLatest, latestCursor)) return
+
+      // Compatibility fallback while an older Edge Function is still serving.
       if (!controller.state.initialized) {
-        // First run establishes a baseline. Existing sessions/history must not
-        // suddenly appear as unread when this feature is first deployed.
         controller.state.initialized = true
-        controller.state.eventCursor = Math.max(0, Number(firstPage.latestCursor || firstPage.cursor || 0))
+        controller.state.eventCursor = latestCursor
         controller.state.latestAt = currentLatest
         controller.state.seenAt = currentLatest
         persist(controller)
@@ -123,8 +191,8 @@ async function syncController(controller) {
       }
 
       let cursor = controller.state.eventCursor
-      let eventLatest = latestOtherEvent(firstPage.events, controller.identityKey)
-      let latestCursor = Math.max(cursor, Number(firstPage.latestCursor || 0), Number(firstPage.cursor || 0))
+      let combinedEventLatest = eventLatest
+      let combinedLatestCursor = Math.max(cursor, latestCursor)
       let page = firstPage
       let guard = 0
       while (page.hasMore && guard < 20) {
@@ -132,13 +200,13 @@ async function syncController(controller) {
         if (nextCursor <= cursor) break
         cursor = nextCursor
         page = await loadPreviewStudyEvents({ since: cursor })
-        eventLatest = Math.max(eventLatest, latestOtherEvent(page.events, controller.identityKey))
-        latestCursor = Math.max(latestCursor, Number(page.latestCursor || 0), Number(page.cursor || 0))
+        combinedEventLatest = Math.max(combinedEventLatest, latestOtherEvent(page.events, controller.identityKey))
+        combinedLatestCursor = Math.max(combinedLatestCursor, Number(page.latestCursor || 0), Number(page.cursor || 0))
         guard += 1
       }
 
-      const nextLatestAt = Math.max(controller.state.latestAt, currentLatest, eventLatest)
-      const nextCursor = Math.max(controller.state.eventCursor, latestCursor)
+      const nextLatestAt = Math.max(controller.state.latestAt, currentLatest, combinedEventLatest)
+      const nextCursor = Math.max(controller.state.eventCursor, combinedLatestCursor)
       if (nextLatestAt !== controller.state.latestAt || nextCursor !== controller.state.eventCursor) {
         controller.state.latestAt = nextLatestAt
         controller.state.eventCursor = nextCursor
@@ -203,6 +271,7 @@ function controllerFor(profile) {
       stopRealtime: null,
       onResume: null,
       syncPromise: null,
+      flushPromise: null,
     })
   }
   return controllers.get(key)
@@ -225,8 +294,14 @@ export function markPreviewStudySeen(profile) {
   const latest = Math.max(0, Number(controller.state.latestAt || 0))
   if (!controller.state.initialized || latest <= controller.state.seenAt) return
   controller.state.seenAt = latest
+  controller.state.pendingSeenAt = Math.max(latest, Number(controller.state.pendingSeenAt || 0))
+  controller.state.pendingSeenCursor = Math.max(
+    Number(controller.state.eventCursor || 0),
+    Number(controller.state.pendingSeenCursor || 0),
+  )
   persist(controller)
   notify(controller)
+  void flushPending(controller)
 }
 
 export function previewStudyUnreadSnapshot(profile) {
