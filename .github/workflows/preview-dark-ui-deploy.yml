@@ -1,0 +1,253 @@
+name: Deploy Dark UI Preview
+
+on:
+  push:
+    branches: [preview/s-hub-v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: school-dark-ui-preview
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    outputs:
+      production_sha: ${{ steps.baselines.outputs.production_sha }}
+    steps:
+      - name: Checkout production main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: production-source
+
+      - name: Checkout preview branch
+        uses: actions/checkout@v4
+        with:
+          ref: preview/s-hub-v2
+          path: preview-source
+          fetch-depth: 2
+
+      - name: Capture immutable preview baseline
+        id: baselines
+        run: |
+          set -euo pipefail
+          production_sha="$(git -C production-source rev-parse HEAD)"
+          preview_baseline_sha="$(git -C preview-source rev-parse HEAD^)"
+          echo "production_sha=${production_sha}" >> "$GITHUB_OUTPUT"
+          echo "PRODUCTION_BASELINE_SHA=${production_sha}" >> "$GITHUB_ENV"
+          echo "PREVIEW_BASELINE_SHA=${preview_baseline_sha}" >> "$GITHUB_ENV"
+          git -C preview-source diff --exit-code "${preview_baseline_sha}" HEAD -- . ':(exclude).github'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            production-source/package-lock.json
+            preview-source/package-lock.json
+
+      - name: Test and build production baseline
+        working-directory: production-source
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Test untouched preview source
+        working-directory: preview-source
+        run: |
+          npm ci
+          npm test
+
+      - name: Generate preview-only dark UI layer
+        working-directory: preview-source
+        run: |
+          cat > public/preview-dark-ui.css <<'CSS'
+          /* S-Hub dark UI preview experiment. Generated only in preview CI. */
+          @media (prefers-color-scheme: dark) {
+            .week-corner { color:#98989d; }
+            .week-day-head,.week-period-label { color:#b5b5ba; }
+            .week-day-head span,.week-period-label span,.week-legend { color:#98989d; }
+            .week-cell .subject { color:#f2f2f7; font-weight:670; }
+            .week-cell.empty .subject { color:#8e8e93; }
+            .week-cell-attribution { color:#a8a8ad; opacity:.9; }
+            .period-item.is-past { opacity:.68; }
+            .timetable-action,.editor-button,.change-submit-row button,.remove-change { border-color:rgba(255,255,255,.12); background:rgba(255,255,255,.055); color:#b5b5ba; }
+            .timetable-action.primary { background:rgba(255,255,255,.1); color:#f2f2f7; }
+            .preview-home-signal { padding:16px 16px 15px; }
+            .preview-home-signal-head { margin-bottom:9px; }
+            .preview-home-signal-head span { color:#aaaab0; }
+            .preview-home-signal p { margin-top:6px; color:#98989e; }
+            .preview-board-card { gap:11px; padding:18px 18px 17px; }
+            .preview-board-card-body { color:#b3b3b8; }
+            .preview-board-card-meta,.preview-board-time,.preview-board-toolbar { color:#98989e; }
+            .preview-board-refresh { border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.055); color:#b8b8bd; }
+            .preview-board-refresh:active { background:rgba(255,255,255,.1); }
+            .preview-board-badge { border:1px solid rgba(255,255,255,.07); background:rgba(255,255,255,.06); color:#aaaab0; }
+            .preview-board-badge.is-question { border-color:rgba(124,131,255,.2); background:rgba(124,131,255,.13); color:#d7d9ff; }
+            .todo-item.is-completed .todo-check { opacity:.72; }
+            .todo-item.is-completed .todo-item-main { opacity:1; }
+            .todo-item.is-completed .todo-item-main strong,.todo-item.is-completed .todo-item-main .todo-kind,.todo-item.is-completed .todo-item-main small { color:#8e8e93; }
+            .academic-focus-card>span,.academic-list-head span,.academic-list-date span { color:#98989e; }
+            .academic-list-item { min-height:72px; padding:12px 15px; }
+            .academic-list-copy h3 { font-weight:700; }
+            .academic-list-copy p { margin-top:5px; color:#a8a8ad; font-size:11px; line-height:1.42; }
+            .activity-attribution { color:#9c9ca2; opacity:.9; }
+            .academic-item-actions button,.academic-edit-button,.academic-delete-button { border-color:rgba(255,255,255,.1); background:rgba(255,255,255,.055); }
+            .preview-study-card-heading p,.preview-study-live-row,.preview-study-today-summary span,.preview-study-date { color:#aaaab0; }
+            .s-hub-ai-page-title p:last-child,.s-hub-ai-page-capability-copy span,.s-hub-ai-item-summary>p,.s-hub-ai-item-summary-section>p { color:#aaaab0; }
+            .s-hub-ai-page-capability-icon { background:rgba(255,255,255,.065); color:#b5b5ba; }
+            .s-hub-ai-page>.s-hub-ai-content { border-color:rgba(255,255,255,.1); }
+            .stage3-week-nav>button,.stage3-day-button:not(.is-selected) { border-color:rgba(255,255,255,.1); }
+            .stage3-week-nav>button { background:rgba(255,255,255,.05); color:#b0b0b5; }
+          }
+          @media (prefers-color-scheme: dark) and (max-width:360px) {
+            .preview-home-signal { padding:14px; }
+            .preview-board-card { padding:16px; }
+            .academic-list-item { padding-inline:12px; }
+          }
+          CSS
+
+      - name: Isolate preview runtime and service worker
+        working-directory: preview-source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for root in (Path('src'), Path('public')):
+              for path in root.rglob('*'):
+                  if path.is_file() and path.suffix in {'.js','.jsx','.mjs'}:
+                      text = path.read_text()
+                      text = text.replace("'school.", "'school.preview.").replace('"school.', '"school.preview.')
+                      text = text.replace("'school-sync'", "'school-sync-preview'").replace('"school-sync"', '"school-sync-preview"')
+                      path.write_text(text)
+          sync = Path('src/school-sync.js')
+          text = sync.read_text()
+          a = "return `${normalized.classNumber}|${normalized.studentNumber}|${compactName}`"
+          b = "return `preview|${normalized.classNumber}|${normalized.studentNumber}|${compactName}`"
+          c = "return normalized ? `class-${normalized.classNumber}` : ''"
+          d = "return normalized ? `preview-class-${normalized.classNumber}` : ''"
+          if text.count(a) != 1 or text.count(c) != 1:
+              raise SystemExit('preview Firebase isolation markers changed')
+          sync.write_text(text.replace(a,b,1).replace(c,d,1))
+          sw = Path('public/sw.js')
+          text = sw.read_text()
+          cache = next((x for x in text.splitlines() if x.startswith("const CACHE_NAME = 'school-shell-")), None)
+          tone = "const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'"
+          cleanup = ".filter((key) => ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))"
+          if not cache or tone not in text or cleanup not in text:
+              raise SystemExit('preview service worker markers changed')
+          text = text.replace(cache,"const CACHE_NAME = 'school-preview-shell-dark-ui-v7'",1)
+          text = text.replace(tone,"const NOTIFICATION_PROFILE_CACHE = 'school-preview-notification-profile-dark-ui-v7'",1)
+          text = text.replace(cleanup,".filter((key) => key.startsWith('school-preview-') && ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))",1)
+          sw.write_text(text)
+          PY
+
+      - name: Patch preview base and build
+        working-directory: preview-source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('vite.config.js'); t=p.read_text(); old="base: '/school/',"
+          if t.count(old)!=1: raise SystemExit('Vite base marker changed')
+          p.write_text(t.replace(old,"base: '/school/preview-v2/',",1))
+          PY
+          npm run build
+
+      - name: Inject and verify preview-only cascade
+        working-directory: preview-source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          p=Path('dist/index.html'); t=p.read_text()
+          if t.count('</head>')!=1: raise SystemExit('built head marker changed')
+          inject=f'<meta name="s-hub-preview-baseline" content="{os.environ["PREVIEW_BASELINE_SHA"]}" /><link rel="stylesheet" href="./preview-dark-ui.css?v=7" />'
+          p.write_text(t.replace('</head>',inject+'</head>',1))
+          t=p.read_text(); link='<link rel="stylesheet" href="./preview-dark-ui.css?v=7" />'
+          if t.rfind('<link')!=t.find(link): raise SystemExit('preview CSS is not final stylesheet')
+          PY
+          bundle="$(find dist/assets -maxdepth 1 -type f -name 'index-*.js' | head -n1)"
+          grep -Fq 'school-sync-preview' "$bundle"
+          grep -Fq 'preview-class-' "$bundle"
+          grep -Fq 'preview|' "$bundle"
+          grep -Fq 'school.preview.studentProfile.v1' "$bundle"
+          grep -Fq 'preview-dark-ui.css?v=7' dist/index.html
+          grep -Fq 'S-Hub dark UI preview experiment' dist/preview-dark-ui.css
+          grep -Fq "school-preview-shell-dark-ui-v7" dist/sw.js
+          grep -Fq "key.startsWith('school-preview-')" dist/sw.js
+
+      - name: Verify production checkout is still current main
+        run: |
+          set -euo pipefail
+          git -C production-source fetch origin main
+          latest="$(git -C production-source rev-parse origin/main)"
+          current="$(git -C production-source rev-parse HEAD)"
+          test "${latest}" = "${current}"
+
+      - name: Compose and verify Pages artifact
+        run: |
+          set -euo pipefail
+          rm -rf site; mkdir -p site/preview-v2
+          cp -R production-source/dist/. site/
+          cp -R preview-source/dist/. site/preview-v2/
+          printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/school/preview-v2/">' > site/preview.html
+          ! grep -Fq 's-hub-preview-baseline' site/index.html
+          ! grep -Fq 'preview-dark-ui.css' site/index.html
+          test ! -e site/preview-dark-ui.css
+          grep -Fq "const CACHE_NAME = 'school-shell-" site/sw.js
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    steps:
+      - name: Verify main did not advance after build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ needs.build.outputs.production_sha }}
+        run: |
+          set -euo pipefail
+          current="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' https://api.github.com/repos/jhyxng9088/school/git/ref/heads/main | python3 -c 'import json,sys; print(json.load(sys.stdin)["object"]["sha"])')"
+          test "${current}" = "${EXPECTED_SHA}"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Smoke test production and preview
+        run: |
+          set -euo pipefail
+          preview='https://jhyxng9088.github.io/school/preview-v2/'
+          production='https://jhyxng9088.github.io/school/'
+          for attempt in $(seq 1 45); do
+            h="$(curl -fsSL "${preview}?sha=${GITHUB_SHA}&n=${attempt}" || true)"
+            c="$(curl -fsSL "${preview}preview-dark-ui.css?sha=${GITHUB_SHA}&n=${attempt}" || true)"
+            s="$(curl -fsSL "${preview}sw.js?sha=${GITHUB_SHA}&n=${attempt}" || true)"
+            p="$(curl -fsSL "${production}?preview-check=${GITHUB_SHA}&n=${attempt}" || true)"
+            if printf '%s' "$h"|grep -Fq 's-hub-preview-baseline' \
+              && printf '%s' "$h"|grep -Fq 'preview-dark-ui.css?v=7' \
+              && printf '%s' "$c"|grep -Fq 'S-Hub dark UI preview experiment' \
+              && printf '%s' "$s"|grep -Fq 'school-preview-shell-dark-ui-v7' \
+              && ! printf '%s' "$p"|grep -Fq 's-hub-preview-baseline' \
+              && ! printf '%s' "$p"|grep -Fq 'preview-dark-ui.css'; then
+              echo "Production and preview smoke test passed for ${GITHUB_SHA}"; exit 0
+            fi
+            sleep 4
+          done
+          exit 1
