@@ -164,7 +164,7 @@ const STUDY_RANKING_SPRING_CSS = String.raw`
   background: transparent;
   contain: layout;
   isolation: isolate;
-  touch-action: manipulation;
+  touch-action: pan-y;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -219,7 +219,7 @@ const STUDY_RANKING_SPRING_CSS = String.raw`
   font-weight: 690;
   letter-spacing: -0.025em;
   cursor: pointer;
-  touch-action: manipulation;
+  touch-action: pan-y;
   -webkit-tap-highlight-color: transparent;
   transition: color 220ms var(--motion-soft), transform 90ms var(--motion-ease);
 }
