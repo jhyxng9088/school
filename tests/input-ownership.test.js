@@ -7,6 +7,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 test('Study ranking input is owned by its React control, not a document pointer interceptor', () => {
   const homeNav = read('public/school-home-nav.js')
   const refinements = read('public/school-refinements.css')
+  const studyPatch = read('src/preview-study-patch.js')
   const recovery = read('src/production-recovery-patch.js')
 
   assert.doesNotMatch(homeNav, /deferStudyScopeTouchToClick/)
@@ -22,7 +23,10 @@ test('Study ranking input is owned by its React control, not a document pointer 
 
   assert.match(recovery, /onClick=\{\(\) => selectScope\('class'\)\}/)
   assert.match(recovery, /onClick=\{\(\) => selectScope\('school'\)\}/)
-  assert.match(recovery, /touch-action: pan-y/)
+  assert.equal((studyPatch.match(/touch-action: pan-y;/g) || []).length, 2)
+  assert.doesNotMatch(studyPatch, /touch-action: manipulation/)
+  assert.doesNotMatch(recovery, /patchStudyRankingTouchAction/)
+  assert.doesNotMatch(recovery, /preview-study-ranking\.css/)
 })
 
 test('class roster input is owned by a real React button, not a runtime DOM enhancer', () => {
