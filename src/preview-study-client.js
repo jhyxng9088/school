@@ -128,6 +128,16 @@ function normalizeStudent(value) {
   }
 }
 
+function normalizeStudyReadState(value) {
+  if (!value || typeof value !== 'object') return null
+  return {
+    initialized: value.initialized === true,
+    seenAt: Math.max(0, Number(value.seenAt || 0)),
+    seenCursor: Math.max(0, Math.floor(Number(value.seenCursor || 0))),
+    latestAt: Math.max(0, Number(value.latestAt || 0)),
+  }
+}
+
 export function normalizePreviewStudySnapshot(body) {
   const source = body && typeof body === 'object' ? body : {}
   const students = (Array.isArray(source.students) ? source.students : [])
@@ -160,7 +170,20 @@ export async function loadPreviewStudyEvents({ since = 0, signal } = {}) {
     cursor: Math.max(0, Math.floor(Number(body?.cursor || since || 0))),
     latestCursor: Math.max(0, Math.floor(Number(body?.latestCursor || 0))),
     hasMore: Boolean(body?.hasMore),
+    readState: normalizeStudyReadState(body?.readState),
   }
+}
+
+export async function savePreviewStudySeen(seenAt, seenCursor) {
+  const body = await requestStudyEvents({
+    method: 'POST',
+    payload: {
+      action: 'mark-seen',
+      seenAt: Math.max(0, Math.floor(Number(seenAt || 0))),
+      seenCursor: Math.max(0, Math.floor(Number(seenCursor || 0))),
+    },
+  })
+  return normalizeStudyReadState(body?.readState)
 }
 
 export async function recordPreviewStudyStartEvent(active) {
