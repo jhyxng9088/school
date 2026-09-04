@@ -4,10 +4,24 @@
   const SAMSUNG_INTERNET = /SamsungBrowser/i.test(navigator.userAgent)
   let trackedStack = null
   let lastPriority = null
+  let boundaryTimer = 0
 
   function isLunchPriority(now = new Date()) {
     const minutes = now.getHours() * 60 + now.getMinutes()
     return PHONE_PORTRAIT.matches && minutes >= 12 * 60 + 50 && minutes < 14 * 60
+  }
+
+  function nextPriorityBoundary(now = new Date()) {
+    const lunchStart = new Date(now)
+    lunchStart.setHours(12, 50, 0, 0)
+    const lunchEnd = new Date(now)
+    lunchEnd.setHours(14, 0, 0, 0)
+
+    if (now < lunchStart) return lunchStart
+    if (now < lunchEnd) return lunchEnd
+
+    lunchStart.setDate(lunchStart.getDate() + 1)
+    return lunchStart
   }
 
   function captureRects(stack) {
@@ -76,6 +90,23 @@
     animateReorder(stack, before)
   }
 
+  function schedulePriorityBoundary(now = new Date()) {
+    if (boundaryTimer) window.clearTimeout(boundaryTimer)
+    const boundary = nextPriorityBoundary(now)
+    const delay = Math.max(100, boundary.getTime() - now.getTime() + 100)
+    boundaryTimer = window.setTimeout(() => {
+      boundaryTimer = 0
+      syncPriority()
+      schedulePriorityBoundary()
+    }, delay)
+  }
+
+  function syncAfterResume() {
+    if (document.hidden) return
+    syncPriority()
+    schedulePriorityBoundary()
+  }
+
   const observer = new MutationObserver(syncPriority)
   const appRoot = document.getElementById('root')
   if (appRoot) {
@@ -85,15 +116,19 @@
     })
   }
 
-  const timer = window.setInterval(syncPriority, 15000)
   window.addEventListener('resize', syncPriority)
   window.addEventListener('orientationchange', syncPriority)
+  window.addEventListener('focus', syncAfterResume)
+  document.addEventListener('visibilitychange', syncAfterResume)
   PHONE_PORTRAIT.addEventListener?.('change', syncPriority)
 
   window.addEventListener('pagehide', () => {
-    window.clearInterval(timer)
+    if (boundaryTimer) window.clearTimeout(boundaryTimer)
     observer.disconnect()
+    window.removeEventListener('focus', syncAfterResume)
+    document.removeEventListener('visibilitychange', syncAfterResume)
   }, { once: true })
 
   syncPriority()
+  schedulePriorityBoundary()
 })()
