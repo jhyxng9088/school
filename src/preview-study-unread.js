@@ -1,6 +1,7 @@
 import { studentKeyFor } from './school-sync.js'
 import { loadPreviewStudy, loadPreviewStudyEvents } from './preview-study-client.js'
 import { subscribePreviewStudyRealtime } from './preview-study-realtime.js'
+import { advancePreviewUnreadState, loadPreviewUnreadState } from './preview-unread-state.js'
 
 const STORAGE_PREFIX = 'school.studyUnread.v1:'
 const controllers = new Map()
@@ -14,7 +15,7 @@ function storageKey(key) {
 }
 
 function blankState() {
-  return { initialized: false, latestAt: 0, seenAt: 0, eventCursor: 0, revision: 0 }
+  return { initialized: false, latestAt: 0, seenAt: 0, eventCursor: 0, seenCursor: 0, revision: 0 }
 }
 
 function loadStored(key) {
@@ -26,6 +27,9 @@ function loadStored(key) {
       latestAt: Math.max(0, Number(parsed?.latestAt || 0)),
       seenAt: Math.max(0, Number(parsed?.seenAt || 0)),
       eventCursor: Math.max(0, Math.floor(Number(parsed?.eventCursor || 0))),
+      // Old v1 caches did not store a distinct seen event cursor. Keep zero on
+      // upgrade rather than pretending every locally processed event was seen.
+      seenCursor: Math.max(0, Math.floor(Number(parsed?.seenCursor || 0))),
       revision: 0,
     }
   } catch {
@@ -41,6 +45,7 @@ function persist(controller) {
       latestAt: controller.state.latestAt,
       seenAt: controller.state.seenAt,
       eventCursor: controller.state.eventCursor,
+      seenCursor: controller.state.seenCursor,
     }))
   } catch {
     // Keep the live state even when storage is unavailable.
@@ -55,6 +60,7 @@ function snapshot(controller) {
     latestAt,
     seenAt,
     eventCursor: Math.max(0, Number(controller.state.eventCursor || 0)),
+    seenCursor: Math.max(0, Number(controller.state.seenCursor || 0)),
     revision: controller.state.revision,
   }
 }
@@ -83,27 +89,98 @@ function latestOtherEvent(events, myStudentKey) {
   return latest
 }
 
-async function loadEventCatchup(startCursor) {
-  let cursor = Math.max(0, Math.floor(Number(startCursor || 0)))
-  let latestCursor = cursor
-  let latestOtherAt = 0
-  let guard = 0
-  do {
-    const page = await loadPreviewStudyEvents({ since: cursor })
-    latestOtherAt = Math.max(latestOtherAt, latestOtherEvent(page.events, ''))
-    const nextCursor = Math.max(cursor, Number(page.cursor || 0))
-    latestCursor = Math.max(latestCursor, Number(page.latestCursor || 0), nextCursor)
-    if (!page.hasMore || nextCursor <= cursor) return { cursor: latestCursor, latestOtherAt, events: page.events }
-    cursor = nextCursor
-    guard += 1
-  } while (guard < 20)
-  return { cursor: latestCursor, latestOtherAt, events: [] }
+function mergeSharedStudySeen(controller, shared) {
+  const seenAt = Math.max(0, Number(shared?.studySeenAt || 0))
+  const seenCursor = Math.max(0, Math.floor(Number(shared?.studySeenCursor || 0)))
+  let changed = false
+
+  if (seenAt > Number(controller.state.seenAt || 0)) {
+    controller.state.seenAt = seenAt
+    changed = true
+  }
+  if (seenAt > Number(controller.state.latestAt || 0)) {
+    controller.state.latestAt = seenAt
+    changed = true
+  }
+  if (seenCursor > Number(controller.state.seenCursor || 0)) {
+    controller.state.seenCursor = seenCursor
+    changed = true
+  }
+  if (seenCursor > Number(controller.state.eventCursor || 0)) {
+    controller.state.eventCursor = seenCursor
+    changed = true
+  }
+  if (changed) {
+    persist(controller)
+    notify(controller)
+  }
+  return changed
 }
 
-async function syncController(controller) {
+function pushSharedStudySeen(controller, seenAt, seenCursor) {
+  return advancePreviewUnreadState({
+    studyInitialized: true,
+    studySeenAt: Math.max(0, Number(seenAt || 0)),
+    studySeenCursor: Math.max(0, Math.floor(Number(seenCursor || 0))),
+  }).then((shared) => {
+    mergeSharedStudySeen(controller, shared)
+    return shared
+  }).catch((error) => {
+    console.warn('S-Hub study shared seen save unavailable:', error)
+    return null
+  })
+}
+
+async function hydrateSharedStudyState(controller) {
+  const shared = await loadPreviewUnreadState()
+  const localInitialized = controller.state.initialized
+  const localSeenAt = Math.max(0, Number(controller.state.seenAt || 0))
+  const localSeenCursor = Math.max(0, Math.floor(Number(controller.state.seenCursor || 0)))
+
+  if (shared.studyInitialized) {
+    let effective = shared
+    if (localInitialized && (
+      localSeenAt > Number(shared.studySeenAt || 0)
+      || localSeenCursor > Number(shared.studySeenCursor || 0)
+    )) {
+      effective = await pushSharedStudySeen(controller, localSeenAt, localSeenCursor) || shared
+    }
+
+    if (!localInitialized) {
+      const seenAt = Math.max(0, Number(effective.studySeenAt || 0))
+      const seenCursor = Math.max(0, Math.floor(Number(effective.studySeenCursor || 0)))
+      controller.state.initialized = true
+      controller.state.latestAt = seenAt
+      controller.state.seenAt = seenAt
+      controller.state.eventCursor = seenCursor
+      controller.state.seenCursor = seenCursor
+      persist(controller)
+      notify(controller)
+    } else {
+      mergeSharedStudySeen(controller, effective)
+    }
+    return true
+  }
+
+  if (localInitialized) {
+    await pushSharedStudySeen(controller, localSeenAt, localSeenCursor)
+    return true
+  }
+  return false
+}
+
+async function syncController(controller, { refreshShared = false } = {}) {
   if (controller.syncPromise) return controller.syncPromise
   controller.syncPromise = (async () => {
     try {
+      if (refreshShared || !controller.state.initialized) {
+        try {
+          await hydrateSharedStudyState(controller)
+        } catch (error) {
+          console.warn('S-Hub study shared seen sync unavailable:', error)
+        }
+      }
+
       const [current, firstPage] = await Promise.all([
         loadPreviewStudy({ scope: 'class' }),
         loadPreviewStudyEvents({ since: controller.state.eventCursor }),
@@ -113,12 +190,15 @@ async function syncController(controller) {
       if (!controller.state.initialized) {
         // First run establishes a baseline. Existing sessions/history must not
         // suddenly appear as unread when this feature is first deployed.
+        const baselineCursor = Math.max(0, Number(firstPage.latestCursor || firstPage.cursor || 0))
         controller.state.initialized = true
-        controller.state.eventCursor = Math.max(0, Number(firstPage.latestCursor || firstPage.cursor || 0))
+        controller.state.eventCursor = baselineCursor
+        controller.state.seenCursor = baselineCursor
         controller.state.latestAt = currentLatest
         controller.state.seenAt = currentLatest
         persist(controller)
         notify(controller)
+        void pushSharedStudySeen(controller, currentLatest, baselineCursor)
         return
       }
 
@@ -157,7 +237,7 @@ async function syncController(controller) {
 function startController(controller) {
   if (controller.started) return
   controller.started = true
-  void syncController(controller)
+  void syncController(controller, { refreshShared: true })
 
   subscribePreviewStudyRealtime((payload) => {
     // Only a new study start creates an unread signal. Pause/resume/stop still
@@ -172,7 +252,7 @@ function startController(controller) {
 
   controller.onResume = () => {
     if (document.hidden || navigator.onLine === false) return
-    void syncController(controller)
+    void syncController(controller, { refreshShared: true })
   }
   window.addEventListener('focus', controller.onResume)
   window.addEventListener('online', controller.onResume)
@@ -222,11 +302,17 @@ export function subscribePreviewStudyUnread(profile, listener) {
 
 export function markPreviewStudySeen(profile) {
   const controller = controllerFor(profile)
+  if (!controller.state.initialized) return
   const latest = Math.max(0, Number(controller.state.latestAt || 0))
-  if (!controller.state.initialized || latest <= controller.state.seenAt) return
-  controller.state.seenAt = latest
+  const cursor = Math.max(0, Math.floor(Number(controller.state.eventCursor || 0)))
+  const nextSeenAt = Math.max(Number(controller.state.seenAt || 0), latest)
+  const nextSeenCursor = Math.max(Number(controller.state.seenCursor || 0), cursor)
+  if (nextSeenAt === controller.state.seenAt && nextSeenCursor === controller.state.seenCursor) return
+  controller.state.seenAt = nextSeenAt
+  controller.state.seenCursor = nextSeenCursor
   persist(controller)
   notify(controller)
+  void pushSharedStudySeen(controller, nextSeenAt, nextSeenCursor)
 }
 
 export function previewStudyUnreadSnapshot(profile) {
