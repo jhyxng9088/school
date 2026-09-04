@@ -26,12 +26,14 @@ test('Study ranking input is owned by its React control, not a document pointer 
 })
 
 test('class roster input is owned by a real React button, not a runtime DOM enhancer', () => {
+  const main = read('src/main.jsx')
   const recovery = read('src/production-recovery-patch.js')
   const roster = read('src/class-roster-ui-v2.js')
   const home = read('src/preview-home-info-patch.js')
 
-  assert.match(recovery, /<button[\s\S]*type="button"[\s\S]*class-presence-count is-roster-button/)
-  assert.match(recovery, /onClick=\{\(event\) => openClassRoster/)
+  assert.match(main, /<button[\s\S]*type="button"[\s\S]*class-presence-count is-roster-button/)
+  assert.match(main, /onClick=\{\(event\) => openClassRoster/)
+  assert.doesNotMatch(recovery, /patchMainPresence/)
   assert.match(roster, /export function openClassRoster\(/)
   assert.doesNotMatch(roster, /function enhanceCounter/)
   assert.doesNotMatch(roster, /counter\.addEventListener\('click'/)
