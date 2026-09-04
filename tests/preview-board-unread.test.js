@@ -23,6 +23,26 @@ test('board unread state baselines once, catches up by server cursor, and persis
   assert.match(unread, /delete next\[id\]/)
 })
 
+test('board unread uses a student-shared server owner while preserving local fallback', () => {
+  const unread = read('src/preview-board-unread.js')
+  const shared = read('src/preview-board-read-state.js')
+
+  assert.match(shared, /functions\/v1\/board-read-state/)
+  assert.match(shared, /export async function loadPreviewBoardReadState/)
+  assert.match(shared, /export async function initializePreviewBoardReadState/)
+  assert.match(shared, /export async function markPreviewBoardSectionSeenShared/)
+  assert.match(shared, /export async function markPreviewBoardPostReadShared/)
+
+  assert.match(unread, /async function syncSharedController\(controller\)/)
+  assert.match(unread, /unread: Object\.values\(controller\.state\.unread\)/)
+  assert.match(unread, /applySharedSnapshot\(controller, shared\)/)
+  assert.match(unread, /controller\.sharedReady = true/)
+  assert.match(unread, /if \(!controller\.sharedReady \|\| readCursor <= 0\) return/)
+  assert.match(unread, /markPreviewBoardPostReadShared\(id, readCursor\)/)
+  assert.match(unread, /markPreviewBoardSectionSeenShared\(cursor\)/)
+  assert.match(unread, /using local fallback/)
+})
+
 test('board realtime supports global unread and visible-board refresh listeners at the same time', () => {
   const realtime = read('src/preview-board-realtime.js')
   assert.match(realtime, /const listeners = new Set\(\)/)
