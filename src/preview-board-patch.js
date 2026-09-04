@@ -13,26 +13,6 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
   return `${source.slice(0, start)}${replacement}${source.slice(end)}`
 }
 
-function patchBoardClientRetry(source) {
-  let next = String(source || '')
-  if (next.includes('BOARD_GET_RETRY_DELAYS')) return next
-
-  next = replaceRequired(
-    next,
-    `const ATTACHMENT_URL_SAFETY_MS = 30_000`,
-    `const ATTACHMENT_URL_SAFETY_MS = 30_000\nconst BOARD_GET_RETRY_DELAYS = [0, 180, 420]`,
-    'board GET retry delays',
-  )
-
-  next = replaceRequired(
-    next,
-    `  let response\n  try {\n    response = await fetch(url, options)\n  } catch (error) {\n    if (error?.name === 'AbortError') throw error\n    throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')\n  }\n  return parseBoardResponse(response)`,
-    `  const delays = method === 'GET' ? BOARD_GET_RETRY_DELAYS : [0]\n  let response = null\n  let lastNetworkError = null\n  for (let attempt = 0; attempt < delays.length; attempt += 1) {\n    if (attempt > 0) await new Promise((resolve) => window.setTimeout(resolve, delays[attempt]))\n    if (signal?.aborted) {\n      const aborted = new Error('Aborted')\n      aborted.name = 'AbortError'\n      throw aborted\n    }\n    try {\n      response = await fetch(url, options)\n      lastNetworkError = null\n    } catch (error) {\n      if (error?.name === 'AbortError') throw error\n      lastNetworkError = error\n      if (attempt === delays.length - 1) throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')\n      continue\n    }\n    const retryable = method === 'GET' && response.status >= 500 && attempt < delays.length - 1\n    if (!retryable) return parseBoardResponse(response)\n  }\n  if (lastNetworkError) throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')\n  return parseBoardResponse(response)`,
-    'board GET retry loop',
-  )
-  return next
-}
-
 function patchCompletedBoardRealtime(source) {
   let next = String(source || '')
   if (next.includes('subscribePreviewBoardRealtime')) return next
@@ -202,7 +182,6 @@ export function patchPreviewBoardSource(source, id = '') {
   if (cleanId.endsWith('/preview-board.jsx')) {
     return patchPreviewBoardCompleteSource(patchPreviewBoardFinishSource(source, id), id)
   }
-  if (cleanId.endsWith('/preview-board-client.js')) return patchBoardClientRetry(source)
   if (cleanId.endsWith('/preview-board-complete.jsx')) return patchCompletedBoardUnread(patchCompletedBoardRealtime(source))
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
 
