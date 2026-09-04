@@ -13,33 +13,6 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
   return `${source.slice(0, start)}${replacement}${source.slice(end)}`
 }
 
-function patchBoardAttachmentViewer(source) {
-  let next = String(source || '')
-  if (next.includes("import { OriginalFileViewer } from './original-file-viewer.jsx'")) return next
-
-  next = replaceRequired(
-    next,
-    `import { useEffect, useMemo, useRef, useState } from 'react'`,
-    `import { useEffect, useMemo, useRef, useState } from 'react'\nimport { OriginalFileViewer } from './original-file-viewer.jsx'`,
-    'board shared original viewer import',
-  )
-  next = replaceRequired(next, `const DOWNLOAD_GESTURE_LOCK_MS = 700\n\n`, ``, 'remove duplicate download gesture lock')
-  next = spliceRequired(
-    next,
-    `function isAppleTouchDevice() {`,
-    `export function BoardAttachmentPicker`,
-    ``,
-    'remove duplicate board original viewer implementation',
-  )
-  next = replaceRequired(
-    next,
-    `<BoardOriginalViewer original={viewer} onClose={closeViewer} />`,
-    `<OriginalFileViewer\n        original={viewer}\n        onClose={closeViewer}\n        formatSize={formatFileSize}\n        portal\n        saveErrorLabel="Board original save failed:"\n      />`,
-    'board shared original viewer usage',
-  )
-  return next
-}
-
 function patchBoardClientRetry(source) {
   let next = String(source || '')
   if (next.includes('BOARD_GET_RETRY_DELAYS')) return next
@@ -229,7 +202,6 @@ export function patchPreviewBoardSource(source, id = '') {
   if (cleanId.endsWith('/preview-board.jsx')) {
     return patchPreviewBoardCompleteSource(patchPreviewBoardFinishSource(source, id), id)
   }
-  if (cleanId.endsWith('/preview-board-attachments.jsx')) return patchBoardAttachmentViewer(source)
   if (cleanId.endsWith('/preview-board-client.js')) return patchBoardClientRetry(source)
   if (cleanId.endsWith('/preview-board-complete.jsx')) return patchCompletedBoardUnread(patchCompletedBoardRealtime(source))
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
