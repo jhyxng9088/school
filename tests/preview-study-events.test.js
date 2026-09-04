@@ -26,7 +26,9 @@ test('study unread persists a server cursor and catches up missed start events',
 test('first study unread event sync establishes a baseline instead of flagging old history', () => {
   const source = read('src/preview-study-unread.js')
   const baseline = source.slice(source.indexOf('if (!controller.state.initialized)'), source.indexOf('let cursor = controller.state.eventCursor'))
-  assert.match(baseline, /eventCursor = Math\.max\(0, Number\(firstPage\.latestCursor/)
+  assert.match(baseline, /const baselineCursor = Math\.max\(0, Number\(firstPage\.latestCursor/)
+  assert.match(baseline, /eventCursor = baselineCursor/)
+  assert.match(baseline, /seenCursor = baselineCursor/)
   assert.match(baseline, /latestAt = currentLatest/)
   assert.match(baseline, /seenAt = currentLatest/)
   assert.doesNotMatch(baseline, /latestOtherEvent/)
