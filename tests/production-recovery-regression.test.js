@@ -79,10 +79,13 @@ test('study ranking waits for a completed tap and keeps vertical scrolling avail
   assert.doesNotMatch(rankingStyle, /touch-action: manipulation/)
   assert.equal((rankingStyle.match(/touch-action: pan-y;/g) || []).length, 2)
 
+  const rawPageStyle = read('src/preview-study.css')
   const pageStyle = recover('src/preview-study.css')
-  const repeatedPageStyle = recover('src/preview-study.css', pageStyle)
-  assert.equal(repeatedPageStyle, pageStyle)
-  assert.match(pageStyle, /\.preview-study-page \{[\s\S]*?touch-action: pan-y;/)
+  const recovery = read('src/production-recovery-patch.js')
+  assert.equal(pageStyle, rawPageStyle)
+  assert.match(rawPageStyle, /\.preview-study-page \{[\s\S]*?touch-action: pan-y;/)
+  assert.doesNotMatch(recovery, /patchStudyPageTouchAction/)
+  assert.doesNotMatch(recovery, /endsWith\('\/src\/preview-study\.css'\)/)
 })
 
 test('student identity sync survives transient Firestore outages without weakening hard identity mismatches', () => {
