@@ -1,5 +1,16 @@
 import { expect, test } from '@playwright/test'
 
+async function forbidExternalNetwork(page) {
+  const attempted = []
+  await page.route('https://**/*', async (route) => {
+    attempted.push(route.request().url())
+    await route.abort('blockedbyclient')
+  })
+  return () => {
+    expect(attempted, `E2E board fixture attempted external HTTPS requests:\n${attempted.join('\n')}`).toEqual([])
+  }
+}
+
 async function openBoardDetail(page) {
   await page.goto('e2e-board-sheet.html')
   await expect(page.getByRole('heading', { name: '게시판', exact: true })).toBeVisible()
@@ -54,15 +65,19 @@ async function expectAnimatedUnmount(page, trigger) {
 }
 
 test('게시글 상세 닫기 버튼은 exit animation 뒤에 unmount한다', async ({ page }) => {
+  const assertNoExternalNetwork = await forbidExternalNetwork(page)
   const dialog = await openBoardDetail(page)
   await observeCloseLifecycle(page, '.unified-sheet-close')
   await expectAnimatedUnmount(page, dialog.getByRole('button', { name: '닫기' }))
+  assertNoExternalNetwork()
 })
 
 test('게시글 상세 배경 닫기도 exit animation 뒤에 unmount한다', async ({ page }) => {
+  const assertNoExternalNetwork = await forbidExternalNetwork(page)
   await openBoardDetail(page)
   const backdrop = page.locator('.unified-sheet-backdrop')
   await expect(backdrop).toBeVisible()
   await observeCloseLifecycle(page, '.unified-sheet-backdrop')
   await expectAnimatedUnmount(page, backdrop)
+  assertNoExternalNetwork()
 })
