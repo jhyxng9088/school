@@ -31,3 +31,13 @@ test('semantic live glow preserves the existing breathe motion and lunch reorder
   assert.match(runtime, /SAMSUNG_INTERNET/)
   assert.match(runtime, /REDUCED_MOTION\.matches/)
 })
+
+test('home live lifecycle releases every global listener on pagehide', () => {
+  const runtime = read('public/school-home-live.js')
+
+  assert.match(runtime, /window\.removeEventListener\('resize', syncPriority\)/)
+  assert.match(runtime, /window\.removeEventListener\('orientationchange', syncPriority\)/)
+  assert.match(runtime, /window\.removeEventListener\('focus', syncAfterResume\)/)
+  assert.match(runtime, /document\.removeEventListener\('visibilitychange', syncAfterResume\)/)
+  assert.match(runtime, /PHONE_PORTRAIT\.removeEventListener\?\.\('change', syncPriority\)/)
+})
