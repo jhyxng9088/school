@@ -13,7 +13,8 @@ test('home presence recovery is migration-safe while React button ownership is s
   const builtMain = patchProductionRecoverySource(main, '/workspace/src/main.jsx')
   const rebuiltMain = patchProductionRecoverySource(builtMain, '/workspace/src/main.jsx')
 
-  assert.match(index, /<script type="module" src="\/src\/class-roster-ui-v2\.js"><\/script>/)
+  assert.doesNotMatch(index, /<script type="module" src="\/src\/class-roster-ui-v2\.js"><\/script>/)
+  assert.match(main, /import \{ openClassRoster \} from '\.\/class-roster-ui-v2\.js'/)
   assert.doesNotMatch(index, /src="\/src\/class-roster-ui\.js"/)
   assert.match(source, /import \{ ensureSignedIn, readStudentProfile \} from '\.\/school-sync'/)
   assert.match(source, /school-reminder-backend\.vercel\.app\/api\/class-roster-v2/)
