@@ -165,13 +165,13 @@ function patchMainUnread(source) {
   next = replaceRequired(
     next,
     `        onSectionChange={setClassSection}\n        boardPage=`,
-    `        onSectionChange={setClassSection}\n        hasBoardUnread={boardUnread.hasUnread}\n        boardPage=`,
+    `        onSectionChange={setClassSection}\n        hasBoardUnread={boardUnread.hasSectionUnread}\n        boardPage=`,
     'class page unread prop',
   )
   next = replaceRequired(
     next,
     "className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}",
-    "className={`nav-button ${activeTab === tab.id ? 'active' : ''} ${tab.id === 'class' && boardUnread.hasUnread ? 'has-board-unread' : ''}`}",
+    "className={`nav-button ${activeTab === tab.id ? 'active' : ''} ${tab.id === 'class' && boardUnread.hasSectionUnread ? 'has-board-unread' : ''}`}",
     'bottom nav unread class',
   )
   return next
