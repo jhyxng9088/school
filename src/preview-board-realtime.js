@@ -23,6 +23,24 @@ async function firebaseAuthorization() {
   return `Bearer ${token}`
 }
 
+function normalizeReadState(value) {
+  const unread = (Array.isArray(value?.unread) ? value.unread : [])
+    .map((entry) => ({
+      id: Math.max(0, Number(entry?.id || 0)),
+      postId: String(entry?.postId || '').trim().slice(0, 80),
+      sectionId: String(entry?.sectionId || 'general').trim().slice(0, 32) || 'general',
+      kind: String(entry?.kind || 'post_updated').trim().slice(0, 24),
+      at: Math.max(0, Number(entry?.at || 0)),
+    }))
+    .filter((entry) => entry.id > 0 && entry.postId)
+  return {
+    initialized: value?.initialized === true,
+    cursor: Math.max(0, Number(value?.cursor || 0)),
+    seenCursor: Math.max(0, Number(value?.seenCursor || 0)),
+    unread,
+  }
+}
+
 async function requestRealtimeConfig(since = null) {
   const url = new URL(REALTIME_CONFIG_URL)
   if (since != null) url.searchParams.set('since', String(Math.max(0, Number(since) || 0)))
@@ -41,7 +59,25 @@ async function requestRealtimeConfig(since = null) {
     cursor: Math.max(0, Number(body.cursor || 0)),
     events: Array.isArray(body.events) ? body.events : [],
     hasMore: Boolean(body.hasMore),
+    readState: body?.readState ? normalizeReadState(body.readState) : null,
   }
+}
+
+async function requestReadStateMutation(payload) {
+  const response = await fetch(REALTIME_CONFIG_URL, {
+    method: 'POST',
+    headers: {
+      authorization: await firebaseAuthorization(),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body?.ok !== true || !body?.readState) {
+    throw new Error(String(body?.message || '게시판 읽음 상태를 저장하지 못했어요.'))
+  }
+  return normalizeReadState(body.readState)
 }
 
 async function loadRealtimeTopic() {
@@ -58,6 +94,18 @@ async function loadRealtimeTopic() {
 
 export async function loadPreviewBoardEvents(since = null) {
   return requestRealtimeConfig(since)
+}
+
+export async function savePreviewBoardPostRead(postId, readCursor) {
+  const cleanPostId = String(postId || '').trim()
+  const cleanCursor = Math.max(0, Math.floor(Number(readCursor || 0)))
+  if (!cleanPostId || !cleanCursor) return null
+  return requestReadStateMutation({ action: 'mark-post-read', postId: cleanPostId, readCursor: cleanCursor })
+}
+
+export async function savePreviewBoardSectionSeen(cursor) {
+  const cleanCursor = Math.max(0, Math.floor(Number(cursor || 0)))
+  return requestReadStateMutation({ action: 'mark-section-seen', cursor: cleanCursor })
 }
 
 function safePayload(value) {

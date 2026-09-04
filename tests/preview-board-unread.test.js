@@ -12,15 +12,28 @@ test('board first GET retries transient server failures without retrying writes'
   assert.match(client, /signal\?\.aborted/)
 })
 
-test('board unread state baselines once, catches up by server cursor, and persists per student', () => {
+test('board unread uses student-scoped server state with local cache and retryable read writes', () => {
   const unread = read('src/preview-board-unread.js')
-  assert.match(unread, /STORAGE_PREFIX = 'school\.boardUnread\.v2:'/)
+  const realtime = read('src/preview-board-realtime.js')
+
+  assert.match(unread, /STORAGE_PREFIX = 'school\.boardUnread\.v3:'/)
   assert.match(unread, /studentKeyFor\(profile\)/)
-  assert.match(unread, /loadPreviewBoardEvents\(null\)/)
-  assert.match(unread, /loadPreviewBoardEvents\(cursor\)/)
+  assert.match(unread, /result\.readState/)
+  assert.match(unread, /function applyServerReadState\(controller, readState\)/)
+  assert.match(unread, /pendingReads/)
+  assert.match(unread, /pendingSeenCursor/)
+  assert.match(unread, /async function flushPending\(controller\)/)
   assert.match(unread, /localStorage\.setItem/)
+  assert.match(unread, /savePreviewBoardPostRead\(postId, readCursor\)/)
+  assert.match(unread, /savePreviewBoardSectionSeen\(pendingSeenCursor\)/)
   assert.match(unread, /function markPostReadFor\(controller, postId\)/)
   assert.match(unread, /delete next\[id\]/)
+
+  assert.match(realtime, /readState: body\?\.readState \? normalizeReadState\(body\.readState\) : null/)
+  assert.match(realtime, /export async function savePreviewBoardPostRead/)
+  assert.match(realtime, /action: 'mark-post-read'/)
+  assert.match(realtime, /export async function savePreviewBoardSectionSeen/)
+  assert.match(realtime, /action: 'mark-section-seen'/)
 })
 
 test('board realtime supports global unread and visible-board refresh listeners at the same time', () => {
