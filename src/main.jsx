@@ -435,13 +435,21 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
           <p className="date-label">{today}</p>
           <div className="home-title-row">
             <h1>홈</h1>
-            <span
-              className={`class-presence-count ${presence.total > 0 ? 'is-ready' : ''}`}
-              aria-hidden={presence.total <= 0}
-              aria-label={presence.total > 0 ? `현재 접속 ${presence.online}명, 반 인원 ${presence.total}명` : undefined}
+            <button
+              type="button"
+              className={`class-presence-count is-roster-button ${(presence.online > 0 || presence.total > 0) ? 'is-ready' : ''}`}
+              aria-hidden={presence.online <= 0 && presence.total <= 0}
+              aria-label={
+                presence.total > 0
+                  ? `현재 접속 ${presence.online}명, 반 인원 ${presence.total}명`
+                  : presence.online > 0
+                    ? `현재 접속 ${presence.online}명`
+                    : undefined
+              }
+              onClick={(event) => openClassRoster({ keyboard: event.detail === 0 })}
             >
-              {presence.online}/{presence.total}
-            </span>
+              {presence.total > 0 ? `${presence.online}/${presence.total}` : presence.online > 0 ? `${presence.online}명` : ''}
+            </button>
           </div>
         </div>
         <div className="home-top-actions">
