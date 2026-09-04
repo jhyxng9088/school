@@ -35,7 +35,13 @@ function patchMainPresence(source) {
               {presence.total > 0 ? \`\${presence.online}/\${presence.total}\` : presence.online > 0 ? \`\${presence.online}명\` : ''}
             </button>`
 
-  return replaceExact(source, before, after, 'presence display readiness')
+  const beforeCount = countOccurrences(source, before)
+  const afterCount = countOccurrences(source, after)
+  if (beforeCount === 0 && afterCount === 1) return String(source || '')
+  if (beforeCount !== 1 || afterCount !== 0) {
+    throw new Error(`S-Hub production recovery patch drift: expected exactly one legacy or canonical presence control, found legacy=${beforeCount}, canonical=${afterCount}: presence display readiness`)
+  }
+  return String(source || '').replace(before, after)
 }
 
 function patchTodoSectionSubmit(source) {
