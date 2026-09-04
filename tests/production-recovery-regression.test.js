@@ -110,6 +110,8 @@ test('study ranking waits for a completed tap and keeps vertical scrolling avail
   assert.match(rawPageStyle, /\.preview-study-page \{[\s\S]*?touch-action: pan-y;/)
   assert.doesNotMatch(recovery, /patchStudyPageTouchAction/)
   assert.doesNotMatch(recovery, /endsWith\('\/src\/preview-study\.css'\)/)
+  assert.doesNotMatch(recovery, /patchStudyRankingTouchAction/)
+  assert.doesNotMatch(recovery, /endsWith\('\/src\/preview-study-ranking\.css'\)/)
 })
 
 test('student identity sync survives transient Firestore outages without weakening hard identity mismatches', () => {
