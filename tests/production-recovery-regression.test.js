@@ -61,6 +61,25 @@ test('section editor pending-sync recovery is migration-safe and keeps the curre
   assert.match(source, /서버 사용량 제한으로 이 기기에 임시 저장했어요/)
 })
 
+test('study class label recovery accepts the future source-owned normalization', () => {
+  const pageId = path.join(root, 'src/preview-study.jsx')
+  const legacyLabel = `function classLabel(classId) {
+  const match = /^preview-class-(\\d+)$/.exec(String(classId || ''))
+  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
+}`
+  const canonicalLabel = `function classLabel(classId) {
+  const match = /^(?:preview-)?class-(\\d+)$/.exec(String(classId || ''))
+  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
+}`
+  const raw = read('src/preview-study.jsx')
+  const canonicalSource = raw.replace(legacyLabel, canonicalLabel)
+  assert.notEqual(canonicalSource, raw)
+
+  const previewPage = patchPreviewStudySource(canonicalSource, pageId)
+  const page = patchProductionRecoverySource(previewPage, pageId)
+  assert.ok(page.includes(canonicalLabel))
+})
+
 test('study ranking waits for a completed tap and keeps vertical scrolling available', () => {
   const pageId = path.join(root, 'src/preview-study.jsx')
   const previewPage = patchPreviewStudySource(read('src/preview-study.jsx'), pageId)
