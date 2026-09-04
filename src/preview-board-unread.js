@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { studentKeyFor } from './school-sync.js'
 import { loadPreviewBoardEvents, subscribePreviewBoardRealtime } from './preview-board-realtime.js'
+import { advancePreviewUnreadState, loadPreviewUnreadState } from './preview-unread-state.js'
 import './preview-board-unread.css'
 
 const STORAGE_PREFIX = 'school.boardUnread.v2:'
@@ -114,10 +115,83 @@ function applyEvents(controller, events, cursor) {
   }
 }
 
-async function syncController(controller) {
+function mergeSharedSeenCursor(controller, cursor) {
+  const nextSeen = Math.max(0, Number(cursor || 0))
+  if (nextSeen <= Number(controller.state.seenCursor || 0)) return false
+  controller.state.seenCursor = nextSeen
+  if (controller.state.cursor < nextSeen) controller.state.cursor = nextSeen
+  persist(controller)
+  notify(controller)
+  return true
+}
+
+function pushSharedBoardSeen(controller, cursor) {
+  const seenCursor = Math.max(0, Number(cursor || 0))
+  return advancePreviewUnreadState({
+    boardInitialized: true,
+    boardSeenCursor: seenCursor,
+  }).then((shared) => {
+    mergeSharedSeenCursor(controller, shared.boardSeenCursor)
+    return shared
+  }).catch((error) => {
+    console.warn('S-Hub board shared seen save unavailable:', error)
+    return null
+  })
+}
+
+async function hydrateSharedBoardState(controller) {
+  const shared = await loadPreviewUnreadState()
+  const localInitialized = controller.state.initialized
+  const localSeen = Math.max(0, Number(controller.state.seenCursor || 0))
+
+  if (shared.boardInitialized) {
+    let sharedSeen = Math.max(0, Number(shared.boardSeenCursor || 0))
+    if (localInitialized && localSeen > sharedSeen) {
+      const promoted = await pushSharedBoardSeen(controller, localSeen)
+      sharedSeen = Math.max(sharedSeen, Number(promoted?.boardSeenCursor || 0), localSeen)
+    }
+
+    if (!localInitialized) {
+      controller.state.initialized = true
+      controller.state.cursor = sharedSeen
+      controller.state.seenCursor = sharedSeen
+      controller.state.unread = {}
+      persist(controller)
+      notify(controller)
+    } else {
+      mergeSharedSeenCursor(controller, sharedSeen)
+    }
+    return true
+  }
+
+  if (localInitialized) {
+    await pushSharedBoardSeen(controller, localSeen)
+    return true
+  }
+
+  const baseline = await loadPreviewBoardEvents(null)
+  const cursor = Math.max(0, Number(baseline.cursor || 0))
+  controller.state.cursor = cursor
+  controller.state.seenCursor = cursor
+  controller.state.initialized = true
+  persist(controller)
+  notify(controller)
+  await pushSharedBoardSeen(controller, cursor)
+  return true
+}
+
+async function syncController(controller, { refreshShared = false } = {}) {
   if (controller.syncPromise) return controller.syncPromise
   controller.syncPromise = (async () => {
     try {
+      if (refreshShared || !controller.state.initialized) {
+        try {
+          await hydrateSharedBoardState(controller)
+        } catch (error) {
+          console.warn('S-Hub board shared seen sync unavailable:', error)
+        }
+      }
+
       if (!controller.state.initialized) {
         const baseline = await loadPreviewBoardEvents(null)
         const cursor = Math.max(0, Number(baseline.cursor || 0))
@@ -126,6 +200,7 @@ async function syncController(controller) {
         controller.state.initialized = true
         persist(controller)
         notify(controller)
+        void pushSharedBoardSeen(controller, cursor)
         return
       }
 
@@ -148,7 +223,7 @@ async function syncController(controller) {
 function startController(controller) {
   if (controller.started) return
   controller.started = true
-  void syncController(controller)
+  void syncController(controller, { refreshShared: true })
 
   subscribePreviewBoardRealtime(() => {
     void syncController(controller)
@@ -161,7 +236,7 @@ function startController(controller) {
 
   controller.onResume = () => {
     if (document.hidden || navigator.onLine === false) return
-    void syncController(controller)
+    void syncController(controller, { refreshShared: true })
   }
   window.addEventListener('focus', controller.onResume)
   window.addEventListener('online', controller.onResume)
@@ -222,6 +297,7 @@ function markSectionSeenFor(controller) {
   controller.state.seenCursor = cursor
   persist(controller)
   notify(controller)
+  void pushSharedBoardSeen(controller, cursor)
 }
 
 export function subscribePreviewBoardUnread(profile, listener) {
@@ -255,6 +331,6 @@ export function usePreviewBoardUnread(profile) {
     markSectionSeen,
     isPostUnread,
     unreadKind,
-    sync: () => syncController(controller),
+    sync: () => syncController(controller, { refreshShared: true }),
   }
 }
