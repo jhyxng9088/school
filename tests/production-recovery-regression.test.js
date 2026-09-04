@@ -20,8 +20,9 @@ test('production presence keeps RTDB opt-in until its client path is explicitly 
   assert.doesNotMatch(source, /VITE_FIREBASE_DATABASE_URL \|\| DEFAULT_DATABASE_URL/)
 })
 
-test('home presence control is source-owned and the recovery patch is a no-op', () => {
+test('home presence control is source-owned and its recovery owner is retired', () => {
   const raw = read('src/main.jsx')
+  const recovery = read('src/production-recovery-patch.js')
   const source = recover('src/main.jsx')
   assert.equal(source, raw)
   assert.match(raw, /presence\.online > 0 \|\| presence\.total > 0/)
@@ -29,6 +30,10 @@ test('home presence control is source-owned and the recovery patch is a no-op', 
   assert.match(raw, /<button[\s\S]*type="button"[\s\S]*class-presence-count is-roster-button/)
   assert.match(raw, /onClick=\{\(event\) => openClassRoster\(\{ keyboard: event\.detail === 0 \}\)\}/)
   assert.doesNotMatch(raw, /<span[^>]*class-presence-count/)
+  assert.doesNotMatch(recovery, /patchMainPresence/)
+  assert.doesNotMatch(recovery, /endsWith\('\/src\/main\.jsx'\)/)
+  assert.match(recovery, /patchTodoSectionSubmit/)
+  assert.match(recovery, /patchStudentIdentitySync/)
 })
 
 test('section edits use only the production backend and never reload the PWA on save failure', () => {
