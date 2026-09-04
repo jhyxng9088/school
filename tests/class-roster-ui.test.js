@@ -1,14 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { patchProductionRecoverySource } from '../src/production-recovery-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('home presence counter owns its button semantics in React and opens the authenticated class roster directly', () => {
+test('home presence recovery is migration-safe while React button ownership is staged', () => {
   const index = read('index.html')
   const source = read('src/class-roster-ui-v2.js')
-  const recovery = read('src/production-recovery-patch.js')
+  const main = read('src/main.jsx')
   const css = read('src/class-roster.css')
+  const builtMain = patchProductionRecoverySource(main, '/workspace/src/main.jsx')
+  const rebuiltMain = patchProductionRecoverySource(builtMain, '/workspace/src/main.jsx')
 
   assert.match(index, /<script type="module" src="\/src\/class-roster-ui-v2\.js"><\/script>/)
   assert.doesNotMatch(index, /src="\/src\/class-roster-ui\.js"/)
@@ -26,10 +29,11 @@ test('home presence counter owns its button semantics in React and opens the aut
   assert.match(source, /등록 확인 필요/)
   assert.match(source, /잘못된 인원으로 합치지 않고 따로 보류했어요/)
 
-  assert.match(recovery, /<button/)
-  assert.match(recovery, /type="button"/)
-  assert.match(recovery, /class-presence-count is-roster-button/)
-  assert.match(recovery, /onClick=\{\(event\) => openClassRoster\(\{ keyboard: event\.detail === 0 \}\)\}/)
+  assert.match(builtMain, /<button/)
+  assert.match(builtMain, /type="button"/)
+  assert.match(builtMain, /class-presence-count is-roster-button/)
+  assert.match(builtMain, /onClick=\{\(event\) => openClassRoster\(\{ keyboard: event\.detail === 0 \}\)\}/)
+  assert.equal(rebuiltMain, builtMain)
   assert.match(css, /\.class-presence-count\.is-roster-button[\s\S]*border: 0;[\s\S]*background: transparent;/)
 })
 
