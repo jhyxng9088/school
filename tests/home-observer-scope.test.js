@@ -14,7 +14,7 @@ test('home runtime observers stay scoped to the React app root', () => {
   }
 })
 
-test('observer scoping does not remove home navigation or lunch reorder behavior', () => {
+test('home live uses boundary scheduling instead of perpetual polling while preserving navigation and lunch reorder motion', () => {
   const nav = read('public/school-home-nav.js')
   const live = read('public/school-home-live.js')
 
@@ -22,7 +22,16 @@ test('observer scoping does not remove home navigation or lunch reorder behavior
   assert.match(nav, /addEventListener\('click'/)
   assert.match(nav, /addEventListener\('keydown'/)
 
-  assert.match(live, /setInterval\(syncPriority, 15000\)/)
+  assert.doesNotMatch(live, /setInterval\(syncPriority, 15000\)/)
+  assert.match(live, /lunchStart\.setHours\(12, 50, 0, 0\)/)
+  assert.match(live, /lunchEnd\.setHours\(14, 0, 0, 0\)/)
+  assert.match(live, /schedulePriorityBoundary/)
+  assert.match(live, /setTimeout\(\(\) =>/)
+  assert.match(live, /window\.addEventListener\('focus', syncAfterResume\)/)
+  assert.match(live, /document\.addEventListener\('visibilitychange', syncAfterResume\)/)
+
   assert.match(live, /duration: 920/)
+  assert.match(live, /delay: Math\.min\(index \* 42, 168\)/)
+  assert.match(live, /cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
   assert.match(live, /animation\.id = 'home-lunch-reorder'/)
 })
