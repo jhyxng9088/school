@@ -3,6 +3,7 @@ import { ensureSignedIn } from './school-sync.js'
 const BOARD_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-board'
 const BOARD_CACHE_FRESH_MS = 45_000
 const ATTACHMENT_URL_SAFETY_MS = 30_000
+const BOARD_GET_RETRY_DELAYS = [0, 180, 420]
 
 export const BOARD_PAGE_SIZE = 40
 export const BOARD_ATTACHMENT_LIMIT = 4
@@ -60,13 +61,29 @@ async function requestBoard({ method = 'GET', payload = null, signal, sectionId 
   }
   if (payload) options.body = JSON.stringify(payload)
 
-  let response
-  try {
-    response = await fetch(url, options)
-  } catch (error) {
-    if (error?.name === 'AbortError') throw error
-    throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')
+  const delays = method === 'GET' ? BOARD_GET_RETRY_DELAYS : [0]
+  let response = null
+  let lastNetworkError = null
+  for (let attempt = 0; attempt < delays.length; attempt += 1) {
+    if (attempt > 0) await new Promise((resolve) => window.setTimeout(resolve, delays[attempt]))
+    if (signal?.aborted) {
+      const aborted = new Error('Aborted')
+      aborted.name = 'AbortError'
+      throw aborted
+    }
+    try {
+      response = await fetch(url, options)
+      lastNetworkError = null
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error
+      lastNetworkError = error
+      if (attempt === delays.length - 1) throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')
+      continue
+    }
+    const retryable = method === 'GET' && response.status >= 500 && attempt < delays.length - 1
+    if (!retryable) return parseBoardResponse(response)
   }
+  if (lastNetworkError) throw boardError('board/network', '게시판 서버에 연결하지 못했어요.')
   return parseBoardResponse(response)
 }
 
