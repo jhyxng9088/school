@@ -78,6 +78,8 @@ test('study ranking waits for a completed tap and keeps vertical scrolling avail
   assert.equal((rankingStyle.match(/touch-action: pan-y;/g) || []).length, 2)
 
   const pageStyle = recover('src/preview-study.css')
+  const repeatedPageStyle = recover('src/preview-study.css', pageStyle)
+  assert.equal(repeatedPageStyle, pageStyle)
   assert.match(pageStyle, /\.preview-study-page \{[\s\S]*?touch-action: pan-y;/)
 })
 

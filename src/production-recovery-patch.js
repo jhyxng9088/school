@@ -118,7 +118,13 @@ function patchStudyPageTouchAction(source) {
   padding-top: 2px;
   touch-action: pan-y;
 }`
-  return replaceExact(source, before, after, 'study page vertical pan')
+  const beforeCount = countOccurrences(source, before)
+  const afterCount = countOccurrences(source, after)
+  if (beforeCount === 0 && afterCount === 1) return String(source || '')
+  if (beforeCount !== 1 || afterCount !== 0) {
+    throw new Error(`S-Hub production recovery patch drift: expected exactly one legacy or canonical study page touch action, found legacy=${beforeCount}, canonical=${afterCount}: study page vertical pan`)
+  }
+  return String(source || '').replace(before, after)
 }
 
 function patchStudyRankingTouchAction(source) {
