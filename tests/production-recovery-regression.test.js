@@ -74,6 +74,8 @@ test('study ranking waits for a completed tap and keeps vertical scrolling avail
   const rankingStyleId = path.join(root, 'src/preview-study-ranking.css')
   const previewRankingStyle = patchPreviewStudySource(read('src/preview-study-ranking.css'), rankingStyleId)
   const rankingStyle = patchProductionRecoverySource(previewRankingStyle, rankingStyleId)
+  const repeatedRankingStyle = patchProductionRecoverySource(rankingStyle, rankingStyleId)
+  assert.equal(repeatedRankingStyle, rankingStyle)
   assert.doesNotMatch(rankingStyle, /touch-action: manipulation/)
   assert.equal((rankingStyle.match(/touch-action: pan-y;/g) || []).length, 2)
 

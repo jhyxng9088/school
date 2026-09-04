@@ -128,12 +128,15 @@ function patchStudyPageTouchAction(source) {
 }
 
 function patchStudyRankingTouchAction(source) {
-  const marker = 'touch-action: manipulation;'
-  const count = countOccurrences(source, marker)
-  if (count !== 2) {
-    throw new Error(`S-Hub production recovery patch drift: expected 2 occurrences, found ${count}: study ranking vertical pan`)
+  const before = 'touch-action: manipulation;'
+  const after = 'touch-action: pan-y;'
+  const beforeCount = countOccurrences(source, before)
+  const afterCount = countOccurrences(source, after)
+  if (beforeCount === 0 && afterCount === 2) return String(source || '')
+  if (beforeCount !== 2 || afterCount !== 0) {
+    throw new Error(`S-Hub production recovery patch drift: expected exactly two legacy or canonical study ranking touch actions, found legacy=${beforeCount}, canonical=${afterCount}: study ranking vertical pan`)
   }
-  return String(source || '').split(marker).join('touch-action: pan-y;')
+  return String(source || '').split(before).join(after)
 }
 
 function patchStudentIdentitySync(source) {
