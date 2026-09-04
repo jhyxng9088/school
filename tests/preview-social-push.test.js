@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { patchProductionRecoverySource } from '../src/production-recovery-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -19,11 +18,13 @@ test('social dispatch shares activity endpoint and accepts isolated preview or p
   assert.match(source, /reminderActivityRecipientEligible/)
 })
 
-test('production social client is rewritten to the canonical production backend', () => {
+test('social client owns the canonical production backend without a recovery patch', () => {
   const source = read('src/preview-social-push.js')
-  const built = patchProductionRecoverySource(source, '/workspace/src/preview-social-push.js')
-  assert.match(built, /school-reminder-backend\.vercel\.app\/api\/activity-dispatch/)
-  assert.doesNotMatch(built, /school-reminder-backend-git-preview-s-hub-v2/)
+  const recovery = read('src/production-recovery-patch.js')
+  assert.match(source, /school-reminder-backend\.vercel\.app\/api\/activity-dispatch/)
+  assert.doesNotMatch(source, /school-reminder-backend-git-preview-s-hub-v2/)
+  assert.doesNotMatch(recovery, /patchSocialPushEndpoint/)
+  assert.doesNotMatch(recovery, /preview-social-push\.js/)
 })
 
 test('board sends push only for new post realtime mutation', () => {
