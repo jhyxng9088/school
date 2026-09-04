@@ -37,8 +37,8 @@ async function observeCloseLifecycle(page, triggerSelector) {
   }, triggerSelector)
 }
 
-async function expectAnimatedUnmount(page, trigger) {
-  await trigger.click()
+async function expectAnimatedUnmount(page, trigger, clickOptions) {
+  await trigger.click(clickOptions)
 
   await expect.poll(async () => page.evaluate(() => {
     const clickAt = window.__e2eBoardCloseClickAt
@@ -64,5 +64,5 @@ test('게시글 상세 배경 닫기도 exit animation 뒤에 unmount한다', as
   const backdrop = page.locator('.unified-sheet-backdrop')
   await expect(backdrop).toBeVisible()
   await observeCloseLifecycle(page, '.unified-sheet-backdrop')
-  await expectAnimatedUnmount(page, backdrop)
+  await expectAnimatedUnmount(page, backdrop, { position: { x: 16, y: 16 } })
 })
