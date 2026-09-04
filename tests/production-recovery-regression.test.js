@@ -50,10 +50,12 @@ test('section edits use only the production backend and never reload the PWA on 
   assert.doesNotMatch(queueable, /preview-backend-pending/)
 })
 
-test('section editor keeps the current sheet open when a quota-limited edit is queued locally', () => {
+test('section editor pending-sync recovery is migration-safe and keeps the current sheet open', () => {
   const id = path.join(root, 'src/todo-stage5-ai.jsx')
   const previewSource = patchPreviewSHubV2Source(read('src/todo-stage5-ai.jsx'), id)
   const source = patchProductionRecoverySource(previewSource, id)
+  const repeated = patchProductionRecoverySource(source, id)
+  assert.equal(repeated, source)
   assert.match(source, /const result = await saveReminderSectionChange/)
   assert.match(source, /if \(result\?\.pendingSync\)/)
   assert.match(source, /서버 사용량 제한으로 이 기기에 임시 저장했어요/)
