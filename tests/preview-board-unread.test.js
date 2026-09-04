@@ -5,11 +5,11 @@ import assert from 'node:assert/strict'
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('board first GET retries transient server failures without retrying writes', () => {
-  const patch = read('src/preview-board-patch.js')
-  assert.match(patch, /BOARD_GET_RETRY_DELAYS = \[0, 180, 420\]/)
-  assert.match(patch, /const delays = method === 'GET' \? BOARD_GET_RETRY_DELAYS : \[0\]/)
-  assert.match(patch, /response\.status >= 500/)
-  assert.match(patch, /signal\?\.aborted/)
+  const client = read('src/preview-board-client.js')
+  assert.match(client, /BOARD_GET_RETRY_DELAYS = \[0, 180, 420\]/)
+  assert.match(client, /const delays = method === 'GET' \? BOARD_GET_RETRY_DELAYS : \[0\]/)
+  assert.match(client, /response\.status >= 500/)
+  assert.match(client, /signal\?\.aborted/)
 })
 
 test('board unread state baselines once, catches up by server cursor, and persists per student', () => {
