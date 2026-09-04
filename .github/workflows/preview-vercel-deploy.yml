@@ -1,0 +1,270 @@
+name: Deploy Dark UI Preview to Vercel
+
+on:
+  push:
+    branches: [preview/s-hub-v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: school-dark-ui-vercel-preview
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: team_g4utUuOCpm0FhwXvywAgwkWP
+  VERCEL_PROJECT_ID: prj_B0rEK3FcOwjTGDRIdAlPXGrUhflZ
+  VERCEL_PROJECT_NAME: s-hub-preview
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout production main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: production-source
+          fetch-depth: 2
+
+      - name: Checkout preview control branch
+        uses: actions/checkout@v4
+        with:
+          ref: preview/s-hub-v2
+          path: preview-control
+          fetch-depth: 2
+
+      - name: Verify preview is an exact current-main application baseline
+        run: |
+          set -euo pipefail
+          main_sha="$(git -C production-source rev-parse HEAD)"
+          preview_sha="$(git -C preview-control rev-parse HEAD)"
+          preview_parent="$(git -C preview-control rev-parse HEAD^)"
+          test "${preview_parent}" = "${main_sha}"
+          git -C preview-control diff --exit-code "${main_sha}" "${preview_sha}" -- . ':(exclude).github'
+          echo "MAIN_BASELINE_SHA=${main_sha}" >> "$GITHUB_ENV"
+          echo "Preview application source matches main ${main_sha}"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: production-source/package-lock.json
+
+      - name: Install and test untouched current main source
+        working-directory: production-source
+        run: |
+          npm ci
+          npm test
+
+      - name: Generate preview-only dark UI layer
+        working-directory: production-source
+        run: |
+          cat > public/preview-dark-ui.css <<'CSS'
+          /* S-Hub dark UI preview experiment. Generated only in preview CI. */
+          @media (prefers-color-scheme: dark) {
+            .week-corner { color:#98989d; }
+            .week-day-head,.week-period-label { color:#b5b5ba; }
+            .week-day-head span,.week-period-label span,.week-legend { color:#98989d; }
+            .week-cell .subject { color:#f2f2f7; font-weight:670; }
+            .week-cell.empty .subject { color:#8e8e93; }
+            .week-cell-attribution { color:#a8a8ad; opacity:.9; }
+            .period-item.is-past { opacity:.68; }
+            .timetable-action,.editor-button,.change-submit-row button,.remove-change { border-color:rgba(255,255,255,.12); background:rgba(255,255,255,.055); color:#b5b5ba; }
+            .timetable-action.primary { background:rgba(255,255,255,.1); color:#f2f2f7; }
+            .preview-home-signal { padding:16px 16px 15px; }
+            .preview-home-signal-head { margin-bottom:9px; }
+            .preview-home-signal-head span { color:#aaaab0; }
+            .preview-home-signal p { margin-top:6px; color:#98989e; }
+            .preview-board-card { gap:11px; padding:18px 18px 17px; }
+            .preview-board-card-body { color:#b3b3b8; }
+            .preview-board-card-meta,.preview-board-time,.preview-board-toolbar { color:#98989e; }
+            .preview-board-refresh { border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.055); color:#b8b8bd; }
+            .preview-board-refresh:active { background:rgba(255,255,255,.1); }
+            .preview-board-badge { border:1px solid rgba(255,255,255,.07); background:rgba(255,255,255,.06); color:#aaaab0; }
+            .preview-board-badge.is-question { border-color:rgba(124,131,255,.2); background:rgba(124,131,255,.13); color:#d7d9ff; }
+            .todo-item.is-completed .todo-check { opacity:.72; }
+            .todo-item.is-completed .todo-item-main { opacity:1; }
+            .todo-item.is-completed .todo-item-main strong,.todo-item.is-completed .todo-item-main .todo-kind,.todo-item.is-completed .todo-item-main small { color:#8e8e93; }
+            .academic-focus-card>span,.academic-list-head span,.academic-list-date span { color:#98989e; }
+            .academic-list-item { min-height:72px; padding:12px 15px; }
+            .academic-list-copy h3 { font-weight:700; }
+            .academic-list-copy p { margin-top:5px; color:#a8a8ad; font-size:11px; line-height:1.42; }
+            .activity-attribution { color:#9c9ca2; opacity:.9; }
+            .academic-item-actions button,.academic-edit-button,.academic-delete-button { border-color:rgba(255,255,255,.1); background:rgba(255,255,255,.055); }
+            .preview-study-card-heading p,.preview-study-live-row,.preview-study-today-summary span,.preview-study-date { color:#aaaab0; }
+            .s-hub-ai-page-title p:last-child,.s-hub-ai-page-capability-copy span,.s-hub-ai-item-summary>p,.s-hub-ai-item-summary-section>p { color:#aaaab0; }
+            .s-hub-ai-page-capability-icon { background:rgba(255,255,255,.065); color:#b5b5ba; }
+            .s-hub-ai-page>.s-hub-ai-content { border-color:rgba(255,255,255,.1); }
+            .stage3-week-nav>button,.stage3-day-button:not(.is-selected) { border-color:rgba(255,255,255,.1); }
+            .stage3-week-nav>button { background:rgba(255,255,255,.05); color:#b0b0b5; }
+          }
+          @media (prefers-color-scheme: dark) and (max-width:360px) {
+            .preview-home-signal { padding:14px; }
+            .preview-board-card { padding:16px; }
+            .academic-list-item { padding-inline:12px; }
+          }
+          CSS
+
+      - name: Isolate preview runtime
+        working-directory: production-source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for root in (Path('src'), Path('public')):
+              for path in root.rglob('*'):
+                  if path.is_file() and path.suffix in {'.js', '.jsx', '.mjs'}:
+                      text = path.read_text()
+                      text = text.replace("'school.", "'school.preview.").replace('"school.', '"school.preview.')
+                      text = text.replace("'school-sync'", "'school-sync-preview'").replace('"school-sync"', '"school-sync-preview"')
+                      path.write_text(text)
+
+          sync = Path('src/school-sync.js')
+          text = sync.read_text()
+          identity = "return `${normalized.classNumber}|${normalized.studentNumber}|${compactName}`"
+          preview_identity = "return `preview|${normalized.classNumber}|${normalized.studentNumber}|${compactName}`"
+          class_key = "return normalized ? `class-${normalized.classNumber}` : ''"
+          preview_class_key = "return normalized ? `preview-class-${normalized.classNumber}` : ''"
+          if text.count(identity) != 1 or text.count(class_key) != 1:
+              raise SystemExit('preview Firebase isolation markers changed')
+          sync.write_text(text.replace(identity, preview_identity, 1).replace(class_key, preview_class_key, 1))
+
+          sw = Path('public/sw.js')
+          text = sw.read_text()
+          cache_line = next((line for line in text.splitlines() if line.startswith("const CACHE_NAME = 'school-shell-")), None)
+          tone_line = "const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'"
+          cleanup = ".filter((key) => ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))"
+          if not cache_line or tone_line not in text or cleanup not in text:
+              raise SystemExit('preview service worker markers changed')
+          text = text.replace(cache_line, "const CACHE_NAME = 'school-preview-shell-dark-ui-v8'", 1)
+          text = text.replace(tone_line, "const NOTIFICATION_PROFILE_CACHE = 'school-preview-notification-profile-dark-ui-v8'", 1)
+          text = text.replace(cleanup, ".filter((key) => key.startsWith('school-preview-') && ![CACHE_NAME, NOTIFICATION_PROFILE_CACHE].includes(key))", 1)
+          sw.write_text(text)
+          PY
+
+      - name: Patch Vercel root base and preview cascade
+        working-directory: production-source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          vite = Path('vite.config.js')
+          text = vite.read_text()
+          marker = "base: '/school/',"
+          if text.count(marker) != 1:
+              raise SystemExit('Vite base marker changed')
+          vite.write_text(text.replace(marker, "base: '/',", 1))
+
+          index = Path('index.html')
+          text = index.read_text()
+          if text.count('</head>') != 1:
+              raise SystemExit('index head marker changed')
+          inject = (
+              f'<meta name="s-hub-preview-baseline" content="{os.environ["MAIN_BASELINE_SHA"]}" />'
+              '<link rel="stylesheet" href="/preview-dark-ui.css?v=8" />'
+          )
+          index.write_text(text.replace('</head>', inject + '</head>', 1))
+          PY
+
+      - name: Verify main did not advance before deploy
+        run: |
+          set -euo pipefail
+          git -C production-source fetch origin main
+          test "$(git -C production-source rev-parse origin/main)" = "${MAIN_BASELINE_SHA}"
+
+      - name: Require Vercel deployment token
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo 'VERCEL_TOKEN GitHub Actions secret is not configured.' >&2
+            exit 78
+          fi
+
+      - name: Create or reuse dedicated Vercel preview project
+        working-directory: production-source
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          response="$(curl -sS -w '\n%{http_code}' \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_NAME}?teamId=${VERCEL_ORG_ID}")"
+          status="$(printf '%s' "$response" | tail -n1)"
+          body="$(printf '%s' "$response" | sed '$d')"
+
+          if [ "$status" = '404' ]; then
+            body="$(curl -fsS -X POST \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              -H 'Content-Type: application/json' \
+              "https://api.vercel.com/v11/projects?teamId=${VERCEL_ORG_ID}" \
+              --data '{"name":"s-hub-preview","framework":"vite","buildCommand":"npm run build","installCommand":"npm ci","outputDirectory":"dist","skipGitConnectDuringLink":true}')"
+          elif [ "$status" != '200' ]; then
+            printf '%s\n' "$body" >&2
+            exit 1
+          fi
+
+          project_id="$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+          test "$project_id" = "$VERCEL_PROJECT_ID"
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s","projectName":"%s"}\n' \
+            "$VERCEL_ORG_ID" "$project_id" "$VERCEL_PROJECT_NAME" > .vercel/project.json
+          echo "Vercel project: ${project_id}"
+
+      - name: Build and deploy dedicated Vercel preview
+        id: vercel
+        working-directory: production-source
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          cli_version="$(npm view vercel version)"
+          echo "Using Vercel CLI ${cli_version}"
+          npx --yes "vercel@${cli_version}" pull --yes --environment=production --token="${VERCEL_TOKEN}"
+          npx --yes "vercel@${cli_version}" build --prod --token="${VERCEL_TOKEN}"
+
+          static=.vercel/output/static
+          grep -Fq 's-hub-preview-baseline' "$static/index.html"
+          grep -Fq 'preview-dark-ui.css?v=8' "$static/index.html"
+          grep -Fq 'S-Hub dark UI preview experiment' "$static/preview-dark-ui.css"
+          grep -Fq 'school-preview-shell-dark-ui-v8' "$static/sw.js"
+          grep -Fq "key.startsWith('school-preview-')" "$static/sw.js"
+          bundle="$(find "$static/assets" -maxdepth 1 -type f -name 'index-*.js' | head -n1)"
+          grep -Fq 'school-sync-preview' "$bundle"
+          grep -Fq 'preview-class-' "$bundle"
+          grep -Fq 'preview|' "$bundle"
+          grep -Fq 'school.preview.studentProfile.v1' "$bundle"
+
+          deployment_url="$(npx --yes "vercel@${cli_version}" deploy --prebuilt --prod --yes --token="${VERCEL_TOKEN}" | tail -n1)"
+          echo "deployment_url=${deployment_url}" >> "$GITHUB_OUTPUT"
+          echo "Deployment URL: ${deployment_url}"
+
+      - name: Smoke test dedicated preview host
+        env:
+          DEPLOYMENT_URL: ${{ steps.vercel.outputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          stable='https://s-hub-preview.vercel.app/'
+          for attempt in $(seq 1 45); do
+            h="$(curl -fsSL "${DEPLOYMENT_URL}/?sha=${GITHUB_SHA}&n=${attempt}" || true)"
+            c="$(curl -fsSL "${DEPLOYMENT_URL}/preview-dark-ui.css?sha=${GITHUB_SHA}&n=${attempt}" || true)"
+            s="$(curl -fsSL "${DEPLOYMENT_URL}/sw.js?sha=${GITHUB_SHA}&n=${attempt}" || true)"
+            stable_h="$(curl -fsSL "${stable}?sha=${GITHUB_SHA}&n=${attempt}" || true)"
+            if printf '%s' "$h" | grep -Fq 's-hub-preview-baseline' \
+              && printf '%s' "$h" | grep -Fq 'preview-dark-ui.css?v=8' \
+              && printf '%s' "$c" | grep -Fq 'S-Hub dark UI preview experiment' \
+              && printf '%s' "$s" | grep -Fq 'school-preview-shell-dark-ui-v8' \
+              && printf '%s' "$stable_h" | grep -Fq 's-hub-preview-baseline'; then
+              echo 'Dedicated preview smoke test passed'
+              echo "Preview: ${stable}"
+              exit 0
+            fi
+            sleep 4
+          done
+          exit 1
