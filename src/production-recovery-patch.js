@@ -45,11 +45,11 @@ function patchTodoSectionSubmit(source) {
 function patchStudyClassLabel(source) {
   const before = `function classLabel(classId) {
   const match = /^preview-class-(\\d+)$/.exec(String(classId || ''))
-  return match ? \`${Number(match[1])}반\` : '반 정보 없음'
+  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
 }`
   const after = `function classLabel(classId) {
   const match = /^(?:preview-)?class-(\\d+)$/.exec(String(classId || ''))
-  return match ? \`${Number(match[1])}반\` : '반 정보 없음'
+  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
 }`
   return replaceExact(source, before, after, 'production study class label')
 }
@@ -167,9 +167,9 @@ function transientIdentityReadError(error) {
 
   next = replaceExact(
     next,
-    `  const cacheKey = \`${user.uid}|${signature}\`
+    `  const cacheKey = \`\${user.uid}|\${signature}\`
   if (!identitySyncPromises.has(cacheKey)) {`,
-    `  const cacheKey = \`${user.uid}|${signature}\`
+    `  const cacheKey = \`\${user.uid}|\${signature}\`
   if (identitySyncMarkerMatches(cacheKey)) return user
 
   if (!identitySyncPromises.has(cacheKey)) {`,
