@@ -51,7 +51,13 @@ function patchStudyClassLabel(source) {
   const match = /^(?:preview-)?class-(\\d+)$/.exec(String(classId || ''))
   return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
 }`
-  return replaceExact(source, before, after, 'production study class label')
+  const beforeCount = countOccurrences(source, before)
+  const afterCount = countOccurrences(source, after)
+  if (beforeCount === 0 && afterCount === 1) return String(source || '')
+  if (beforeCount !== 1 || afterCount !== 0) {
+    throw new Error(`S-Hub production recovery patch drift: expected exactly one legacy or canonical study class label, found legacy=${beforeCount}, canonical=${afterCount}: production study class label`)
+  }
+  return String(source || '').replace(before, after)
 }
 
 function patchStudyRankingGesture(source) {
