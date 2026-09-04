@@ -1,0 +1,214 @@
+/*
+ * S-Hub dark UI preview experiment.
+ * Preview branch only: preserve the production design language and fix contrast,
+ * density, spacing, and interactive affordance without globally inflating cards.
+ */
+
+@media (prefers-color-scheme: dark) {
+  /* Timetable: normal information should never read as disabled. */
+  .week-corner {
+    color: #98989d;
+  }
+
+  .week-day-head,
+  .week-period-label {
+    color: #b5b5ba;
+  }
+
+  .week-day-head span,
+  .week-period-label span,
+  .week-legend {
+    color: #98989d;
+  }
+
+  .week-cell .subject {
+    color: #f2f2f7;
+    font-weight: 670;
+  }
+
+  .week-cell.empty .subject {
+    color: #8e8e93;
+  }
+
+  .week-cell-attribution {
+    color: #a8a8ad;
+    opacity: .9;
+  }
+
+  .period-item.is-past {
+    opacity: .68;
+  }
+
+  .timetable-action,
+  .editor-button,
+  .change-submit-row button,
+  .remove-change {
+    border-color: rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .055);
+    color: #b5b5ba;
+  }
+
+  .timetable-action.primary {
+    background: rgba(255, 255, 255, .1);
+    color: #f2f2f7;
+  }
+
+  /* Home glance cards: a little more breathing room, not a global 1.5x expansion. */
+  .preview-home-signal {
+    padding: 16px 16px 15px;
+  }
+
+  .preview-home-signal-head {
+    margin-bottom: 9px;
+  }
+
+  .preview-home-signal-head span {
+    color: #aaaab0;
+  }
+
+  .preview-home-signal p {
+    margin-top: 6px;
+    color: #98989e;
+  }
+
+  /* Board: strengthen reading hierarchy and make secondary actions look tappable. */
+  .preview-board-card {
+    gap: 11px;
+    padding: 18px 18px 17px;
+  }
+
+  .preview-board-card-body {
+    color: #b3b3b8;
+  }
+
+  .preview-board-card-meta,
+  .preview-board-time,
+  .preview-board-toolbar {
+    color: #98989e;
+  }
+
+  .preview-board-refresh {
+    border: 1px solid rgba(255, 255, 255, .1);
+    background: rgba(255, 255, 255, .055);
+    color: #b8b8bd;
+  }
+
+  .preview-board-refresh:active {
+    background: rgba(255, 255, 255, .1);
+  }
+
+  .preview-board-badge {
+    border: 1px solid rgba(255, 255, 255, .07);
+    background: rgba(255, 255, 255, .06);
+    color: #aaaab0;
+  }
+
+  .preview-board-badge.is-question {
+    border-color: rgba(124, 131, 255, .2);
+    background: rgba(124, 131, 255, .13);
+    color: #d7d9ff;
+  }
+
+  /* Reminder completion: communicate completion without dimming the whole row. */
+  .todo-item.is-completed .todo-check {
+    opacity: .72;
+  }
+
+  .todo-item.is-completed .todo-item-main {
+    opacity: 1;
+  }
+
+  .todo-item.is-completed .todo-item-main strong {
+    color: #8e8e93;
+  }
+
+  .todo-item.is-completed .todo-item-main .todo-kind,
+  .todo-item.is-completed .todo-item-main small {
+    color: #8e8e93;
+  }
+
+  /* Academic schedule: preserve compactness, but stop long descriptions collapsing into gray noise. */
+  .academic-focus-card > span,
+  .academic-list-head span,
+  .academic-list-date span {
+    color: #98989e;
+  }
+
+  .academic-list-item {
+    min-height: 72px;
+    padding: 12px 15px;
+  }
+
+  .academic-list-copy h3 {
+    font-weight: 700;
+  }
+
+  .academic-list-copy p {
+    margin-top: 5px;
+    color: #a8a8ad;
+    font-size: 11px;
+    line-height: 1.42;
+  }
+
+  .activity-attribution {
+    color: #9c9ca2;
+    opacity: .9;
+  }
+
+  .academic-item-actions button,
+  .academic-edit-button,
+  .academic-delete-button {
+    border-color: rgba(255, 255, 255, .1);
+    background: rgba(255, 255, 255, .055);
+  }
+
+  /* Study is already structurally strong; only lift supporting copy slightly. */
+  .preview-study-card-heading p,
+  .preview-study-live-row,
+  .preview-study-today-summary span,
+  .preview-study-date {
+    color: #aaaab0;
+  }
+
+  /* AI: keep primary capability cards, flatten the repeated secondary gray blocks. */
+  .s-hub-ai-page-title p:last-child,
+  .s-hub-ai-page-capability-copy span,
+  .s-hub-ai-item-summary > p,
+  .s-hub-ai-item-summary-section > p {
+    color: #aaaab0;
+  }
+
+  .s-hub-ai-page-capability-icon {
+    background: rgba(255, 255, 255, .065);
+    color: #b5b5ba;
+  }
+
+  .s-hub-ai-page > .s-hub-ai-content {
+    border-color: rgba(255, 255, 255, .1);
+  }
+
+  /* Shared secondary controls: clear affordance without turning every action white. */
+  .stage3-week-nav > button,
+  .stage3-day-button:not(.is-selected) {
+    border-color: rgba(255, 255, 255, .1);
+  }
+
+  .stage3-week-nav > button {
+    background: rgba(255, 255, 255, .05);
+    color: #b0b0b5;
+  }
+}
+
+@media (prefers-color-scheme: dark) and (max-width: 360px) {
+  .preview-home-signal {
+    padding: 14px;
+  }
+
+  .preview-board-card {
+    padding: 16px;
+  }
+
+  .academic-list-item {
+    padding-inline: 12px;
+  }
+}

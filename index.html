@@ -12,6 +12,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="S-Hub" />
     <meta name="format-detection" content="telephone=no" />
+    <meta name="s-hub-preview-baseline" content="c15f8f6b816026ac9b0fd28e091c6c098bfff3fd" />
     <link rel="manifest" href="./manifest.webmanifest?v=10" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
@@ -43,6 +44,8 @@
     <link rel="stylesheet" href="./v2-update-device-fixes.css?v=1" />
     <link rel="stylesheet" href="./samsung-nav-icon-fixes.css?v=5" />
     <link rel="stylesheet" href="./mobile-layout-fixes.css?v=2" />
+    <!-- Preview-only cascade layer. Production main never loads this file. -->
+    <link rel="stylesheet" href="./preview-dark-ui.css?v=2" />
     <style>
       html body .app-content:has(> .todo-page) {
         animation: content-in 980ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
