@@ -20,13 +20,15 @@ test('production presence keeps RTDB opt-in until its client path is explicitly 
   assert.doesNotMatch(source, /VITE_FIREBASE_DATABASE_URL \|\| DEFAULT_DATABASE_URL/)
 })
 
-test('home presence indicator stays visible when online count is known and is emitted as a real button', () => {
+test('home presence control is source-owned and the recovery patch is a no-op', () => {
+  const raw = read('src/main.jsx')
   const source = recover('src/main.jsx')
-  assert.match(source, /presence\.online > 0 \|\| presence\.total > 0/)
-  assert.match(source, /presence\.total > 0 \? `\$\{presence\.online\}\/\$\{presence\.total\}` : presence\.online > 0 \? `\$\{presence\.online\}명`/)
-  assert.match(source, /<button[\s\S]*type="button"[\s\S]*class-presence-count is-roster-button/)
-  assert.match(source, /onClick=\{\(event\) => openClassRoster\(\{ keyboard: event\.detail === 0 \}\)\}/)
-  assert.doesNotMatch(source, /<span[^>]*class-presence-count/)
+  assert.equal(source, raw)
+  assert.match(raw, /presence\.online > 0 \|\| presence\.total > 0/)
+  assert.match(raw, /presence\.total > 0 \? `\$\{presence\.online\}\/\$\{presence\.total\}` : presence\.online > 0 \? `\$\{presence\.online\}명`/)
+  assert.match(raw, /<button[\s\S]*type="button"[\s\S]*class-presence-count is-roster-button/)
+  assert.match(raw, /onClick=\{\(event\) => openClassRoster\(\{ keyboard: event\.detail === 0 \}\)\}/)
+  assert.doesNotMatch(raw, /<span[^>]*class-presence-count/)
 })
 
 test('section edits use only the production backend and never reload the PWA on save failure', () => {
