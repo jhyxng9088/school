@@ -10,40 +10,6 @@ function replaceExact(source, marker, replacement, label) {
   return String(source || '').replace(marker, replacement)
 }
 
-function patchMainPresence(source) {
-  const before = `            <span
-              className={\`class-presence-count \${presence.total > 0 ? 'is-ready' : ''}\`}
-              aria-hidden={presence.total <= 0}
-              aria-label={presence.total > 0 ? \`현재 접속 \${presence.online}명, 반 인원 \${presence.total}명\` : undefined}
-            >
-              {presence.online}/{presence.total}
-            </span>`
-
-  const after = `            <button
-              type="button"
-              className={\`class-presence-count is-roster-button \${(presence.online > 0 || presence.total > 0) ? 'is-ready' : ''}\`}
-              aria-hidden={presence.online <= 0 && presence.total <= 0}
-              aria-label={
-                presence.total > 0
-                  ? \`현재 접속 \${presence.online}명, 반 인원 \${presence.total}명\`
-                  : presence.online > 0
-                    ? \`현재 접속 \${presence.online}명\`
-                    : undefined
-              }
-              onClick={(event) => openClassRoster({ keyboard: event.detail === 0 })}
-            >
-              {presence.total > 0 ? \`\${presence.online}/\${presence.total}\` : presence.online > 0 ? \`\${presence.online}명\` : ''}
-            </button>`
-
-  const beforeCount = countOccurrences(source, before)
-  const afterCount = countOccurrences(source, after)
-  if (beforeCount === 0 && afterCount === 1) return String(source || '')
-  if (beforeCount !== 1 || afterCount !== 0) {
-    throw new Error(`S-Hub production recovery patch drift: expected exactly one legacy or canonical presence control, found legacy=${beforeCount}, canonical=${afterCount}: presence display readiness`)
-  }
-  return String(source || '').replace(before, after)
-}
-
 function patchTodoSectionSubmit(source) {
   const before = `      await saveReminderSectionChange({
         action: 'update',
@@ -261,7 +227,6 @@ function transientIdentityReadError(error) {
 
 export function patchProductionRecoverySource(source, id) {
   const cleanId = String(id || '').split('?')[0]
-  if (cleanId.endsWith('/src/main.jsx')) return patchMainPresence(source)
   if (cleanId.endsWith('/src/todo-stage5-ai.jsx')) return patchTodoSectionSubmit(source)
   if (cleanId.endsWith('/src/preview-study.jsx')) return patchStudyRankingGesture(patchStudyClassLabel(source))
   if (cleanId.endsWith('/src/preview-study.css')) return patchStudyPageTouchAction(source)
