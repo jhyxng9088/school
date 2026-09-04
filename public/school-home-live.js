@@ -125,8 +125,11 @@
   window.addEventListener('pagehide', () => {
     if (boundaryTimer) window.clearTimeout(boundaryTimer)
     observer.disconnect()
+    window.removeEventListener('resize', syncPriority)
+    window.removeEventListener('orientationchange', syncPriority)
     window.removeEventListener('focus', syncAfterResume)
     document.removeEventListener('visibilitychange', syncAfterResume)
+    PHONE_PORTRAIT.removeEventListener?.('change', syncPriority)
   }, { once: true })
 
   syncPriority()
