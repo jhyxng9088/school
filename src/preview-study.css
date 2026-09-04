@@ -1,5 +1,6 @@
 .preview-study-page {
   padding-top: 2px;
+  touch-action: pan-y;
 }
 
 .preview-study-header {
