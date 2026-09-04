@@ -25,6 +25,7 @@ export default defineConfig({
       input: {
         main: path.resolve('index.html'),
         boardSheetE2E: path.resolve('e2e-board-sheet.html'),
+        navigationE2E: path.resolve('e2e-navigation.html'),
       },
     },
   },
