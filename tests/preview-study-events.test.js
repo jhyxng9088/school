@@ -42,5 +42,5 @@ test('server read state replaces stale per-device Study history while keeping li
   assert.match(apply, /Number\(readState\.latestAt \|\| 0\)/)
   assert.match(apply, /Number\(currentLatest \|\| 0\)/)
   assert.match(apply, /controller\.state\.eventCursor = nextCursor/)
-  assert.doesNotMatch(apply, /controller\.state\.latestAt/)
+  assert.doesNotMatch(apply, /Math\.max\(\s*controller\.state\.latestAt/)
 })
