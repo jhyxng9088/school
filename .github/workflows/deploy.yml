@@ -1,11 +1,13 @@
-# GitHub Pages production deployment.
+# GitHub Pages production deployment and stability-branch validation.
 # Production is gated by source tests, browser-level UI regression checks,
 # the production build, and backend tests before Pages deployment.
 name: Deploy School PWA
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'stability/**'
   workflow_dispatch:
 
 permissions:
@@ -14,14 +16,14 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: school-pwa-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout production main
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -71,14 +73,17 @@ jobs:
         run: npm test
 
       - name: Configure Pages
+        if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
