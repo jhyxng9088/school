@@ -152,12 +152,6 @@ function patchStudyRankingTouchAction(source) {
   return String(source || '').split(marker).join('touch-action: pan-y;')
 }
 
-function patchSocialPushEndpoint(source) {
-  const before = "const SOCIAL_PUSH_URL = 'https://school-reminder-backend-git-preview-s-hub-v2-jhyxng9088-7711.vercel.app/api/activity-dispatch'"
-  const after = "const SOCIAL_PUSH_URL = 'https://school-reminder-backend.vercel.app/api/activity-dispatch'"
-  return replaceExact(source, before, after, 'production social push endpoint')
-}
-
 function patchStudentIdentitySync(source) {
   let next = String(source || '')
 
@@ -266,7 +260,6 @@ export function patchProductionRecoverySource(source, id) {
   if (cleanId.endsWith('/src/preview-study.jsx')) return patchStudyRankingGesture(patchStudyClassLabel(source))
   if (cleanId.endsWith('/src/preview-study.css')) return patchStudyPageTouchAction(source)
   if (cleanId.endsWith('/src/preview-study-ranking.css')) return patchStudyRankingTouchAction(source)
-  if (cleanId.endsWith('/src/preview-social-push.js')) return patchSocialPushEndpoint(source)
   if (cleanId.endsWith('/src/school-sync.js')) return patchStudentIdentitySync(source)
   return String(source || '')
 }
