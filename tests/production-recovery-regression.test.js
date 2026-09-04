@@ -84,6 +84,8 @@ test('study ranking waits for a completed tap and keeps vertical scrolling avail
   const pageId = path.join(root, 'src/preview-study.jsx')
   const previewPage = patchPreviewStudySource(read('src/preview-study.jsx'), pageId)
   const page = patchProductionRecoverySource(previewPage, pageId)
+  const repeatedPage = patchProductionRecoverySource(page, pageId)
+  assert.equal(repeatedPage, page)
   assert.doesNotMatch(page, /onPointerDown=/)
   assert.doesNotMatch(page, /touchIntentRef/)
   assert.doesNotMatch(page, /performance\.now\(\) - intent\.at/)
