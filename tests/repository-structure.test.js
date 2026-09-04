@@ -60,3 +60,7 @@ test('retired duplicate runtime files stay removed', () => {
     'src/unread-indicators.js',
   ]) assert.equal(existsSync(resolve(root, path)), false, path)
 })
+
+test('retired build patches stay removed', () => {
+  assert.equal(existsSync(resolve(root, 'src/preview-board-complete-patch.js')), false)
+})
