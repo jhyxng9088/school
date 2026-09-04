@@ -7,6 +7,8 @@ const SYNC_MAX_AGE_MS = 6 * 60 * 60 * 1000
 const RETRY_GUARD_MS = 15 * 60 * 1000
 const CACHE_PREFIX = 'school.neisTimetableSync.v1'
 const attemptTimes = new Map()
+let syncTimer = 0
+let syncDueAt = 0
 
 function timetableRef(db, profile) {
   return doc(db, 'classes', classKeyFor(profile), 'settings', 'timetable')
@@ -109,7 +111,16 @@ async function safeSync(options) {
 }
 
 function scheduleSync(delay = 700) {
-  window.setTimeout(() => safeSync(), delay)
+  const dueAt = Date.now() + delay
+  if (syncTimer && syncDueAt <= dueAt) return
+  if (syncTimer) window.clearTimeout(syncTimer)
+
+  syncDueAt = dueAt
+  syncTimer = window.setTimeout(() => {
+    syncTimer = 0
+    syncDueAt = 0
+    void safeSync()
+  }, delay)
 }
 
 if (typeof window !== 'undefined') {
