@@ -1,0 +1,27 @@
+.home-nav-native-surface {
+  position: relative;
+}
+
+.home-nav-native-surface > .home-nav-action {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-nav-native-surface > .home-nav-action:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--text) 34%, transparent);
+}
