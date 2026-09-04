@@ -8,7 +8,7 @@ function patchBoardClientSource(source) {
   if (current.includes('__S_HUB_E2E_BOARD_FIXTURE__')) return current
 
   const marker = `export async function loadPreviewBoard({ signal, sectionId = 'general', forceSections = false, cursor = '', append = false } = {}) {`
-  const replacement = `${marker}\n  const e2eFixture = globalThis.__S_HUB_E2E_BOARD_FIXTURE__\n  if (e2eFixture && typeof e2eFixture === 'object') {\n    const fixturePosts = uniquePosts(Array.isArray(e2eFixture.posts) ? e2eFixture.posts : [])\n    const fixtureSections = Array.isArray(e2eFixture.sections) ? e2eFixture.sections : []\n    const activeSectionId = String(e2eFixture.activeSectionId || sectionId || 'all')\n    sectionCache.set(activeSectionId, { posts: fixturePosts, loadedAt: Date.now(), hasMore: false, nextCursor: '' })\n    if (fixtureSections.length) {\n      cachedSections = fixtureSections\n      sectionsCachedAt = Date.now()\n    }\n    return {\n      posts: [...fixturePosts],\n      sections: [...fixtureSections],\n      activeSectionId,\n      hasMore: false,\n      nextCursor: '',\n    }\n  }`
+  const replacement = `${marker}\n  const e2eFixture = globalThis.__S_HUB_E2E_BOARD_FIXTURE__\n  if (e2eFixture && typeof e2eFixture === 'object') {\n    const fixturePosts = uniquePosts(Array.isArray(e2eFixture.posts) ? e2eFixture.posts : [])\n    const fixtureSections = Array.isArray(e2eFixture.sections) ? e2eFixture.sections : []\n    const activeSectionId = String(e2eFixture.activeSectionId || sectionId || 'all')\n    sectionCache.set(activeSectionId, { posts: fixturePosts, loadedAt: Date.now(), hasMore: false, nextCursor: '' })\n    if (fixtureSections.length) {\n      cachedSections = fixtureSections\n      sectionsCachedAt = Date.now()\n    }\n    return {\n      posts: [...fixturePosts],\n      sections: [...fixtureSections],\n      activeSectionId,\n      hasMore: false,\n      nextCursor: '',\n    }\n  }\n`
 
   return replaceRequired(current, marker, replacement, 'loadPreviewBoard function')
 }
@@ -24,7 +24,7 @@ function patchBoardRealtimeSource(source) {
   current = replaceRequired(
     current,
     loadMarker,
-    `${loadMarker}\n  // ${sentinel}: Playwright fixtures must never authenticate against or read production services.\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) {\n    return { topic: 'e2e-board-fixture', cursor: 0, events: [], hasMore: false, readState: ${emptyReadState} }\n  }`,
+    `${loadMarker}\n  // ${sentinel}: Playwright fixtures must never authenticate against or read production services.\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) {\n    return { topic: 'e2e-board-fixture', cursor: 0, events: [], hasMore: false, readState: ${emptyReadState} }\n  }\n`,
     'loadPreviewBoardEvents function',
   )
 
@@ -32,7 +32,7 @@ function patchBoardRealtimeSource(source) {
   current = replaceRequired(
     current,
     postReadMarker,
-    `${postReadMarker}\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) return ${emptyReadState}`,
+    `${postReadMarker}\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) {\n    return ${emptyReadState}\n  }\n`,
     'savePreviewBoardPostRead function',
   )
 
@@ -40,7 +40,7 @@ function patchBoardRealtimeSource(source) {
   current = replaceRequired(
     current,
     sectionSeenMarker,
-    `${sectionSeenMarker}\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) return ${emptyReadState}`,
+    `${sectionSeenMarker}\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) {\n    return ${emptyReadState}\n  }\n`,
     'savePreviewBoardSectionSeen function',
   )
 
@@ -48,7 +48,7 @@ function patchBoardRealtimeSource(source) {
   current = replaceRequired(
     current,
     broadcastMarker,
-    `${broadcastMarker}\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) return true`,
+    `${broadcastMarker}\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) {\n    return true\n  }\n`,
     'broadcastPreviewBoardRealtime function',
   )
 
@@ -56,7 +56,7 @@ function patchBoardRealtimeSource(source) {
   current = replaceRequired(
     current,
     subscribeMarker,
-    `${subscribeMarker}\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) return () => {}`,
+    `${subscribeMarker}\n  if (globalThis.__S_HUB_E2E_BOARD_FIXTURE__) {\n    return () => {}\n  }\n`,
     'subscribePreviewBoardRealtime function',
   )
 
