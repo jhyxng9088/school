@@ -10,6 +10,16 @@ function replaceExact(source, marker, replacement, label) {
   return String(source || '').replace(marker, replacement)
 }
 
+function replaceLegacyOrCanonical(source, legacy, canonical, label) {
+  const legacyCount = countOccurrences(source, legacy)
+  const canonicalCount = countOccurrences(source, canonical)
+  if (legacyCount === 0 && canonicalCount === 1) return String(source || '')
+  if (legacyCount !== 1 || canonicalCount !== 0) {
+    throw new Error(`S-Hub production recovery patch drift: expected exactly one legacy or canonical marker, found legacy=${legacyCount}, canonical=${canonicalCount}: ${label}`)
+  }
+  return String(source || '').replace(legacy, canonical)
+}
+
 function patchTodoSectionSubmit(source) {
   const before = `      await saveReminderSectionChange({
         action: 'update',
@@ -93,7 +103,7 @@ function patchStudyRankingGesture(source) {
     setStageDirection(nextScope === 'school' ? 'forward' : 'back')
     onScope(nextScope)
   }`
-  next = replaceExact(next, stateBefore, stateAfter, 'study ranking tap-completion state')
+  next = replaceLegacyOrCanonical(next, stateBefore, stateAfter, 'study ranking tap-completion state')
 
   const classButtonBefore = `          aria-pressed={scope === 'class'}
           onPointerDown={(event) => {
@@ -103,7 +113,7 @@ function patchStudyRankingGesture(source) {
           onClick={() => clickScope('class')}`
   const classButtonAfter = `          aria-pressed={scope === 'class'}
           onClick={() => selectScope('class')}`
-  next = replaceExact(next, classButtonBefore, classButtonAfter, 'study class scope tap completion')
+  next = replaceLegacyOrCanonical(next, classButtonBefore, classButtonAfter, 'study class scope tap completion')
 
   const schoolButtonBefore = `          aria-pressed={scope === 'school'}
           onPointerDown={(event) => {
@@ -113,7 +123,7 @@ function patchStudyRankingGesture(source) {
           onClick={() => clickScope('school')}`
   const schoolButtonAfter = `          aria-pressed={scope === 'school'}
           onClick={() => selectScope('school')}`
-  return replaceExact(next, schoolButtonBefore, schoolButtonAfter, 'study school scope tap completion')
+  return replaceLegacyOrCanonical(next, schoolButtonBefore, schoolButtonAfter, 'study school scope tap completion')
 }
 
 function patchStudyRankingTouchAction(source) {
