@@ -7,9 +7,10 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 test('class roster observer stays scoped to the React app root', () => {
   const source = read('src/class-roster-ui-v2.js')
 
-  assert.match(source, /const appRoot = document\.getElementById\('root'\) \|\| document\.documentElement/)
-  assert.match(source, /observer\.observe\(appRoot, \{ childList: true, subtree: true, characterData: true \}\)/)
-  assert.doesNotMatch(source, /observer\.observe\(document\.documentElement,/)
+  assert.match(source, /const appRoot = document\.getElementById\('root'\)/)
+  assert.match(source, /if \(appRoot\) observer\.observe\(appRoot, \{ childList: true, subtree: true, characterData: true \}\)/)
+  assert.doesNotMatch(source, /document\.getElementById\('root'\) \|\| document\.documentElement/)
+  assert.doesNotMatch(source, /observer\.observe\(document\.documentElement/)
 })
 
 test('roster observer scoping preserves live presence, cache, modal motion lifecycle, and direct React ownership', () => {
