@@ -27,7 +27,7 @@ test('meal home preview owns native semantic navigation without DOM button retro
   assert.doesNotMatch(legacy, /section: 'meal'/)
 })
 
-test('academic home preview owns native semantic navigation before the legacy compatibility route', () => {
+test('academic home preview is the only semantic navigation owner for academics', () => {
   const academic = read('src/academic-shared.jsx')
   const legacy = read('public/school-home-nav.js')
 
@@ -35,5 +35,6 @@ test('academic home preview owns native semantic navigation before the legacy co
   assert.match(academic, /academic-preview home-nav-native-surface" data-home-nav-ready="true"/)
   assert.match(academic, /<HomeNavAction tab="schedule" section="academic" label="학사일정 열기" \/>/)
   assert.match(legacy, /if \(item\.dataset\.homeNavReady === 'true'\) return/)
-  assert.match(legacy, /item\.matches\('\.academic-preview'\)/)
+  assert.doesNotMatch(legacy, /item\.matches\('\.academic-preview'\)/)
+  assert.doesNotMatch(legacy, /section: 'academic'/)
 })
