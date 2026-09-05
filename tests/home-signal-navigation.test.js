@@ -21,20 +21,22 @@ test('home overview cards route to the correct V2 destination without proxy-clic
   assert.match(patch, /onNavigate=\{onNavigate\}/)
 })
 
-test('home migration imports stay duplicate-safe with the React meal priority owner', () => {
+test('home migration imports keep the source-owned roster import separate from build-time imports', () => {
   const main = read('src/main.jsx')
+  const patch = read('src/preview-home-info-patch.js')
   const polite = "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n"
   const signals = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
   const homeNav = "import { HomeNavAction } from './home-nav-action.jsx'\n"
   const mealPriority = "import { useHomeMealPriority } from './home-meal-priority.js'\n"
   const roster = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
   const aiCore = "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n"
-  const canonical = `${polite}${signals}${homeNav}${mealPriority}${roster}`
+  const canonical = `${polite}${signals}${homeNav}${mealPriority}`
 
   assert.equal(main.split(roster).length - 1, 1)
   assert.ok(main.includes(`${aiCore}${roster}`))
+  assert.doesNotMatch(patch, /ROSTER_IMPORT/)
   assert.equal(patchPreviewHomeInfoImports(polite), canonical)
-  assert.equal(patchPreviewHomeInfoImports(`${polite}${roster}`), canonical)
+  assert.equal(patchPreviewHomeInfoImports(`${polite}${roster}`), `${canonical}${roster}`)
   assert.equal(patchPreviewHomeInfoImports(canonical), canonical)
 })
 
