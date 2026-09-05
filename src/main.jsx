@@ -35,6 +35,7 @@ import { OfflineToast, useNetworkGuard } from './network-guard'
 import { activityKey, activityLabel, recordClassActivities, useClassActivity, useSharedAcademic } from './class-activity'
 import { SchoolAISheet } from './s-hub-ai-sheet.jsx'
 import { SHubAIOrb } from './s-hub-ai-orb.jsx'
+import { SHubIcon } from './s-hub-icon.jsx'
 import { buildSchoolAIContext } from './s-hub-ai-core.js'
 import { openClassRoster } from './class-roster-ui-v2.js'
 
@@ -78,40 +79,7 @@ function nativeDateDisplay(value) {
 }
 
 function Icon({ type, size = 22 }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.9,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    'aria-hidden': true,
-  }
-
-  if (type === 'home') {
-    return <svg {...common}><path d="M3.5 10.7 12 3.8l8.5 6.9"/><path d="M5.5 9.8v10h13v-10"/><path d="M9.2 19.8v-6.2h5.6v6.2"/></svg>
-  }
-  if (type === 'todo') {
-    return <svg {...common}><path d="M8.5 6.5h11"/><path d="M8.5 12h11"/><path d="M8.5 17.5h11"/><path d="m3.8 6.4 1.2 1.2 2-2.2"/><path d="m3.8 11.9 1.2 1.2 2-2.2"/><path d="m3.8 17.4 1.2 1.2 2-2.2"/></svg>
-  }
-  if (type === 'timetable') {
-    return <svg {...common}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v3"/><path d="M16.5 3.5v3"/><path d="M3.5 9h17"/><path d="M8 12.5h.01"/><path d="M12 12.5h.01"/><path d="M16 12.5h.01"/><path d="M8 16.5h.01"/><path d="M12 16.5h.01"/></svg>
-  }
-  if (type === 'meal') {
-    return <svg {...common}><path d="M4.5 4.5v6.2a3 3 0 0 0 3 3h.5"/><path d="M7.5 4.5v15"/><path d="M15.5 4.5v6.2"/><path d="M19.5 4.5v6.2"/><path d="M15.5 8.2h4"/><path d="M17.5 10.7v8.8"/></svg>
-  }
-  if (type === 'academic') {
-    return <svg {...common}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M7.5 3.5v3"/><path d="M16.5 3.5v3"/><path d="M3.5 9h17"/><path d="M8 13h3"/><path d="M8 16.5h8"/><path d="M15 12.5h1.5v1.5H15z"/></svg>
-  }
-  if (type === 'search') {
-    return <svg {...common}><circle cx="10.7" cy="10.7" r="6.4"/><path d="m15.5 15.5 4.2 4.2"/></svg>
-  }
-  if (type === 'clock') {
-    return <svg {...common}><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 2"/></svg>
-  }
-  return null
+  return <SHubIcon name={type} size={size} />
 }
 
 function InstallGuide({ onDone, standalone }) {

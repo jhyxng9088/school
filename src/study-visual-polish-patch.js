@@ -22,18 +22,6 @@ function appendOnce(source, marker, addition) {
   return `${current}\n${addition}\n`
 }
 
-function patchStudyNavIcon(source) {
-  const before = `  if (type === 'study') {
-    return <svg {...common}><path d="M4.2 5.1h5.5a3.2 3.2 0 0 1 2.3.95v13a3.2 3.2 0 0 0-2.3-.95H4.2z"/><path d="M19.8 5.1h-5.5a3.2 3.2 0 0 0-2.3.95v13a3.2 3.2 0 0 1 2.3-.95h5.5z"/></svg>
-  }`
-
-  const after = `  if (type === 'study') {
-    return <svg {...common}><path d="M2.8 5.2c3.6-.9 6.7.1 9.2 2.8v11.2c-2.5-2.7-5.6-3.7-9.2-2.8V5.2Z"/><path d="M21.2 5.2c-3.6-.9-6.7.1-9.2 2.8v11.2c2.5-2.7 5.6-3.7 9.2-2.8V5.2Z"/><path d="M12 8v11.2"/></svg>
-  }`
-
-  return replaceOnceOrKeep(source, before, after, 'study open-book navigation icon')
-}
-
 function patchStudyHeader(source) {
   return replaceOnceOrKeep(
     source,
@@ -798,7 +786,6 @@ function patchBoardModalCloseMotion(source) {
 
 export function patchStudyVisualPolishSource(source, id) {
   const cleanId = String(id || '').split('?')[0]
-  if (cleanId.endsWith('/src/main.jsx')) return patchStudyNavIcon(source)
   if (cleanId.endsWith('/src/preview-study-client.js')) return patchStudyRankingClient(source)
   if (cleanId.endsWith('/src/preview-study.jsx')) return patchStudyRankingPage(patchStudyHeader(source))
   if (cleanId.endsWith('/src/preview-study-ranking.css')) return patchStudyRankingCss(source)
