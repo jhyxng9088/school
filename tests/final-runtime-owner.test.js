@@ -18,13 +18,17 @@ test('main build path never injects the retired polite DOM runtime', () => {
   assert.match(homeInfo, /SOURCE_ROSTER_IMPORT/)
 })
 
-test('retired final runtime cleanup owner is removed from the patch chain', () => {
-  const owner = read('src/shared-icon-owner-patch.js')
+test('retired runtime cleanup and shared icon build owners stay out of the patch chain', () => {
+  const main = read('src/main.jsx')
   const vite = read('vite.config.js')
 
   assert.equal(exists('src/final-runtime-owner-patch.js'), false)
-  assert.doesNotMatch(owner, /patchFinalRuntimeOwnerSource/)
-  assert.equal((vite.match(/patchSharedIconOwnerSource\(next, cleanId\)/g) || []).length, 1)
+  assert.equal(exists('src/shared-icon-owner-patch.js'), false)
+  assert.match(main, /import \{ SHubIcon \} from '\.\/s-hub-icon\.jsx'/)
+  assert.match(main, /return <SHubIcon name=\{type\} size=\{size\} \/>/)
+  assert.equal((vite.match(/patchSharedSegmentSpringOwnerSource\(next, cleanId\)/g) || []).length, 1)
+  assert.doesNotMatch(vite, /patchSharedIconOwnerSource/)
+  assert.doesNotMatch(vite, /shared-icon-owner-patch\.js/)
   assert.doesNotMatch(vite, /patchFinalRuntimeOwnerSource/)
 })
 
