@@ -6,10 +6,11 @@ import { patchPreviewHomeInfoImports } from '../src/preview-home-info-patch.js'
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('home overview cards route to the correct V2 destination without proxy-clicking DOM controls', () => {
+  const main = read('src/main.jsx')
   const patch = read('src/preview-home-info-patch.js')
   const roster = read('src/class-roster-ui-v2.js')
 
-  assert.match(patch, /import \{ openClassRoster \} from '\.\/class-roster-ui-v2\.js'/)
+  assert.match(main, /import \{ openClassRoster \} from '\.\/class-roster-ui-v2\.js'/)
   assert.ok(patch.includes("if (target === 'class') {\\n      openClassRoster()"))
   assert.doesNotMatch(patch, /document\.querySelector\('\.class-presence-count'\)\?\.click\(\)/)
   assert.match(roster, /export function openClassRoster\(/)
