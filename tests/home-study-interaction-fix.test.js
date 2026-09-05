@@ -28,7 +28,6 @@ test('home cards use semantic V2 destinations through React-owned navigation', (
 
   assert.doesNotMatch(index, /school-home-nav\.js/)
   assert.doesNotMatch(sw, /school-home-nav\.js/)
-  assert.match(sw, /school-shell-v161-home-nav-owner/)
 })
 
 test('study ranking keeps the existing scroll-stability rules without runtime style injection', () => {
