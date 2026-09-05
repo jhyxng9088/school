@@ -93,6 +93,10 @@ export function useHomeMealPriority(now) {
   }, [])
 
   useEffect(() => {
+    syncPriority(now)
+  }, [now])
+
+  useEffect(() => {
     const phonePortrait = window.matchMedia(PHONE_PORTRAIT_QUERY)
     let boundaryTimer = 0
 
@@ -103,11 +107,11 @@ export function useHomeMealPriority(now) {
       boundaryTimer = window.setTimeout(() => schedulePriorityBoundary(new Date()), delay)
     }
 
-    schedulePriorityBoundary(now)
+    schedulePriorityBoundary(new Date())
     return () => {
       if (boundaryTimer) window.clearTimeout(boundaryTimer)
     }
-  }, [now])
+  }, [])
 
   useLayoutEffect(() => {
     const stack = homeStackRef.current
