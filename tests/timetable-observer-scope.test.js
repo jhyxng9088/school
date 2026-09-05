@@ -4,16 +4,20 @@ import { readFileSync } from 'node:fs'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('timetable motion observer stays inside the React app root', () => {
-  const source = read('public/school-timetable-motion.js')
+test('timetable motion is driven by the React timetable owner instead of a DOM observer', () => {
+  const main = read('src/main.jsx')
+  const motion = read('public/school-timetable-motion.js')
 
-  assert.match(source, /const appRoot = document\.getElementById\('root'\)/)
-  assert.match(source, /if \(appRoot\) \{[\s\S]*observer\.observe\(appRoot,/)
-  assert.doesNotMatch(source, /document\.getElementById\('root'\) \|\| document\.documentElement/)
-  assert.doesNotMatch(source, /observer\.observe\(document\.documentElement,/)
+  assert.match(main, /document\.dispatchEvent\(new Event\('school:timetable-motion-sync'\)\)/)
+  assert.match(motion, /document\.addEventListener\('school:timetable-motion-sync', syncTimetableMotion\)/)
+  assert.match(motion, /const cellSignatures = new WeakMap\(\)/)
+  assert.match(motion, /previous !== signature/)
+  assert.doesNotMatch(motion, /MutationObserver/)
+  assert.doesNotMatch(motion, /observer\.observe/)
+  assert.doesNotMatch(motion, /attributeFilter/)
 })
 
-test('observer scoping preserves timetable motion and platform safeguards', () => {
+test('semantic timetable motion preserves the existing motion and platform safeguards', () => {
   const source = read('public/school-timetable-motion.js')
 
   assert.match(source, /SamsungBrowser/)
@@ -23,5 +27,6 @@ test('observer scoping preserves timetable motion and platform safeguards', () =
   assert.match(source, /translate3d\(0, 1\.5px, 0\)/)
   assert.match(source, /cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
   assert.match(source, /requestAnimationFrame/)
-  assert.match(source, /attributeFilter: \['class'\]/)
+  assert.match(source, /document\.querySelectorAll\(TIMETABLE_PAGE_SELECTOR\)\.forEach\(schedulePageReady\)/)
+  assert.match(source, /document\.querySelectorAll\(CELL_SELECTOR\)\.forEach/)
 })

@@ -131,44 +131,33 @@
 
   // Revert buttons execute their React handler immediately; motion must never block data changes.
 
-  const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      if (mutation.type === 'attributes') {
-        const cell = mutation.target.matches?.(CELL_SELECTOR) ? mutation.target : null
-        if (cell) queueCell(cell)
-        continue
-      }
+  const cellSignatures = new WeakMap()
+  let syncFrame = null
 
-      if (mutation.type === 'characterData') {
-        const cell = mutation.target.parentElement?.closest(CELL_SELECTOR)
-        if (cell) queueCell(cell)
-        continue
-      }
+  function cellSignature(cell) {
+    return `${cell.className}\n${cell.textContent || ''}`
+  }
 
-      for (const node of mutation.addedNodes) {
-        if (!(node instanceof Element)) continue
+  function syncTimetableMotion() {
+    if (syncFrame !== null) return
 
-        if (node.matches(TIMETABLE_PAGE_SELECTOR)) schedulePageReady(node)
-        node.querySelectorAll?.(TIMETABLE_PAGE_SELECTOR).forEach(schedulePageReady)
+    syncFrame = requestAnimationFrame(() => {
+      syncFrame = null
+      document.querySelectorAll(TIMETABLE_PAGE_SELECTOR).forEach(schedulePageReady)
+      document.querySelectorAll(CELL_SELECTOR).forEach((cell) => {
+        const signature = cellSignature(cell)
+        const previous = cellSignatures.get(cell)
+        cellSignatures.set(cell, signature)
 
-        if (isTimetableReady(node)) {
-          if (node.matches(CELL_SELECTOR)) queueCell(node)
-          node.querySelectorAll?.(CELL_SELECTOR).forEach(queueCell)
+        if (previous === undefined) {
+          if (isTimetableReady(cell)) queueCell(cell)
+          return
         }
-      }
-    }
-  })
-
-  const appRoot = document.getElementById('root')
-  if (appRoot) {
-    observer.observe(appRoot, {
-      subtree: true,
-      childList: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ['class'],
+        if (previous !== signature) queueCell(cell)
+      })
     })
   }
 
-  document.querySelectorAll(TIMETABLE_PAGE_SELECTOR).forEach(schedulePageReady)
+  document.addEventListener('school:timetable-motion-sync', syncTimetableMotion)
+  syncTimetableMotion()
 })()
