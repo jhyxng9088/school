@@ -13,11 +13,18 @@
 }
 
 .preview-home-signal {
+  width: 100%;
   min-width: 0;
   padding: 14px 14px 13px;
   border: 1px solid var(--border);
   border-radius: 19px;
+  appearance: none;
+  -webkit-appearance: none;
   background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--border) 42%, transparent);
 }
 

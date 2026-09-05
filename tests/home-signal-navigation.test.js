@@ -36,13 +36,18 @@ test('home roster import is source-owned while the migration patch stays duplica
   assert.equal(patchPreviewHomeInfoImports(canonical), canonical)
 })
 
-test('home overview section opts out of the legacy whole-section navigation handler', () => {
+test('home overview uses native buttons and opts out of the legacy whole-section navigation handler', () => {
   const signals = read('src/preview-home-signals.jsx')
+  const css = read('src/preview-home-signals.css')
 
   assert.match(signals, /data-home-nav-ready="true"/)
-  assert.match(signals, /role="button"/)
+  assert.match(signals, /<button[\s\S]*type="button"[\s\S]*className=\{`preview-home-signal/)
   assert.match(signals, /onClick=\{\(\) => onNavigate\?\.\(signal\.id\)\}/)
-  assert.match(signals, /event\.key !== 'Enter' && event\.key !== ' '/)
+  assert.doesNotMatch(signals, /role="button"/)
+  assert.doesNotMatch(signals, /tabIndex=/)
+  assert.doesNotMatch(signals, /event\.key !== 'Enter' && event\.key !== ' '/)
+  assert.match(css, /\.preview-home-signal\s*\{[\s\S]*appearance:\s*none/)
+  assert.match(css, /\.preview-home-signal\s*\{[\s\S]*text-align:\s*left/)
 })
 
 test('home overview stays a 2 by 2 grid on portrait and wide layouts', () => {

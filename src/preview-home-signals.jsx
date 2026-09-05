@@ -73,18 +73,12 @@ export function PreviewHomeSignals({ profile, presence, todos, onNavigate }) {
       </div>
       <div className="preview-home-signals-grid">
         {signals.map((signal) => (
-          <article
+          <button
+            type="button"
             className={`preview-home-signal ${signal.active ? 'is-active' : ''}`}
             key={signal.id}
-            role="button"
-            tabIndex={0}
             aria-label={`${signal.label} 열기`}
             onClick={() => onNavigate?.(signal.id)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter' && event.key !== ' ') return
-              event.preventDefault()
-              onNavigate?.(signal.id)
-            }}
           >
             <div className="preview-home-signal-head">
               <span>{signal.label}</span>
@@ -92,7 +86,7 @@ export function PreviewHomeSignals({ profile, presence, todos, onNavigate }) {
             </div>
             <strong>{signal.value}</strong>
             <p>{signal.detail}</p>
-          </article>
+          </button>
         ))}
       </div>
     </section>
