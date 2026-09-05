@@ -65,39 +65,6 @@ jobs:
           )
           vite_path.write_text(vite)
 
-          test_path = Path('tests/production-recovery-regression.test.js')
-          tests = test_path.read_text()
-          tests = replace_once(
-              tests,
-              "import { patchProductionRecoverySource } from '../src/production-recovery-patch.js'\n",
-              '',
-              'recovery test import',
-          )
-          tests = replace_once(
-              tests,
-              "const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')\n",
-              """const read = (relativePath) => {\n  const filePath = path.join(root, relativePath)\n  if (relativePath === 'src/production-recovery-patch.js' && !fs.existsSync(filePath)) return ''\n  return fs.readFileSync(filePath, 'utf8')\n}\n""",
-              'recovery-aware test reader',
-          )
-          tests = replace_once(
-              tests,
-              """function recover(relativePath, source = read(relativePath)) {\n  return patchProductionRecoverySource(source, path.join(root, relativePath))\n}\n""",
-              """function recover(relativePath, source = read(relativePath)) {\n  return source\n}\n\nfunction patchProductionRecoverySource(source) {\n  return source\n}\n""",
-              'retired recovery test shim',
-          )
-          pending_assertions = '  assert.match(recovery, /patchTodoSectionSubmit/)\n'
-          count = tests.count(pending_assertions)
-          if count != 2:
-              raise SystemExit(f'pending recovery assertions: expected 2 occurrences, found {count}')
-          tests = tests.replace(pending_assertions, '  assert.doesNotMatch(recovery, /patchTodoSectionSubmit/)\n')
-          tests = replace_once(
-              tests,
-              "test('section editor pending-sync recovery is migration-safe and keeps the current sheet open', () => {\n  const id = path.join(root, 'src/todo-stage5-ai.jsx')",
-              "test('section editor pending-sync is owned upstream and production recovery is retired', () => {\n  assert.equal(fs.existsSync(path.join(root, 'src/production-recovery-patch.js')), false)\n  const id = path.join(root, 'src/todo-stage5-ai.jsx')",
-              'pending-sync source owner test',
-          )
-          test_path.write_text(tests)
-
           recovery_path = Path('src/production-recovery-patch.js')
           if not recovery_path.exists():
               raise SystemExit('production recovery file already missing unexpectedly')
@@ -128,7 +95,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/preview-s-hub-v2-patch.js vite.config.js tests/production-recovery-regression.test.js src/production-recovery-patch.js
+          git add src/preview-s-hub-v2-patch.js vite.config.js src/production-recovery-patch.js
           git diff --cached --quiet && exit 1
           git commit -m 'refactor: retire production recovery layer'
           git push origin HEAD:work/production-recovery-retire-20260905
