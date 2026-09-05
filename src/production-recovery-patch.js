@@ -52,24 +52,6 @@ function patchTodoSectionSubmit(source) {
   return String(source || '').replace(before, after)
 }
 
-function patchStudyClassLabel(source) {
-  const before = `function classLabel(classId) {
-  const match = /^preview-class-(\\d+)$/.exec(String(classId || ''))
-  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
-}`
-  const after = `function classLabel(classId) {
-  const match = /^(?:preview-)?class-(\\d+)$/.exec(String(classId || ''))
-  return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
-}`
-  const beforeCount = countOccurrences(source, before)
-  const afterCount = countOccurrences(source, after)
-  if (beforeCount === 0 && afterCount === 1) return String(source || '')
-  if (beforeCount !== 1 || afterCount !== 0) {
-    throw new Error(`S-Hub production recovery patch drift: expected exactly one legacy or canonical study class label, found legacy=${beforeCount}, canonical=${afterCount}: production study class label`)
-  }
-  return String(source || '').replace(before, after)
-}
-
 function patchStudyRankingGesture(source) {
   let next = String(source || '')
   const stateBefore = `  const waitingForSchool = scope === 'school' && schoolLoading && !schoolSnapshot
@@ -230,7 +212,7 @@ function transientIdentityReadError(error) {
 export function patchProductionRecoverySource(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/todo-stage5-ai.jsx')) return patchTodoSectionSubmit(source)
-  if (cleanId.endsWith('/src/preview-study.jsx')) return patchStudyRankingGesture(patchStudyClassLabel(source))
+  if (cleanId.endsWith('/src/preview-study.jsx')) return patchStudyRankingGesture(source)
   if (cleanId.endsWith('/src/school-sync.js')) return patchStudentIdentitySync(source)
   return String(source || '')
 }
