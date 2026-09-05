@@ -2,8 +2,6 @@
   if (/SamsungBrowser/i.test(navigator.userAgent)) return
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
   const CELL_SELECTOR = '.period-item, .week-cell:not(.editor-cell)'
-  const CHANGE_SECTION_SELECTOR = '.week-changes'
-  const CHANGE_ITEM_SELECTOR = '.change-item'
   const TIMETABLE_PAGE_SELECTOR = '.timetable-page'
   const SOFT_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
   const PAGE_READY_DELAY = 1120
@@ -78,58 +76,6 @@
     }
     animation.oncancel = animation.onfinish
   }
-
-  function finishRemove(button) {
-    if (!button?.isConnected) return
-    button.dataset.schoolTimetableMotionPassthrough = 'true'
-    button.click()
-    queueMicrotask(() => delete button.dataset.schoolTimetableMotionPassthrough)
-  }
-
-  function animateRemoval(target, button, { wholeSection = false } = {}) {
-    if (!target?.isConnected || reducedMotion.matches) {
-      finishRemove(button)
-      return
-    }
-
-    const rect = target.getBoundingClientRect()
-    const computed = getComputedStyle(target)
-    target.style.pointerEvents = 'none'
-    target.style.overflow = 'hidden'
-    target.style.minHeight = '0px'
-
-    const from = {
-      height: `${rect.height}px`,
-      opacity: Number.parseFloat(computed.opacity) || 1,
-      transform: 'translate3d(0, 0, 0)',
-    }
-
-    const to = {
-      height: '0px',
-      opacity: 0,
-      transform: 'translate3d(0, -4px, 0)',
-    }
-
-    if (wholeSection) {
-      from.marginTop = computed.marginTop
-      to.marginTop = '0px'
-    } else {
-      from.paddingTop = computed.paddingTop
-      from.paddingBottom = computed.paddingBottom
-      to.paddingTop = '0px'
-      to.paddingBottom = '0px'
-    }
-
-    const animation = target.animate([from, to], {
-      duration: wholeSection ? 660 : 560,
-      easing: SOFT_EASE,
-      fill: 'both',
-    })
-
-    animation.onfinish = () => finishRemove(button)
-  }
-
-  // Revert buttons execute their React handler immediately; motion must never block data changes.
 
   const cellSignatures = new WeakMap()
   let syncFrame = null
