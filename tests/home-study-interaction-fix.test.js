@@ -17,7 +17,7 @@ test('home cards use semantic V2 destinations through React-owned navigation', (
   assert.match(homePatch, /current-class-card home-nav-native-surface/)
   assert.match(homePatch, /today-timetable-empty/)
   assert.match(homePatch, /className="period-strip"/)
-  assert.equal((homePatch.match(/<HomeNavAction tab="class" section="timetable" label="시간표 열기" \/>/g) || []).length, 3)
+  assert.equal(homePatch.split('<HomeNavAction tab="class" section="timetable" label="시간표 열기" />').length - 1, 3)
 
   assert.match(meal, /<HomeNavAction tab="schedule" section="meal" label="급식 열기" \/>/)
   assert.match(academic, /<HomeNavAction tab="schedule" section="academic" label="학사일정 열기" \/>/)
