@@ -7,12 +7,14 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 test('home cards use semantic V2 destinations through the shared navigation owner', () => {
   const legacy = read('public/school-home-nav.js')
   const meal = read('src/home-meal-preview.jsx')
+  const academic = read('src/academic-shared.jsx')
   const action = read('src/home-nav-action.jsx')
 
   assert.doesNotMatch(legacy, /navIndex/)
   assert.match(legacy, /\.current-class-card/)
   assert.match(legacy, /\.todo-home-preview/)
-  assert.match(legacy, /\.academic-preview/)
+  assert.doesNotMatch(legacy, /\.academic-preview/)
+  assert.doesNotMatch(legacy, /section: 'academic'/)
   assert.doesNotMatch(legacy, /\.meal-preview/)
   assert.doesNotMatch(legacy, /section: 'meal'/)
   assert.match(legacy, /\.period-strip, \.today-timetable-empty/)
@@ -22,6 +24,7 @@ test('home cards use semantic V2 destinations through the shared navigation owne
   assert.doesNotMatch(legacy, /station-schedule-switcher/)
 
   assert.match(meal, /<HomeNavAction tab="schedule" section="meal" label="급식 열기" \/>/)
+  assert.match(academic, /<HomeNavAction tab="schedule" section="academic" label="학사일정 열기" \/>/)
   assert.match(action, /window\.SHubNavigation\?\.navigate\(\{ tab, section \}\)/)
 })
 
