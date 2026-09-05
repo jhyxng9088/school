@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Fix guarded migration boundary
+        run: python -c "from pathlib import Path; p=Path('scripts/migrate-shared-segment-owner.py'); s=p.read_text(); old='return text[:start] + replacement + text[end:]'; new='return text[:start] + replacement + text[end + len(end_marker):]'; assert s.count(old) == 1, s.count(old); p.write_text(s.replace(old, new, 1))"
+
       - name: Migrate shared segment ownership upstream
         run: python scripts/migrate-shared-segment-owner.py
 
