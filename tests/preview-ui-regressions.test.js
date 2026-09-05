@@ -36,7 +36,7 @@ test('reported Safari and reminder-section copy is polite after the V2 build tra
   assert.match(builtMain, /S-Hub를 웹 앱으로 추가해 주세요/)
   assert.match(builtTodo, /리마인더를 구분할 이름과 색상을 골라 주세요/)
   assert.doesNotMatch(builtTodo, /이미 사용 중인 색이야/)
-  assert.match(builtMain, /installPoliteCopyRuntime\(\)/)
+  assert.doesNotMatch(builtMain, /installPoliteCopyRuntime\(\)/)
 })
 
 test('the seven question examples remain deliberately informal', () => {
