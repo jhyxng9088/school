@@ -371,6 +371,7 @@ async function startUnreadIndicators() {
     if (segmentButton) {
       const tab = String(segmentButton.dataset.unreadKey || '')
       if (tab) markTabSeen(tab)
+      scheduleRender()
       return
     }
 
@@ -380,6 +381,7 @@ async function startUnreadIndicators() {
       // Parent stations aggregate their children. Opening a parent must not clear
       // siblings the student has not actually viewed.
       if (tab && !['class', 'schedule'].includes(tab)) markTabSeen(tab)
+      scheduleRender()
       return
     }
 
@@ -388,6 +390,7 @@ async function startUnreadIndicators() {
     const row = reminderMain.closest('[data-reminder-id]')
     const todo = state.todos.get(String(row?.dataset.reminderId || ''))
     if (todo) markReminderSeen(todo)
+    scheduleRender()
   }
 
   subscriptions.push(subscribePreviewBoardUnread(profile, (next) => {
@@ -521,16 +524,6 @@ async function startUnreadIndicators() {
   }, (error) => console.error('Unread seen-state sync failed:', error)))
 
   document.addEventListener('click', handleClick, true)
-  const domObserver = new MutationObserver(scheduleRender)
-  const observerRoot = document.getElementById('root')
-  if (observerRoot) {
-    domObserver.observe(observerRoot, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class'],
-    })
-  }
 
   const mealTimer = window.setInterval(() => {
     const available = hasTodayMealInCache()
@@ -551,7 +544,6 @@ async function startUnreadIndicators() {
     document.removeEventListener('click', handleClick, true)
     document.removeEventListener('visibilitychange', refresh)
     window.removeEventListener('focus', refresh)
-    domObserver.disconnect()
     window.clearInterval(mealTimer)
     if (reminderExpiryTimer) window.clearTimeout(reminderExpiryTimer)
     if (renderFrame) window.cancelAnimationFrame(renderFrame)
