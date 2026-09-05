@@ -5,6 +5,7 @@ function replaceRequired(source, marker, replacement, label) {
 
 const POLITE_IMPORT = "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n"
 const HOME_SIGNALS_IMPORT = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
+const HOME_NAV_ACTION_IMPORT = "import { HomeNavAction } from './home-nav-action.jsx'\n"
 const ROSTER_IMPORT = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
 
 export function patchPreviewHomeInfoImports(source) {
@@ -19,11 +20,20 @@ export function patchPreviewHomeInfoImports(source) {
     )
   }
 
-  if (!next.includes(ROSTER_IMPORT)) {
+  if (!next.includes(HOME_NAV_ACTION_IMPORT)) {
     next = replaceRequired(
       next,
       HOME_SIGNALS_IMPORT,
-      `${HOME_SIGNALS_IMPORT}${ROSTER_IMPORT}`,
+      `${HOME_SIGNALS_IMPORT}${HOME_NAV_ACTION_IMPORT}`,
+      'home nav action import',
+    )
+  }
+
+  if (!next.includes(ROSTER_IMPORT)) {
+    next = replaceRequired(
+      next,
+      HOME_NAV_ACTION_IMPORT,
+      `${HOME_NAV_ACTION_IMPORT}${ROSTER_IMPORT}`,
       'home roster import',
     )
   }
@@ -36,6 +46,27 @@ export function patchPreviewHomeInfoSource(source, id) {
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
 
   let next = patchPreviewHomeInfoImports(source)
+
+  next = replaceRequired(
+    next,
+    '  return (\n    <section className="current-class-card">\n      <div className="current-class-icon"><Icon type="clock" size={20} /></div>',
+    '  return (\n    <section className="current-class-card home-nav-native-surface" data-home-nav-ready="true">\n      <HomeNavAction tab="class" section="timetable" label="시간표 열기" />\n      <div className="current-class-icon"><Icon type="clock" size={20} /></div>',
+    'current class native timetable navigation',
+  )
+
+  next = replaceRequired(
+    next,
+    '    return (\n      <section className="home-section">\n        <SectionTitle>{title}</SectionTitle>\n        <div className="today-timetable-empty">',
+    '    return (\n      <section className="home-section home-nav-native-surface" data-home-nav-ready="true">\n        <HomeNavAction tab="class" section="timetable" label="시간표 열기" />\n        <SectionTitle>{title}</SectionTitle>\n        <div className="today-timetable-empty">',
+    'empty timetable native navigation',
+  )
+
+  next = replaceRequired(
+    next,
+    '  return (\n    <section className="home-section">\n      <SectionTitle>{title}</SectionTitle>\n      <div\n        className="period-strip"',
+    '  return (\n    <section className="home-section home-nav-native-surface" data-home-nav-ready="true">\n      <HomeNavAction tab="class" section="timetable" label="시간표 열기" />\n      <SectionTitle>{title}</SectionTitle>\n      <div\n        className="period-strip"',
+    'timetable preview native navigation',
+  )
 
   next = replaceRequired(
     next,

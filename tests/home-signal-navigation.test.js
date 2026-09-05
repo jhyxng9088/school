@@ -25,9 +25,10 @@ test('home roster import is source-owned while the migration patch stays duplica
   const main = read('src/main.jsx')
   const polite = "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n"
   const signals = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
+  const homeNav = "import { HomeNavAction } from './home-nav-action.jsx'\n"
   const roster = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
   const aiCore = "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n"
-  const canonical = `${polite}${signals}${roster}`
+  const canonical = `${polite}${signals}${homeNav}${roster}`
 
   assert.equal(main.split(roster).length - 1, 1)
   assert.ok(main.includes(`${aiCore}${roster}`))

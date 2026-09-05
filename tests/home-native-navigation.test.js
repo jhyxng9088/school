@@ -7,10 +7,9 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
-test('meal home preview owns native semantic navigation without DOM button retrofit', () => {
+test('meal home preview owns native semantic navigation', () => {
   const meal = read('src/home-meal-preview.jsx')
   const action = read('src/home-nav-action.jsx')
-  const legacy = read('public/school-home-nav.js')
 
   assert.match(meal, /import \{ HomeNavAction \} from '\.\/home-nav-action\.jsx'/)
   assert.match(meal, /home-nav-native-surface" data-home-nav-ready="true"/)
@@ -21,20 +20,18 @@ test('meal home preview owns native semantic navigation without DOM button retro
   assert.doesNotMatch(action, /role=/)
   assert.doesNotMatch(action, /tabIndex=/)
   assert.doesNotMatch(action, /onKeyDown=/)
-
-  assert.match(legacy, /if \(item\.dataset\.homeNavReady === 'true'\) return/)
-  assert.doesNotMatch(legacy, /item\.matches\('\.meal-preview'\)/)
-  assert.doesNotMatch(legacy, /section: 'meal'/)
 })
 
-test('academic home preview owns native semantic navigation without a legacy route owner', () => {
+test('academic home preview owns native semantic navigation', () => {
   const academic = read('src/academic-shared.jsx')
-  const legacy = read('public/school-home-nav.js')
 
   assert.match(academic, /import \{ HomeNavAction \} from '\.\/home-nav-action\.jsx'/)
   assert.match(academic, /academic-preview home-nav-native-surface" data-home-nav-ready="true"/)
   assert.match(academic, /<HomeNavAction tab="schedule" section="academic" label="학사일정 열기" \/>/)
-  assert.match(legacy, /if \(item\.dataset\.homeNavReady === 'true'\) return/)
-  assert.doesNotMatch(legacy, /item\.matches\('\.academic-preview'\)/)
-  assert.doesNotMatch(legacy, /section: 'academic'/)
+})
+
+test('retired home navigation retrofit runtime stays removed', () => {
+  assert.equal(fs.existsSync(path.join(root, 'public/school-home-nav.js')), false)
+  assert.doesNotMatch(read('index.html'), /school-home-nav\.js/)
+  assert.doesNotMatch(read('public/sw.js'), /school-home-nav\.js/)
 })
