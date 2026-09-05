@@ -7,23 +7,9 @@ function patchMainSource(source) {
   let next = source
   next = replaceRequired(
     next,
-    "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n",
-    "import { buildSchoolAIContext } from './s-hub-ai-core.js'\nimport { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n",
-    'main polite-copy import',
-  )
-
-  next = replaceRequired(
-    next,
     "  const [aiOpen, setAiOpen] = useState(false)\n  const { toast, requireOnline } = useNetworkGuard()",
     `  const [aiOpen, setAiOpen] = useState(false)\n\n  useLayoutEffect(() => {\n    const resetScroll = () => {\n      window.scrollTo(0, 0)\n      const scroller = document.scrollingElement\n      if (scroller) scroller.scrollTop = 0\n      document.documentElement.scrollTop = 0\n      document.body.scrollTop = 0\n    }\n    resetScroll()\n    const frame = window.requestAnimationFrame(resetScroll)\n    return () => window.cancelAnimationFrame(frame)\n  }, [activeTab])\n\n  const { toast, requireOnline } = useNetworkGuard()`,
     'tab scroll reset',
-  )
-
-  next = replaceRequired(
-    next,
-    "createRoot(document.getElementById('root')).render(",
-    "installPoliteCopyRuntime()\n\ncreateRoot(document.getElementById('root')).render(",
-    'polite-copy runtime install',
   )
 
   return next
