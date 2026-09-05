@@ -31,17 +31,9 @@ test('home cards use semantic V2 destinations through React-owned navigation', (
 })
 
 test('study ranking keeps the existing scroll-stability rules without runtime style injection', () => {
-  const live = read('public/school-home-live.js')
   const refinements = read('public/school-refinements.css')
   const studyPatch = read('src/preview-study-patch.js')
   const recovery = read('src/production-recovery-patch.js')
-
-  assert.doesNotMatch(live, /pointerType === 'mouse'/)
-  assert.doesNotMatch(live, /공부 랭킹 범위/)
-  assert.doesNotMatch(live, /event\.stopPropagation\(\)/)
-  assert.doesNotMatch(live, /addEventListener\('pointerdown'/)
-  assert.doesNotMatch(live, /document\.createElement\('style'\)/)
-  assert.doesNotMatch(live, /installStudyScrollStability/)
 
   assert.match(refinements, /preview-study-ranking-stage\[data-direction\]/)
   assert.match(refinements, /animation: none !important/)

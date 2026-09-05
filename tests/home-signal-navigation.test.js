@@ -21,14 +21,15 @@ test('home overview cards route to the correct V2 destination without proxy-clic
   assert.match(patch, /onNavigate=\{onNavigate\}/)
 })
 
-test('home roster import is source-owned while the migration patch stays duplicate-safe', () => {
+test('home migration imports stay duplicate-safe with the React meal priority owner', () => {
   const main = read('src/main.jsx')
   const polite = "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n"
   const signals = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
   const homeNav = "import { HomeNavAction } from './home-nav-action.jsx'\n"
+  const mealPriority = "import { useHomeMealPriority } from './home-meal-priority.js'\n"
   const roster = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
   const aiCore = "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n"
-  const canonical = `${polite}${signals}${homeNav}${roster}`
+  const canonical = `${polite}${signals}${homeNav}${mealPriority}${roster}`
 
   assert.equal(main.split(roster).length - 1, 1)
   assert.ok(main.includes(`${aiCore}${roster}`))
