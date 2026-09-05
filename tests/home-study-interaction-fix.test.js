@@ -30,7 +30,7 @@ test('home cards use semantic V2 destinations through React-owned navigation', (
   assert.doesNotMatch(sw, /school-home-nav\.js/)
 })
 
-test('study ranking keeps the existing scroll-stability rules without runtime style injection', () => {
+test('study ranking keeps the existing scroll-stability rules with direct React input ownership', () => {
   const refinements = read('public/school-refinements.css')
   const studyPatch = read('src/preview-study-patch.js')
   const recovery = read('src/production-recovery-patch.js')
@@ -40,10 +40,13 @@ test('study ranking keeps the existing scroll-stability rules without runtime st
   assert.match(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
   assert.match(refinements, /will-change: auto !important/)
 
-  assert.match(recovery, /onClick=\{\(\) => selectScope\('class'\)\}/)
-  assert.match(recovery, /onClick=\{\(\) => selectScope\('school'\)\}/)
+  assert.match(studyPatch, /onClick=\{\(\) => selectScope\('class'\)\}/)
+  assert.match(studyPatch, /onClick=\{\(\) => selectScope\('school'\)\}/)
+  assert.doesNotMatch(studyPatch, /touchIntentRef/)
+  assert.doesNotMatch(studyPatch, /onPointerDown=/)
   assert.equal((studyPatch.match(/touch-action: pan-y;/g) || []).length, 2)
   assert.doesNotMatch(studyPatch, /touch-action: manipulation/)
+  assert.doesNotMatch(recovery, /patchStudyRankingGesture/)
   assert.doesNotMatch(recovery, /patchStudyRankingTouchAction/)
   assert.doesNotMatch(recovery, /preview-study-ranking\.css/)
 })

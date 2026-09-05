@@ -19,16 +19,18 @@ test('study ranking reuses the class top-segment spring constants and stretch la
   assert.match(page, /--study-ranking-shell-shift-x/)
 })
 
-test('study ranking scope uses one physical pill and immediate touch intent', () => {
+test('study ranking scope uses one physical pill with direct click ownership', () => {
   const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
 
   assert.match(page, /preview-study-ranking-pill/)
   assert.match(page, /ref=\{scopeSpring\.containerRef\}/)
   assert.match(page, /scopeSpring\.buttonRefs\.current\[0\]/)
   assert.match(page, /scopeSpring\.buttonRefs\.current\[1\]/)
-  assert.match(page, /onPointerDown=\{\(event\) =>/)
-  assert.match(page, /event\.pointerType === 'mouse'/)
-  assert.match(page, /performance\.now\(\) - intent\.at < 700/)
+  assert.match(page, /onClick=\{\(\) => selectScope\('class'\)\}/)
+  assert.match(page, /onClick=\{\(\) => selectScope\('school'\)\}/)
+  assert.doesNotMatch(page, /onPointerDown=/)
+  assert.doesNotMatch(page, /touchIntentRef/)
+  assert.doesNotMatch(page, /performance\.now\(\) - intent\.at/)
 })
 
 test('study ranking content follows the selected direction with reduced-motion fallback', () => {
