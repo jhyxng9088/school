@@ -5,16 +5,16 @@ import { readFileSync } from 'node:fs'
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('Study ranking input is owned by its React control, not a document pointer interceptor', () => {
-  const homeNav = read('public/school-home-nav.js')
+  const homeLive = read('public/school-home-live.js')
   const refinements = read('public/school-refinements.css')
   const studyPatch = read('src/preview-study-patch.js')
   const recovery = read('src/production-recovery-patch.js')
 
-  assert.doesNotMatch(homeNav, /deferStudyScopeTouchToClick/)
-  assert.doesNotMatch(homeNav, /addEventListener\('pointerdown'/)
-  assert.doesNotMatch(homeNav, /removeEventListener\('pointerdown'/)
-  assert.doesNotMatch(homeNav, /data-study-scroll-stability/)
-  assert.doesNotMatch(homeNav, /document\.createElement\('style'\)/)
+  assert.doesNotMatch(homeLive, /deferStudyScopeTouchToClick/)
+  assert.doesNotMatch(homeLive, /addEventListener\('pointerdown'/)
+  assert.doesNotMatch(homeLive, /removeEventListener\('pointerdown'/)
+  assert.doesNotMatch(homeLive, /data-study-scroll-stability/)
+  assert.doesNotMatch(homeLive, /document\.createElement\('style'\)/)
 
   assert.match(refinements, /preview-study-ranking-stage\[data-direction\]/)
   assert.match(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
