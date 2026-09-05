@@ -1,22 +1,23 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { PREVIEW_CLASS_SEGMENT_PHYSICS } from '../src/preview-class-top-segment-patch.js'
 import { patchPreviewStudySource } from '../src/preview-study-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('study ranking reuses the class top-segment spring constants and stretch law', () => {
+test('study ranking directly reuses the canonical shared segment spring', () => {
   const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
 
+  assert.match(page, /import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'/)
   assert.match(page, /function useStudyRankingScopeSpring\(activeIndex\)/)
-  assert.match(page, /useLayoutEffect/)
-  assert.match(page, new RegExp(`const springForce = -${PREVIEW_CLASS_SEGMENT_PHYSICS.stiffness} \\* displacement`))
-  assert.match(page, new RegExp(`const dampingForce = -${PREVIEW_CLASS_SEGMENT_PHYSICS.damping} \\* physics\\.velocity`))
-  assert.match(page, new RegExp(`speed \\* ${PREVIEW_CLASS_SEGMENT_PHYSICS.stretchPerVelocity}, ${PREVIEW_CLASS_SEGMENT_PHYSICS.maxStretch}`))
-  assert.match(page, /const visualX = movingLeft \? physics\.x - stretch : physics\.x/)
+  assert.match(page, /return useSHubSegmentSpring\(activeIndex/)
+  assert.match(page, /paddingProperty: '--study-ranking-padding'/)
   assert.match(page, /--study-ranking-shell-scale-x/)
   assert.match(page, /--study-ranking-shell-shift-x/)
+  assert.match(page, /fallbackPadding: 4/)
+  assert.doesNotMatch(page, /const physicsRef = useRef\(\{/)
+  assert.doesNotMatch(page, /const springForce = -/)
+  assert.doesNotMatch(page, /useLayoutEffect/)
 })
 
 test('study ranking scope uses one physical pill with direct click ownership', () => {
