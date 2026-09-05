@@ -55,10 +55,10 @@ test('schedule continues to reuse the class segment spring wrapper', () => {
   assert.doesNotMatch(schedulePatch, /function useScheduleTopSegmentSpring/)
 })
 
-test('the existing final ownership transform delegates segment spring migration without adding another Vite transform', () => {
-  const owner = read('src/shared-icon-owner-patch.js')
+test('Vite calls shared segment spring ownership directly after icon source migration', () => {
   const vite = read('vite.config.js')
-  assert.match(owner, /patchSharedSegmentSpringOwnerSource/)
-  assert.equal((vite.match(/patchSharedIconOwnerSource\(next, cleanId\)/g) || []).length, 1)
-  assert.doesNotMatch(vite, /patchSharedSegmentSpringOwnerSource\(next, cleanId\)/)
+  assert.equal((vite.match(/patchSharedSegmentSpringOwnerSource\(next, cleanId\)/g) || []).length, 1)
+  assert.doesNotMatch(vite, /patchSharedIconOwnerSource/)
+  assert.doesNotMatch(vite, /shared-icon-owner-patch\.js/)
+  assert.equal(fs.existsSync(new URL('../src/shared-icon-owner-patch.js', import.meta.url)), false)
 })
