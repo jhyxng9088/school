@@ -1,0 +1,146 @@
+name: Study Icon Roundtrip Retirement Bootstrap
+
+on:
+  push:
+    branches:
+      - work/study-icon-roundtrip-retire-20260905
+    paths:
+      - .github/workflows/study-icon-roundtrip-retire.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/study-icon-roundtrip-retire-20260905
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Retire redundant study icon rewrite
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 occurrence, found {count}')
+              return text.replace(old, new, 1)
+
+          def replace_test_block(text, start_marker, next_marker, replacement, label):
+              if text.count(start_marker) != 1:
+                  raise SystemExit(f'{label}: start marker drift')
+              start = text.index(start_marker)
+              end = text.index(next_marker, start + len(start_marker))
+              if end < 0:
+                  raise SystemExit(f'{label}: next marker missing')
+              return text[:start] + replacement + '\n\n' + text[end:]
+
+          polish_path = Path('src/study-visual-polish-patch.js')
+          polish = polish_path.read_text()
+          start_marker = 'function patchStudyNavIcon(source) {'
+          end_marker = '\nfunction patchStudyHeader(source) {'
+          if polish.count(start_marker) != 1:
+              raise SystemExit('study icon patch function drift')
+          start = polish.index(start_marker)
+          end = polish.index(end_marker, start)
+          polish = polish[:start] + polish[end + 1:]
+          polish = replace_once(
+              polish,
+              "  if (cleanId.endsWith('/src/main.jsx')) return patchStudyNavIcon(source)\n",
+              '',
+              'main study icon dispatch',
+          )
+          if 'patchStudyNavIcon' in polish:
+              raise SystemExit('study icon patch owner still present')
+          polish_path.write_text(polish)
+
+          visual_test_path = Path('tests/study-visual-polish.test.js')
+          visual_test = visual_test_path.read_text()
+          visual_test = replace_once(
+              visual_test,
+              "import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'\n",
+              '',
+              'unused station-nav test import',
+          )
+          visual_test = replace_test_block(
+              visual_test,
+              "test('study bottom navigation uses an unmistakable minimal open-book icon', () => {",
+              "test('study ranking client sends today/all period without changing the existing endpoint', () => {",
+              """test('study navigation icon polish is registry-owned instead of rewriting main source', () => {
+  const registry = read('src/s-hub-icon.jsx')
+  const main = read('src/main.jsx')
+  const visualPatch = read('src/study-visual-polish-patch.js')
+
+  assert.match(registry, /M2\\.8 5\\.2c3\\.6-\\.9 6\\.7\\.1 9\\.2 2\\.8/)
+  assert.match(registry, /M21\\.2 5\\.2c-3\\.6-\\.9-6\\.7\\.1-9\\.2 2\\.8/)
+  assert.match(registry, /M12 8v11\\.2/)
+  assert.equal(patchStudyVisualPolishSource(main, '/workspace/src/main.jsx'), main)
+  assert.doesNotMatch(visualPatch, /patchStudyNavIcon/)
+  assert.doesNotMatch(visualPatch, /endsWith\\('\\/src\\/main\\.jsx'\\)/)
+})""",
+              'study icon registry ownership test',
+          )
+          visual_test_path.write_text(visual_test)
+
+          shared_test_path = Path('tests/shared-icon-owner.test.js')
+          shared_test = shared_test_path.read_text()
+          shared_test = replace_test_block(
+              shared_test,
+              "test('legacy station patches still run before final runtime icon ownership moves to SHubIcon', () => {",
+              "test('shared icon owner is the final V2 source transform after visual polish', () => {",
+              """test('visual polish no longer rewrites the station study SVG before SHubIcon takes ownership', () => {
+  const id = '/workspace/src/main.jsx'
+  let source = read('src/main.jsx')
+  source = patchPreviewStationNavSource(source, id)
+  assert.match(source, /M4\\.2 5\\.1h5\\.5/)
+
+  const polished = patchStudyVisualPolishSource(source, id)
+  assert.equal(polished, source)
+
+  const owned = patchSharedIconOwnerSource(polished, id)
+  assert.match(owned, /import \\{ SHubIcon \\} from '\\.\\/s-hub-icon\\.jsx'/)
+  assert.match(owned, /function Icon\\(\\{ type, size = 22 \\}\\) \\{\\n  return <SHubIcon name=\\{type\\} size=\\{size\\} \\/>\\n\\}/)
+  const start = owned.indexOf('function Icon({ type, size = 22 }) {')
+  const end = owned.indexOf('function InstallGuide', start)
+  assert.ok(start >= 0 && end > start)
+  const iconBlock = owned.slice(start, end)
+  assert.doesNotMatch(iconBlock, /<svg/)
+})""",
+              'shared icon downstream ownership test',
+          )
+          shared_test_path.write_text(shared_test)
+          PY
+
+      - name: Verify candidate before commit
+        shell: bash
+        run: |
+          git diff --check
+          ! grep -q "patchStudyNavIcon" src/study-visual-polish-patch.js
+          npm ci
+          tmp_workflow=/tmp/study-icon-roundtrip-retire.yml
+          mv .github/workflows/study-icon-roundtrip-retire.yml "$tmp_workflow"
+          trap 'mv "$tmp_workflow" .github/workflows/study-icon-roundtrip-retire.yml' EXIT
+          npm test
+          npm run build
+          mv "$tmp_workflow" .github/workflows/study-icon-roundtrip-retire.yml
+          trap - EXIT
+
+      - name: Commit study icon owner cleanup
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/study-visual-polish-patch.js tests/study-visual-polish.test.js tests/shared-icon-owner.test.js
+          git diff --cached --quiet && exit 1
+          git commit -m 'refactor: retire redundant study icon rewrite'
+          git push origin HEAD:work/study-icon-roundtrip-retire-20260905
