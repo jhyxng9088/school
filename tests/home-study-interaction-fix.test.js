@@ -5,18 +5,24 @@ import { readFileSync } from 'node:fs'
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('home cards use semantic V2 destinations through the shared navigation owner', () => {
-  const source = read('public/school-home-nav.js')
+  const legacy = read('public/school-home-nav.js')
+  const meal = read('src/home-meal-preview.jsx')
+  const action = read('src/home-nav-action.jsx')
 
-  assert.doesNotMatch(source, /navIndex/)
-  assert.match(source, /\.current-class-card/)
-  assert.match(source, /\.todo-home-preview/)
-  assert.match(source, /\.academic-preview/)
-  assert.match(source, /\.meal-preview/)
-  assert.match(source, /\.period-strip, \.today-timetable-empty/)
-  assert.match(source, /SHubNavigation\?\.navigate\(route\)/)
-  assert.doesNotMatch(source, /\.bottom-nav \.nav-button/)
-  assert.doesNotMatch(source, /afterReactCommit/)
-  assert.doesNotMatch(source, /station-schedule-switcher/)
+  assert.doesNotMatch(legacy, /navIndex/)
+  assert.match(legacy, /\.current-class-card/)
+  assert.match(legacy, /\.todo-home-preview/)
+  assert.match(legacy, /\.academic-preview/)
+  assert.doesNotMatch(legacy, /\.meal-preview/)
+  assert.doesNotMatch(legacy, /section: 'meal'/)
+  assert.match(legacy, /\.period-strip, \.today-timetable-empty/)
+  assert.match(legacy, /SHubNavigation\?\.navigate\(route\)/)
+  assert.doesNotMatch(legacy, /\.bottom-nav \.nav-button/)
+  assert.doesNotMatch(legacy, /afterReactCommit/)
+  assert.doesNotMatch(legacy, /station-schedule-switcher/)
+
+  assert.match(meal, /<HomeNavAction tab="schedule" section="meal" label="급식 열기" \/>/)
+  assert.match(action, /window\.SHubNavigation\?\.navigate\(\{ tab, section \}\)/)
 })
 
 test('study ranking keeps the existing scroll-stability rules without runtime style injection', () => {
