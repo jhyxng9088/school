@@ -14,6 +14,7 @@ import {
   writeStudentTodoState,
 } from './school-sync'
 import { recordClassActivity } from './class-activity'
+import { HomeNavAction } from './home-nav-action.jsx'
 import { isReminderExpired, reminderExpiryMs } from './reminder-lifecycle.js'
 import {
   TODO_TYPES,
@@ -680,7 +681,8 @@ export function TodoHomePreview({ todos, categories = [], now }) {
   const visible = upcoming.slice(0, 3)
 
   return (
-    <section className="home-section todo-home-preview">
+    <section className="home-section todo-home-preview home-nav-native-surface" data-home-nav-ready="true">
+      <HomeNavAction tab="schedule" section="todo" label="리마인더 열기" />
       <div className="section-heading">
         <h2>리마인더</h2>
         <AnimatedText value={`${upcoming.length}개`} />
