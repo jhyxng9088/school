@@ -23,4 +23,6 @@ test('meal home preview owns native semantic navigation without DOM button retro
   assert.doesNotMatch(action, /onKeyDown=/)
 
   assert.match(legacy, /if \(item\.dataset\.homeNavReady === 'true'\) return/)
+  assert.doesNotMatch(legacy, /item\.matches\('\.meal-preview'\)/)
+  assert.doesNotMatch(legacy, /section: 'meal'/)
 })
