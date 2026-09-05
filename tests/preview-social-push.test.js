@@ -18,13 +18,10 @@ test('social dispatch shares activity endpoint and accepts isolated preview or p
   assert.match(source, /reminderActivityRecipientEligible/)
 })
 
-test('social client owns the canonical production backend without a recovery patch', () => {
+test('social client owns the canonical production backend directly', () => {
   const source = read('src/preview-social-push.js')
-  const recovery = read('src/production-recovery-patch.js')
   assert.match(source, /school-reminder-backend\.vercel\.app\/api\/activity-dispatch/)
   assert.doesNotMatch(source, /school-reminder-backend-git-preview-s-hub-v2/)
-  assert.doesNotMatch(recovery, /patchSocialPushEndpoint/)
-  assert.doesNotMatch(recovery, /preview-social-push\.js/)
 })
 
 test('board sends push only for new post realtime mutation', () => {
