@@ -23,7 +23,6 @@ const USER_VISIBLE_FILES = [
   'src/unread-indicators-v2.js',
   'public/first-run-notice.js',
   'public/feature-tour-ai-orb.js',
-  'public/school-home-live.js',
   'public/notification-tone-profile.js',
 ]
 
