@@ -15,12 +15,9 @@ let repairPromise = null
 let repairAttempted = false
 let lastFetchedAt = 0
 let liveOnline = null
-let liveTotal = null
-let lastRenderedLabel = ''
 let modalState = null
 let modalWarmupScheduled = false
 let closeTimerId = 0
-let syncQueued = false
 
 function profileClassNumber() {
   const profile = readStudentProfile()
@@ -30,12 +27,6 @@ function profileClassNumber() {
 
 function cacheKey(classNumber = profileClassNumber()) {
   return classNumber ? `${ROSTER_CACHE_PREFIX}${classNumber}` : ''
-}
-
-function parseCounter(value) {
-  const match = /^(\d+)\/(\d+)$/.exec(String(value || '').trim())
-  if (!match) return null
-  return { online: Number(match[1]), total: Number(match[2]) }
 }
 
 function normalizeRoster(payload) {
@@ -89,8 +80,6 @@ function resetRosterState(classNumber = 0) {
   lastFetchedAt = 0
   repairAttempted = false
   liveOnline = null
-  liveTotal = null
-  lastRenderedLabel = ''
 }
 
 function hydrateRosterCache() {
@@ -191,7 +180,6 @@ async function repairRosterIfNeeded() {
     if (Number(payload?.archived || 0) > 0) {
       const before = rosterSignature(cachedRoster)
       await fetchRoster({ force: true })
-      syncCounter()
       if (modalState?.layer?.classList.contains('is-visible') && rosterSignature(cachedRoster) !== before) {
         renderRoster({ animateRows: false, force: true })
       }
@@ -209,7 +197,7 @@ async function repairRosterIfNeeded() {
 
 function currentRosterOnline(roster = cachedRoster) {
   if (!roster) return 0
-  const total = Math.max(0, Number.isInteger(liveTotal) ? liveTotal : roster.registeredTotal || roster.total)
+  const total = Math.max(0, roster.registeredTotal || roster.total)
   return Math.max(0, Math.min(Number.isInteger(liveOnline) ? liveOnline : roster.online, total))
 }
 
@@ -252,41 +240,6 @@ function applyLivePresenceSnapshot(detail) {
     }
   }
 
-  updateModalSummary()
-  queueCounterSync()
-}
-
-function applyRosterCounter(counter) {
-  if (!counter) return
-
-  if (counter.textContent.trim() !== lastRenderedLabel) {
-    const reactCount = parseCounter(counter.textContent)
-    if (reactCount) {
-      liveOnline = reactCount.online
-      liveTotal = reactCount.total
-    }
-  }
-
-  // The React control owns button semantics. This module only keeps its live label in sync.
-  counter.setAttribute('aria-hidden', 'false')
-
-  if (!cachedRoster) {
-    const current = parseCounter(counter.textContent)
-    const classNumber = profileClassNumber()
-    counter.setAttribute('aria-label', classNumber
-      ? `${classNumber}반 명단 보기${current ? `, 현재 접속 ${current.online}명, 등록 ${current.total}명` : ''}`
-      : '반 명단 보기')
-    return
-  }
-
-  const fallbackTotal = Math.max(0, cachedRoster.registeredTotal || cachedRoster.total)
-  const total = Math.max(0, Number.isInteger(liveTotal) ? liveTotal : fallbackTotal)
-  const online = Math.max(0, Math.min(Number.isInteger(liveOnline) ? liveOnline : cachedRoster.online, total))
-  const nextLabel = `${online}/${total}`
-  if (counter.textContent.trim() !== nextLabel) counter.textContent = nextLabel
-  lastRenderedLabel = nextLabel
-  const classNumber = cachedRoster.classNumber || profileClassNumber()
-  counter.setAttribute('aria-label', `${classNumber}반 명단 보기, 현재 접속 ${online}명, 등록 ${total}명`)
   updateModalSummary()
 }
 
@@ -436,7 +389,6 @@ async function refreshModal({ force = false, showLoading = false } = {}) {
 
   try {
     await fetchRoster({ force })
-    syncCounter()
     const changed = rosterSignature(cachedRoster) !== before
     if (modalState?.layer?.classList.contains('is-visible') && (!hadRoster || changed)) {
       renderRoster({ animateRows: !hadRoster, force: true })
@@ -528,40 +480,11 @@ export function openClassRoster({ keyboard = false } = {}) {
   void refreshModal({ force: false, showLoading: false })
 }
 
-function syncCounter() {
-  syncQueued = false
-  hydrateRosterCache()
-  const counter = document.querySelector('.class-presence-count')
-  if (!counter) return
-  scheduleModalWarmup()
-  applyRosterCounter(counter)
-}
-
-function queueCounterSync() {
-  if (syncQueued) return
-  syncQueued = true
-  queueMicrotask(syncCounter)
-}
-
-function isRosterInternalMutation(mutation) {
-  const target = mutation?.target
-  const element = target?.nodeType === 3 ? target.parentElement : target
-  return Boolean(element?.closest?.('.class-roster-layer'))
-}
-
-const observer = new MutationObserver((mutations) => {
-  if (mutations.length && mutations.every(isRosterInternalMutation)) return
-  queueCounterSync()
-})
-const appRoot = document.getElementById('root')
-if (appRoot) observer.observe(appRoot, { childList: true, subtree: true, characterData: true })
-
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && modalState?.layer?.classList.contains('is-open')) closeModal()
 })
 
 window.addEventListener('focus', () => {
-  syncCounter()
   if (modalState?.layer?.classList.contains('is-visible')) void refreshModal({ force: false, showLoading: false })
 })
 
@@ -571,8 +494,7 @@ window.addEventListener('school:class-presence', (event) => {
 
 window.addEventListener('school:student-profile-saved', () => {
   resetRosterState(0)
-  syncCounter()
 })
 
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncCounter, { once: true })
-else syncCounter()
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleModalWarmup, { once: true })
+else scheduleModalWarmup()
