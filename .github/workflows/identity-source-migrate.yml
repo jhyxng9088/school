@@ -36,6 +36,15 @@ jobs:
                   raise SystemExit(f'{label}: expected 1 occurrence, found {count}')
               return text.replace(old, new, 1)
 
+          def replace_once_in_range(text, start_marker, end_marker, old, new, label):
+              if text.count(start_marker) != 1 or text.count(end_marker) != 1:
+                  raise SystemExit(f'{label}: range markers drifted')
+              start = text.index(start_marker)
+              end = text.index(end_marker, start)
+              segment = text[start:end]
+              segment = replace_once(segment, old, new, label)
+              return text[:start] + segment + text[end:]
+
           sync_path = Path('src/school-sync.js')
           sync = sync_path.read_text()
 
@@ -100,37 +109,21 @@ jobs:
               'transient identity lookup fallback',
           )
 
-          sync = replace_once(
+          sync = replace_once_in_range(
               sync,
-              """        await setDoc(identity, {
-                  classId,
-                  studentKey,
-                  name: profile.name,
-                  createdAt: now,
-                  updatedAt: now,
-                })
-                return user""",
-              """        await setDoc(identity, {
-                  classId,
-                  studentKey,
-                  name: profile.name,
-                  createdAt: now,
-                  updatedAt: now,
-                })
-                rememberIdentitySync(cacheKey)
-                return user""",
+              "      if (!snapshot.exists()) {",
+              "      const existing = snapshot.data() || {}",
+              "        })\n        return user",
+              "        })\n        rememberIdentitySync(cacheKey)\n        return user",
               'identity create marker',
           )
 
-          sync = replace_once(
+          sync = replace_once_in_range(
               sync,
-              """        throw new Error('저장된 학생 정보와 로그인 정보가 달라. 앱 데이터를 초기화한 뒤 다시 등록해줘.')
-                }
-                return user""",
-              """        throw new Error('저장된 학생 정보와 로그인 정보가 달라. 앱 데이터를 초기화한 뒤 다시 등록해줘.')
-                }
-                rememberIdentitySync(cacheKey)
-                return user""",
+              "      const existing = snapshot.data() || {}",
+              "    })().catch((error) => {",
+              "      }\n      return user",
+              "      }\n      rememberIdentitySync(cacheKey)\n      return user",
               'identity verified marker',
           )
           sync_path.write_text(sync)
