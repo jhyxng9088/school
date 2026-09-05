@@ -42,3 +42,15 @@ test('mobile class station keeps one five-column layout owner during nested pill
   assert.match(nested, /nav\.addEventListener\('classminiphysics', handleMiniPhysics\)/)
   assert.match(nested, /function syncOuterIndicatorNow\(actualLeftWidth, actualClassWidth\)/)
 })
+
+
+test('iPad academic content avoids the transformed compositor layer without broad mobile compatibility', () => {
+  const source = read('src/main.jsx')
+  const styles = read('src/styles.css')
+
+  assert.match(source, /const MOBILE_BROWSER_COMPAT = \/iPhone\|iPod\|Android\|SamsungBrowser\/i\.test\(navigator\.userAgent\)/)
+  assert.ok(source.includes("const IPAD_BROWSER_COMPAT = /\\biPad\\b/i.test(navigator.userAgent)"))
+  assert.match(source, /navigator\.platform === 'MacIntel' && navigator\.maxTouchPoints > 1/)
+  assert.match(source, /if \(IPAD_BROWSER_COMPAT\) document\.documentElement\.classList\.add\('school-ipad'\)/)
+  assert.match(styles, /html\.school-ipad \.app-content\.tab-academic \{[\s\S]*?animation: school-mobile-opacity-in 560ms[\s\S]*?transform: none !important;[\s\S]*?\}/)
+})
