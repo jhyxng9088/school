@@ -8,10 +8,14 @@ const exists = (path) => fs.existsSync(new URL(`../${path}`, import.meta.url))
 test('main build path never injects the retired polite DOM runtime', () => {
   const main = read('src/main.jsx')
   const preview = read('src/preview-s-hub-v2-patch.js')
+  const homeInfo = read('src/preview-home-info-patch.js')
 
   assert.doesNotMatch(main, /installPoliteCopyRuntime/)
   assert.doesNotMatch(preview, /installPoliteCopyRuntime/)
   assert.doesNotMatch(preview, /polite-copy-runtime\.js/)
+  assert.doesNotMatch(homeInfo, /installPoliteCopyRuntime/)
+  assert.doesNotMatch(homeInfo, /polite-copy-runtime\.js/)
+  assert.match(homeInfo, /SOURCE_ROSTER_IMPORT/)
 })
 
 test('retired final runtime cleanup owner is removed from the patch chain', () => {
