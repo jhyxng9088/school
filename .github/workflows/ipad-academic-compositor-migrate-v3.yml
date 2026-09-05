@@ -100,7 +100,7 @@ jobs:
       - name: Verify exact candidate paths
         shell: bash
         run: |
-          actual="$(git diff --name-only | sort)"
+          actual="$(git diff HEAD --name-only | sort)"
           expected="$(printf '%s\n' \
             '.github/workflows/ipad-academic-compositor-migrate-v3.yml' \
             'src/main.jsx' \
