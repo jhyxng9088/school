@@ -8,11 +8,13 @@ test('home cards use semantic V2 destinations through the shared navigation owne
   const legacy = read('public/school-home-nav.js')
   const meal = read('src/home-meal-preview.jsx')
   const academic = read('src/academic-shared.jsx')
+  const todo = read('src/todo.jsx')
   const action = read('src/home-nav-action.jsx')
 
   assert.doesNotMatch(legacy, /navIndex/)
   assert.match(legacy, /\.current-class-card/)
-  assert.match(legacy, /\.todo-home-preview/)
+  assert.doesNotMatch(legacy, /\.todo-home-preview/)
+  assert.doesNotMatch(legacy, /section: 'todo'/)
   assert.doesNotMatch(legacy, /\.academic-preview/)
   assert.doesNotMatch(legacy, /section: 'academic'/)
   assert.doesNotMatch(legacy, /\.meal-preview/)
@@ -25,6 +27,9 @@ test('home cards use semantic V2 destinations through the shared navigation owne
 
   assert.match(meal, /<HomeNavAction tab="schedule" section="meal" label="급식 열기" \/>/)
   assert.match(academic, /<HomeNavAction tab="schedule" section="academic" label="학사일정 열기" \/>/)
+  assert.match(todo, /import \{ HomeNavAction \} from '\.\/home-nav-action\.jsx'/)
+  assert.match(todo, /todo-home-preview home-nav-native-surface" data-home-nav-ready="true"/)
+  assert.match(todo, /<HomeNavAction tab="schedule" section="todo" label="리마인더 열기" \/>/)
   assert.match(action, /window\.SHubNavigation\?\.navigate\(\{ tab, section \}\)/)
 })
 
