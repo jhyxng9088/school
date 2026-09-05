@@ -42,21 +42,22 @@ jobs:
           main_path = Path('src/main.jsx')
           main = main_path.read_text()
           anchor = "  async function clearAllChanges() {\n"
-          effect = """  useEffect(() => {
-    document.dispatchEvent(new Event('school:timetable-motion-sync'))
-  }, [
-    editing,
-    weekAnchor,
-    now,
-    weeklySchedule,
-    overrides,
-    sharedWeeklySchedule,
-    sharedOverrides,
-    personalWeeklySchedule,
-    personalOverrides,
-  ])
-
-"""
+          effect = "\n".join([
+              "  useEffect(() => {",
+              "    document.dispatchEvent(new Event('school:timetable-motion-sync'))",
+              "  }, [",
+              "    editing,",
+              "    weekAnchor,",
+              "    now,",
+              "    weeklySchedule,",
+              "    overrides,",
+              "    sharedWeeklySchedule,",
+              "    sharedOverrides,",
+              "    personalWeeklySchedule,",
+              "    personalOverrides,",
+              "  ])",
+              "",
+          ])
           main = replace_once(main, anchor, effect + anchor, 'TimetablePage semantic motion effect')
           main_path.write_text(main)
 
@@ -69,36 +70,38 @@ jobs:
           if start < 0 or end < 0:
               raise SystemExit('timetable observer block boundary missing')
           end += len(end_marker)
-          replacement = """  const cellSignatures = new WeakMap()
-  let syncFrame = null
-
-  function cellSignature(cell) {
-    return `${cell.className}\n${cell.textContent || ''}`
-  }
-
-  function syncTimetableMotion() {
-    if (syncFrame !== null) return
-
-    syncFrame = requestAnimationFrame(() => {
-      syncFrame = null
-      document.querySelectorAll(TIMETABLE_PAGE_SELECTOR).forEach(schedulePageReady)
-      document.querySelectorAll(CELL_SELECTOR).forEach((cell) => {
-        const signature = cellSignature(cell)
-        const previous = cellSignatures.get(cell)
-        cellSignatures.set(cell, signature)
-
-        if (previous === undefined) {
-          if (isTimetableReady(cell)) queueCell(cell)
-          return
-        }
-        if (previous !== signature) queueCell(cell)
-      })
-    })
-  }
-
-  document.addEventListener('school:timetable-motion-sync', syncTimetableMotion)
-  syncTimetableMotion()
-"""
+          replacement = "\n".join([
+              "  const cellSignatures = new WeakMap()",
+              "  let syncFrame = null",
+              "",
+              "  function cellSignature(cell) {",
+              "    return `${cell.className}\\n${cell.textContent || ''}`",
+              "  }",
+              "",
+              "  function syncTimetableMotion() {",
+              "    if (syncFrame !== null) return",
+              "",
+              "    syncFrame = requestAnimationFrame(() => {",
+              "      syncFrame = null",
+              "      document.querySelectorAll(TIMETABLE_PAGE_SELECTOR).forEach(schedulePageReady)",
+              "      document.querySelectorAll(CELL_SELECTOR).forEach((cell) => {",
+              "        const signature = cellSignature(cell)",
+              "        const previous = cellSignatures.get(cell)",
+              "        cellSignatures.set(cell, signature)",
+              "",
+              "        if (previous === undefined) {",
+              "          if (isTimetableReady(cell)) queueCell(cell)",
+              "          return",
+              "        }",
+              "        if (previous !== signature) queueCell(cell)",
+              "      })",
+              "    })",
+              "  }",
+              "",
+              "  document.addEventListener('school:timetable-motion-sync', syncTimetableMotion)",
+              "  syncTimetableMotion()",
+              "",
+          ])
           motion = motion[:start] + replacement + motion[end:]
           motion_path.write_text(motion)
           PY
