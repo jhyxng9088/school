@@ -48,9 +48,14 @@ test('segment unread keys are rendered semantically without a text-inference obs
   assert.match(css, /school-unread-dot\.is-segment/)
 })
 
-test('unread DOM observer watches only the React app root', () => {
+test('unread redraw follows semantic interactions without a DOM observer', () => {
   const source = read('src/unread-indicators-v2.js')
-  assert.match(source, /const observerRoot = document\.getElementById\('root'\)/)
-  assert.match(source, /if \(observerRoot\) \{[\s\S]*domObserver\.observe\(observerRoot,/)
-  assert.doesNotMatch(source, /domObserver\.observe\(document\.documentElement/)
+  const clickHandler = source.slice(source.indexOf('function handleClick(event)'), source.indexOf('subscriptions.push'))
+  assert.doesNotMatch(source, /MutationObserver/)
+  assert.doesNotMatch(source, /domObserver/)
+  assert.match(source, /document\.addEventListener\('click', handleClick, true\)/)
+  assert.match(clickHandler, /class-top-segment-button\[data-unread-key\][\s\S]*scheduleRender\(\)/)
+  assert.match(clickHandler, /bottom-nav \.nav-button[\s\S]*scheduleRender\(\)/)
+  assert.match(clickHandler, /todo-item-main[\s\S]*scheduleRender\(\)/)
+  assert.equal((clickHandler.match(/scheduleRender\(\)/g) || []).length, 3)
 })
