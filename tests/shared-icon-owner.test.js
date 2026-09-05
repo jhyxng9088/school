@@ -17,24 +17,23 @@ test('shared S-Hub icon registry preserves every app icon and the polished study
   assert.match(source, /M12 8v11\.2/)
 })
 
-test('legacy station patches still run before final runtime icon ownership moves to SHubIcon', () => {
+test('visual polish no longer rewrites the station study SVG before SHubIcon takes ownership', () => {
   const id = '/workspace/src/main.jsx'
   let source = read('src/main.jsx')
   source = patchPreviewStationNavSource(source, id)
-  source = patchStudyVisualPolishSource(source, id)
+  assert.match(source, /M4\.2 5\.1h5\.5/)
 
-  assert.match(source, /M2\.8 5\.2c3\.6-\.9 6\.7\.1 9\.2 2\.8/)
+  const polished = patchStudyVisualPolishSource(source, id)
+  assert.equal(polished, source)
 
-  source = patchSharedIconOwnerSource(source, id)
-  assert.match(source, /import \{ SHubIcon \} from '\.\/s-hub-icon\.jsx'/)
-  assert.match(source, /function Icon\(\{ type, size = 22 \}\) \{\n  return <SHubIcon name=\{type\} size=\{size\} \/>\n\}/)
-
-  const start = source.indexOf('function Icon({ type, size = 22 }) {')
-  const end = source.indexOf('function InstallGuide', start)
+  const owned = patchSharedIconOwnerSource(polished, id)
+  assert.match(owned, /import \{ SHubIcon \} from '\.\/s-hub-icon\.jsx'/)
+  assert.match(owned, /function Icon\(\{ type, size = 22 \}\) \{\n  return <SHubIcon name=\{type\} size=\{size\} \/>\n\}/)
+  const start = owned.indexOf('function Icon({ type, size = 22 }) {')
+  const end = owned.indexOf('function InstallGuide', start)
   assert.ok(start >= 0 && end > start)
-  const iconBlock = source.slice(start, end)
+  const iconBlock = owned.slice(start, end)
   assert.doesNotMatch(iconBlock, /<svg/)
-  assert.doesNotMatch(iconBlock, /M2\.8 5\.2/)
 })
 
 test('shared icon owner is the final V2 source transform after visual polish', () => {

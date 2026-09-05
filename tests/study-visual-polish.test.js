@@ -5,21 +5,21 @@ import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
 import { patchPreviewFastCacheSource } from '../src/preview-fast-cache-patch.js'
 import { patchPreviewStudySource } from '../src/preview-study-patch.js'
 import { patchPreviewStudyUnifiedUISource } from '../src/preview-study-unified-ui-patch.js'
-import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
 import { patchStudyVisualPolishSource } from '../src/study-visual-polish-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('study bottom navigation uses an unmistakable minimal open-book icon', () => {
-  let source = read('src/main.jsx')
-  source = patchPreviewStationNavSource(source, '/workspace/src/main.jsx')
-  source = patchStudyVisualPolishSource(source, '/workspace/src/main.jsx')
+test('study navigation icon polish is registry-owned instead of rewriting main source', () => {
+  const registry = read('src/s-hub-icon.jsx')
+  const main = read('src/main.jsx')
+  const visualPatch = read('src/study-visual-polish-patch.js')
 
-  assert.match(source, /M2\.8 5\.2c3\.6-\.9 6\.7\.1 9\.2 2\.8/)
-  assert.match(source, /M21\.2 5\.2c-3\.6-\.9-6\.7\.1-9\.2 2\.8/)
-  assert.match(source, /M12 8v11\.2/)
-  assert.doesNotMatch(source, /M4\.2 5\.1h5\.5/)
-  assert.doesNotMatch(source, /<circle cx="12" cy="13" r="7\.2"\/>/)
+  assert.match(registry, /M2\.8 5\.2c3\.6-\.9 6\.7\.1 9\.2 2\.8/)
+  assert.match(registry, /M21\.2 5\.2c-3\.6-\.9-6\.7\.1-9\.2 2\.8/)
+  assert.match(registry, /M12 8v11\.2/)
+  assert.equal(patchStudyVisualPolishSource(main, '/workspace/src/main.jsx'), main)
+  assert.doesNotMatch(visualPatch, /patchStudyNavIcon/)
+  assert.doesNotMatch(visualPatch, /endsWith\('\/src\/main\.jsx'\)/)
 })
 
 test('study ranking client sends today/all period without changing the existing endpoint', () => {
