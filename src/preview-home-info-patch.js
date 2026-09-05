@@ -7,7 +7,6 @@ const POLITE_IMPORT = "import { installPoliteCopyRuntime } from './polite-copy-r
 const HOME_SIGNALS_IMPORT = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
 const HOME_NAV_ACTION_IMPORT = "import { HomeNavAction } from './home-nav-action.jsx'\n"
 const HOME_MEAL_PRIORITY_IMPORT = "import { useHomeMealPriority } from './home-meal-priority.js'\n"
-const ROSTER_IMPORT = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
 
 export function patchPreviewHomeInfoImports(source) {
   let next = String(source || '')
@@ -36,15 +35,6 @@ export function patchPreviewHomeInfoImports(source) {
       HOME_NAV_ACTION_IMPORT,
       `${HOME_NAV_ACTION_IMPORT}${HOME_MEAL_PRIORITY_IMPORT}`,
       'home meal priority import',
-    )
-  }
-
-  if (!next.includes(ROSTER_IMPORT)) {
-    next = replaceRequired(
-      next,
-      HOME_MEAL_PRIORITY_IMPORT,
-      `${HOME_MEAL_PRIORITY_IMPORT}${ROSTER_IMPORT}`,
-      'home roster import',
     )
   }
 
