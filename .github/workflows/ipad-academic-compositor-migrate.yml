@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   migrate:
-    if: github.event.head_commit.message != 'fix: isolate iPad academic content compositor'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
@@ -100,6 +99,6 @@ jobs:
         run: |
           git config user.name "jhyxng9088"
           git config user.email "j.hyxng9088@gmail.com"
-          git add src/main.jsx src/styles.css tests/mobile-layout-fixes.test.js .github/workflows/ipad-academic-compositor-migrate.yml
+          git add -A
           git commit -m "fix: isolate iPad academic content compositor"
           git push origin HEAD:stability/ipad-academic-compositor-fix-20260905-v2
