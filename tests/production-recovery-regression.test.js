@@ -61,7 +61,7 @@ test('section editor pending-sync recovery is migration-safe and keeps the curre
   assert.match(source, /서버 사용량 제한으로 이 기기에 임시 저장했어요/)
 })
 
-test('study class label recovery accepts the future source-owned normalization', () => {
+test('study class label is source-owned and its recovery owner is retired', () => {
   const pageId = path.join(root, 'src/preview-study.jsx')
   const legacyLabel = `function classLabel(classId) {
   const match = /^preview-class-(\\d+)$/.exec(String(classId || ''))
@@ -72,12 +72,22 @@ test('study class label recovery accepts the future source-owned normalization',
   return match ? \`\${Number(match[1])}반\` : '반 정보 없음'
 }`
   const raw = read('src/preview-study.jsx')
-  const canonicalSource = raw.replace(legacyLabel, canonicalLabel)
-  assert.notEqual(canonicalSource, raw)
+  const recovery = read('src/production-recovery-patch.js')
+  assert.ok(raw.includes(canonicalLabel))
+  assert.ok(!raw.includes(legacyLabel))
+  assert.doesNotMatch(recovery, /patchStudyClassLabel/)
+  assert.doesNotMatch(recovery, /production study class label/)
 
-  const previewPage = patchPreviewStudySource(canonicalSource, pageId)
+  const previewPage = patchPreviewStudySource(raw, pageId)
   const page = patchProductionRecoverySource(previewPage, pageId)
-  assert.ok(page.includes(canonicalLabel))
+  const classLabelBlock = /function classLabel\(classId\) \{[\s\S]*?\n\}/
+  assert.equal(previewPage.match(classLabelBlock)?.[0], canonicalLabel)
+  assert.equal(page.match(classLabelBlock)?.[0], canonicalLabel)
+  assert.equal(page.match(classLabelBlock)?.[0], previewPage.match(classLabelBlock)?.[0])
+  assert.match(previewPage, /touchIntentRef/)
+  assert.match(previewPage, /onPointerDown=/)
+  assert.doesNotMatch(page, /touchIntentRef/)
+  assert.doesNotMatch(page, /onPointerDown=/)
 })
 
 test('study ranking waits for a completed tap and keeps vertical scrolling available', () => {

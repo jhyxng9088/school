@@ -61,7 +61,7 @@ function studentIdentity(student) {
 }
 
 function classLabel(classId) {
-  const match = /^preview-class-(\d+)$/.exec(String(classId || ''))
+  const match = /^(?:preview-)?class-(\d+)$/.exec(String(classId || ''))
   return match ? `${Number(match[1])}반` : '반 정보 없음'
 }
 
