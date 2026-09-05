@@ -30,3 +30,14 @@ test('semantic timetable motion preserves the existing motion and platform safeg
   assert.match(source, /document\.querySelectorAll\(TIMETABLE_PAGE_SELECTOR\)\.forEach\(schedulePageReady\)/)
   assert.match(source, /document\.querySelectorAll\(CELL_SELECTOR\)\.forEach/)
 })
+
+test('retired timetable removal animation helpers do not linger as dead runtime owners', () => {
+  const source = read('public/school-timetable-motion.js')
+
+  assert.doesNotMatch(source, /CHANGE_SECTION_SELECTOR/)
+  assert.doesNotMatch(source, /CHANGE_ITEM_SELECTOR/)
+  assert.doesNotMatch(source, /function finishRemove/)
+  assert.doesNotMatch(source, /function animateRemoval/)
+  assert.doesNotMatch(source, /schoolTimetableMotionPassthrough/)
+  assert.doesNotMatch(source, /Revert buttons execute their React handler immediately/)
+})
