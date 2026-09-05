@@ -1,0 +1,105 @@
+name: Migrate iPad academic compositor guard
+
+on:
+  push:
+    branches:
+      - stability/ipad-academic-compositor-fix-20260905-v2
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.event.head_commit.message != 'fix: isolate iPad academic content compositor'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: stability/ipad-academic-compositor-fix-20260905-v2
+          fetch-depth: 0
+
+      - name: Apply guarded source migration
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          main_path = Path('src/main.jsx')
+          main = main_path.read_text()
+          old_main = """const MOBILE_BROWSER_COMPAT = /iPhone|iPod|Android|SamsungBrowser/i.test(navigator.userAgent)
+          const SAMSUNG_BROWSER = /SamsungBrowser/i.test(navigator.userAgent)
+          if (MOBILE_BROWSER_COMPAT) document.documentElement.classList.add('school-mobile-compat')
+          if (SAMSUNG_BROWSER) document.documentElement.classList.add('school-samsung')
+          """.replace('          ', '')
+          new_main = """const MOBILE_BROWSER_COMPAT = /iPhone|iPod|Android|SamsungBrowser/i.test(navigator.userAgent)
+          const SAMSUNG_BROWSER = /SamsungBrowser/i.test(navigator.userAgent)
+          const IPAD_WEBKIT = /iPad/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+          if (MOBILE_BROWSER_COMPAT) document.documentElement.classList.add('school-mobile-compat')
+          if (SAMSUNG_BROWSER) document.documentElement.classList.add('school-samsung')
+          if (IPAD_WEBKIT) document.documentElement.classList.add('school-ipad')
+          """.replace('          ', '')
+          if main.count(old_main) != 1:
+              raise SystemExit(f'main device marker count: {main.count(old_main)}')
+          main_path.write_text(main.replace(old_main, new_main, 1))
+
+          css_path = Path('src/styles.css')
+          css = css_path.read_text()
+          old_css = """/* On iPhone the same compositor conflict was isolated to the academic page. */
+          html.school-mobile-compat:not(.school-samsung) .app-content.tab-academic {
+            animation: school-mobile-opacity-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+            transform: none !important;
+          }
+          """.replace('          ', '')
+          new_css = """/* On WebKit touch devices the academic page keeps content off transformed compositor layers. */
+          html.school-mobile-compat:not(.school-samsung) .app-content.tab-academic,
+          html.school-ipad .app-content.tab-academic {
+            animation: school-mobile-opacity-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+            transform: none !important;
+          }
+          """.replace('          ', '')
+          if css.count(old_css) != 1:
+              raise SystemExit(f'academic compositor marker count: {css.count(old_css)}')
+          css_path.write_text(css.replace(old_css, new_css, 1))
+
+          test_path = Path('tests/mobile-layout-fixes.test.js')
+          tests = test_path.read_text()
+          marker = "test('iPad academic content avoids the transformed WebKit compositor path'"
+          if marker in tests:
+              raise SystemExit('iPad compositor regression test already present')
+          tests += """
+
+          test('iPad academic content avoids the transformed WebKit compositor path', () => {
+            const main = read('src/main.jsx')
+            const css = read('src/styles.css')
+
+            assert.match(main, /const IPAD_WEBKIT = \/iPad\/i\.test\(navigator\.userAgent\) \|\| \(\/Macintosh\/i\.test\(navigator\.userAgent\) && navigator\.maxTouchPoints > 1\)/)
+            assert.match(main, /if \(IPAD_WEBKIT\) document\.documentElement\.classList\.add\('school-ipad'\)/)
+
+            const academicGuard = css.match(/html\.school-mobile-compat:not\(\.school-samsung\) \.app-content\.tab-academic,\s*html\.school-ipad \.app-content\.tab-academic \{[\s\S]*?\n\}/)?.[0] || ''
+            assert.match(academicGuard, /animation: school-mobile-opacity-in 560ms/)
+            assert.match(academicGuard, /transform: none !important;/)
+
+            const nav = css.match(/\.bottom-nav \{[\s\S]*?\n\}/)?.[0] || ''
+            assert.match(nav, /position: fixed;/)
+          })
+          """.replace('          ', '')
+          test_path.write_text(tests)
+          PY
+
+          git rm .github/workflows/ipad-academic-compositor-migrate.yml
+          git diff --check
+
+      - name: Verify app tests and production build
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Commit migrated candidate
+        run: |
+          git config user.name "jhyxng9088"
+          git config user.email "j.hyxng9088@gmail.com"
+          git add src/main.jsx src/styles.css tests/mobile-layout-fixes.test.js .github/workflows/ipad-academic-compositor-migrate.yml
+          git commit -m "fix: isolate iPad academic content compositor"
+          git push origin HEAD:stability/ipad-academic-compositor-fix-20260905-v2
