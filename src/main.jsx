@@ -657,6 +657,19 @@ function TimetablePage({
     else await onSaveOverrides(next)
   }
 
+  useEffect(() => {
+    document.dispatchEvent(new Event('school:timetable-motion-sync'))
+  }, [
+    editing,
+    weekAnchor,
+    now,
+    weeklySchedule,
+    overrides,
+    sharedWeeklySchedule,
+    sharedOverrides,
+    personalWeeklySchedule,
+    personalOverrides,
+  ])
   async function clearAllChanges() {
     if (!Object.keys(overrides || {}).length) return
     if (!requireOnline('시간표를 수정')) return
