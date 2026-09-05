@@ -72,50 +72,53 @@ jobs:
               '',
               'unused station-nav test import',
           )
+          visual_replacement = (
+              "test('study navigation icon polish is registry-owned instead of rewriting main source', () => {\n"
+              "  const registry = read('src/s-hub-icon.jsx')\n"
+              "  const main = read('src/main.jsx')\n"
+              "  const visualPatch = read('src/study-visual-polish-patch.js')\n\n"
+              "  assert.match(registry, /M2\\.8 5\\.2c3\\.6-\\.9 6\\.7\\.1 9\\.2 2\\.8/)\n"
+              "  assert.match(registry, /M21\\.2 5\\.2c-3\\.6-\\.9-6\\.7\\.1-9\\.2 2\\.8/)\n"
+              "  assert.match(registry, /M12 8v11\\.2/)\n"
+              "  assert.equal(patchStudyVisualPolishSource(main, '/workspace/src/main.jsx'), main)\n"
+              "  assert.doesNotMatch(visualPatch, /patchStudyNavIcon/)\n"
+              "  assert.doesNotMatch(visualPatch, /endsWith\\('\\/src\\/main\\.jsx'\\)/)\n"
+              "})"
+          )
           visual_test = replace_test_block(
               visual_test,
               "test('study bottom navigation uses an unmistakable minimal open-book icon', () => {",
               "test('study ranking client sends today/all period without changing the existing endpoint', () => {",
-              """test('study navigation icon polish is registry-owned instead of rewriting main source', () => {
-  const registry = read('src/s-hub-icon.jsx')
-  const main = read('src/main.jsx')
-  const visualPatch = read('src/study-visual-polish-patch.js')
-
-  assert.match(registry, /M2\\.8 5\\.2c3\\.6-\\.9 6\\.7\\.1 9\\.2 2\\.8/)
-  assert.match(registry, /M21\\.2 5\\.2c-3\\.6-\\.9-6\\.7\\.1-9\\.2 2\\.8/)
-  assert.match(registry, /M12 8v11\\.2/)
-  assert.equal(patchStudyVisualPolishSource(main, '/workspace/src/main.jsx'), main)
-  assert.doesNotMatch(visualPatch, /patchStudyNavIcon/)
-  assert.doesNotMatch(visualPatch, /endsWith\\('\\/src\\/main\\.jsx'\\)/)
-})""",
+              visual_replacement,
               'study icon registry ownership test',
           )
           visual_test_path.write_text(visual_test)
 
           shared_test_path = Path('tests/shared-icon-owner.test.js')
           shared_test = shared_test_path.read_text()
+          shared_replacement = (
+              "test('visual polish no longer rewrites the station study SVG before SHubIcon takes ownership', () => {\n"
+              "  const id = '/workspace/src/main.jsx'\n"
+              "  let source = read('src/main.jsx')\n"
+              "  source = patchPreviewStationNavSource(source, id)\n"
+              "  assert.match(source, /M4\\.2 5\\.1h5\\.5/)\n\n"
+              "  const polished = patchStudyVisualPolishSource(source, id)\n"
+              "  assert.equal(polished, source)\n\n"
+              "  const owned = patchSharedIconOwnerSource(polished, id)\n"
+              "  assert.match(owned, /import \\{ SHubIcon \\} from '\\.\\/s-hub-icon\\.jsx'/)\n"
+              "  assert.match(owned, /function Icon\\(\\{ type, size = 22 \\}\\) \\{\\n  return <SHubIcon name=\\{type\\} size=\\{size\\} \\/>\\n\\}/)\n"
+              "  const start = owned.indexOf('function Icon({ type, size = 22 }) {')\n"
+              "  const end = owned.indexOf('function InstallGuide', start)\n"
+              "  assert.ok(start >= 0 && end > start)\n"
+              "  const iconBlock = owned.slice(start, end)\n"
+              "  assert.doesNotMatch(iconBlock, /<svg/)\n"
+              "})"
+          )
           shared_test = replace_test_block(
               shared_test,
               "test('legacy station patches still run before final runtime icon ownership moves to SHubIcon', () => {",
               "test('shared icon owner is the final V2 source transform after visual polish', () => {",
-              """test('visual polish no longer rewrites the station study SVG before SHubIcon takes ownership', () => {
-  const id = '/workspace/src/main.jsx'
-  let source = read('src/main.jsx')
-  source = patchPreviewStationNavSource(source, id)
-  assert.match(source, /M4\\.2 5\\.1h5\\.5/)
-
-  const polished = patchStudyVisualPolishSource(source, id)
-  assert.equal(polished, source)
-
-  const owned = patchSharedIconOwnerSource(polished, id)
-  assert.match(owned, /import \\{ SHubIcon \\} from '\\.\\/s-hub-icon\\.jsx'/)
-  assert.match(owned, /function Icon\\(\\{ type, size = 22 \\}\\) \\{\\n  return <SHubIcon name=\\{type\\} size=\\{size\\} \\/>\\n\\}/)
-  const start = owned.indexOf('function Icon({ type, size = 22 }) {')
-  const end = owned.indexOf('function InstallGuide', start)
-  assert.ok(start >= 0 && end > start)
-  const iconBlock = owned.slice(start, end)
-  assert.doesNotMatch(iconBlock, /<svg/)
-})""",
+              shared_replacement,
               'shared icon downstream ownership test',
           )
           shared_test_path.write_text(shared_test)
