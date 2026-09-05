@@ -9,9 +9,6 @@
     if (item.matches('.todo-home-preview')) {
       return { tab: 'schedule', section: 'todo', label: '리마인더 열기' }
     }
-    if (item.matches('.academic-preview')) {
-      return { tab: 'schedule', section: 'academic', label: '학사일정 열기' }
-    }
     if (item.matches('.home-section') && item.querySelector('.period-strip, .today-timetable-empty')) {
       return { tab: 'class', section: 'timetable', label: '시간표 열기' }
     }
