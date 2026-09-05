@@ -80,8 +80,14 @@ test('study class label is source-owned and its recovery owner is retired', () =
 
   const previewPage = patchPreviewStudySource(raw, pageId)
   const page = patchProductionRecoverySource(previewPage, pageId)
-  assert.equal(page, previewPage)
-  assert.ok(page.includes(canonicalLabel))
+  const classLabelBlock = /function classLabel\(classId\) \{[\s\S]*?\n\}/
+  assert.equal(previewPage.match(classLabelBlock)?.[0], canonicalLabel)
+  assert.equal(page.match(classLabelBlock)?.[0], canonicalLabel)
+  assert.equal(page.match(classLabelBlock)?.[0], previewPage.match(classLabelBlock)?.[0])
+  assert.match(previewPage, /touchIntentRef/)
+  assert.match(previewPage, /onPointerDown=/)
+  assert.doesNotMatch(page, /touchIntentRef/)
+  assert.doesNotMatch(page, /onPointerDown=/)
 })
 
 test('study ranking waits for a completed tap and keeps vertical scrolling available', () => {
