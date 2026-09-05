@@ -37,10 +37,12 @@ jobs:
               return text.replace(old, new, 1)
 
           def replace_once_in_range(text, start_marker, end_marker, old, new, label):
-              if text.count(start_marker) != 1 or text.count(end_marker) != 1:
-                  raise SystemExit(f'{label}: range markers drifted')
+              if text.count(start_marker) != 1:
+                  raise SystemExit(f'{label}: expected one range start, found {text.count(start_marker)}')
               start = text.index(start_marker)
-              end = text.index(end_marker, start)
+              end = text.find(end_marker, start)
+              if end < 0:
+                  raise SystemExit(f'{label}: range end not found after start')
               segment = text[start:end]
               segment = replace_once(segment, old, new, label)
               return text[:start] + segment + text[end:]
