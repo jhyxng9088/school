@@ -1,4 +1,3 @@
-import { patchFinalRuntimeOwnerSource } from './final-runtime-owner-patch.js'
 import { patchSharedSegmentSpringOwnerSource } from './shared-segment-spring-owner-patch.js'
 
 const ICON_IMPORT = "import { SHubIcon } from './s-hub-icon.jsx'"
@@ -43,8 +42,7 @@ function patchIconFunction(source) {
 
 export function patchSharedIconOwnerSource(source, id) {
   const cleanId = String(id || '').split('?')[0]
-  let next = patchSharedSegmentSpringOwnerSource(source, cleanId)
-  next = patchFinalRuntimeOwnerSource(next, cleanId)
+  const next = patchSharedSegmentSpringOwnerSource(source, cleanId)
   if (!cleanId.endsWith('/src/main.jsx')) return next
   return patchIconFunction(patchIconImport(next))
 }

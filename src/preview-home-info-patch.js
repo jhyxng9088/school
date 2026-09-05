@@ -3,7 +3,7 @@ function replaceRequired(source, marker, replacement, label) {
   return source.replace(marker, replacement)
 }
 
-const POLITE_IMPORT = "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n"
+const SOURCE_ROSTER_IMPORT = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
 const HOME_SIGNALS_IMPORT = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
 const HOME_NAV_ACTION_IMPORT = "import { HomeNavAction } from './home-nav-action.jsx'\n"
 const HOME_MEAL_PRIORITY_IMPORT = "import { useHomeMealPriority } from './home-meal-priority.js'\n"
@@ -14,8 +14,8 @@ export function patchPreviewHomeInfoImports(source) {
   if (!next.includes(HOME_SIGNALS_IMPORT)) {
     next = replaceRequired(
       next,
-      POLITE_IMPORT,
-      `${POLITE_IMPORT}${HOME_SIGNALS_IMPORT}`,
+      SOURCE_ROSTER_IMPORT,
+      `${SOURCE_ROSTER_IMPORT}${HOME_SIGNALS_IMPORT}`,
       'home signals import',
     )
   }
