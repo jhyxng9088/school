@@ -196,7 +196,12 @@ jobs:
         run: |
           git diff --check
           npm ci
+          tmp_workflow=/tmp/identity-source-migrate.yml
+          mv .github/workflows/identity-source-migrate.yml "$tmp_workflow"
+          trap 'mv "$tmp_workflow" .github/workflows/identity-source-migrate.yml' EXIT
           npm test
+          mv "$tmp_workflow" .github/workflows/identity-source-migrate.yml
+          trap - EXIT
 
       - name: Commit migrated source
         shell: bash
