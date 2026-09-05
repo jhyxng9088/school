@@ -2,14 +2,6 @@ function countOccurrences(source, marker) {
   return marker ? String(source || '').split(marker).length - 1 : 0
 }
 
-function replaceExact(source, marker, replacement, label) {
-  const count = countOccurrences(source, marker)
-  if (count !== 1) {
-    throw new Error(`S-Hub production recovery patch drift: expected 1 occurrence, found ${count}: ${label}`)
-  }
-  return String(source || '').replace(marker, replacement)
-}
-
 function patchTodoSectionSubmit(source) {
   const before = `      await saveReminderSectionChange({
         action: 'update',
@@ -42,110 +34,8 @@ function patchTodoSectionSubmit(source) {
   return String(source || '').replace(before, after)
 }
 
-function patchStudentIdentitySync(source) {
-  let next = String(source || '')
-
-  next = replaceExact(
-    next,
-    `let authPromise = null
-const identitySyncPromises = new Map()`,
-    `let authPromise = null
-const identitySyncPromises = new Map()
-const STUDENT_IDENTITY_SYNC_KEY = 'school.studentIdentitySync.v1'
-
-function identitySyncMarkerMatches(cacheKey) {
-  try {
-    return localStorage.getItem(STUDENT_IDENTITY_SYNC_KEY) === cacheKey
-  } catch {
-    return false
-  }
-}
-
-function rememberIdentitySync(cacheKey) {
-  try {
-    localStorage.setItem(STUDENT_IDENTITY_SYNC_KEY, cacheKey)
-  } catch {
-    // The in-memory promise still prevents duplicate checks for this session.
-  }
-}
-
-function transientIdentityReadError(error) {
-  const rawCode = String(error?.code || '')
-  const code = rawCode.startsWith('firestore/') ? rawCode.slice('firestore/'.length) : rawCode
-  return code === 'resource-exhausted' || code === 'unavailable' || code === 'deadline-exceeded'
-}`,
-    'student identity sync helpers',
-  )
-
-  next = replaceExact(
-    next,
-    `  const cacheKey = \`\${user.uid}|\${signature}\`
-  if (!identitySyncPromises.has(cacheKey)) {`,
-    `  const cacheKey = \`\${user.uid}|\${signature}\`
-  if (identitySyncMarkerMatches(cacheKey)) return user
-
-  if (!identitySyncPromises.has(cacheKey)) {`,
-    'student identity persistent marker check',
-  )
-
-  next = replaceExact(
-    next,
-    `      const identity = doc(db, 'users', user.uid)
-      const snapshot = await getDoc(identity)`,
-    `      const identity = doc(db, 'users', user.uid)
-      let snapshot
-      try {
-        snapshot = await getDoc(identity)
-      } catch (error) {
-        if (transientIdentityReadError(error)) {
-          console.warn('Student identity verification temporarily unavailable; continuing with existing auth session.', error)
-          return user
-        }
-        throw error
-      }`,
-    'student identity transient lookup fallback',
-  )
-
-  next = replaceExact(
-    next,
-    `        await setDoc(identity, {
-          classId,
-          studentKey,
-          name: profile.name,
-          createdAt: now,
-          updatedAt: now,
-        })
-        return user`,
-    `        await setDoc(identity, {
-          classId,
-          studentKey,
-          name: profile.name,
-          createdAt: now,
-          updatedAt: now,
-        })
-        rememberIdentitySync(cacheKey)
-        return user`,
-    'student identity create marker',
-  )
-
-  next = replaceExact(
-    next,
-    `        throw new Error('저장된 학생 정보와 로그인 정보가 달라. 앱 데이터를 초기화한 뒤 다시 등록해줘.')
-      }
-      return user`,
-    `        throw new Error('저장된 학생 정보와 로그인 정보가 달라. 앱 데이터를 초기화한 뒤 다시 등록해줘.')
-      }
-      rememberIdentitySync(cacheKey)
-      return user`,
-    'student identity verified marker',
-  )
-
-  return next
-}
-
 export function patchProductionRecoverySource(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/todo-stage5-ai.jsx')) return patchTodoSectionSubmit(source)
-  if (cleanId.endsWith('/src/school-sync.js')) return patchStudentIdentitySync(source)
   return String(source || '')
 }

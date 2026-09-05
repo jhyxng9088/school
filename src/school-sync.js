@@ -205,6 +205,29 @@ const db = initializeFirestore(syncApp, samsungInternet
 
 let authPromise = null
 const identitySyncPromises = new Map()
+const STUDENT_IDENTITY_SYNC_KEY = 'school.studentIdentitySync.v1'
+
+function identitySyncMarkerMatches(cacheKey) {
+  try {
+    return localStorage.getItem(STUDENT_IDENTITY_SYNC_KEY) === cacheKey
+  } catch {
+    return false
+  }
+}
+
+function rememberIdentitySync(cacheKey) {
+  try {
+    localStorage.setItem(STUDENT_IDENTITY_SYNC_KEY, cacheKey)
+  } catch {
+    // The in-memory promise still prevents duplicate checks for this session.
+  }
+}
+
+function transientIdentityReadError(error) {
+  const rawCode = String(error?.code || '')
+  const code = rawCode.startsWith('firestore/') ? rawCode.slice('firestore/'.length) : rawCode
+  return code === 'resource-exhausted' || code === 'unavailable' || code === 'deadline-exceeded'
+}
 
 async function ensureStoredProfileIdentity(user) {
   const profile = readStudentProfile()
@@ -216,10 +239,21 @@ async function ensureStoredProfileIdentity(user) {
   if (!classId || !studentKey || !signature) return user
 
   const cacheKey = `${user.uid}|${signature}`
+  if (identitySyncMarkerMatches(cacheKey)) return user
+
   if (!identitySyncPromises.has(cacheKey)) {
     const pending = (async () => {
       const identity = doc(db, 'users', user.uid)
-      const snapshot = await getDoc(identity)
+      let snapshot
+      try {
+        snapshot = await getDoc(identity)
+      } catch (error) {
+        if (transientIdentityReadError(error)) {
+          console.warn('Student identity verification temporarily unavailable; continuing with existing auth session.', error)
+          return user
+        }
+        throw error
+      }
 
       if (!snapshot.exists()) {
         const now = Date.now()
@@ -230,6 +264,7 @@ async function ensureStoredProfileIdentity(user) {
           createdAt: now,
           updatedAt: now,
         })
+        rememberIdentitySync(cacheKey)
         return user
       }
 
@@ -241,6 +276,7 @@ async function ensureStoredProfileIdentity(user) {
       ) {
         throw new Error('저장된 학생 정보와 로그인 정보가 달라. 앱 데이터를 초기화한 뒤 다시 등록해줘.')
       }
+      rememberIdentitySync(cacheKey)
       return user
     })().catch((error) => {
       identitySyncPromises.delete(cacheKey)

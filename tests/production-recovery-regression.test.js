@@ -33,7 +33,7 @@ test('home presence control is source-owned and its recovery owner is retired', 
   assert.doesNotMatch(recovery, /patchMainPresence/)
   assert.doesNotMatch(recovery, /endsWith\('\/src\/main\.jsx'\)/)
   assert.match(recovery, /patchTodoSectionSubmit/)
-  assert.match(recovery, /patchStudentIdentitySync/)
+  assert.doesNotMatch(recovery, /patchStudentIdentitySync/)
 })
 
 test('section edits use only the production backend and never reload the PWA on save failure', () => {
@@ -130,13 +130,19 @@ test('study ranking click owner is direct and keeps vertical scrolling available
   assert.doesNotMatch(recovery, /endsWith\('\/src\/preview-study-ranking\.css'\)/)
 })
 
-test('student identity sync survives transient Firestore outages without weakening hard identity mismatches', () => {
+test('student identity sync is source-owned and recovery no longer rewrites school-sync', () => {
+  const raw = read('src/school-sync.js')
   const source = recover('src/school-sync.js')
-  assert.match(source, /STUDENT_IDENTITY_SYNC_KEY = 'school\.studentIdentitySync\.v1'/)
-  assert.match(source, /identitySyncMarkerMatches\(cacheKey\)/)
-  assert.match(source, /code === 'resource-exhausted' \|\| code === 'unavailable' \|\| code === 'deadline-exceeded'/)
-  assert.match(source, /if \(transientIdentityReadError\(error\)\) \{[\s\S]*?return user/)
-  assert.match(source, /rememberIdentitySync\(cacheKey\)/)
-  assert.match(source, /저장된 학생 정보와 로그인 정보가 달라/)
-  assert.doesNotMatch(source.slice(source.indexOf('function transientIdentityReadError'), source.indexOf('async function ensureStoredProfileIdentity')), /permission-denied/)
+  const recovery = read('src/production-recovery-patch.js')
+  assert.equal(source, raw)
+  assert.match(raw, /STUDENT_IDENTITY_SYNC_KEY = 'school\.studentIdentitySync\.v1'/)
+  assert.match(raw, /identitySyncMarkerMatches\(cacheKey\)/)
+  assert.match(raw, /code === 'resource-exhausted' \|\| code === 'unavailable' \|\| code === 'deadline-exceeded'/)
+  assert.match(raw, /if \(transientIdentityReadError\(error\)\) \{[\s\S]*?return user/)
+  assert.match(raw, /rememberIdentitySync\(cacheKey\)/)
+  assert.match(raw, /저장된 학생 정보와 로그인 정보가 달라/)
+  assert.doesNotMatch(raw.slice(raw.indexOf('function transientIdentityReadError'), raw.indexOf('async function ensureStoredProfileIdentity')), /permission-denied/)
+  assert.doesNotMatch(recovery, /patchStudentIdentitySync/)
+  assert.doesNotMatch(recovery, /endsWith\('\/src\/school-sync\.js'\)/)
+  assert.match(recovery, /patchTodoSectionSubmit/)
 })
