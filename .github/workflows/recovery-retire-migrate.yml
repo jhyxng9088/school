@@ -1,0 +1,134 @@
+name: Production Recovery Retirement Bootstrap
+
+on:
+  push:
+    branches:
+      - work/production-recovery-retire-20260905
+    paths:
+      - .github/workflows/recovery-retire-migrate.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/production-recovery-retire-20260905
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Retire final production recovery owner
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 occurrence, found {count}')
+              return text.replace(old, new, 1)
+
+          patch_path = Path('src/preview-s-hub-v2-patch.js')
+          patch = patch_path.read_text()
+          old_submit = """    try {\\n      await saveReminderSectionChange({\\n        action: 'update',\\n        sectionId: target.id,\\n        label,\\n        color: sectionEditColor,\\n        categories,\\n      })\\n      setSectionEditOpen(false)\\n    } catch (error) {"""
+          new_submit = """    try {\\n      const result = await saveReminderSectionChange({\\n        action: 'update',\\n        sectionId: target.id,\\n        label,\\n        color: sectionEditColor,\\n        categories,\\n      })\\n      if (result?.pendingSync) {\\n        setSectionEditError('서버 사용량 제한으로 이 기기에 임시 저장했어요. 서버 제한이 풀리면 자동으로 다시 반영돼요.')\\n        return\\n      }\\n      setSectionEditOpen(false)\\n    } catch (error) {"""
+          patch = replace_once(patch, old_submit, new_submit, 'section update pending-sync owner')
+          patch_path.write_text(patch)
+
+          vite_path = Path('vite.config.js')
+          vite = vite_path.read_text()
+          vite = replace_once(
+              vite,
+              "import { patchProductionRecoverySource } from './src/production-recovery-patch.js'\n",
+              '',
+              'production recovery import',
+          )
+          vite = replace_once(
+              vite,
+              '  next = patchProductionRecoverySource(next, cleanId)\n',
+              '',
+              'production recovery transform call',
+          )
+          vite = replace_once(
+              vite,
+              "        || cleanId.endsWith('/production-recovery-patch.js')\n",
+              '',
+              'production recovery polite-copy exclusion',
+          )
+          vite_path.write_text(vite)
+
+          test_path = Path('tests/production-recovery-regression.test.js')
+          tests = test_path.read_text()
+          tests = replace_once(
+              tests,
+              "import { patchProductionRecoverySource } from '../src/production-recovery-patch.js'\n",
+              '',
+              'recovery test import',
+          )
+          tests = replace_once(
+              tests,
+              "const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')\n",
+              """const read = (relativePath) => {\n  const filePath = path.join(root, relativePath)\n  if (relativePath === 'src/production-recovery-patch.js' && !fs.existsSync(filePath)) return ''\n  return fs.readFileSync(filePath, 'utf8')\n}\n""",
+              'recovery-aware test reader',
+          )
+          tests = replace_once(
+              tests,
+              """function recover(relativePath, source = read(relativePath)) {\n  return patchProductionRecoverySource(source, path.join(root, relativePath))\n}\n""",
+              """function recover(relativePath, source = read(relativePath)) {\n  return source\n}\n\nfunction patchProductionRecoverySource(source) {\n  return source\n}\n""",
+              'retired recovery test shim',
+          )
+          pending_assertions = '  assert.match(recovery, /patchTodoSectionSubmit/)\n'
+          count = tests.count(pending_assertions)
+          if count != 2:
+              raise SystemExit(f'pending recovery assertions: expected 2 occurrences, found {count}')
+          tests = tests.replace(pending_assertions, '  assert.doesNotMatch(recovery, /patchTodoSectionSubmit/)\n')
+          tests = replace_once(
+              tests,
+              "test('section editor pending-sync recovery is migration-safe and keeps the current sheet open', () => {\n  const id = path.join(root, 'src/todo-stage5-ai.jsx')",
+              "test('section editor pending-sync is owned upstream and production recovery is retired', () => {\n  assert.equal(fs.existsSync(path.join(root, 'src/production-recovery-patch.js')), false)\n  const id = path.join(root, 'src/todo-stage5-ai.jsx')",
+              'pending-sync source owner test',
+          )
+          test_path.write_text(tests)
+
+          recovery_path = Path('src/production-recovery-patch.js')
+          if not recovery_path.exists():
+              raise SystemExit('production recovery file already missing unexpectedly')
+          recovery = recovery_path.read_text()
+          if 'patchTodoSectionSubmit' not in recovery or 'patchProductionRecoverySource' not in recovery:
+              raise SystemExit('production recovery content drifted before retirement')
+          recovery_path.unlink()
+          PY
+
+      - name: Verify candidate before commit
+        shell: bash
+        run: |
+          git diff --check
+          test ! -e src/production-recovery-patch.js
+          ! grep -q "production-recovery-patch" vite.config.js
+          ! grep -q "patchProductionRecoverySource" vite.config.js
+          npm ci
+          tmp_workflow=/tmp/recovery-retire-migrate.yml
+          mv .github/workflows/recovery-retire-migrate.yml "$tmp_workflow"
+          trap 'mv "$tmp_workflow" .github/workflows/recovery-retire-migrate.yml' EXIT
+          npm test
+          npm run build
+          mv "$tmp_workflow" .github/workflows/recovery-retire-migrate.yml
+          trap - EXIT
+
+      - name: Commit retired recovery layer
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/preview-s-hub-v2-patch.js vite.config.js tests/production-recovery-regression.test.js src/production-recovery-patch.js
+          git diff --cached --quiet && exit 1
+          git commit -m 'refactor: retire production recovery layer'
+          git push origin HEAD:work/production-recovery-retire-20260905
