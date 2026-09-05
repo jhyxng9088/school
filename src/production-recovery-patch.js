@@ -10,16 +10,6 @@ function replaceExact(source, marker, replacement, label) {
   return String(source || '').replace(marker, replacement)
 }
 
-function replaceLegacyOrCanonical(source, legacy, canonical, label) {
-  const legacyCount = countOccurrences(source, legacy)
-  const canonicalCount = countOccurrences(source, canonical)
-  if (legacyCount === 0 && canonicalCount === 1) return String(source || '')
-  if (legacyCount !== 1 || canonicalCount !== 0) {
-    throw new Error(`S-Hub production recovery patch drift: expected exactly one legacy or canonical marker, found legacy=${legacyCount}, canonical=${canonicalCount}: ${label}`)
-  }
-  return String(source || '').replace(legacy, canonical)
-}
-
 function patchTodoSectionSubmit(source) {
   const before = `      await saveReminderSectionChange({
         action: 'update',
@@ -50,62 +40,6 @@ function patchTodoSectionSubmit(source) {
     throw new Error(`S-Hub production recovery patch drift: expected exactly one legacy or canonical section submit, found legacy=${beforeCount}, canonical=${afterCount}: section submit pending-sync handling`)
   }
   return String(source || '').replace(before, after)
-}
-
-function patchStudyRankingGesture(source) {
-  let next = String(source || '')
-  const stateBefore = `  const waitingForSchool = scope === 'school' && schoolLoading && !schoolSnapshot
-  const scopeSpring = useStudyRankingScopeSpring(scope === 'school' ? 1 : 0)
-  const touchIntentRef = useRef({ key: '', at: 0 })
-  const [stageDirection, setStageDirection] = useState('forward')
-
-  function selectScope(nextScope, pointerType = '') {
-    if (nextScope === scope) return
-    setStageDirection(nextScope === 'school' ? 'forward' : 'back')
-    if (pointerType && pointerType !== 'mouse') {
-      touchIntentRef.current = { key: nextScope, at: performance.now() }
-    }
-    onScope(nextScope)
-  }
-
-  function clickScope(nextScope) {
-    const intent = touchIntentRef.current
-    if (intent.key === nextScope && performance.now() - intent.at < 700) {
-      touchIntentRef.current = { key: '', at: 0 }
-      return
-    }
-    selectScope(nextScope)
-  }`
-  const stateAfter = `  const waitingForSchool = scope === 'school' && schoolLoading && !schoolSnapshot
-  const scopeSpring = useStudyRankingScopeSpring(scope === 'school' ? 1 : 0)
-  const [stageDirection, setStageDirection] = useState('forward')
-
-  function selectScope(nextScope) {
-    if (nextScope === scope) return
-    setStageDirection(nextScope === 'school' ? 'forward' : 'back')
-    onScope(nextScope)
-  }`
-  next = replaceLegacyOrCanonical(next, stateBefore, stateAfter, 'study ranking tap-completion state')
-
-  const classButtonBefore = `          aria-pressed={scope === 'class'}
-          onPointerDown={(event) => {
-            if (event.pointerType === 'mouse') return
-            selectScope('class', event.pointerType)
-          }}
-          onClick={() => clickScope('class')}`
-  const classButtonAfter = `          aria-pressed={scope === 'class'}
-          onClick={() => selectScope('class')}`
-  next = replaceLegacyOrCanonical(next, classButtonBefore, classButtonAfter, 'study class scope tap completion')
-
-  const schoolButtonBefore = `          aria-pressed={scope === 'school'}
-          onPointerDown={(event) => {
-            if (event.pointerType === 'mouse') return
-            selectScope('school', event.pointerType)
-          }}
-          onClick={() => clickScope('school')}`
-  const schoolButtonAfter = `          aria-pressed={scope === 'school'}
-          onClick={() => selectScope('school')}`
-  return replaceLegacyOrCanonical(next, schoolButtonBefore, schoolButtonAfter, 'study school scope tap completion')
 }
 
 function patchStudentIdentitySync(source) {
@@ -212,7 +146,6 @@ function transientIdentityReadError(error) {
 export function patchProductionRecoverySource(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/todo-stage5-ai.jsx')) return patchTodoSectionSubmit(source)
-  if (cleanId.endsWith('/src/preview-study.jsx')) return patchStudyRankingGesture(source)
   if (cleanId.endsWith('/src/school-sync.js')) return patchStudentIdentitySync(source)
   return String(source || '')
 }
