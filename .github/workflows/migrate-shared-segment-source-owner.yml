@@ -55,6 +55,16 @@ jobs:
               raise SystemExit(f'unexpected migration paths: {sorted(changed)}')
           PY
 
+      - name: Diagnose migrated class spring module
+        shell: bash
+        run: |
+          echo '--- migrated class patch head ---'
+          nl -ba src/preview-class-top-segment-patch.js | sed -n '1,100p'
+          echo '--- physics references ---'
+          grep -n "PREVIEW_CLASS_SEGMENT_PHYSICS\|useSHubSegmentSpring" src/preview-class-top-segment-patch.js || true
+          echo '--- direct module import ---'
+          node --input-type=module -e "import('./src/preview-class-top-segment-patch.js').then((m) => console.log(m.PREVIEW_CLASS_SEGMENT_PHYSICS))"
+
       - name: Test production app
         run: npm test
 
