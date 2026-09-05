@@ -42,7 +42,10 @@ const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
 const MOBILE_BROWSER_COMPAT = /iPhone|iPod|Android|SamsungBrowser/i.test(navigator.userAgent)
 const SAMSUNG_BROWSER = /SamsungBrowser/i.test(navigator.userAgent)
+const IPAD_BROWSER_COMPAT = /\biPad\b/i.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 if (MOBILE_BROWSER_COMPAT) document.documentElement.classList.add('school-mobile-compat')
+if (IPAD_BROWSER_COMPAT) document.documentElement.classList.add('school-ipad')
 if (SAMSUNG_BROWSER) document.documentElement.classList.add('school-samsung')
 
 

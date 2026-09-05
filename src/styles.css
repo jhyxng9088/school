@@ -692,3 +692,9 @@ html.school-mobile-compat:not(.school-samsung) .app-content.tab-academic {
   animation: school-mobile-opacity-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
   transform: none !important;
 }
+
+/* Keep iPad academic content off the transformed compositor layer without broad mobile overrides. */
+html.school-ipad .app-content.tab-academic {
+  animation: school-mobile-opacity-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform: none !important;
+}
