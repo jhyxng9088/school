@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           git rm src/shared-segment-spring-owner-patch.js
-          git rm scripts/migrate-shared-segment-owner.py
+          git rm -f scripts/migrate-shared-segment-owner.py
           git rm .github/workflows/migrate-shared-segment-owner.yml
           python -c "import subprocess; expected={'.github/workflows/migrate-shared-segment-owner.yml','scripts/migrate-shared-segment-owner.py','src/preview-class-top-segment-patch.js','src/preview-study-patch.js','src/shared-segment-spring-owner-patch.js','tests/final-runtime-owner.test.js','tests/preview-class-top-segment.test.js','tests/preview-study-ranking-motion.test.js','tests/shared-segment-spring-owner.test.js','vite.config.js'}; changed=set(subprocess.check_output(['git','diff','HEAD','--name-only'], text=True).splitlines()); assert changed == expected, f'unexpected migration paths: {sorted(changed)}'"
           git diff --check
