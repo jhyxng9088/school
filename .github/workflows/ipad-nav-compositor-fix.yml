@@ -1,0 +1,102 @@
+name: iPad Nav Compositor Fix Bootstrap
+
+on:
+  push:
+    branches:
+      - work/ipad-nav-compositor-fix-20260905
+    paths:
+      - .github/workflows/ipad-nav-compositor-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/ipad-nav-compositor-fix-20260905
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply targeted iPad compositor guard
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new, label):
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 occurrence, found {count}')
+              path.write_text(text.replace(old, new, 1))
+
+          index = Path('index.html')
+          replace_once(
+              index,
+              "        if (samsungBrowser) {\n          document.documentElement.classList.add('school-samsung')\n        }\n        if (!mobileBrowser && !iPadDesktopUA && finePointer) {",
+              "        if (samsungBrowser) {\n          document.documentElement.classList.add('school-samsung')\n        }\n        if (iPadDesktopUA) {\n          document.documentElement.classList.add('school-ipad')\n        }\n        if (!mobileBrowser && !iPadDesktopUA && finePointer) {",
+              'iPad boot class',
+          )
+
+          styles = Path('src/styles.css')
+          replace_once(
+              styles,
+              "/* On iPhone the same compositor conflict was isolated to the academic page. */\nhtml.school-mobile-compat:not(.school-samsung) .app-content.tab-academic {\n  animation: school-mobile-opacity-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;\n  transform: none !important;\n}",
+              "/* On WebKit touch devices the same compositor conflict is isolated to the academic page.\n   iPad uses a desktop-style UA, so it needs an explicit boot class instead of the phone compatibility class. */\nhtml.school-mobile-compat:not(.school-samsung) .app-content.tab-academic,\nhtml.school-ipad .app-content.tab-academic {\n  animation: school-mobile-opacity-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;\n  transform: none !important;\n}",
+              'academic WebKit compositor guard',
+          )
+
+          test = Path('tests/ipad-nav-compositor-stability.test.js')
+          test.write_text(
+              "import fs from 'node:fs'\n"
+              "import test from 'node:test'\n"
+              "import assert from 'node:assert/strict'\n\n"
+              "const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')\n\n"
+              "test('iPad is identified before styles load without being treated as a desktop laptop', () => {\n"
+              "  const index = read('index.html')\n"
+              "  const detect = index.indexOf(\"const iPadDesktopUA = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1\")\n"
+              "  const mark = index.indexOf(\"document.documentElement.classList.add('school-ipad')\")\n"
+              "  const styles = index.indexOf('<link rel=\"stylesheet\" href=\"/src/desktop-motion.css\"')\n"
+              "  assert.ok(detect >= 0)\n"
+              "  assert.ok(mark > detect)\n"
+              "  assert.ok(styles > mark)\n"
+              "  assert.match(index, /if \(!mobileBrowser && !iPadDesktopUA && finePointer\)/)\n"
+              "})\n\n"
+              "test('academic page disables only the conflicting WebKit transform on iPad', () => {\n"
+              "  const styles = read('src/styles.css')\n"
+              "  assert.match(styles, /html\\.school-ipad \\.app-content\\.tab-academic \\{[\\s\\S]*animation: school-mobile-opacity-in 560ms[\\s\\S]*transform: none !important;/)\n"
+              "  assert.match(styles, /\\.bottom-nav \\{[\\s\\S]*position: fixed;/)\n"
+              "  assert.doesNotMatch(styles, /html\\.school-ipad \\.bottom-nav[\\s\\S]*position:/)\n"
+              "})\n"
+          )
+          PY
+
+      - name: Verify candidate before commit
+        shell: bash
+        run: |
+          git diff --check
+          npm ci
+          tmp_workflow=/tmp/ipad-nav-compositor-fix.yml
+          mv .github/workflows/ipad-nav-compositor-fix.yml "$tmp_workflow"
+          trap 'mv "$tmp_workflow" .github/workflows/ipad-nav-compositor-fix.yml' EXIT
+          npm test
+          npm run build
+          mv "$tmp_workflow" .github/workflows/ipad-nav-compositor-fix.yml
+          trap - EXIT
+
+      - name: Commit iPad compositor fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html src/styles.css tests/ipad-nav-compositor-stability.test.js
+          git diff --cached --quiet && exit 1
+          git commit -m 'fix: stabilize iPad academic bottom nav compositor'
+          git push origin HEAD:work/ipad-nav-compositor-fix-20260905
