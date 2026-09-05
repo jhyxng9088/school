@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './academic-shared.css'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import { actorActionLabel } from './class-activity'
+import { HomeNavAction } from './home-nav-action.jsx'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 function pad(value) {
@@ -136,7 +137,8 @@ export function SharedAcademicPreview({ now, schoolData, academicData }) {
   const others = upcoming.filter((group) => group !== exam).slice(0, exam ? 2 : 3)
 
   return (
-    <section className="home-section stage3-home-block academic-preview">
+    <section className="home-section stage3-home-block academic-preview home-nav-native-surface" data-home-nav-ready="true">
+      <HomeNavAction tab="schedule" section="academic" label="학사일정 열기" />
       <div className="section-heading"><h2>학사일정</h2></div>
       <div className="academic-home-list">
         {exam ? (
