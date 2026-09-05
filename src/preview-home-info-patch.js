@@ -6,6 +6,7 @@ function replaceRequired(source, marker, replacement, label) {
 const POLITE_IMPORT = "import { installPoliteCopyRuntime } from './polite-copy-runtime.js'\n"
 const HOME_SIGNALS_IMPORT = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
 const HOME_NAV_ACTION_IMPORT = "import { HomeNavAction } from './home-nav-action.jsx'\n"
+const HOME_MEAL_PRIORITY_IMPORT = "import { useHomeMealPriority } from './home-meal-priority.js'\n"
 const ROSTER_IMPORT = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
 
 export function patchPreviewHomeInfoImports(source) {
@@ -29,11 +30,20 @@ export function patchPreviewHomeInfoImports(source) {
     )
   }
 
-  if (!next.includes(ROSTER_IMPORT)) {
+  if (!next.includes(HOME_MEAL_PRIORITY_IMPORT)) {
     next = replaceRequired(
       next,
       HOME_NAV_ACTION_IMPORT,
-      `${HOME_NAV_ACTION_IMPORT}${ROSTER_IMPORT}`,
+      `${HOME_NAV_ACTION_IMPORT}${HOME_MEAL_PRIORITY_IMPORT}`,
+      'home meal priority import',
+    )
+  }
+
+  if (!next.includes(ROSTER_IMPORT)) {
+    next = replaceRequired(
+      next,
+      HOME_MEAL_PRIORITY_IMPORT,
+      `${HOME_MEAL_PRIORITY_IMPORT}${ROSTER_IMPORT}`,
       'home roster import',
     )
   }
@@ -73,6 +83,20 @@ export function patchPreviewHomeInfoSource(source, id) {
     'function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI }) {',
     'function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI, onNavigate }) {',
     'home profile prop',
+  )
+
+  next = replaceRequired(
+    next,
+    'function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI, onNavigate }) {\n  const today =',
+    'function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI, onNavigate }) {\n  const { homeStackRef, mealPriority } = useHomeMealPriority(now)\n  const today =',
+    'home meal priority owner',
+  )
+
+  next = replaceRequired(
+    next,
+    '      <div className="home-stack">',
+    "      <div ref={homeStackRef} className={`home-stack ${mealPriority ? 'is-meal-priority' : ''}`} data-home-lunch-ready=\"true\">",
+    'home meal priority surface',
   )
 
   next = replaceRequired(
