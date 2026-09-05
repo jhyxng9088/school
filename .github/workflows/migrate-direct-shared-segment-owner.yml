@@ -1,0 +1,252 @@
+name: Migrate direct shared segment owner
+
+on:
+  push:
+    branches:
+      - work/direct-shared-segment-owner-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: work/direct-shared-segment-owner-20260906
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Migrate shared segment ownership upstream
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, found {count}')
+              return text.replace(old, new, 1)
+
+          class_path = Path('src/preview-class-top-segment-patch.js')
+          class_source = class_path.read_text()
+          helper = '''
+
+const SHARED_SEGMENT_IMPORT = "import { useSHubSegmentSpring } from './s-hub-segment-spring.js'"
+
+function ensureSharedSegmentImport(source) {
+  const current = String(source || '')
+  if (current.includes(SHARED_SEGMENT_IMPORT)) return current
+  if (!current.startsWith('import React')) {
+    throw new Error('Preview class top segment drift: React import must remain first')
+  }
+  const lineEnd = current.indexOf('\\n')
+  if (lineEnd < 0) throw new Error('Preview class top segment drift: React import line missing')
+  return `${current.slice(0, lineEnd + 1)}${SHARED_SEGMENT_IMPORT}\\n${current.slice(lineEnd + 1)}`
+}
+'''
+          class_source = replace_once(
+              class_source,
+              '\n\nconst CLASS_TOP_SEGMENT_CSS = `',
+              helper + '\nconst CLASS_TOP_SEGMENT_CSS = `',
+              'class shared import helper',
+          )
+
+          start_marker = 'function useClassTopSegmentSpring(activeIndex) {'
+          end_marker = '\n\nfunction ClassTopSegment'
+          start = class_source.find(start_marker)
+          end = class_source.find(end_marker, start + len(start_marker))
+          if start < 0 or end < 0:
+              raise SystemExit('class spring runtime boundary missing')
+          wrapper = '''function useClassTopSegmentSpring(activeIndex) {
+  return useSHubSegmentSpring(activeIndex, {
+    paddingProperty: '--segment-padding',
+    shellScaleProperty: '--segment-shell-scale-x',
+    shellShiftProperty: '--segment-shell-shift-x',
+    fallbackPadding: 5,
+  })
+}'''
+          class_source = class_source[:start] + wrapper + class_source[end:]
+          class_source = replace_once(
+              class_source,
+              '''          key={item.id}
+          type="button"
+          className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '')}''',
+              '''          key={item.id}
+          type="button"
+          data-unread-key={item.id}
+          className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '')}''',
+              'class unread semantic key',
+          )
+          class_source = replace_once(
+              class_source,
+              "function patchMainSource(source) {\n  let next = String(source || '')",
+              "function patchMainSource(source) {\n  let next = ensureSharedSegmentImport(String(source || ''))",
+              'class direct shared import',
+          )
+          class_path.write_text(class_source)
+
+          study_path = Path('src/preview-study-patch.js')
+          study = study_path.read_text()
+          study = replace_once(
+              study,
+              "import { PREVIEW_CLASS_SEGMENT_PHYSICS } from './preview-class-top-segment-patch.js'\n\n",
+              '',
+              'study duplicated physics import',
+          )
+          study_helper = '''const SHARED_SEGMENT_IMPORT = "import { useSHubSegmentSpring } from './s-hub-segment-spring.js'"
+
+function ensureSharedSegmentImport(source) {
+  const current = String(source || '')
+  if (current.includes(SHARED_SEGMENT_IMPORT)) return current
+  if (!current.startsWith('import React')) {
+    throw new Error('Preview study patch drift: React import must remain first')
+  }
+  const lineEnd = current.indexOf('\\n')
+  if (lineEnd < 0) throw new Error('Preview study patch drift: React import line missing')
+  return `${current.slice(0, lineEnd + 1)}${SHARED_SEGMENT_IMPORT}\\n${current.slice(lineEnd + 1)}`
+}
+
+'''
+          study = study_helper + study
+
+          runtime_start = study.find('const STUDY_RANKING_SPRING_RUNTIME = String.raw`')
+          runtime_end = study.find('const STUDY_RANKING_SPRING_CSS = String.raw`', runtime_start)
+          if runtime_start < 0 or runtime_end < 0:
+              raise SystemExit('study spring runtime boundary missing')
+          study_wrapper = '''const STUDY_RANKING_SPRING_RUNTIME = String.raw`
+function useStudyRankingScopeSpring(activeIndex) {
+  return useSHubSegmentSpring(activeIndex, {
+    paddingProperty: '--study-ranking-padding',
+    shellScaleProperty: '--study-ranking-shell-scale-x',
+    shellShiftProperty: '--study-ranking-shell-shift-x',
+    fallbackPadding: 4,
+  })
+}
+
+`
+
+'''
+          study = study[:runtime_start] + study_wrapper + study[runtime_end:]
+          study = replace_once(
+              study,
+              "function patchStudyRankingPageSource(source) {\n  let next = String(source || '')\n  if (next.includes('function useStudyRankingScopeSpring(activeIndex)')) return next",
+              "function patchStudyRankingPageSource(source) {\n  let next = ensureSharedSegmentImport(String(source || ''))\n  if (next.includes('function useStudyRankingScopeSpring(activeIndex)')) return next",
+              'study direct shared import',
+          )
+          study = replace_once(
+              study,
+              '''
+  next = replaceRequired(
+    next,
+    "import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'",
+    "import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'",
+    'study ranking layout effect import',
+  )
+''',
+              '',
+              'study local layout effect injection',
+          )
+          study_path.write_text(study)
+
+          vite_path = Path('vite.config.js')
+          vite = vite_path.read_text()
+          vite = replace_once(
+              vite,
+              "import { patchSharedSegmentSpringOwnerSource } from './src/shared-segment-spring-owner-patch.js'\n",
+              '',
+              'vite shared segment import',
+          )
+          vite = replace_once(
+              vite,
+              '  next = patchSharedSegmentSpringOwnerSource(next, cleanId)\n',
+              '',
+              'vite shared segment transform call',
+          )
+          vite = replace_once(
+              vite,
+              "        || cleanId.endsWith('/shared-segment-spring-owner-patch.js')\n",
+              '',
+              'vite shared segment polite exclusion',
+          )
+          vite_path.write_text(vite)
+
+          Path('tests/shared-segment-spring-owner.test.js').write_text('''import fs from 'node:fs'\nimport test from 'node:test'\nimport assert from 'node:assert/strict'\nimport { PREVIEW_CLASS_SEGMENT_PHYSICS, patchPreviewClassTopSegmentSource } from '../src/preview-class-top-segment-patch.js'\nimport { patchPreviewStudySource } from '../src/preview-study-patch.js'\nimport { S_HUB_SEGMENT_SPRING_PHYSICS } from '../src/s-hub-segment-spring.js'\n\nconst read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')\n\ntest('shared segment spring preserves the existing class physics values', () => {\n  assert.deepEqual(S_HUB_SEGMENT_SPRING_PHYSICS, PREVIEW_CLASS_SEGMENT_PHYSICS)\n})\n\ntest('class top-segment patch directly emits the canonical shared spring wrapper', () => {\n  const page = patchPreviewClassTopSegmentSource(read('src/main.jsx'), '/workspace/src/main.jsx')\n  assert.match(page, /import \\{ useSHubSegmentSpring \\} from '\\.\\/s-hub-segment-spring\\.js'/)\n  assert.match(page, /function useClassTopSegmentSpring\\(activeIndex\\) \\{\\n  return useSHubSegmentSpring/)\n  assert.match(page, /paddingProperty: '--segment-padding'/)\n  assert.match(page, /shellScaleProperty: '--segment-shell-scale-x'/)\n  assert.match(page, /shellShiftProperty: '--segment-shell-shift-x'/)\n  assert.match(page, /fallbackPadding: 5/)\n  assert.match(page, /data-unread-key=\\{item\\.id\\}/)\n  assert.doesNotMatch(page, /const physicsRef = useRef\\(\\{/)\n  assert.doesNotMatch(page, /const springForce = -56 \\* displacement/)\n})\n\ntest('study patch directly emits the canonical shared spring wrapper', () => {\n  const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')\n  assert.match(page, /import \\{ useSHubSegmentSpring \\} from '\\.\\/s-hub-segment-spring\\.js'/)\n  assert.match(page, /function useStudyRankingScopeSpring\\(activeIndex\\) \\{\\n  return useSHubSegmentSpring/)\n  assert.match(page, /paddingProperty: '--study-ranking-padding'/)\n  assert.match(page, /shellScaleProperty: '--study-ranking-shell-scale-x'/)\n  assert.match(page, /shellShiftProperty: '--study-ranking-shell-shift-x'/)\n  assert.match(page, /fallbackPadding: 4/)\n  assert.doesNotMatch(page, /const physicsRef = useRef\\(\\{/)\n  assert.doesNotMatch(page, /const springForce = -56 \\* displacement/)\n})\n\ntest('schedule continues to reuse the class segment spring wrapper', () => {\n  const schedulePatch = read('src/preview-schedule-top-segment-patch.js')\n  assert.match(schedulePatch, /const spring = useClassTopSegmentSpring\\(activeIndex\\)/)\n  assert.doesNotMatch(schedulePatch, /function useScheduleTopSegmentSpring/)\n})\n\ntest('the retired final shared-segment build owner is absent', () => {\n  const vite = read('vite.config.js')\n  assert.equal(fs.existsSync(new URL('../src/shared-segment-spring-owner-patch.js', import.meta.url)), false)\n  assert.doesNotMatch(vite, /patchSharedSegmentSpringOwnerSource/)\n  assert.doesNotMatch(vite, /shared-segment-spring-owner-patch\\.js/)\n})\n''')
+
+          final_test_path = Path('tests/final-runtime-owner.test.js')
+          final_test = final_test_path.read_text()
+          final_test = replace_once(
+              final_test,
+              "  assert.equal((vite.match(/patchSharedSegmentSpringOwnerSource\\(next, cleanId\\)/g) || []).length, 1)\n",
+              "  assert.equal(exists('src/shared-segment-spring-owner-patch.js'), false)\n  assert.doesNotMatch(vite, /patchSharedSegmentSpringOwnerSource/)\n  assert.doesNotMatch(vite, /shared-segment-spring-owner-patch\\.js/)\n",
+              'final runtime shared segment contract',
+          )
+          final_test_path.write_text(final_test)
+
+          study_test_path = Path('tests/preview-study-ranking-motion.test.js')
+          study_test = study_test_path.read_text()
+          first = study_test.find("test('study ranking reuses the class top-segment spring constants and stretch law', () => {")
+          second = study_test.find("test('study ranking scope uses one physical pill with direct click ownership', () => {", first)
+          if first < 0 or second < 0:
+              raise SystemExit('study ranking spring test boundary missing')
+          new_study_test = '''test('study ranking directly reuses the canonical shared segment spring', () => {\n  const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')\n\n  assert.match(page, /import \\{ useSHubSegmentSpring \\} from '\\.\\/s-hub-segment-spring\\.js'/)\n  assert.match(page, /function useStudyRankingScopeSpring\\(activeIndex\\)/)\n  assert.match(page, /return useSHubSegmentSpring\\(activeIndex/)\n  assert.match(page, /paddingProperty: '--study-ranking-padding'/)\n  assert.match(page, /--study-ranking-shell-scale-x/)\n  assert.match(page, /--study-ranking-shell-shift-x/)\n  assert.match(page, /fallbackPadding: 4/)\n  assert.doesNotMatch(page, /const physicsRef = useRef\\(\\{/)\n  assert.doesNotMatch(page, /const springForce = -/)\n  assert.doesNotMatch(page, /useLayoutEffect/)\n})\n\n'''
+          study_test = study_test[:first] + new_study_test + study_test[second:]
+          study_test_path.write_text(study_test)
+
+          class_test_path = Path('tests/preview-class-top-segment.test.js')
+          class_test = class_test_path.read_text()
+          first = class_test.find("test('top segment uses the same canonical spring law as the bottom nav', () => {")
+          second = class_test.find("test('top segment is thin and spans the class content width', () => {", first)
+          if first < 0 or second < 0:
+              raise SystemExit('class spring test boundary missing')
+          new_class_test = '''test('top segment directly uses the canonical shared spring primitive', () => {\n  assert.deepEqual(PREVIEW_CLASS_SEGMENT_PHYSICS, {\n    stiffness: 56,\n    damping: 10.5,\n    mass: 1,\n    maxDt: 0.032,\n    stretchPerVelocity: 0.032,\n    maxStretch: 18,\n    compressionVelocity: 18000,\n    maxCompression: 0.028,\n    radiusShrinkPerStretch: 0.08,\n    settleDistancePx: 0.06,\n    settleVelocityPx: 0.06,\n  })\n  const source = buildFinalMain()\n  assert.match(source, /import \\{ useSHubSegmentSpring \\} from '\\.\\/s-hub-segment-spring\\.js'/)\n  assert.match(source, /return useSHubSegmentSpring\\(activeIndex/)\n  assert.match(source, /paddingProperty: '--segment-padding'/)\n  assert.match(source, /fallbackPadding: 5/)\n  assert.match(source, /data-unread-key=\\{item\\.id\\}/)\n  assert.doesNotMatch(source, /const physicsRef = useRef\\(\\{/)\n})\n\n'''
+          class_test = class_test[:first] + new_class_test + class_test[second:]
+          class_test_path.write_text(class_test)
+          PY
+
+          git rm src/shared-segment-spring-owner-patch.js
+          git rm .github/workflows/migrate-direct-shared-segment-owner.yml
+
+          python - <<'PY'
+          import subprocess
+          expected = {
+              '.github/workflows/migrate-direct-shared-segment-owner.yml',
+              'src/preview-class-top-segment-patch.js',
+              'src/preview-study-patch.js',
+              'src/shared-segment-spring-owner-patch.js',
+              'tests/final-runtime-owner.test.js',
+              'tests/preview-class-top-segment.test.js',
+              'tests/preview-study-ranking-motion.test.js',
+              'tests/shared-segment-spring-owner.test.js',
+              'vite.config.js',
+          }
+          changed = set(subprocess.check_output(['git', 'diff', 'HEAD', '--name-only'], text=True).splitlines())
+          if changed != expected:
+              raise SystemExit(f'unexpected migration paths: {sorted(changed)}')
+          PY
+
+      - name: Test production app
+        run: npm test
+
+      - name: Build production app
+        run: npm run build
+
+      - name: Commit clean migration
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor: remove final shared segment build owner'
+          git push origin HEAD:work/direct-shared-segment-owner-20260906
