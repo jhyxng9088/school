@@ -6,7 +6,6 @@ import { patchPreviewFastCacheSource } from '../src/preview-fast-cache-patch.js'
 import { patchPreviewStudySource } from '../src/preview-study-patch.js'
 import { patchPreviewStudyUnifiedUISource } from '../src/preview-study-unified-ui-patch.js'
 import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
-import { patchProductionRecoverySource } from '../src/production-recovery-patch.js'
 import { patchStudyVisualPolishSource } from '../src/study-visual-polish-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -40,7 +39,6 @@ test('study ranking period survives the real preceding Vite transforms without p
   page = patchPreviewStudySource(page, pageId)
   page = patchPreviewFastCacheSource(page, pageId)
   page = patchPreviewStudyUnifiedUISource(page, pageId)
-  page = patchProductionRecoverySource(page, pageId)
   page = patchStudyVisualPolishSource(page, pageId)
 
   assert.match(page, /aria-label="공부 랭킹 기간"/)
@@ -57,7 +55,6 @@ test('study ranking period survives the real preceding Vite transforms without p
   const clientId = '/workspace/src/preview-study-client.js'
   let client = read('src/preview-study-client.js')
   client = patchPreviewFastCacheSource(client, clientId)
-  client = patchProductionRecoverySource(client, clientId)
   client = patchStudyVisualPolishSource(client, clientId)
 
   assert.match(client, /requestStudy\(\{ signal, scope: normalizedScope, period: normalizedPeriod \}\)/)
@@ -129,10 +126,14 @@ test('board and AI hero descriptions keep Korean words intact when wrapping', ()
   assert.match(aiCss, /\.s-hub-ai-page-title p:last-child \{[\s\S]*word-break: keep-all;[\s\S]*overflow-wrap: break-word;/)
 })
 
-test('study visual polish runs after production recovery so behavior fixes remain authoritative', () => {
+test('study visual polish remains downstream of study data and UI transforms after recovery retirement', () => {
   const vite = read('vite.config.js')
-  const recovery = vite.indexOf('patchProductionRecoverySource(next, cleanId)')
+  const studyUi = vite.indexOf('patchPreviewStudyUnifiedUISource(next, cleanId)')
+  const presence = vite.indexOf('patchPresenceSplitSource(next, cleanId)')
   const visual = vite.indexOf('patchStudyVisualPolishSource(next, cleanId)')
-  assert.ok(recovery >= 0)
-  assert.ok(visual > recovery)
+  assert.ok(studyUi >= 0)
+  assert.ok(presence > studyUi)
+  assert.ok(visual > presence)
+  assert.doesNotMatch(vite, /patchProductionRecoverySource/)
+  assert.doesNotMatch(vite, /production-recovery-patch\.js/)
 })
