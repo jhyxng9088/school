@@ -46,7 +46,7 @@ test('roster orphan cleanup stays authenticated and explicitly revalidates after
   assert.match(source, /await fetchRoster\(\{ force: true \}\)/)
 })
 
-test('roster reads are demand-driven, locally cached, and never polled every minute', () => {
+test('roster reads are demand-driven, locally cached, and never poll or rewrite the React counter', () => {
   const source = read('src/class-roster-ui-v2.js')
 
   assert.match(source, /ROSTER_FRESH_MS = 2 \* 60_000/)
@@ -59,11 +59,9 @@ test('roster reads are demand-driven, locally cached, and never polled every min
   assert.doesNotMatch(source, /window\.setInterval\(/)
   assert.doesNotMatch(source, /Initial class roster load failed/)
   assert.doesNotMatch(source, /Class roster periodic refresh failed/)
-
-  const syncCounter = source.match(/function syncCounter\(\) \{[\s\S]*?\n\}/)?.[0] || ''
-  assert.match(syncCounter, /hydrateRosterCache\(\)/)
-  assert.match(syncCounter, /applyRosterCounter\(counter\)/)
-  assert.doesNotMatch(syncCounter, /fetchRoster\(/)
+  assert.doesNotMatch(source, /querySelector\('\.class-presence-count'\)/)
+  assert.doesNotMatch(source, /function syncCounter\(/)
+  assert.doesNotMatch(source, /function applyRosterCounter\(/)
 })
 
 test('live per-student presence stays visible without restoring roster polling', () => {
@@ -96,15 +94,16 @@ test('first roster open paints cached data immediately without forced pointer fo
   assert.match(css, /\.class-roster-row\.is-static[\s\S]*animation: none/)
 })
 
-test('class roster modal cannot reschedule its own observer forever while visible', () => {
+test('class roster modal updates its own summary without observing or mutating the React counter', () => {
   const source = read('src/class-roster-ui-v2.js')
 
   assert.match(source, /const nextSummary = `\$\{cachedRoster\.registeredTotal \|\| cachedRoster\.total\}명 · 현재 \$\{currentRosterOnline\(\)\}명 접속`/)
   assert.match(source, /if \(modalState\.summary\.textContent !== nextSummary\) modalState\.summary\.textContent = nextSummary/)
-  assert.match(source, /function isRosterInternalMutation\(mutation\)/)
-  assert.match(source, /element\?\.closest\?\.\('\.class-roster-layer'\)/)
-  assert.match(source, /mutations\.length && mutations\.every\(isRosterInternalMutation\)/)
-  assert.doesNotMatch(source, /const observer = new MutationObserver\(queueCounterSync\)/)
+  assert.doesNotMatch(source, /MutationObserver/)
+  assert.doesNotMatch(source, /isRosterInternalMutation/)
+  assert.doesNotMatch(source, /queueCounterSync/)
+  assert.doesNotMatch(source, /parseCounter/)
+  assert.doesNotMatch(source, /lastRenderedLabel/)
 })
 
 test('class roster modal keeps restrained open-close motion and reduced-motion fallback', () => {
