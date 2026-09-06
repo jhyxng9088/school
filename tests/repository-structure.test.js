@@ -48,6 +48,14 @@ test('service-worker app shell only references files that exist', () => {
   }
 })
 
+test('board entry is source-owned without a build redirect shim', () => {
+  const entry = text('src/preview-board.jsx')
+  const patch = text('src/preview-board-patch.js')
+  assert.equal(entry.trim(), "export { PreviewBoard } from './preview-board-complete.jsx'")
+  assert.doesNotMatch(patch, /preview-board-complete-patch/)
+  assert.doesNotMatch(patch, /cleanId\.endsWith\('\/preview-board\.jsx'\)/)
+})
+
 test('retired duplicate runtime files stay removed', () => {
   for (const path of [
     'public/reminder-sheet.css',
