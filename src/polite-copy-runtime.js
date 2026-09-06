@@ -128,7 +128,7 @@ export const POLITE_COPY_REPLACEMENTS = [
 ]
 
 // These fragments only exist to rewrite template-literal source at build time.
-// They are deliberately NOT used by the runtime DOM normalizer, so a student's
+// They are deliberately NOT used by applyPoliteCopy, so a student's
 // own sentence is never rewritten just because it contains a similar ending.
 export const POLITE_SOURCE_FRAGMENTS = [
   [' 급식이 등록되지 않았어.', ' 급식이 등록되지 않았어요.'],
@@ -150,51 +150,4 @@ export function applyPoliteCopy(text) {
     if (original === from) return to
   }
   return original
-}
-
-function normalizeTextNode(node) {
-  const current = node.nodeValue
-  const next = applyPoliteCopy(current)
-  if (next !== current) node.nodeValue = next
-}
-
-function normalizeElement(element) {
-  for (const attribute of ['aria-label', 'placeholder', 'title']) {
-    if (!element.hasAttribute?.(attribute)) continue
-    const current = element.getAttribute(attribute)
-    const next = applyPoliteCopy(current)
-    if (next !== current) element.setAttribute(attribute, next)
-  }
-}
-
-function walk(root) {
-  if (typeof document === 'undefined' || !root) return
-  if (root.nodeType === Node.TEXT_NODE) {
-    normalizeTextNode(root)
-    return
-  }
-  if (root.nodeType === Node.ELEMENT_NODE) normalizeElement(root)
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
-  let node = walker.currentNode
-  while (node) {
-    if (node.nodeType === Node.TEXT_NODE) normalizeTextNode(node)
-    else if (node.nodeType === Node.ELEMENT_NODE) normalizeElement(node)
-    node = walker.nextNode()
-  }
-}
-
-export function installPoliteCopyRuntime() {
-  if (typeof window === 'undefined' || typeof MutationObserver === 'undefined') return
-  const start = () => {
-    walk(document.body)
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'characterData') normalizeTextNode(mutation.target)
-        mutation.addedNodes?.forEach(walk)
-      })
-    })
-    observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true })
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true })
-  else start()
 }
