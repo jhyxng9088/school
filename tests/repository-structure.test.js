@@ -90,6 +90,7 @@ test('retired duplicate runtime files stay removed', () => {
     'src/unread-indicators.js',
     'src/preview-board-complete-patch.js',
     'src/preview-board-finish-patch.js',
+    'src/preview-ai-context-layout-patch.js',
     'src/class-roster-ui.js',
   ]) assert.equal(existsSync(resolve(root, path)), false, path)
 })
