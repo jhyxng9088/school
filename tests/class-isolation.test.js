@@ -79,10 +79,15 @@ test('timetable overrides are stored independently per class', () => {
   assert.equal(loadOverrides()['2099-09-01']['1'], '2반변경')
 })
 
-test('academic expiry cleanup targets only class custom academicEvents', () => {
+test('academic expiry cleanup stays client-scan-free and cannot cross class boundaries', () => {
   const source = read('src/academic-expiry-cleanup.js')
-  assert.match(source, /collection\(db, 'classes', classId, 'academicEvents'\)/)
-  assert.match(source, /DATE_KEY_PATTERN\.test\(endDate\) && endDate < today/)
+  const start = source.indexOf('export async function cleanupExpiredCustomAcademicEvents')
+  const end = source.indexOf('\nfunction scheduleNextMidnight()', start)
+  assert.ok(start >= 0 && end > start)
+  const cleanupBody = source.slice(start, end)
+
+  assert.match(cleanupBody, /return true/)
+  assert.doesNotMatch(cleanupBody, /collection\(|getDocsFromServer|deleteDoc/)
   assert.match(source, /millisecondsUntilNextKoreaMidnight/)
   assert.doesNotMatch(source, /schoolData|NEIS|neis/i)
 })
