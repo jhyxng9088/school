@@ -1,5 +1,4 @@
 export {
-  SUJI_SCHOOL,
   useSchoolData,
 } from './stage3-core.js'
 
