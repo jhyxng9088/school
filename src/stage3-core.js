@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-export const SUJI_SCHOOL = {
+const SUJI_SCHOOL = {
   officeCode: 'J10',
   schoolCode: '7530093',
-  schoolName: '수지고등학교',
 }
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
