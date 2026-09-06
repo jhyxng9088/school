@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from 'react/jsx-runtime'
 
 export const SUJI_SCHOOL = {
   officeCode: 'J10',
@@ -12,7 +11,6 @@ const MEAL_CACHE_KEY = 'school.stage3.meals.v1'
 const ACADEMIC_CACHE_KEY = 'school.stage3.academic.v3'
 const MEAL_CACHE_AGE = 1000 * 60 * 60 * 12
 const ACADEMIC_CACHE_AGE = 1000 * 60 * 60 * 6
-const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 const MOCK_EXAMS = [
   { rawDate: '20260324', name: '3월 전국연합학력평가', content: '고2 · 서울특별시교육청 주관' },
   { rawDate: '20260604', name: '6월 전국연합학력평가', content: '고2 · 부산광역시교육청 주관' },
@@ -46,10 +44,6 @@ function addDays(date, days) {
   const next = dayStart(date)
   next.setDate(next.getDate() + days)
   return next
-}
-
-function daysBetween(from, to) {
-  return Math.max(0, Math.round((dayStart(to) - dayStart(from)) / 86400000))
 }
 
 function getWeekDates(anchor = new Date()) {
