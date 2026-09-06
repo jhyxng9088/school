@@ -170,21 +170,6 @@ function patchMain(source) {
   )
 }
 
-function patchAcademicCleanup(source) {
-  const next = String(source || '')
-  return replaceBetween(
-    next,
-    'export async function cleanupExpiredCustomAcademicEvents',
-    '\nfunction scheduleNextMidnight()',
-    `export async function cleanupExpiredCustomAcademicEvents() {
-  // The academic UI already excludes finished custom events. Client-by-client full
-  // collection scans are disabled; physical cleanup will be centralized server-side.
-  return true
-}
-`,
-  )
-}
-
 function unreadBusSubscriptions() {
   return `  subscriptions.push(subscribeClassLiveData('activity', classId, (activity) => {
     const next = new Map()
@@ -307,7 +292,6 @@ export function patchDataSplitV1Source(source, id) {
   if (cleanId.endsWith('/src/school-sync.js')) return patchSchoolSync(source)
   if (cleanId.endsWith('/src/class-activity.js')) return patchClassActivity(source)
   if (cleanId.endsWith('/src/main.jsx')) return patchMain(source)
-  if (cleanId.endsWith('/src/academic-expiry-cleanup.js')) return patchAcademicCleanup(source)
   if (cleanId.endsWith('/src/unread-indicators-v2.js')) return patchUnreadIndicators(source)
   return String(source || '')
 }
