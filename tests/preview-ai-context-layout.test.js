@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
 import { patchPreviewAIDensitySource } from '../src/preview-ai-density-patch.js'
 import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
-import { patchPreviewAIContextLayoutSource } from '../src/preview-ai-context-layout-patch.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -15,7 +14,7 @@ function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8')
 }
 
-test('preview AI puts quick questions and context before the composer and shows meals', () => {
+test('active AI patches put quick questions and context before the composer and show meals', () => {
   const id = path.join(root, 'src/s-hub-ai-sheet.jsx')
   let source = read('src/s-hub-ai-sheet.jsx')
   source = patchPreviewAIPageSource(source, id)
@@ -32,52 +31,22 @@ test('preview AI puts quick questions and context before the composer and shows 
   assert.match(source, /<strong>급식<\/strong><span>\{context\?\.meals\?\.length \|\| 0\}개 확인 가능<\/span>/)
 })
 
-test('preview AI context includes normalized meal data from live school state', async () => {
-  const id = path.join(root, 'src/s-hub-ai-core.js')
-  const source = patchPreviewAIContextLayoutSource(read('src/s-hub-ai-core.js'), id)
-  const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
-  const core = await import(moduleUrl)
-
-  const context = core.buildSchoolAIContext({
-    now: new Date(2026, 8, 1, 9, 30),
-    mealRanges: {
-      current: {
-        meals: [
-          { rawDate: '20260901', mealCode: '2', mealName: '중식', dishes: ['쌀밥', '미역국'], calories: '650 Kcal' },
-        ],
-      },
-      duplicate: {
-        meals: [
-          { rawDate: '20260901', mealCode: '2', mealName: '중식', dishes: ['쌀밥', '미역국'], calories: '650 Kcal' },
-          { rawDate: '20260902', mealCode: '2', mealName: '중식', dishes: ['비빔밥'] },
-        ],
-      },
-    },
-  })
-
-  assert.deepEqual(context.meals, [
-    { date: '2026-09-01', mealCode: '2', mealName: '중식', dishes: ['쌀밥', '미역국'], calories: '650 Kcal' },
-    { date: '2026-09-02', mealCode: '2', mealName: '중식', dishes: ['비빔밥'], calories: '' },
-  ])
+test('active live-context owner keeps meals as first-class school data', () => {
+  const runtime = read('src/preview-ai-live-context.js')
+  assert.match(runtime, /CONTEXT_DATA_KEYS = \['study', 'board', 'reminders', 'timetable', 'academic', 'meals'\]/)
+  assert.match(runtime, /meals: base\.meals \|\| \[\]/)
+  assert.match(runtime, /급식\|점심\|중식/)
+  assert.match(runtime, /for \(const key of CONTEXT_DATA_KEYS\)/)
 })
 
-test('preview main feeds meal ranges into AI context and transport avoids duplicate meal prompts', () => {
-  const main = patchPreviewAIContextLayoutSource(read('src/main.jsx'), path.join(root, 'src/main.jsx'))
-  assert.match(main, /mealRanges: schoolData\?\.mealRanges \|\| \{\}/)
-  assert.match(main, /schoolData\?\.mealRanges/)
-
-  const transport = patchPreviewAIContextLayoutSource(read('src/s-hub-ai-transport.js'), path.join(root, 'src/s-hub-ai-transport.js'))
-  assert.match(transport, /SCHOOL_DATA already carries meals/)
-  assert.match(transport, /"meals"\\s\*:/)
+test('production Vite uses the active live-context owner and not the retired context-layout transform', () => {
+  const vite = read('vite.config.js')
+  assert.match(vite, /import \{ patchPreviewAILiveContextSource \} from '\.\/src\/preview-ai-live-context-patch\.js'/)
+  assert.match(vite, /next = patchPreviewAILiveContextSource\(next, cleanId\)/)
+  assert.doesNotMatch(vite, /preview-ai-context-layout-patch/)
+  assert.doesNotMatch(vite, /patchPreviewAIContextLayoutSource/)
 })
 
-test('preview AI keeps long composer content above the fixed bottom nav', () => {
-  const css = patchPreviewAIContextLayoutSource(read('src/s-hub-ai.css'), path.join(root, 'src/s-hub-ai.css'))
-
-  assert.match(css, /--s-hub-ai-top-inset:\s*max\(32px, env\(safe-area-inset-top\)\)/)
-  assert.match(css, /--s-hub-ai-nav-clearance:\s*calc\(64px \+ var\(--nav-bottom\) \+ 24px\)/)
-  assert.match(css, /min-height:\s*calc\(100dvh \+ 24px - var\(--s-hub-ai-top-inset\)\)/)
-  assert.match(css, /padding-bottom:\s*var\(--s-hub-ai-nav-clearance\)/)
-  assert.match(css, /\.s-hub-ai-page \.s-hub-ai-content\s*\{[^}]*scroll-margin-bottom:\s*var\(--s-hub-ai-nav-clearance\)/s)
-  assert.match(css, /@media \(max-height: 760px\)[\s\S]*padding-bottom:\s*calc\(104px \+ env\(safe-area-inset-bottom\)\)/)
+test('retired AI context-layout patch stays removed', () => {
+  assert.equal(fs.existsSync(path.join(root, 'src/preview-ai-context-layout-patch.js')), false)
 })
