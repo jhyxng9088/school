@@ -17,7 +17,7 @@ const USER_VISIBLE_FILES = [
   'src/home-meal-preview.jsx',
   'src/reminder-summary.jsx',
   'src/network-guard.jsx',
-  'src/class-roster-ui.js',
+  'src/class-roster-ui-v2.js',
   'src/push-client.js',
   'src/s-hub-ai-sheet.jsx',
   'src/unread-indicators-v2.js',
