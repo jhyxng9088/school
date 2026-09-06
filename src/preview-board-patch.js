@@ -1,5 +1,4 @@
 import { patchPreviewBoardFinishSource } from './preview-board-finish-patch.js'
-import { patchPreviewBoardCompleteSource } from './preview-board-complete-patch.js'
 
 function replaceRequired(source, marker, replacement, label) {
   if (!source.includes(marker)) throw new Error(`Preview board marker missing: ${label}`)
@@ -179,9 +178,6 @@ function patchMainUnread(source) {
 
 export function patchPreviewBoardSource(source, id = '') {
   const cleanId = String(id || '').split('?')[0]
-  if (cleanId.endsWith('/preview-board.jsx')) {
-    return patchPreviewBoardCompleteSource(patchPreviewBoardFinishSource(source, id), id)
-  }
   if (cleanId.endsWith('/preview-board-complete.jsx')) return patchCompletedBoardUnread(patchCompletedBoardRealtime(source))
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
 
