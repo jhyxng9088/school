@@ -12,7 +12,6 @@ const sourceFiles = readdirSync(srcRoot)
 // These are frozen pre-existing sites, not approved patterns for new work.
 // Counts may decrease as legacy code is retired, but must never increase.
 const GRANDFATHERED_MUTATION_OBSERVER_COUNTS = new Map([
-  ['polite-copy-runtime.js', 2],
   ['push-client.js', 1],
 ])
 
