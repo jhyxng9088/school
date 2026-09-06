@@ -48,48 +48,10 @@ function markChecked(classId, nowMs) {
   }
 }
 
-export async function cleanupExpiredCustomAcademicEvents(nowMs = Date.now(), { force = false } = {}) {
-  if (cleanupPromise) return cleanupPromise
-  const profile = readStudentProfile()
-  const classId = classKeyFor(profile)
-  if (!profile || !classId || navigator.onLine === false) return false
-  if (!force && recentlyChecked(classId, nowMs)) return true
-
-  cleanupPromise = (async () => {
-    await ensureSignedIn()
-    const syncApp = getApps().some((app) => app.name === 'school-sync')
-      ? getApp('school-sync')
-      : null
-    if (!syncApp) return false
-
-    const db = getFirestore(syncApp)
-    const snapshot = await getDocsFromServer(collection(db, 'classes', classId, 'academicEvents'))
-    const today = koreaDateKey(nowMs)
-    const expired = snapshot.docs.filter((item) => {
-      const endDate = String(item.data()?.endDate || '')
-      return DATE_KEY_PATTERN.test(endDate) && endDate < today
-    })
-    if (!expired.length) {
-      markChecked(classId, nowMs)
-      return true
-    }
-
-    const results = await Promise.allSettled(expired.map((item) => deleteDoc(item.ref)))
-    const rejected = results.filter((result) => result.status === 'rejected')
-    if (rejected.length) {
-      console.warn(`Expired academic cleanup could not delete ${rejected.length} item(s). Firebase rules may not be updated yet.`)
-      return false
-    }
-    markChecked(classId, nowMs)
-    return true
-  })().catch((error) => {
-    console.warn('Expired academic cleanup skipped:', error)
-    return false
-  }).finally(() => {
-    cleanupPromise = null
-  })
-
-  return cleanupPromise
+export async function cleanupExpiredCustomAcademicEvents() {
+  // The academic UI already excludes finished custom events. Client-by-client full
+  // collection scans are disabled; physical cleanup will be centralized server-side.
+  return true
 }
 
 function scheduleNextMidnight() {
