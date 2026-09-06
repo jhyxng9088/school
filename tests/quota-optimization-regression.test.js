@@ -21,10 +21,16 @@ test('presence heartbeat remains enabled for live class status', () => {
   assert.match(sync, /where\('lastSeenMs',\s*'>=',\s*threshold\)/)
 })
 
-test('academic cleanup is throttled without removing expiry cleanup', () => {
+test('academic cleanup keeps its lifecycle cadence without client scan or delete work', () => {
+  const start = academic.indexOf('export async function cleanupExpiredCustomAcademicEvents')
+  const end = academic.indexOf('\nfunction scheduleNextMidnight()', start)
+  assert.ok(start >= 0 && end > start)
+  const cleanupBody = academic.slice(start, end)
+
   assert.match(academic, /CLEANUP_MIN_INTERVAL_MS/)
-  assert.match(academic, /deleteDoc\(item\.ref\)/)
   assert.match(academic, /scheduleNextMidnight/)
+  assert.match(cleanupBody, /return true/)
+  assert.doesNotMatch(cleanupBody, /collection\(|getDocsFromServer|deleteDoc/)
 })
 
 test('device profile sync is loaded without replacing core app modules', () => {
