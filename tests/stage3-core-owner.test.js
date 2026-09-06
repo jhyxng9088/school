@@ -27,3 +27,10 @@ test('stage3 core keeps only data-owner dependencies after UI retirement', () =>
   assert.doesNotMatch(core, /WEEKDAY_LABELS/)
   assert.doesNotMatch(core, /function daysBetween\b/)
 })
+
+test('stage3 school identity stays private to the NEIS data owner', () => {
+  const core = text('src/stage3-core.js')
+  assert.match(core, /const SUJI_SCHOOL = \{/)
+  assert.doesNotMatch(core, /export const SUJI_SCHOOL/)
+  assert.doesNotMatch(core, /schoolName:/)
+})
