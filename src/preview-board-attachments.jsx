@@ -8,7 +8,6 @@ import {
 } from './preview-board-client.js'
 import './preview-board-finish.css'
 import './reminder-summary.css'
-import './preview-board-original-layer.css'
 
 function formatFileSize(value) {
   const bytes = Math.max(0, Number(value || 0))
@@ -228,6 +227,7 @@ export function BoardAttachmentGallery({
         onClose={closeViewer}
         formatSize={formatFileSize}
         portal
+        zIndex={10030}
         saveErrorLabel="Board original save failed:"
       />
     </>

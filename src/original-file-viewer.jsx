@@ -35,6 +35,7 @@ export function OriginalFileViewer({
   onClose,
   formatSize = defaultFileSizeLabel,
   portal = false,
+  zIndex = null,
   fallbackName = '원본 파일',
   imageFallbackName = '원본 사진',
   fileFallbackName = '원본 파일',
@@ -107,7 +108,13 @@ export function OriginalFileViewer({
   if (!original) return null
   const image = String(original.mimeType || original.blob?.type || '').startsWith('image/')
   const content = (
-    <div className={`reminder-original-viewer ${closing ? 'is-closing' : ''}`.trim()} role="dialog" aria-modal="true" aria-label="원본 파일">
+    <div
+      className={`reminder-original-viewer ${closing ? 'is-closing' : ''}`.trim()}
+      style={zIndex == null ? undefined : { zIndex }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="원본 파일"
+    >
       <button className="reminder-original-backdrop" type="button" aria-label="원본 파일 닫기" onClick={requestClose} />
       <div className="reminder-original-panel">
         <header>
