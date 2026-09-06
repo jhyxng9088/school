@@ -25,6 +25,17 @@
 - [ ] Service Worker register/update owner를 중복 생성하지 않았다.
 - [ ] iPhone/iPad/Android/Samsung 및 light/dark mode 영향을 고려했다.
 
+## 단일 owner 변경 규칙
+
+- [ ] 수정하려는 기능의 현재 canonical owner를 먼저 찾고, 그 owner를 직접 수정했다.
+- [ ] 기존 owner를 수정할 수 있는데 병렬 component/runtime/listener/subscription/patch를 새로 만들지 않았다.
+- [ ] 같은 기능의 UI owner, data owner, motion owner가 둘 이상 생기지 않았는지 확인했다.
+- [ ] 안정화/단일화 작업에서는 사용자 기능, 터치 동작, 화면 결과, 모션 상수·타이밍·physics를 변경하지 않았다.
+- [ ] owner를 이동하거나 legacy owner를 제거했다면 변경 전후 최종 동작이 동일함을 기존 회귀 테스트, E2E 또는 동등성 검증으로 증명했다.
+- [ ] 신규 build-time source patch를 추가하지 않았고, 필요한 변경은 canonical raw source owner에서 수행했다.
+- [ ] 기존 build patch를 제거할 때 직접 import뿐 아니라 active patch의 간접 import까지 확인했다.
+- [ ] 임시 우회 owner를 남기지 않았으며, 불가피한 compatibility 계층은 명확한 제거 조건과 검증 근거를 남겼다.
+
 ## 모션/UI 변경
 
 - [ ] 같은 유형의 기존 motion primitive/token을 재사용했다.
