@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
-import { basename, resolve } from 'node:path'
+import { resolve } from 'node:path'
 
 const root = process.cwd()
 const srcDir = resolve(root, 'src')
@@ -61,13 +61,6 @@ function sourceFiles() {
     .sort()
 }
 
-function explicitTargets(moduleFile) {
-  const source = readFileSync(resolve(srcDir, moduleFile), 'utf8')
-  const targets = new Set()
-  for (const match of source.matchAll(/\/([A-Za-z0-9._-]+\.(?:js|jsx|css))/g)) targets.add(match[1])
-  return targets
-}
-
 async function loadDefinitions() {
   const loaded = new Map()
   for (const [functionName, moduleFile] of uniqueDefinitions) {
@@ -77,7 +70,6 @@ async function loadDefinitions() {
       functionName,
       moduleFile,
       patch: module[functionName],
-      targets: explicitTargets(moduleFile),
     })
   }
   return loaded
@@ -104,7 +96,6 @@ test('every direct production build patch still changes at least one current sou
     const id = `/workspace/src/${fileName}`
 
     for (const definition of sequenceFor(fileName, loaded)) {
-      if (definition.targets.size && !definition.targets.has(basename(fileName))) continue
       const next = definition.patch(current, id)
       if (next !== current) effects.get(definition.functionName).push(fileName)
       current = next
