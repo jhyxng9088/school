@@ -1,11 +1,20 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import * as reminderLifecycle from '../src/reminder-lifecycle.js'
 import {
   isReminderExpired,
   reminderActivityEligibleForStudent,
   reminderExpiryMs,
 } from '../src/reminder-lifecycle.js'
+
+test('reminder lifecycle exposes only the canonical public contract', () => {
+  assert.deepEqual(Object.keys(reminderLifecycle).sort(), [
+    'isReminderExpired',
+    'reminderActivityEligibleForStudent',
+    'reminderExpiryMs',
+  ])
+})
 
 test('timed reminder expires at its exact KST due time', () => {
   const todo = { dueDate: '2026-08-27', dueTime: '17:00' }
