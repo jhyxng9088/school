@@ -69,6 +69,10 @@ test('academic UI is owned by the shared academic module', () => {
   const main = text('src/main.jsx')
   assert.doesNotMatch(stage3, /\bAcademicPage\b/)
   assert.doesNotMatch(stage3, /\bAcademicPreview\b/)
+  assert.doesNotMatch(stage3, /\bSUJI_SCHOOL\b/)
+  assert.match(stage3, /\buseSchoolData\b/)
+  assert.match(stage3, /\bMealPreview\b/)
+  assert.match(stage3, /\bMealPage\b/)
   assert.match(main, /SharedAcademicPage, SharedAcademicPreview/)
 })
 
