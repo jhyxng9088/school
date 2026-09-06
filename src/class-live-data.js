@@ -41,7 +41,7 @@ export function subscribeClassLiveData(channel, scope, listener, { replay = true
   }
 }
 
-export function clearClassLiveDataScope(scope) {
+function clearClassLiveDataScope(scope) {
   const suffix = `:${String(scope || '').trim()}`
   if (suffix === ':') return
   for (const key of latestByKey.keys()) {
