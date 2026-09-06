@@ -72,6 +72,7 @@ test('retired duplicate runtime files stay removed', () => {
     'public/school-sheet.js',
     'public/icon-v117.svg',
     'public/samsung-apple-nav-icons.css',
+    'scripts/v2-cross-device-browser-check.mjs',
     'src/firebase-ai-direct.js',
     'src/unread-indicators.js',
     'src/preview-board-complete-patch.js',
