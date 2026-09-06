@@ -57,6 +57,12 @@ test('board entry is source-owned without a build redirect shim', () => {
   assert.doesNotMatch(patch, /cleanId\.endsWith\('\/preview-board\.jsx'\)/)
 })
 
+test('class roster uses only the v2 runtime owner', () => {
+  const main = text('src/main.jsx')
+  assert.match(main, /from '\.\/class-roster-ui-v2\.js'/)
+  assert.equal(existsSync(resolve(root, 'src/class-roster-ui.js')), false)
+})
+
 test('retired duplicate runtime files stay removed', () => {
   for (const path of [
     'public/reminder-sheet.css',
@@ -69,5 +75,6 @@ test('retired duplicate runtime files stay removed', () => {
     'src/unread-indicators.js',
     'src/preview-board-complete-patch.js',
     'src/preview-board-finish-patch.js',
+    'src/class-roster-ui.js',
   ]) assert.equal(existsSync(resolve(root, path)), false, path)
 })
