@@ -18,10 +18,21 @@ test('social dispatch shares activity endpoint and accepts isolated preview or p
   assert.match(source, /reminderActivityRecipientEligible/)
 })
 
-test('social client owns the canonical production backend directly', () => {
-  const source = read('src/preview-social-push.js')
+test('social push logic is owned by the canonical production module', () => {
+  const source = read('src/social-push.js')
   assert.match(source, /school-reminder-backend\.vercel\.app\/api\/activity-dispatch/)
+  assert.match(source, /export function dispatchBoardPostPush/)
+  assert.match(source, /export function dispatchStudyStartPush/)
   assert.doesNotMatch(source, /school-reminder-backend-git-preview-s-hub-v2/)
+})
+
+test('preview social push stays a compatibility-only facade', () => {
+  const source = read('src/preview-social-push.js')
+  assert.match(source, /dispatchBoardPostPush as dispatchPreviewBoardPostPush/)
+  assert.match(source, /dispatchStudyStartPush as dispatchPreviewStudyStartPush/)
+  assert.match(source, /from '\.\/social-push\.js'/)
+  assert.doesNotMatch(source, /fetch\(/)
+  assert.doesNotMatch(source, /SOCIAL_PUSH_URL/)
 })
 
 test('board sends push only for new post realtime mutation', () => {
