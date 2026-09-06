@@ -9,12 +9,16 @@ test('main build path never injects the retired polite DOM runtime', () => {
   const main = read('src/main.jsx')
   const preview = read('src/preview-s-hub-v2-patch.js')
   const homeInfo = read('src/preview-home-info-patch.js')
+  const polite = read('src/polite-copy-runtime.js')
 
   assert.doesNotMatch(main, /installPoliteCopyRuntime/)
   assert.doesNotMatch(preview, /installPoliteCopyRuntime/)
   assert.doesNotMatch(preview, /polite-copy-runtime\.js/)
   assert.doesNotMatch(homeInfo, /installPoliteCopyRuntime/)
   assert.doesNotMatch(homeInfo, /polite-copy-runtime\.js/)
+  assert.doesNotMatch(polite, /installPoliteCopyRuntime/)
+  assert.doesNotMatch(polite, /\bMutationObserver\b/)
+  assert.match(polite, /export function applyPoliteCopy/)
   assert.match(homeInfo, /SOURCE_ROSTER_IMPORT/)
 })
 
