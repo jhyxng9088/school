@@ -20,3 +20,10 @@ test('stage3 core does not retain legacy meal UI owners', () => {
   assert.doesNotMatch(core, /export function MealPreview\b/)
   assert.doesNotMatch(core, /function mealForDate\b/)
 })
+
+test('stage3 core keeps only data-owner dependencies after UI retirement', () => {
+  const core = text('src/stage3-core.js')
+  assert.doesNotMatch(core, /react\/jsx-runtime/)
+  assert.doesNotMatch(core, /WEEKDAY_LABELS/)
+  assert.doesNotMatch(core, /function daysBetween\b/)
+})
