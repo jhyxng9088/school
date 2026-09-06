@@ -7,6 +7,7 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 
 test('academic cleanup behavior is source-owned and no longer changed by the data-split patch', () => {
   const source = read('src/academic-expiry-cleanup.js')
+  const patch = read('src/data-split-v1-patch.js')
   const start = source.indexOf('export async function cleanupExpiredCustomAcademicEvents')
   const end = source.indexOf('\nfunction scheduleNextMidnight()', start)
   assert.ok(start >= 0 && end > start)
@@ -14,6 +15,8 @@ test('academic cleanup behavior is source-owned and no longer changed by the dat
   const owner = source.slice(start, end)
   assert.match(owner, /return true/)
   assert.doesNotMatch(owner, /getDocsFromServer|deleteDoc|collection\(/)
+  assert.doesNotMatch(patch, /function patchAcademicCleanup\b/)
+  assert.doesNotMatch(patch, /academic-expiry-cleanup\.js/)
   assert.equal(
     patchDataSplitV1Source(source, '/workspace/src/academic-expiry-cleanup.js'),
     source,
