@@ -137,6 +137,7 @@ const CLASS_STATION_PAGE_WITH_MOTION = String.raw`function ClassStationPage({ se
     </section>
   )
 }
+`
 
 function patchMainUnread(source) {
   let next = String(source || '')
