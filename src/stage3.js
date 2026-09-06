@@ -1,7 +1,5 @@
 export {
   SUJI_SCHOOL,
-  AcademicPage,
-  AcademicPreview,
   useSchoolData,
 } from './stage3-core.js'
 

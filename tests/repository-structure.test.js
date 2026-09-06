@@ -64,6 +64,14 @@ test('class roster uses only the v2 runtime owner', () => {
   assert.equal(existsSync(resolve(root, 'src/class-roster-ui.js')), false)
 })
 
+test('academic UI is owned by the shared academic module', () => {
+  const stage3 = text('src/stage3.js')
+  const main = text('src/main.jsx')
+  assert.doesNotMatch(stage3, /\bAcademicPage\b/)
+  assert.doesNotMatch(stage3, /\bAcademicPreview\b/)
+  assert.match(main, /SharedAcademicPage, SharedAcademicPreview/)
+})
+
 test('retired duplicate runtime files stay removed', () => {
   for (const path of [
     'public/reminder-sheet.css',
