@@ -13,3 +13,10 @@ test('stage3 core does not retain legacy academic UI owners', () => {
   assert.doesNotMatch(core, /function groupAcademicEvents\b/)
   assert.doesNotMatch(core, /function academicDateRange\b/)
 })
+
+test('stage3 core does not retain legacy meal UI owners', () => {
+  const core = text('src/stage3-core.js')
+  assert.doesNotMatch(core, /export function MealPage\b/)
+  assert.doesNotMatch(core, /export function MealPreview\b/)
+  assert.doesNotMatch(core, /function mealForDate\b/)
+})
