@@ -10,6 +10,7 @@ test('only the permanent deployment workflow remains', () => {
   const workflows = readdirSync(resolve(root, '.github/workflows')).filter((name) => /\.ya?ml$/.test(name)).sort()
   assert.deepEqual(workflows, ['deploy.yml'])
   assert.equal(existsSync(resolve(root, '.github/scripts')), false)
+  assert.equal(existsSync(resolve(root, '.github/preview-deploy-trigger.txt')), false)
 })
 
 test('bottom navigation uses one five-tab count and mobile touch intent', () => {

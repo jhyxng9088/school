@@ -1,2 +1,0 @@
-S-Hub V2 production deployment trigger.
-Production candidate passed frontend tests, production build, preview-isolation checks, and backend tests before main promotion on 2026-09-02.
