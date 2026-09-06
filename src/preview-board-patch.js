@@ -1,5 +1,3 @@
-import { patchPreviewBoardFinishSource } from './preview-board-finish-patch.js'
-
 function replaceRequired(source, marker, replacement, label) {
   if (!source.includes(marker)) throw new Error(`Preview board marker missing: ${label}`)
   return source.replace(marker, replacement)
