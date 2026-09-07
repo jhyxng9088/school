@@ -27,6 +27,7 @@ import {
   saveWeeklySchedule,
 } from './timetable'
 import { isReminderTypeId, normalizeReminderCategory, normalizeReminderCategories } from './reminder-categories.js'
+import { publishClassLiveData } from './class-live-data.js'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0',
@@ -597,7 +598,9 @@ export function listenClassTodos(profile, onValue, onError = () => {}) {
   const applySnapshot = (snapshot) => {
     if (stopped || snapshot.metadata?.fromCache) return
     generation += 1
-    onValue(sharedTodosFromSnapshot(snapshot))
+    const nextTodos = sharedTodosFromSnapshot(snapshot)
+    publishClassLiveData('todos', classKeyFor(profile), nextTodos)
+    onValue(nextTodos)
   }
 
   const refreshFromServer = async () => {
@@ -615,7 +618,7 @@ export function listenClassTodos(profile, onValue, onError = () => {}) {
     .then(() => {
       if (stopped) return
       unsubscribe = onSnapshot(classTodosCollection(profile), applySnapshot, onError)
-      removeRevalidation = installServerRevalidation(refreshFromServer)
+      removeRevalidation = () => {}
     })
     .catch(onError)
 
@@ -653,7 +656,7 @@ export function listenClassReminderCategories(profile, onValue, onError = () => 
     .then(() => {
       if (stopped) return
       unsubscribe = onSnapshot(classReminderCategoriesCollection(profile), applySnapshot, onError)
-      removeRevalidation = installServerRevalidation(refreshFromServer)
+      removeRevalidation = () => {}
     })
     .catch(onError)
 
@@ -686,7 +689,9 @@ export function listenStudentTodoState(profile, onValue, onError = () => {}) {
   const applySnapshot = (snapshot) => {
     if (stopped || snapshot.metadata?.fromCache) return
     generation += 1
-    onValue(personalTodoStateFromSnapshot(snapshot))
+    const nextState = personalTodoStateFromSnapshot(snapshot)
+    publishClassLiveData('todoState', studentKeyFor(profile), nextState)
+    onValue(nextState)
   }
 
   const refreshFromServer = async () => {
@@ -704,7 +709,7 @@ export function listenStudentTodoState(profile, onValue, onError = () => {}) {
     .then(() => {
       if (stopped) return
       unsubscribe = onSnapshot(personalTodoStateCollection(profile), applySnapshot, onError)
-      removeRevalidation = installServerRevalidation(refreshFromServer)
+      removeRevalidation = () => {}
     })
     .catch(onError)
 
@@ -1003,6 +1008,7 @@ export function useSharedTimetable(profile, now) {
       saveOverrides(next.overrides)
       setWeeklySchedule(next.weeklySchedule)
       setOverrides(next.overrides)
+      publishClassLiveData('timetable', classKeyFor(profile), next)
       return true
     } catch (error) {
       console.error('Timetable server refresh failed:', error)
@@ -1042,6 +1048,7 @@ export function useSharedTimetable(profile, now) {
       saveOverrides(next.overrides)
       setWeeklySchedule(next.weeklySchedule)
       setOverrides(next.overrides)
+      publishClassLiveData('timetable', classKeyFor(profile), next)
     }
 
     const refreshFromServer = async () => {
@@ -1063,8 +1070,7 @@ export function useSharedTimetable(profile, now) {
           applySnapshot,
           (error) => console.error('Timetable realtime sync failed:', error),
         )
-        removeRevalidation = installServerRevalidation(refreshFromServer)
-        refreshFromServer()
+        removeRevalidation = () => {}
         })
       .catch((error) => console.error('Timetable cloud connection failed:', error))
 
@@ -1098,30 +1104,39 @@ export function useSharedTimetable(profile, now) {
 
   const commitWeeklySchedule = useCallback(async (nextSchedule) => {
     const normalized = normalizeWeeklySchedule(nextSchedule)
+    const previous = weeklySchedule
+    saveWeeklySchedule(normalized)
+    setWeeklySchedule(normalized)
+    publishClassLiveData('timetable', classKeyFor(profile), { weeklySchedule: normalized, overrides })
     try {
       await writeWeeklyScheduleCloud(profile, normalized)
-      saveWeeklySchedule(normalized)
-      setWeeklySchedule(normalized)
       return true
     } catch (error) {
+      saveWeeklySchedule(previous)
+      setWeeklySchedule(previous)
+      publishClassLiveData('timetable', classKeyFor(profile), { weeklySchedule: previous, overrides })
       console.error('Shared timetable save failed:', error)
       return false
     }
-  }, [signature])
+  }, [signature, weeklySchedule, overrides])
 
   const commitOverrides = useCallback(async (nextOverrides) => {
     const normalized = pruneExpiredOverrides(nextOverrides, now)
+    const previous = overrides
+    saveOverrides(normalized)
+    setOverrides(normalized)
+    publishClassLiveData('timetable', classKeyFor(profile), { weeklySchedule, overrides: normalized })
     try {
       await writeOverridesCloud(profile, normalized)
-      saveOverrides(normalized)
-      setOverrides(normalized)
-      await refreshSharedTimetable()
       return true
     } catch (error) {
+      saveOverrides(previous)
+      setOverrides(previous)
+      publishClassLiveData('timetable', classKeyFor(profile), { weeklySchedule, overrides: previous })
       console.error('Shared timetable override save failed:', error)
       return false
     }
-  }, [signature, now])
+  }, [signature, now, overrides, weeklySchedule])
 
   const commitPersonalWeeklySchedule = useCallback(async (nextSchedule) => {
     if (!movingClass) return false

@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { patchDataSplitV1Source } from '../src/data-split-v1-patch.js'
 import { patchPresenceSplitSource } from '../src/presence-split-patch.js'
 
 function read(path) {
@@ -11,7 +10,7 @@ function read(path) {
 function transformedSchoolSync() {
   const path = new URL('../src/school-sync.js', import.meta.url).pathname
   const raw = read('../src/school-sync.js')
-  return patchPresenceSplitSource(patchDataSplitV1Source(raw, path), path)
+  return patchPresenceSplitSource(raw, path)
 }
 
 test('presence prefers Supabase and keeps RTDB then Firestore as failure-only fallbacks', () => {
@@ -75,10 +74,11 @@ test('firebase config retains the locked RTDB rules file for emergency fallback'
   assert.equal(config.database?.rules, 'database.rules.json')
 })
 
-test('Vite applies read deduplication before the presence transport patch', () => {
+test('Vite applies the presence transport patch after source-owned live-data setup', () => {
   const vite = read('../vite.config.js')
-  const dataSplitIndex = vite.indexOf('next = patchDataSplitV1Source(next, cleanId)')
+  const liveDataIndex = vite.indexOf('next = patchPreviewAILiveContextSource(next, cleanId)')
   const presenceIndex = vite.indexOf('next = patchPresenceSplitSource(next, cleanId)')
-  assert.ok(dataSplitIndex >= 0)
-  assert.ok(presenceIndex > dataSplitIndex)
+  assert.ok(liveDataIndex >= 0)
+  assert.ok(presenceIndex > liveDataIndex)
+  assert.doesNotMatch(vite, /patchDataSplitV1Source|data-split-v1-patch/)
 })
