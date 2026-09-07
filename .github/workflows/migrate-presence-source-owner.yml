@@ -89,6 +89,10 @@ jobs:
           presenceTest = presenceTest.replace(oldViteTest, newViteTest)
           fs.writeFileSync('tests/presence-split.test.js', presenceTest)
 
+          const oldStudyOrderTest = `test('study visual polish remains downstream of study data and UI transforms after recovery retirement', () => {\n  const vite = read('vite.config.js')\n  const studyUi = vite.indexOf('patchPreviewStudyUnifiedUISource(next, cleanId)')\n  const presence = vite.indexOf('patchPresenceSplitSource(next, cleanId)')\n  const visual = vite.indexOf('patchStudyVisualPolishSource(next, cleanId)')\n  assert.ok(studyUi >= 0)\n  assert.ok(presence > studyUi)\n  assert.ok(visual > presence)\n  assert.doesNotMatch(vite, /patchProductionRecoverySource/)\n  assert.doesNotMatch(vite, /production-recovery-patch\\.js/)\n})\n`
+          const newStudyOrderTest = `test('study visual polish remains downstream of study UI transforms after presence source migration', () => {\n  const vite = read('vite.config.js')\n  const studyUi = vite.indexOf('patchPreviewStudyUnifiedUISource(next, cleanId)')\n  const visual = vite.indexOf('patchStudyVisualPolishSource(next, cleanId)')\n  assert.ok(studyUi >= 0)\n  assert.ok(visual > studyUi)\n  assert.doesNotMatch(vite, /patchPresenceSplitSource|presence-split-patch/)\n  assert.doesNotMatch(vite, /patchProductionRecoverySource/)\n  assert.doesNotMatch(vite, /production-recovery-patch\\.js/)\n})\n`
+          replaceOnce('tests/study-visual-polish.test.js', oldStudyOrderTest, newStudyOrderTest)
+
           replaceOnce(
             'tests/repository-structure.test.js',
             "    'src/class-roster-ui.js',\n",
@@ -107,9 +111,13 @@ jobs:
             }
           }
           walk('.')
+          const intentionalRetiredRefs = new Set([
+            'tests/presence-split.test.js',
+            'tests/repository-structure.test.js',
+          ])
           const stale = []
           for (const file of textFiles) {
-            if (file.endsWith('migrate-presence-source-owner.yml')) continue
+            if (file.endsWith('migrate-presence-source-owner.yml') || intentionalRetiredRefs.has(file)) continue
             const source = fs.readFileSync(file, 'utf8')
             if (/patchPresenceSplitSource|presence-split-patch/.test(source)) stale.push(file)
           }
