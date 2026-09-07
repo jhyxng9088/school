@@ -20,7 +20,20 @@ function replaceBetween(source, startMarker, endMarker, replacement) {
 }
 
 function patchSchoolSync(source) {
-  let next = String(source || '')
+  const current = String(source || '')
+  const sourceOwned = current.includes("import { publishClassLiveData } from './class-live-data.js'")
+    && !current.includes('removeRevalidation = installServerRevalidation(refreshFromServer)')
+    && current.includes("publishClassLiveData('todos', classKeyFor(profile), nextTodos)")
+    && current.includes("publishClassLiveData('todoState', studentKeyFor(profile), nextState)")
+    && countOccurrences(current, "publishClassLiveData('timetable', classKeyFor(profile), next)") >= 2
+    && current.includes('const previous = weeklySchedule')
+    && current.includes("publishClassLiveData('timetable', classKeyFor(profile), { weeklySchedule: normalized, overrides })")
+    && current.includes('const previous = overrides')
+    && current.includes("publishClassLiveData('timetable', classKeyFor(profile), { weeklySchedule, overrides: normalized })")
+    && !current.includes('await refreshSharedTimetable()')
+  if (sourceOwned) return current
+
+  let next = current
   next = replaceExact(
     next,
     "import { isReminderTypeId, normalizeReminderCategory, normalizeReminderCategories } from './reminder-categories.js'",
