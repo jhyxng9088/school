@@ -42,7 +42,7 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
     let stopActiveTransport = () => {}
     const classId = classKeyFor(profile)
     const studentKey = studentKeyFor(profile)
-    const memberCountCacheKey = `school.presenceMemberCount.v1.${classId}`
+    const memberCountCacheKey = \`school.presenceMemberCount.v1.\${classId}\`
     const MEMBER_COUNT_CACHE_MS = 30 * 60 * 1000
 
     function readCachedMemberCount({ allowStale = false } = {}) {
