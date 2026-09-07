@@ -158,16 +158,15 @@ function patchClassActivity(source) {
 }
 
 function patchMain(source) {
-  return replaceExact(
-    String(source || ''),
-    `  useEffect(() => {
+  const current = String(source || '')
+  const marker = `  useEffect(() => {
     if (!timetableActivityRevision || navigator.onLine === false) return
     refreshSharedTimetable()
   }, [timetableActivityRevision, refreshSharedTimetable])
 
-`,
-    '',
-  )
+`
+  if (!current.includes(marker)) return current
+  return replaceExact(current, marker, '')
 }
 
 function unreadBusSubscriptions() {
