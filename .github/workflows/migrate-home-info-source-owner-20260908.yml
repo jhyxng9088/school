@@ -38,13 +38,16 @@ jobs:
           cp -a dist /tmp/s-hub-home-before
 
       - name: Source-own home info behavior
-        run: node scripts/migrate-home-info-source-owner-20260908.mjs
+        run: |
+          node scripts/migrate-home-info-source-owner-20260908.mjs
+          python scripts/preserve-home-props-through-station-nav-20260908.py
 
       - name: Remove retired and temporary owners
         run: |
           rm src/preview-home-info-patch.js
           rm scripts/migrate-home-info-source-owner-20260908.mjs
           rm scripts/diagnose-home-info-order-20260908.mjs
+          rm scripts/preserve-home-props-through-station-nav-20260908.py
           rm .github/workflows/migrate-home-info-source-owner-20260908.yml
 
       - name: Verify changed-file boundary
@@ -55,6 +58,7 @@ jobs:
           .github/workflows/migrate-home-info-source-owner-20260908.yml
           scripts/diagnose-home-info-order-20260908.mjs
           scripts/migrate-home-info-source-owner-20260908.mjs
+          scripts/preserve-home-props-through-station-nav-20260908.py
           src/main.jsx
           src/preview-home-info-patch.js
           src/preview-station-nav-patch.js
