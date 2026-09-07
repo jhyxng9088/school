@@ -7,7 +7,6 @@ const root = process.cwd()
 const srcDir = resolve(root, 'src')
 
 const prefix = [
-  ['patchPreviewNavSpringSource', 'preview-nav-spring-patch.js'],
   ['patchPreviewSHubV2Source', 'preview-s-hub-v2-patch.js'],
   ['patchPreviewAIReminderSummarySource', 'preview-ai-reminder-summary-patch.js'],
   ['patchPreviewReminderPolishSource', 'preview-reminder-polish-patch.js'],
