@@ -1,10 +1,20 @@
 import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { patchDataSplitV1Source } from '../src/data-split-v1-patch.js'
+import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
 
 const patch = fs.readFileSync(new URL('../src/preview-station-nav-patch.js', import.meta.url), 'utf8')
 const refinement = fs.readFileSync(new URL('../src/preview-station-nav-refine-patch.js', import.meta.url), 'utf8')
 const vite = fs.readFileSync(new URL('../vite.config.js', import.meta.url), 'utf8')
+const main = fs.readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8')
+
+const LEGACY_TIMETABLE_REVALIDATION_EFFECT = `  useEffect(() => {
+    if (!timetableActivityRevision || navigator.onLine === false) return
+    refreshSharedTimetable()
+  }, [timetableActivityRevision, refreshSharedTimetable])
+
+`
 
 test('preview station has the requested five top-level items in order', () => {
   const sequence = [
@@ -31,6 +41,23 @@ test('class station expands into a nested timetable-board capsule', () => {
   assert.match(patch, /setClassSection\('board'\)/)
   assert.match(patch, /<Icon type="timetable" size=\{20\}/)
   assert.match(patch, /<Icon type="board" size=\{20\}/)
+})
+
+test('station nav keeps identical downstream output after timetable revalidation becomes source-owned', () => {
+  const path = new URL('../src/main.jsx', import.meta.url).pathname
+  assert.equal(main.includes(LEGACY_TIMETABLE_REVALIDATION_EFFECT), false)
+
+  const anchor = '  const aiContext = useMemo(() => {'
+  assert.ok(main.includes(anchor))
+  const legacyMain = main.replace(anchor, `${LEGACY_TIMETABLE_REVALIDATION_EFFECT}${anchor}`)
+  const legacyAfterDataSplit = patchDataSplitV1Source(legacyMain, path)
+  assert.equal(legacyAfterDataSplit, main)
+
+  const sourceOwnedOutput = patchPreviewStationNavSource(main, path)
+  const legacyPipelineOutput = patchPreviewStationNavSource(legacyAfterDataSplit, path)
+  assert.equal(legacyPipelineOutput, sourceOwnedOutput)
+  assert.match(sourceOwnedOutput, /setClassNavExpanded\(true\)/)
+  assert.match(sourceOwnedOutput, /const aiContext = useMemo/)
 })
 
 test('existing timetable and schedule features remain reachable', () => {
