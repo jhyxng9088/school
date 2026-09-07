@@ -19,6 +19,7 @@ import {
   readStudentProfile,
   studentKeyFor,
 } from './school-sync'
+import { publishClassLiveData } from './class-live-data.js'
 
 const syncApp = getApps().some((app) => app.name === 'school-sync') ? getApp('school-sync') : null
 if (!syncApp) throw new Error('School sync app is not initialized')
@@ -182,6 +183,7 @@ export function useClassActivity(profile = null) {
         }
       })
       writeActivityCache(normalized, next)
+      publishClassLiveData('activity', classKeyFor(normalized), next)
       setActivity(next)
     }
 
@@ -204,7 +206,7 @@ export function useClassActivity(profile = null) {
           applySnapshot,
           (error) => console.error('Class activity sync failed:', error),
         )
-        removeRevalidation = installServerRevalidation(refreshFromServer)
+        removeRevalidation = () => {}
       })
       .catch((error) => console.error('Class activity connection failed:', error))
     return () => {
@@ -372,6 +374,7 @@ export function useSharedAcademic(profile) {
       generation += 1
       const next = academicEventsFromSnapshot(snapshot)
       writeAcademicCache(normalized, next)
+      publishClassLiveData('academic', classKeyFor(normalized), next)
       setEvents(next)
     }
 
@@ -394,7 +397,7 @@ export function useSharedAcademic(profile) {
           applySnapshot,
           (error) => console.error('Academic schedule sync failed:', error),
         )
-        removeRevalidation = installServerRevalidation(refreshFromServer)
+        removeRevalidation = () => {}
       })
       .catch((error) => console.error('Academic schedule connection failed:', error))
     return () => {
