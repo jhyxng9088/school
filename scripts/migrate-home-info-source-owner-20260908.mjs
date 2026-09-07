@@ -15,6 +15,18 @@ const sourceOwnedMain = patchPreviewHomeInfoSource(main, '/workspace/src/main.js
 if (sourceOwnedMain === main) throw new Error('home info patch did not change raw main source')
 fs.writeFileSync(mainPath, sourceOwnedMain)
 
+// station-nav owns the broad content object rewrite. Preserve source-owned Home
+// props instead of silently dropping them when that earlier owner runs.
+const stationNavPath = 'src/preview-station-nav-patch.js'
+let stationNav = fs.readFileSync(stationNavPath, 'utf8')
+stationNav = replaceOnce(
+  stationNav,
+  "  const contentReplacement = `  const content = {\\n    home: (\\n      <Home\\n        name={name}\\n",
+  "  const sourceOwnedHomeProps = next.includes(`      <Home\\n        profile={profile}\\n        onNavigate={navigateHomeSignal}\\n        name={name}`)\\n    ? `        profile={profile}\\n        onNavigate={navigateHomeSignal}\\n`\\n    : ''\\n\\n  const contentReplacement = `  const content = {\\n    home: (\\n      <Home\\n${sourceOwnedHomeProps}        name={name}\\n",
+  'station nav source-owned Home prop preservation',
+)
+fs.writeFileSync(stationNavPath, stationNav)
+
 const vitePath = 'vite.config.js'
 let vite = fs.readFileSync(vitePath, 'utf8')
 vite = replaceOnce(vite, "import { patchPreviewHomeInfoSource } from './src/preview-home-info-patch.js'\n", '', 'vite home info import')
@@ -35,6 +47,7 @@ fs.writeFileSync(effectPath, effect)
 fs.writeFileSync('tests/preview-home-info.test.js', `import test from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
+import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
 
 const read = (path) => readFileSync(new URL(\`../\${path}\`, import.meta.url), 'utf8')
 const exists = (path) => existsSync(new URL(\`../\${path}\`, import.meta.url))
@@ -58,6 +71,11 @@ test('V2 home overview directly reuses existing unread controllers and local app
   assert.equal(exists('src/preview-home-info-patch.js'), false)
   assert.doesNotMatch(vite, /patchPreviewHomeInfoSource/)
   assert.doesNotMatch(vite, /preview-home-info-patch\\.js/)
+})
+
+test('station navigation preserves source-owned Home profile and navigation props', () => {
+  const source = patchPreviewStationNavSource(read('src/main.jsx'), '/workspace/src/main.jsx')
+  assert.match(source, /<Home\\n        profile=\\{profile\\}\\n        onNavigate=\\{navigateHomeSignal\\}\\n        name=\\{name\\}/)
 })
 
 test('V2 home overview remains compact as a 2 by 2 grid across mobile and larger layouts', () => {
