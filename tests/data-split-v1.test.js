@@ -59,12 +59,14 @@ test('activity and academic data stay realtime without duplicate server revalida
   assert.match(source, /publishClassLiveData\('academic', classKeyFor\(normalized\), next\)/)
 })
 
-test('class activity patch is idempotent before source ownership migration', () => {
+test('class activity live-data sync is source-owned before patch retirement', () => {
   const path = new URL('../src/class-activity.js', import.meta.url).pathname
   const source = read('../src/class-activity.js')
-  const once = patchDataSplitV1Source(source, path)
-  const twice = patchDataSplitV1Source(once, path)
-  assert.equal(twice, once)
+  assert.match(source, /import \{ publishClassLiveData \} from '\.\/class-live-data\.js'/)
+  assert.match(source, /publishClassLiveData\('activity', classKeyFor\(normalized\), next\)/)
+  assert.match(source, /publishClassLiveData\('academic', classKeyFor\(normalized\), next\)/)
+  assert.equal(count(source, 'removeRevalidation = installServerRevalidation(refreshFromServer)'), 0)
+  assert.equal(patchDataSplitV1Source(source, path), source)
 })
 
 test('unread indicators reuse the app realtime stream instead of opening five duplicate Firestore listeners', () => {
