@@ -14,6 +14,19 @@ function replaceBetween(source, startMarker, endMarker, replacement) {
   return `${source.slice(0, start)}${replacement}${source.slice(end)}`
 }
 
+function sourceOwnsPresenceSplit(source) {
+  const current = String(source || '')
+  return current.includes("import { realtimePresenceConfigured, startRealtimePresence } from './presence-rtdb.js'")
+    && current.includes("import { startSupabasePresence } from './supabase-presence.js'")
+    && current.includes("let fallbackLevel = 'supabase'")
+    && current.includes('supabasePresence = startSupabasePresence({')
+    && current.includes('const activateRealtimeFallback = (reason) =>')
+    && current.includes('const activateFirestoreFallback = (reason) =>')
+    && current.includes('onUnavailable: activateRealtimeFallback')
+    && current.includes('onUnavailable: activateFirestoreFallback')
+    && current.includes('stopActiveTransport = startFirestoreFallback()')
+}
+
 const PRESENCE_HOOK = `export function useClassPresence(profile) {
   const signature = profileSignature(profile)
   const [counts, setCounts] = useState({ online: 0, total: 0 })
@@ -29,7 +42,7 @@ const PRESENCE_HOOK = `export function useClassPresence(profile) {
     let stopActiveTransport = () => {}
     const classId = classKeyFor(profile)
     const studentKey = studentKeyFor(profile)
-    const memberCountCacheKey = \`school.presenceMemberCount.v1.\${classId}\`
+    const memberCountCacheKey = `school.presenceMemberCount.v1.${classId}`
     const MEMBER_COUNT_CACHE_MS = 30 * 60 * 1000
 
     function readCachedMemberCount({ allowStale = false } = {}) {
@@ -231,6 +244,8 @@ export function patchPresenceSplitSource(source, id) {
   if (!cleanId.endsWith('/src/school-sync.js')) return String(source || '')
 
   let next = String(source || '')
+  if (sourceOwnsPresenceSplit(next)) return next
+
   next = replaceExact(
     next,
     "import { publishClassLiveData } from './class-live-data.js'",
