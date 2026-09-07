@@ -114,6 +114,7 @@ jobs:
           const intentionalRetiredRefs = new Set([
             'tests/presence-split.test.js',
             'tests/repository-structure.test.js',
+            'tests/study-visual-polish.test.js',
           ])
           const stale = []
           for (const file of textFiles) {
