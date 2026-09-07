@@ -192,7 +192,7 @@ test('main and transport directly own meal context wiring and duplicate-prompt a
 
   const transport = read('src/s-hub-ai-transport.js')
   assert.match(transport, /SCHOOL_DATA already carries meals/)
-  assert.match(transport, /\"meals\"\\s\\*:/)
+  assert.ok(transport.includes(String.raw`/\"meals\"\s*:/.test(prompt)`))
 })
 
 test('AI presentation owner keeps long composer content above the fixed bottom nav', () => {
