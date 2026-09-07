@@ -1,0 +1,71 @@
+name: Migrate shared segment owner 20260908
+
+on:
+  push:
+    branches:
+      - work/shared-segment-owner-retire-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: work/shared-segment-owner-retire-20260908
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Migrate shared segment ownership upstream
+        run: python scripts/migrate-shared-segment-owner-20260908.py
+
+      - name: Remove retired and temporary owners
+        shell: bash
+        run: |
+          git rm src/shared-segment-spring-owner-patch.js
+          git rm scripts/migrate-shared-segment-owner-20260908.py
+          git rm .github/workflows/migrate-shared-segment-owner-20260908.yml
+          python - <<'PY'
+          import subprocess
+          expected = {
+            '.github/workflows/migrate-shared-segment-owner-20260908.yml',
+            'scripts/migrate-shared-segment-owner-20260908.py',
+            'src/preview-class-top-segment-patch.js',
+            'src/preview-study-patch.js',
+            'src/shared-segment-spring-owner-patch.js',
+            'tests/final-runtime-owner.test.js',
+            'tests/preview-class-top-segment.test.js',
+            'tests/preview-study-ranking-motion.test.js',
+            'tests/shared-segment-spring-owner.test.js',
+            'vite.config.js',
+          }
+          changed = set(subprocess.check_output(['git', 'diff', 'HEAD', '--name-only'], text=True).splitlines())
+          assert changed == expected, f'unexpected migration paths: {sorted(changed)}'
+          PY
+          git diff --check
+
+      - name: Test production app
+        run: npm test
+
+      - name: Build production app
+        run: npm run build
+
+      - name: Commit clean migration
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor: retire shared segment spring build owner'
+          git push origin HEAD:work/shared-segment-owner-retire-20260908
