@@ -56,7 +56,24 @@ jobs:
           git diff --check
 
       - name: Test production app
-        run: npm test
+        id: app_tests
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee migration-test.log
+          status=${PIPESTATUS[0]}
+          grep -E "(^not ok|^# Subtest:|AssertionError|ERR_ASSERTION|actual:|expected:|operator:|tests? failed|fail [0-9]+)" migration-test.log | tail -n 180 > migration-test-summary.log || true
+          exit "$status"
+
+      - name: Upload migration failure summary
+        if: failure() && steps.app_tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-segment-migration-test-failure
+          path: |
+            migration-test-summary.log
+            migration-test.log
+          retention-days: 1
 
       - name: Build production app
         run: npm run build
@@ -64,6 +81,7 @@ jobs:
       - name: Commit clean migration
         shell: bash
         run: |
+          rm -f migration-test.log migration-test-summary.log
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
