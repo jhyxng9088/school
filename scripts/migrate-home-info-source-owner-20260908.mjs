@@ -22,7 +22,7 @@ let stationNav = fs.readFileSync(stationNavPath, 'utf8')
 stationNav = replaceOnce(
   stationNav,
   "  const contentReplacement = `  const content = {\\n    home: (\\n      <Home\\n        name={name}\\n",
-  "  const sourceOwnedHomeProps = next.includes(`      <Home\\n        profile={profile}\\n        onNavigate={navigateHomeSignal}\\n        name={name}`)\\n    ? `        profile={profile}\\n        onNavigate={navigateHomeSignal}\\n`\\n    : ''\\n\\n  const contentReplacement = `  const content = {\\n    home: (\\n      <Home\\n${sourceOwnedHomeProps}        name={name}\\n",
+  "  const contentReplacement = `  const content = {\\n    home: (\\n      <Home\\n${next.includes('onNavigate={navigateHomeSignal}') ? '        profile={profile}\\\\n        onNavigate={navigateHomeSignal}\\\\n' : ''}        name={name}\\n",
   'station nav source-owned Home prop preservation',
 )
 fs.writeFileSync(stationNavPath, stationNav)
