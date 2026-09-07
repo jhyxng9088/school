@@ -76,10 +76,13 @@ jobs:
       - name: Test production app
         run: npm test
 
+      - name: Install production backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
       - name: Test production backend
-        run: |
-          npm --prefix server ci
-          npm --prefix server test
+        working-directory: push-backend-v2
+        run: npm test
 
       - name: Commit clean migration
         run: |
