@@ -256,8 +256,8 @@ function patchMainSource(source) {
 
   next = replaceRequired(
     next,
-    `  const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)\n\n  useEffect(() => {`,
-    `  const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)\n\n  useEffect(() => {\n    if (activeTab !== 'class') {\n      setClassNavExpanded(false)\n      return undefined\n    }\n    const timer = window.setTimeout(() => setClassNavExpanded(true), 250)\n    return () => window.clearTimeout(timer)\n  }, [activeTab])\n\n  useEffect(() => {`,
+    `  const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)\n\n  const aiContext = useMemo(() => {`,
+    `  const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)\n\n  useEffect(() => {\n    if (activeTab !== 'class') {\n      setClassNavExpanded(false)\n      return undefined\n    }\n    const timer = window.setTimeout(() => setClassNavExpanded(true), 250)\n    return () => window.clearTimeout(timer)\n  }, [activeTab])\n\n  const aiContext = useMemo(() => {`,
     'class capsule expansion timing',
   )
 
