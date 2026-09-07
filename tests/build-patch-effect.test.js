@@ -20,7 +20,6 @@ const prefix = [
   ['patchPreviewNestedGeometryCouplingSource', 'preview-nested-geometry-coupling-patch.js'],
   ['patchPreviewNavResponsivenessSource', 'preview-nav-responsiveness-patch.js'],
   ['patchPreviewClassTopSegmentSource', 'preview-class-top-segment-patch.js'],
-  ['patchPreviewClassTopSegmentStyleSource', 'preview-class-top-segment-style-patch.js'],
 ]
 
 const boardOrder = [

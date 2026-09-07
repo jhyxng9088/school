@@ -24,7 +24,6 @@ import { patchPreviewPhysicalClassCouplingSource } from './src/preview-physical-
 import { patchPreviewNestedGeometryCouplingSource } from './src/preview-nested-geometry-coupling-patch.js'
 import { patchPreviewNavResponsivenessSource } from './src/preview-nav-responsiveness-patch.js'
 import { patchPreviewClassTopSegmentSource } from './src/preview-class-top-segment-patch.js'
-import { patchPreviewClassTopSegmentStyleSource } from './src/preview-class-top-segment-style-patch.js'
 import { patchPreviewBoardSource } from './src/preview-board-patch.js'
 import { patchPreviewScheduleTopSegmentSource } from './src/preview-schedule-top-segment-patch.js'
 import { patchPreviewAIPageSource } from './src/preview-ai-page-patch.js'
@@ -90,7 +89,6 @@ function replaceV2Source(source, id) {
   next = patchPreviewNestedGeometryCouplingSource(next, cleanId)
   next = patchPreviewNavResponsivenessSource(next, cleanId)
   next = patchPreviewClassTopSegmentSource(next, cleanId)
-  next = patchPreviewClassTopSegmentStyleSource(next, cleanId)
 
   const boardRuntimeFile = cleanId.endsWith('/preview-board-client.js') || cleanId.endsWith('/preview-board-complete.jsx')
   if (boardRuntimeFile) {
@@ -164,7 +162,6 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-nested-geometry-coupling-patch.js')
         || cleanId.endsWith('/preview-nav-responsiveness-patch.js')
         || cleanId.endsWith('/preview-class-top-segment-patch.js')
-        || cleanId.endsWith('/preview-class-top-segment-style-patch.js')
         || cleanId.endsWith('/preview-board-patch.js')
         || cleanId.endsWith('/preview-board-all-patch.js')
         || cleanId.endsWith('/preview-board-section-management-patch.js')

@@ -84,7 +84,8 @@ test('top segment emits the canonical shared spring wrapper directly', () => {
 
 test('top segment is thin and spans the class content width', () => {
   const styles = patchPreviewClassTopSegmentSource(read('src/styles.css'), '/workspace/src/styles.css')
-  assert.match(styles, /\.class-top-segment \{[\s\S]*width: 100%;[\s\S]*height: 46px;/)
+  assert.match(styles, /\.class-top-segment \{[\s\S]*width: 100%;[\s\S]*height: 44px !important;/)
+  assert.match(styles, /margin: 2px auto 18px !important;/)
   assert.match(styles, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
   assert.match(styles, /\.bottom-nav \{[\s\S]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\) !important;/)
 })
