@@ -28,25 +28,32 @@ jobs:
         run: npm ci
 
       - name: Migrate shared segment ownership upstream
-        run: python scripts/migrate-shared-segment-owner-20260908.py
+        run: |
+          python scripts/migrate-shared-segment-owner-20260908.py
+          python scripts/fix-shared-segment-owner-test-contracts-20260908.py
 
       - name: Remove retired and temporary owners
         shell: bash
         run: |
           git rm src/shared-segment-spring-owner-patch.js
           git rm scripts/migrate-shared-segment-owner-20260908.py
+          git rm scripts/fix-shared-segment-owner-test-contracts-20260908.py
           git rm .github/workflows/migrate-shared-segment-owner-20260908.yml
           python - <<'PY'
           import subprocess
           expected = {
             '.github/workflows/migrate-shared-segment-owner-20260908.yml',
             'scripts/migrate-shared-segment-owner-20260908.py',
+            'scripts/fix-shared-segment-owner-test-contracts-20260908.py',
             'src/preview-class-top-segment-patch.js',
             'src/preview-study-patch.js',
             'src/shared-segment-spring-owner-patch.js',
+            'tests/build-patch-effect.test.js',
             'tests/final-runtime-owner.test.js',
             'tests/preview-class-top-segment.test.js',
             'tests/preview-study-ranking-motion.test.js',
+            'tests/preview-unread-hierarchy.test.js',
+            'tests/shared-icon-owner.test.js',
             'tests/shared-segment-spring-owner.test.js',
             'vite.config.js',
           }
