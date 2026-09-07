@@ -135,3 +135,54 @@ final = replace_once(
     'final retired style Vite absence',
 )
 final_path.write_text(final)
+
+board_test_path = Path('tests/preview-board.test.js')
+board_test = board_test_path.read_text()
+board_test = replace_once(
+    board_test,
+    "import { patchPreviewClassTopSegmentStyleSource } from '../src/preview-class-top-segment-style-patch.js'\n",
+    '',
+    'board test retired style import',
+)
+board_test = replace_once(
+    board_test,
+    "  source = patchPreviewClassTopSegmentStyleSource(source, id)\n",
+    '',
+    'board test retired style invocation',
+)
+board_test_path.write_text(board_test)
+
+class_test_path = Path('tests/preview-class-top-segment.test.js')
+class_test = class_test_path.read_text()
+class_test = replace_once(
+    class_test,
+    "  assert.match(styles, /\\.class-top-segment \\{[\\s\\S]*width: 100%;[\\s\\S]*height: 46px;/)\n",
+    "  assert.match(styles, /\\.class-top-segment \\{[\\s\\S]*width: 100%;[\\s\\S]*height: 44px !important;/)\n  assert.match(styles, /margin: 2px auto 18px !important;/)\n",
+    'class test final style geometry',
+)
+class_test_path.write_text(class_test)
+
+schedule_test_path = Path('tests/preview-schedule-top-segment.test.js')
+schedule_test = schedule_test_path.read_text()
+old_schedule_test = """test('vite applies schedule patch after the class segment structure and material patches', () => {
+  const vite = read('vite.config.js')
+  const classStructure = vite.indexOf('patchPreviewClassTopSegmentSource(next, cleanId)')
+  const classStyle = vite.indexOf('patchPreviewClassTopSegmentStyleSource(next, cleanId)')
+  const schedule = vite.indexOf('patchPreviewScheduleTopSegmentSource(next, cleanId)')
+  assert.ok(classStructure >= 0)
+  assert.ok(classStyle > classStructure)
+  assert.ok(schedule > classStyle)
+  assert.match(vite, /preview-schedule-top-segment-patch\\.js/)
+})"""
+new_schedule_test = """test('vite applies schedule patch after the source-owned class segment structure and material', () => {
+  const vite = read('vite.config.js')
+  const classOwner = vite.indexOf('patchPreviewClassTopSegmentSource(next, cleanId)')
+  const schedule = vite.indexOf('patchPreviewScheduleTopSegmentSource(next, cleanId)')
+  assert.ok(classOwner >= 0)
+  assert.ok(schedule > classOwner)
+  assert.doesNotMatch(vite, /patchPreviewClassTopSegmentStyleSource/)
+  assert.doesNotMatch(vite, /preview-class-top-segment-style-patch\\.js/)
+  assert.match(vite, /preview-schedule-top-segment-patch\\.js/)
+})"""
+schedule_test = replace_once(schedule_test, old_schedule_test, new_schedule_test, 'schedule test retired class style owner')
+schedule_test_path.write_text(schedule_test)
