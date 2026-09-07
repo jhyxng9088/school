@@ -45,7 +45,13 @@ jobs:
             'src/preview-ai-page-patch.js',
             'tests/build-patch-effect.test.js',
             'tests/final-runtime-owner.test.js',
+            'tests/polite-copy-audit.test.js',
+            'tests/preview-ai-background.test.js',
+            'tests/preview-ai-context-layout.test.js',
             'tests/preview-ai-density.test.js',
+            'tests/preview-ai-live-context.test.js',
+            'tests/preview-ai-spacing-polish.test.js',
+            'tests/preview-ai-stage-motion.test.js',
             'vite.config.js',
           }
           changed = set(subprocess.check_output(['git', 'diff', 'HEAD', '--name-only'], text=True).splitlines())
