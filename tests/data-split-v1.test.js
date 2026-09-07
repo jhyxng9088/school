@@ -52,6 +52,14 @@ test('activity and academic data stay realtime without duplicate server revalida
   assert.match(source, /publishClassLiveData\('academic', classKeyFor\(normalized\), next\)/)
 })
 
+test('class activity patch is idempotent before source ownership migration', () => {
+  const path = new URL('../src/class-activity.js', import.meta.url).pathname
+  const source = read('../src/class-activity.js')
+  const once = patchDataSplitV1Source(source, path)
+  const twice = patchDataSplitV1Source(once, path)
+  assert.equal(twice, once)
+})
+
 test('unread indicators reuse the app realtime stream instead of opening five duplicate Firestore listeners', () => {
   const source = patched('../src/unread-indicators-v2.js')
   assert.match(source, /subscribeClassLiveData\('activity', classId/)
@@ -63,6 +71,14 @@ test('unread indicators reuse the app realtime stream instead of opening five du
   assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'classes', classId, 'todos'/)
   assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'classes', classId, 'academicEvents'/)
   assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'students', studentKey, 'todoState'/)
+})
+
+test('unread data-split patch is idempotent before source ownership migration', () => {
+  const path = new URL('../src/unread-indicators-v2.js', import.meta.url).pathname
+  const source = read('../src/unread-indicators-v2.js')
+  const once = patchDataSplitV1Source(source, path)
+  const twice = patchDataSplitV1Source(once, path)
+  assert.equal(twice, once)
 })
 
 test('expired academic documents are no longer full-scanned by every client', () => {
@@ -78,6 +94,14 @@ test('expired academic documents are no longer full-scanned by every client', ()
 test('timetable activity no longer triggers an extra authoritative refetch after realtime already updated it', () => {
   const source = patched('../src/main.jsx')
   assert.doesNotMatch(source, /if \(!timetableActivityRevision \|\| navigator\.onLine === false\) return\n\s*refreshSharedTimetable\(\)/)
+})
+
+test('timetable revalidation patch is idempotent before source ownership migration', () => {
+  const path = new URL('../src/main.jsx', import.meta.url).pathname
+  const source = read('../src/main.jsx')
+  const once = patchDataSplitV1Source(source, path)
+  const twice = patchDataSplitV1Source(once, path)
+  assert.equal(twice, once)
 })
 
 test('the in-memory bus is scoped so one class or student cannot replay another scope', () => {
