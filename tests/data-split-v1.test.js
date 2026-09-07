@@ -72,6 +72,14 @@ test('timetable activity no longer triggers an extra authoritative refetch after
   assert.doesNotMatch(source, /if \(!timetableActivityRevision \|\| navigator\.onLine === false\) return\n\s*refreshSharedTimetable\(\)/)
 })
 
+test('timetable revalidation patch is idempotent before source ownership migration', () => {
+  const path = new URL('../src/main.jsx', import.meta.url).pathname
+  const source = read('../src/main.jsx')
+  const once = patchDataSplitV1Source(source, path)
+  const twice = patchDataSplitV1Source(once, path)
+  assert.equal(twice, once)
+})
+
 test('the in-memory bus is scoped so one class or student cannot replay another scope', () => {
   const source = read('../src/class-live-data.js')
   assert.match(source, /channelKey\(channel, scope\)/)
