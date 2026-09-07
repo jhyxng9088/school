@@ -73,11 +73,10 @@ test('class activity live-data sync is source-owned and its build-patch leg stay
   assert.doesNotMatch(patchSource, /function patchClassActivity\(/)
   assert.doesNotMatch(patchSource, /endsWith\('\/src\/class-activity\.js'\)/)
   assert.match(patchSource, /endsWith\('\/src\/school-sync\.js'\)/)
-  assert.match(patchSource, /endsWith\('\/src\/unread-indicators-v2\.js'\)/)
 })
 
 test('unread indicators reuse the app realtime stream instead of opening five duplicate Firestore listeners', () => {
-  const source = patched('../src/unread-indicators-v2.js')
+  const source = read('../src/unread-indicators-v2.js')
   assert.match(source, /subscribeClassLiveData\('activity', classId/)
   assert.match(source, /subscribeClassLiveData\('timetable', classId/)
   assert.match(source, /subscribeClassLiveData\('todos', classId/)
@@ -89,12 +88,12 @@ test('unread indicators reuse the app realtime stream instead of opening five du
   assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'students', studentKey, 'todoState'/)
 })
 
-test('unread data-split patch is idempotent before source ownership migration', () => {
+test('unread live-data subscriptions are source-owned before patch retirement', () => {
   const path = new URL('../src/unread-indicators-v2.js', import.meta.url).pathname
   const source = read('../src/unread-indicators-v2.js')
-  const once = patchDataSplitV1Source(source, path)
-  const twice = patchDataSplitV1Source(once, path)
-  assert.equal(twice, once)
+  assert.match(source, /import \{ subscribeClassLiveData \} from '\.\/class-live-data\.js'/)
+  assert.doesNotMatch(source, /\bonSnapshot\(/)
+  assert.equal(patchDataSplitV1Source(source, path), source)
 })
 
 test('expired academic documents are no longer full-scanned by every client', () => {
@@ -120,7 +119,6 @@ test('timetable revalidation cleanup is source-owned and its main build-patch le
   assert.doesNotMatch(patchSource, /endsWith\('\/src\/main\.jsx'\)/)
   assert.doesNotMatch(patchSource, /timetableActivityRevision/)
   assert.match(patchSource, /endsWith\('\/src\/school-sync\.js'\)/)
-  assert.match(patchSource, /endsWith\('\/src\/unread-indicators-v2\.js'\)/)
 })
 
 test('the in-memory bus is scoped so one class or student cannot replay another scope', () => {
