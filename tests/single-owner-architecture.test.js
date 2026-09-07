@@ -16,7 +16,6 @@ const GRANDFATHERED_MUTATION_OBSERVER_COUNTS = new Map([
 ])
 
 const GRANDFATHERED_BUILD_PATCHES = new Set([
-  'data-split-v1-patch.js',
   'e2e-board-fixture-patch.js',
   'presence-split-patch.js',
   'preview-ai-background-patch.js',

@@ -1,13 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { patchDataSplitV1Source } from '../src/data-split-v1-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('academic cleanup behavior is source-owned and no longer changed by the data-split patch', () => {
+test('academic cleanup behavior remains source-owned after the data-split patch is retired', () => {
   const source = read('src/academic-expiry-cleanup.js')
-  const patch = read('src/data-split-v1-patch.js')
   const start = source.indexOf('export async function cleanupExpiredCustomAcademicEvents')
   const end = source.indexOf('\nfunction scheduleNextMidnight()', start)
   assert.ok(start >= 0 && end > start)
@@ -15,10 +13,5 @@ test('academic cleanup behavior is source-owned and no longer changed by the dat
   const owner = source.slice(start, end)
   assert.match(owner, /return true/)
   assert.doesNotMatch(owner, /getDocsFromServer|deleteDoc|collection\(/)
-  assert.doesNotMatch(patch, /function patchAcademicCleanup\b/)
-  assert.doesNotMatch(patch, /academic-expiry-cleanup\.js/)
-  assert.equal(
-    patchDataSplitV1Source(source, '/workspace/src/academic-expiry-cleanup.js'),
-    source,
-  )
+  assert.equal(fs.existsSync(new URL('../src/data-split-v1-patch.js', import.meta.url)), false)
 })

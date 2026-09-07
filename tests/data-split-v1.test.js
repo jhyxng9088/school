@@ -1,15 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { patchDataSplitV1Source } from '../src/data-split-v1-patch.js'
 
 function read(path) {
   return fs.readFileSync(new URL(path, import.meta.url), 'utf8')
-}
-
-function patched(path) {
-  const source = read(path)
-  return patchDataSplitV1Source(source, new URL(path, import.meta.url).pathname)
 }
 
 function count(source, marker) {
@@ -24,7 +18,7 @@ const LEGACY_TIMETABLE_REVALIDATION_EFFECT = `  useEffect(() => {
 `
 
 test('class-shared reminders keep realtime listeners but stop focus-triggered full re-reads', () => {
-  const source = patched('../src/school-sync.js')
+  const source = read('../src/school-sync.js')
   assert.match(source, /onSnapshot\(classTodosCollection\(profile\)/)
   assert.match(source, /onSnapshot\(classReminderCategoriesCollection\(profile\)/)
   assert.match(source, /onSnapshot\(personalTodoStateCollection\(profile\)/)
@@ -33,16 +27,20 @@ test('class-shared reminders keep realtime listeners but stop focus-triggered fu
   assert.match(source, /publishClassLiveData\('todoState', studentKeyFor\(profile\), nextState\)/)
 })
 
-test('school sync data-split patch is idempotent before source ownership migration', () => {
-  const path = new URL('../src/school-sync.js', import.meta.url).pathname
+test('school sync data-split behavior is source-owned and the final patch is retired', () => {
   const source = read('../src/school-sync.js')
-  const once = patchDataSplitV1Source(source, path)
-  const twice = patchDataSplitV1Source(once, path)
-  assert.equal(twice, once)
+
+  assert.match(source, /import \{ publishClassLiveData \} from '\.\/class-live-data\.js'/)
+  assert.match(source, /publishClassLiveData\('todos', classKeyFor\(profile\), nextTodos\)/)
+  assert.match(source, /publishClassLiveData\('todoState', studentKeyFor\(profile\), nextState\)/)
+  assert.equal(count(source, "publishClassLiveData('timetable', classKeyFor(profile), next)"), 2)
+  assert.equal(count(source, 'removeRevalidation = installServerRevalidation(refreshFromServer)'), 0)
+  assert.doesNotMatch(source, /await refreshSharedTimetable\(\)/)
+  assert.equal(fs.existsSync(new URL('../src/data-split-v1-patch.js', import.meta.url)), false)
 })
 
 test('shared timetable stays realtime and applies local edits before server confirmation', () => {
-  const source = patched('../src/school-sync.js')
+  const source = read('../src/school-sync.js')
   assert.match(source, /onSnapshot\(\s*timetableRef\(profile\)/)
   assert.doesNotMatch(source, /removeRevalidation = \(\) => \{\}\n\s*refreshFromServer\(\)/)
   assert.match(source, /saveWeeklySchedule\(normalized\)\n\s*setWeeklySchedule\(normalized\)\n\s*publishClassLiveData/)
@@ -51,7 +49,7 @@ test('shared timetable stays realtime and applies local edits before server conf
 })
 
 test('activity and academic data stay realtime without duplicate server revalidation', () => {
-  const source = patched('../src/class-activity.js')
+  const source = read('../src/class-activity.js')
   assert.match(source, /onSnapshot\(\s*activityCollection\(normalized\)/)
   assert.match(source, /onSnapshot\(\s*academicCollection\(normalized\)/)
   assert.equal(count(source, 'removeRevalidation = installServerRevalidation(refreshFromServer)'), 0)
@@ -60,19 +58,12 @@ test('activity and academic data stay realtime without duplicate server revalida
 })
 
 test('class activity live-data sync is source-owned and its build-patch leg stays retired', () => {
-  const path = new URL('../src/class-activity.js', import.meta.url).pathname
   const source = read('../src/class-activity.js')
-  const patchSource = read('../src/data-split-v1-patch.js')
 
   assert.match(source, /import \{ publishClassLiveData \} from '\.\/class-live-data\.js'/)
   assert.match(source, /publishClassLiveData\('activity', classKeyFor\(normalized\), next\)/)
   assert.match(source, /publishClassLiveData\('academic', classKeyFor\(normalized\), next\)/)
   assert.equal(count(source, 'removeRevalidation = installServerRevalidation(refreshFromServer)'), 0)
-  assert.equal(patchDataSplitV1Source(source, path), source)
-
-  assert.doesNotMatch(patchSource, /function patchClassActivity\(/)
-  assert.doesNotMatch(patchSource, /endsWith\('\/src\/class-activity\.js'\)/)
-  assert.match(patchSource, /endsWith\('\/src\/school-sync\.js'\)/)
 })
 
 test('unread indicators reuse the app realtime stream instead of opening five duplicate Firestore listeners', () => {
@@ -89,22 +80,14 @@ test('unread indicators reuse the app realtime stream instead of opening five du
 })
 
 test('unread live-data subscriptions are source-owned and their build-patch leg stays retired', () => {
-  const path = new URL('../src/unread-indicators-v2.js', import.meta.url).pathname
   const source = read('../src/unread-indicators-v2.js')
-  const patchSource = read('../src/data-split-v1-patch.js')
 
   assert.match(source, /import \{ subscribeClassLiveData \} from '\.\/class-live-data\.js'/)
   assert.doesNotMatch(source, /\bonSnapshot\(/)
-  assert.equal(patchDataSplitV1Source(source, path), source)
-
-  assert.doesNotMatch(patchSource, /function patchUnreadIndicators\(/)
-  assert.doesNotMatch(patchSource, /function unreadBusSubscriptions\(/)
-  assert.doesNotMatch(patchSource, /endsWith\('\/src\/unread-indicators-v2\.js'\)/)
-  assert.match(patchSource, /endsWith\('\/src\/school-sync\.js'\)/)
 })
 
 test('expired academic documents are no longer full-scanned by every client', () => {
-  const source = patched('../src/academic-expiry-cleanup.js')
+  const source = read('../src/academic-expiry-cleanup.js')
   const functionStart = source.indexOf('export async function cleanupExpiredCustomAcademicEvents')
   const nextFunction = source.indexOf('function scheduleNextMidnight()', functionStart)
   const cleanupBody = source.slice(functionStart, nextFunction)
@@ -114,18 +97,10 @@ test('expired academic documents are no longer full-scanned by every client', ()
 })
 
 test('timetable revalidation cleanup is source-owned and its main build-patch leg stays retired', () => {
-  const path = new URL('../src/main.jsx', import.meta.url).pathname
   const source = read('../src/main.jsx')
-  const patchSource = read('../src/data-split-v1-patch.js')
 
   assert.equal(source.includes(LEGACY_TIMETABLE_REVALIDATION_EFFECT), false)
-  assert.equal(patchDataSplitV1Source(source, path), source)
   assert.match(source, /  const aiContext = useMemo\(\(\) => \{/)
-
-  assert.doesNotMatch(patchSource, /function patchMain\(/)
-  assert.doesNotMatch(patchSource, /endsWith\('\/src\/main\.jsx'\)/)
-  assert.doesNotMatch(patchSource, /timetableActivityRevision/)
-  assert.match(patchSource, /endsWith\('\/src\/school-sync\.js'\)/)
 })
 
 test('the in-memory bus is scoped so one class or student cannot replay another scope', () => {

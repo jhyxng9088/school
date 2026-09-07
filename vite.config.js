@@ -35,7 +35,6 @@ import { patchPreviewHomeInfoSource } from './src/preview-home-info-patch.js'
 import { patchPreviewBoardAllSource } from './src/preview-board-all-patch.js'
 import { patchPreviewBoardSectionManagementSource } from './src/preview-board-section-management-patch.js'
 import { patchPreviewAILiveContextSource } from './src/preview-ai-live-context-patch.js'
-import { patchDataSplitV1Source } from './src/data-split-v1-patch.js'
 import { patchPresenceSplitSource } from './src/presence-split-patch.js'
 import { patchStudyVisualPolishSource } from './src/study-visual-polish-patch.js'
 import { patchSharedSegmentSpringOwnerSource } from './src/shared-segment-spring-owner-patch.js'
@@ -115,7 +114,6 @@ function replaceV2Source(source, id) {
   next = patchPreviewBoardSectionManagementSource(next, cleanId)
   next = patchPreviewStudyUnifiedUISource(next, cleanId)
   next = patchPreviewAILiveContextSource(next, cleanId)
-  next = patchDataSplitV1Source(next, cleanId)
   next = patchPresenceSplitSource(next, cleanId)
   next = patchStudyVisualPolishSource(next, cleanId)
   next = patchSharedSegmentSpringOwnerSource(next, cleanId)
@@ -181,7 +179,6 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-ai-background-patch.js')
         || cleanId.endsWith('/preview-ai-live-context-patch.js')
         || cleanId.endsWith('/preview-home-info-patch.js')
-        || cleanId.endsWith('/data-split-v1-patch.js')
         || cleanId.endsWith('/presence-split-patch.js')
         || cleanId.endsWith('/study-visual-polish-patch.js')
         || cleanId.endsWith('/shared-segment-spring-owner-patch.js')
