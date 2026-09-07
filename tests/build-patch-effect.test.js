@@ -37,7 +37,6 @@ const suffix = [
   ['patchPreviewScheduleTopSegmentSource', 'preview-schedule-top-segment-patch.js'],
   ['patchPreviewAIPageSource', 'preview-ai-page-patch.js'],
   ['patchPreviewAIStageMotionSource', 'preview-ai-stage-motion-patch.js'],
-  ['patchPreviewAIBackgroundSource', 'preview-ai-background-patch.js'],
   ['patchPreviewHomeInfoSource', 'preview-home-info-patch.js'],
   ['patchPreviewBoardAllSource', 'preview-board-all-patch.js'],
   ['patchPreviewBoardSectionManagementSource', 'preview-board-section-management-patch.js'],

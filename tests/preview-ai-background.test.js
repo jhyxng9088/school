@@ -3,15 +3,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
 import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
-import { patchPreviewAIBackgroundSource } from '../src/preview-ai-background-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+const exists = (path) => fs.existsSync(new URL(`../${path}`, import.meta.url))
 
 function builtSheet() {
   let source = read('src/s-hub-ai-sheet.jsx')
   source = patchPreviewAIPageSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
-  source = patchPreviewAIStageMotionSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
-  return patchPreviewAIBackgroundSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
+  return patchPreviewAIStageMotionSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
 }
 
 function representativeMain() {
@@ -98,7 +97,7 @@ test('inline AI tells students they may use other features but should keep the a
 })
 
 test('AI working state is lifted to AppShell and the AI page stays mounted across station changes', () => {
-  const source = patchPreviewAIBackgroundSource(representativeMain(), '/workspace/src/main.jsx')
+  const source = patchPreviewAIStageMotionSource(representativeMain(), '/workspace/src/main.jsx')
   assert.match(source, /const \[aiWorking, setAiWorking\] = useState\(false\)/)
   assert.match(source, /onWorkingChange=\{setAiWorking\}/)
   assert.match(source, /className=\{`preview-ai-persistent-host/)
@@ -110,7 +109,7 @@ test('AI working state is lifted to AppShell and the AI page stays mounted acros
 })
 
 test('home AI launcher is removed while the bottom AI station keeps background progress', () => {
-  const source = patchPreviewAIBackgroundSource(representativeMain(), '/workspace/src/main.jsx')
+  const source = patchPreviewAIStageMotionSource(representativeMain(), '/workspace/src/main.jsx')
   assert.doesNotMatch(source, /className="home-ai-trigger"/)
   assert.doesNotMatch(source, /aria-label="S-Hub AI 열기"/)
   assert.match(source, /tab\.id === 'ai' && aiWorking \? 'is-ai-working'/)
@@ -118,7 +117,7 @@ test('home AI launcher is removed while the bottom AI station keeps background p
 })
 
 test('persistent AI wrapper keeps viewport centering, nav clearance, and short-screen scroll safety', () => {
-  const css = patchPreviewAIBackgroundSource('', '/workspace/src/s-hub-ai.css')
+  const css = patchPreviewAIStageMotionSource('', '/workspace/src/s-hub-ai.css')
   assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*--s-hub-ai-nav-clearance:\s*calc\(64px \+ var\(--nav-bottom\) \+ 24px\)/)
   assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*min-height:\s*calc\(100dvh \+ 24px - var\(--s-hub-ai-top-inset\)\)/)
   assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*padding-bottom:\s*var\(--s-hub-ai-nav-clearance\)/)
@@ -129,17 +128,20 @@ test('persistent AI wrapper keeps viewport centering, nav clearance, and short-s
 })
 
 test('background AI CSS keeps hidden sessions mounted and progress visible as a layered node', () => {
-  const css = patchPreviewAIBackgroundSource('', '/workspace/src/s-hub-ai.css')
+  const css = patchPreviewAIStageMotionSource('', '/workspace/src/s-hub-ai.css')
   assert.match(css, /\.preview-ai-persistent-host\[hidden\]/)
   assert.match(css, /\.nav-button\[data-tab="ai"\] \.s-hub-ai-nav-progress/)
   assert.match(css, /z-index:\s*5/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
-test('vite applies background continuity after AI state motion', () => {
+test('AI presentation owner directly owns background continuity', () => {
   const vite = read('vite.config.js')
-  const motion = vite.indexOf('patchPreviewAIStageMotionSource(next, cleanId)')
-  const background = vite.indexOf('patchPreviewAIBackgroundSource(next, cleanId)')
-  assert.ok(motion >= 0)
-  assert.ok(background > motion)
+  const stage = read('src/preview-ai-stage-motion-patch.js')
+  assert.equal(exists('src/preview-ai-background-patch.js'), false)
+  assert.doesNotMatch(vite, /patchPreviewAIBackgroundSource/)
+  assert.doesNotMatch(vite, /preview-ai-background-patch\.js/)
+  assert.match(vite, /patchPreviewAIStageMotionSource\(next, cleanId\)/)
+  assert.match(stage, /function patchAIBackgroundMain\(source\)/)
+  assert.match(stage, /Preview-only AI continuity: keep the one AI session alive/)
 })
