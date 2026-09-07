@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { patchPreviewNavSpringSource } from '../src/preview-nav-spring-patch.js'
 import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
 import { patchPreviewStationNavRefinementSource } from '../src/preview-station-nav-refine-patch.js'
@@ -20,7 +19,6 @@ const boardUi = () => patchPreviewBoardSource(read('src/preview-board-complete.j
 function buildBoardMain() {
   let source = read('src/main.jsx')
   const id = '/workspace/src/main.jsx'
-  source = patchPreviewNavSpringSource(source, id)
   source = patchPreviewSHubV2Source(source, id)
   source = patchPreviewStationNavSource(source, id)
   source = patchPreviewStationNavRefinementSource(source, id)

@@ -932,11 +932,13 @@ function useNavSpring(activeIndex) {
 
     const physics = physicsRef.current
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const compatibilityMotion = MOBILE_BROWSER_COMPAT
-    if (compatibilityMotion) {
-      stopInlineIndicatorStyles(indicator)
-      return undefined
-    }
+    indicator.dataset.springMotion = 'true'
+    nav.dataset.elasticShell = 'true'
+    nav.style.setProperty('--nav-shell-scale-x', '1')
+    nav.style.setProperty('--nav-shell-shift-x', '0px')
+    const navPadding = Number.parseFloat(window.getComputedStyle(nav).getPropertyValue('--nav-padding')) || 5
+    indicator.style.setProperty('left', '0px', 'important')
+    indicator.style.setProperty('transition', 'none', 'important')
 
     function paint() {
       const speed = Math.abs(physics.velocity)
@@ -946,10 +948,17 @@ function useNavSpring(activeIndex) {
       const visualX = movingLeft ? physics.x - stretch : physics.x
       const visualWidth = physics.baseWidth + stretch
       const compression = Math.min(speed / 18000, 0.028)
+      const visualRight = visualX + visualWidth
+      const leftShellStretch = Math.max(0, navPadding - visualX)
+      const rightShellStretch = Math.max(0, visualRight - (nav.clientWidth - navPadding))
+      const shellScaleX = (nav.clientWidth + leftShellStretch + rightShellStretch) / nav.clientWidth
+      const shellShiftX = (rightShellStretch - leftShellStretch) / 2
+      nav.style.setProperty('--nav-shell-scale-x', shellScaleX.toFixed(5))
+      nav.style.setProperty('--nav-shell-shift-x', `${shellShiftX}px`)
 
       indicator.style.width = `${visualWidth}px`
-      indicator.style.transform = `translate3d(${visualX}px, 0, 0) scaleY(${1 - compression})`
-      indicator.style.borderRadius = `${Math.max(16, 20 - stretch * 0.08)}px`
+      indicator.style.setProperty('transform', `translate3d(${visualX}px, 0, 0) scaleY(${1 - compression})`, 'important')
+      indicator.style.setProperty('border-radius', `${Math.max(16, 20 - stretch * 0.08)}px`, 'important')
       indicator.dataset.direction = movingRight ? 'right' : movingLeft ? 'left' : 'still'
     }
 
@@ -979,8 +988,8 @@ function useNavSpring(activeIndex) {
       const dt = Math.min((time - physics.lastTime) / 1000, 0.032)
       physics.lastTime = time
 
-      const stiffness = 50
-      const damping = 10
+      const stiffness = 56
+      const damping = 10.5
       const mass = 1
       const displacement = physics.x - physics.targetX
       const springForce = -stiffness * displacement

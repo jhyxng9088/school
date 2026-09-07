@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { patchPreviewNavSpringSource } from '../src/preview-nav-spring-patch.js'
 import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
 import { patchPreviewStationNavRefinementSource } from '../src/preview-station-nav-refine-patch.js'
 import { patchPreviewStationJellyMotionSource } from '../src/preview-station-jelly-motion-patch.js'
@@ -14,7 +13,6 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 function buildFinalMain() {
   let source = read('src/main.jsx')
   const id = '/workspace/src/main.jsx'
-  source = patchPreviewNavSpringSource(source, id)
   source = patchPreviewStationNavSource(source, id)
   source = patchPreviewStationNavRefinementSource(source, id)
   source = patchPreviewStationJellyMotionSource(source, id)
