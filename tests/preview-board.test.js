@@ -56,7 +56,7 @@ test('class timetable and board content use keyed directional transition panels'
 test('mobile class board keeps one page entrance instead of stacking full-board compositor layers', () => {
   const source = read('src/preview-board-finish.css')
   assert.match(source, /html\.school-mobile-compat \.class-station-panel\.is-board,[\s\S]*\.preview-board-page,[\s\S]*\.preview-board-section-view,[\s\S]*\.preview-board-card \{\s*animation: none;/)
-  assert.match(read('src/preview-ai-background-patch.js'), /\.preview-station-page-host \{[\s\S]*animation: s-hub-ai-background-page-in/)
+  assert.match(read('src/preview-ai-stage-motion-patch.js'), /\.preview-station-page-host \{[\s\S]*animation: s-hub-ai-background-page-in/)
 })
 
 test('board API client authenticates with Firebase but stores board data through S-Hub Supabase', () => {
