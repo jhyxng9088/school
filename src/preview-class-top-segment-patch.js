@@ -1,16 +1,6 @@
-export const PREVIEW_CLASS_SEGMENT_PHYSICS = Object.freeze({
-  stiffness: 56,
-  damping: 10.5,
-  mass: 1,
-  maxDt: 0.032,
-  stretchPerVelocity: 0.032,
-  maxStretch: 18,
-  compressionVelocity: 18000,
-  maxCompression: 0.028,
-  radiusShrinkPerStretch: 0.08,
-  settleDistancePx: 0.06,
-  settleVelocityPx: 0.06,
-})
+import { S_HUB_SEGMENT_SPRING_PHYSICS } from './s-hub-segment-spring.js'
+
+export const PREVIEW_CLASS_SEGMENT_PHYSICS = S_HUB_SEGMENT_SPRING_PHYSICS
 
 const CLASS_TOP_SEGMENT_CSS = `
 /* Preview-only replacement for the nested class station.
@@ -160,135 +150,12 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
 
 const CLASS_SEGMENT_COMPONENT = String.raw`
 function useClassTopSegmentSpring(activeIndex) {
-  const containerRef = useRef(null)
-  const indicatorRef = useRef(null)
-  const buttonRefs = useRef([])
-  const physicsRef = useRef({
-    x: 0,
-    velocity: 0,
-    targetX: 0,
-    baseWidth: 0,
-    initialized: false,
-    frame: null,
-    lastTime: 0,
+  return useSHubSegmentSpring(activeIndex, {
+    paddingProperty: '--segment-padding',
+    shellScaleProperty: '--segment-shell-scale-x',
+    shellShiftProperty: '--segment-shell-shift-x',
+    fallbackPadding: 5,
   })
-
-  useLayoutEffect(() => {
-    const container = containerRef.current
-    const indicator = indicatorRef.current
-    const targetButton = buttonRefs.current[activeIndex]
-    if (!container || !indicator || !targetButton) return undefined
-
-    const physics = physicsRef.current
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const padding = Number.parseFloat(window.getComputedStyle(container).getPropertyValue('--segment-padding')) || 5
-
-    indicator.dataset.springMotion = 'true'
-    indicator.style.setProperty('left', '0px', 'important')
-    indicator.style.setProperty('transition', 'none', 'important')
-
-    function paint() {
-      const speed = Math.abs(physics.velocity)
-      const stretch = Math.min(speed * ${PREVIEW_CLASS_SEGMENT_PHYSICS.stretchPerVelocity}, ${PREVIEW_CLASS_SEGMENT_PHYSICS.maxStretch})
-      const movingRight = physics.velocity > 0
-      const movingLeft = physics.velocity < 0
-      const visualX = movingLeft ? physics.x - stretch : physics.x
-      const visualWidth = physics.baseWidth + stretch
-      const compression = Math.min(speed / ${PREVIEW_CLASS_SEGMENT_PHYSICS.compressionVelocity}, ${PREVIEW_CLASS_SEGMENT_PHYSICS.maxCompression})
-      const visualRight = visualX + visualWidth
-      const containerWidth = container.clientWidth || 1
-      const leftShellStretch = Math.max(0, padding - visualX)
-      const rightShellStretch = Math.max(0, visualRight - (containerWidth - padding))
-      const shellScaleX = (containerWidth + leftShellStretch + rightShellStretch) / containerWidth
-      const shellShiftX = (rightShellStretch - leftShellStretch) / 2
-
-      container.style.setProperty('--segment-shell-scale-x', shellScaleX.toFixed(5))
-      container.style.setProperty('--segment-shell-shift-x', shellShiftX.toFixed(3) + 'px')
-      indicator.style.setProperty('width', visualWidth + 'px', 'important')
-      indicator.style.setProperty('transform', 'translate3d(' + visualX + 'px, 0, 0) scaleY(' + (1 - compression) + ')', 'important')
-      indicator.style.setProperty('border-radius', Math.max(11, 14 - stretch * ${PREVIEW_CLASS_SEGMENT_PHYSICS.radiusShrinkPerStretch}) + 'px', 'important')
-      indicator.dataset.direction = movingRight ? 'right' : movingLeft ? 'left' : 'still'
-    }
-
-    function measure(immediate = false) {
-      const containerRect = container.getBoundingClientRect()
-      const buttonRect = targetButton.getBoundingClientRect()
-      physics.targetX = buttonRect.left - containerRect.left
-      physics.baseWidth = buttonRect.width
-
-      if (!physics.initialized || immediate || reduceMotion) {
-        physics.initialized = true
-        physics.x = physics.targetX
-        physics.velocity = 0
-        paint()
-      }
-    }
-
-    function stopAnimation() {
-      if (physics.frame !== null) {
-        cancelAnimationFrame(physics.frame)
-        physics.frame = null
-      }
-    }
-
-    function animate(time) {
-      if (!physics.lastTime) physics.lastTime = time
-      const dt = Math.min((time - physics.lastTime) / 1000, ${PREVIEW_CLASS_SEGMENT_PHYSICS.maxDt})
-      physics.lastTime = time
-
-      const displacement = physics.x - physics.targetX
-      const springForce = -${PREVIEW_CLASS_SEGMENT_PHYSICS.stiffness} * displacement
-      const dampingForce = -${PREVIEW_CLASS_SEGMENT_PHYSICS.damping} * physics.velocity
-      const acceleration = (springForce + dampingForce) / ${PREVIEW_CLASS_SEGMENT_PHYSICS.mass}
-
-      physics.velocity += acceleration * dt
-      physics.x += physics.velocity * dt
-      paint()
-
-      const settled = Math.abs(physics.x - physics.targetX) < ${PREVIEW_CLASS_SEGMENT_PHYSICS.settleDistancePx}
-        && Math.abs(physics.velocity) < ${PREVIEW_CLASS_SEGMENT_PHYSICS.settleVelocityPx}
-      if (settled) {
-        physics.x = physics.targetX
-        physics.velocity = 0
-        physics.lastTime = 0
-        physics.frame = null
-        container.style.setProperty('--segment-shell-scale-x', '1')
-        container.style.setProperty('--segment-shell-shift-x', '0px')
-        paint()
-        return
-      }
-
-      physics.frame = requestAnimationFrame(animate)
-    }
-
-    stopAnimation()
-    measure(!physics.initialized)
-    if (!reduceMotion && Math.abs(physics.x - physics.targetX) > 0.01) {
-      physics.lastTime = 0
-      physics.frame = requestAnimationFrame(animate)
-    }
-
-    const handleViewportChange = () => {
-      stopAnimation()
-      physics.lastTime = 0
-      measure(true)
-      container.style.setProperty('--segment-shell-scale-x', '1')
-      container.style.setProperty('--segment-shell-shift-x', '0px')
-    }
-
-    window.addEventListener('resize', handleViewportChange)
-    window.addEventListener('orientationchange', handleViewportChange)
-    window.visualViewport?.addEventListener('resize', handleViewportChange)
-
-    return () => {
-      stopAnimation()
-      window.removeEventListener('resize', handleViewportChange)
-      window.removeEventListener('orientationchange', handleViewportChange)
-      window.visualViewport?.removeEventListener('resize', handleViewportChange)
-    }
-  }, [activeIndex])
-
-  return { containerRef, indicatorRef, buttonRefs }
 }
 
 function ClassTopSegment({ section, onSectionChange }) {
@@ -316,6 +183,7 @@ function ClassTopSegment({ section, onSectionChange }) {
           ref={(node) => { spring.buttonRefs.current[index] = node }}
           key={item.id}
           type="button"
+          data-unread-key={item.id}
           className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '')}
           aria-pressed={section === item.id}
           onPointerDown={(event) => {
@@ -352,6 +220,13 @@ function ClassStationPage({ section, onSectionChange, timetablePage, boardPage }
 
 function patchMainSource(source) {
   let next = String(source || '')
+  const sharedSpringImport = "import { useSHubSegmentSpring } from './s-hub-segment-spring.js'\n"
+  if (!next.includes(sharedSpringImport)) {
+    if (!next.startsWith('import React')) throw new Error('Preview class top segment marker missing: React import')
+    const lineEnd = next.indexOf('\n')
+    if (lineEnd < 0) throw new Error('Preview class top segment marker missing: React import line')
+    next = `${next.slice(0, lineEnd + 1)}${sharedSpringImport}${next.slice(lineEnd + 1)}`
+  }
 
   next = replaceRequired(
     next,

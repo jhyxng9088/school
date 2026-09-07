@@ -46,7 +46,6 @@ const suffix = [
   ['patchPreviewStudyUnifiedUISource', 'preview-study-unified-ui-patch.js'],
   ['patchPreviewAILiveContextSource', 'preview-ai-live-context-patch.js'],
   ['patchStudyVisualPolishSource', 'study-visual-polish-patch.js'],
-  ['patchSharedSegmentSpringOwnerSource', 'shared-segment-spring-owner-patch.js'],
 ]
 
 const definitions = [...prefix, ...boardOrder, ...boardRuntimeOrder, ...suffix]
