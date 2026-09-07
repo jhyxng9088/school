@@ -1,16 +1,18 @@
 import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
 
-const contextSource = fs.readFileSync(new URL('../src/preview-ai-context-layout-patch.js', import.meta.url), 'utf8')
+const aiCss = fs.readFileSync(new URL('../src/s-hub-ai.css', import.meta.url), 'utf8')
+const presentationSource = patchPreviewAIStageMotionSource(aiCss, '/workspace/src/s-hub-ai.css')
 const backgroundSource = fs.readFileSync(new URL('../src/preview-ai-background-patch.js', import.meta.url), 'utf8')
 
 test('preview AI page keeps the same center above the fixed nav while reserving scroll clearance', () => {
-  assert.match(contextSource, /--s-hub-ai-top-inset:\s*max\(32px, env\(safe-area-inset-top\)\)/)
-  assert.match(contextSource, /--s-hub-ai-nav-clearance:\s*calc\(64px \+ var\(--nav-bottom\) \+ 24px\)/)
-  assert.match(contextSource, /min-height:\s*calc\(100dvh \+ 24px - var\(--s-hub-ai-top-inset\)\)/)
-  assert.match(contextSource, /padding-bottom:\s*var\(--s-hub-ai-nav-clearance\)/)
-  assert.match(contextSource, /\.app-content:has\(> \.s-hub-ai-page\) > \.s-hub-ai-page\s*\{[\s\S]*margin-block:\s*auto/)
+  assert.match(presentationSource, /--s-hub-ai-top-inset:\s*max\(32px, env\(safe-area-inset-top\)\)/)
+  assert.match(presentationSource, /--s-hub-ai-nav-clearance:\s*calc\(64px \+ var\(--nav-bottom\) \+ 24px\)/)
+  assert.match(presentationSource, /min-height:\s*calc\(100dvh \+ 24px - var\(--s-hub-ai-top-inset\)\)/)
+  assert.match(presentationSource, /padding-bottom:\s*var\(--s-hub-ai-nav-clearance\)/)
+  assert.match(presentationSource, /\.app-content:has\(> \.s-hub-ai-page\) > \.s-hub-ai-page\s*\{[\s\S]*margin-block:\s*auto/)
 })
 
 test('persistent AI host owns the same clearance and grows with long compose content', () => {

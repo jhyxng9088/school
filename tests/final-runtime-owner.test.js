@@ -32,6 +32,7 @@ test('retired runtime cleanup, icon, segment spring, and class style build owner
   assert.equal(exists('src/preview-class-top-segment-style-patch.js'), false)
   assert.equal(exists('src/preview-ai-density-patch.js'), false)
   assert.equal(exists('src/preview-ai-spacing-polish-patch.js'), false)
+  assert.equal(exists('src/preview-ai-context-layout-patch.js'), false)
   assert.match(main, /import \{ SHubIcon \} from '\.\/s-hub-icon\.jsx'/)
   assert.match(main, /return <SHubIcon name=\{type\} size=\{size\} \/>/)
   assert.doesNotMatch(vite, /patchSharedSegmentSpringOwnerSource/)

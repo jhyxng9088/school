@@ -1,5 +1,3 @@
-import { patchPreviewAIContextLayoutSource } from './preview-ai-context-layout-patch.js'
-
 const AI_SPACING_POLISH_CSS = `
 /* Preview-only AI rhythm polish: clearer spacing without changing the information architecture. */
 .s-hub-ai-page > .s-hub-ai-content .s-hub-ai-compose {
@@ -112,6 +110,76 @@ const AI_SPACING_POLISH_CSS = `
     animation: none;
     color: var(--text);
     text-indent: 0;
+  }
+}
+`
+
+const AI_CONTEXT_LAYOUT_CSS = `
+/* Preview AI context layout: reference tools first, composer last. */
+.app-content:has(> .s-hub-ai-page) {
+  --s-hub-ai-top-inset: max(32px, env(safe-area-inset-top));
+  --s-hub-ai-nav-clearance: calc(64px + var(--nav-bottom) + 24px);
+  /* Keep the same visual center above the fixed nav while reserving real
+     scroll room after long AI content. Without this reserve, the composer can
+     slide underneath the fixed bottom nav on tall iPhone layouts. */
+  min-height: calc(100dvh + 24px - var(--s-hub-ai-top-inset));
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--s-hub-ai-nav-clearance);
+}
+
+.app-content:has(> .s-hub-ai-page) > .s-hub-ai-page {
+  margin-block: auto;
+}
+
+.s-hub-ai-page .s-hub-ai-content {
+  scroll-margin-bottom: var(--s-hub-ai-nav-clearance);
+}
+
+.s-hub-ai-page-extra {
+  margin-top: 0;
+  margin-bottom: 23px;
+}
+
+.s-hub-ai-page-context {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (min-width: 700px) and (min-height: 820px) {
+  .s-hub-ai-page-extra {
+    margin-top: 0;
+    margin-bottom: 25px;
+  }
+}
+
+@media (max-height: 760px) {
+  .app-content:has(> .s-hub-ai-page) {
+    min-height: 100dvh;
+    display: block;
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .app-content:has(> .s-hub-ai-page) > .s-hub-ai-page {
+    margin-block: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .s-hub-ai-page-extra {
+    margin-top: 0;
+    margin-bottom: 20px;
+  }
+
+  .s-hub-ai-page-context {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .s-hub-ai-page-context-item:nth-child(3) {
+    border-left: 0;
+  }
+
+  .s-hub-ai-page-context-item:nth-child(n + 3) {
+    border-top: 1px solid var(--divider);
   }
 }
 `
@@ -442,6 +510,28 @@ function patchAISpacingPolishSource(source, id = '') {
   return current
 }
 
+function patchAIContextLayoutSheet(source) {
+  let next = String(source || '')
+  if (next.includes('Preview AI context layout: quick info before composer.')) return next
+
+  const academicCardEnd = `                  <span className="s-hub-ai-page-context-copy"><strong>학사일정</strong><span>{context?.academic?.length || 0}개 확인 가능</span></span>\n                </div>\n              </div>`
+  const withMealCard = `                  <span className="s-hub-ai-page-context-copy"><strong>학사일정</strong><span>{context?.academic?.length || 0}개 확인 가능</span></span>\n                </div>\n                <div className="s-hub-ai-page-context-item">\n                  <span className="s-hub-ai-page-context-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4.5 4.5v6.2a3 3 0 0 0 3 3h.5"/><path d="M7.5 4.5v15"/><path d="M15.5 4.5v6.2M19.5 4.5v6.2M15.5 8.2h4M17.5 10.7v8.8"/></svg></span>\n                  <span className="s-hub-ai-page-context-copy"><strong>급식</strong><span>{context?.meals?.length || 0}개 확인 가능</span></span>\n                </div>\n              </div>`
+  next = replaceRequired(next, academicCardEnd, withMealCard, 'meal context card')
+
+  const contentThenExtra = `        {content}\n\n        {!working && state.mode === 'compose' ? (\n          <div className="s-hub-ai-page-extra">`
+  const contentIndex = next.indexOf(contentThenExtra)
+  if (contentIndex < 0) throw new Error('Preview AI context/layout marker missing: composer before quick info')
+
+  const extraStart = contentIndex + `        {content}\n\n`.length
+  const extraClose = `        ) : null}\n`
+  const extraEndStart = next.indexOf(extraClose, extraStart)
+  if (extraEndStart < 0) throw new Error('Preview AI context/layout marker missing: quick info close')
+  const extraEnd = extraEndStart + extraClose.length
+  const extraBlock = next.slice(extraStart, extraEnd)
+  next = `${next.slice(0, contentIndex)}        {/* Preview AI context layout: quick info before composer. */}\n${extraBlock}\n        {content}\n${next.slice(extraEnd)}`
+  return next
+}
+
 function patchAISheet(source) {
   let next = String(source || '')
   if (next.includes("className={'s-hub-ai-page-stage '")) return next
@@ -506,5 +596,10 @@ export function patchPreviewAIStageMotionSource(source, id = '') {
   }
 
   next = patchAISpacingPolishSource(next, id)
-  return patchPreviewAIContextLayoutSource(next, id)
+  if (cleanId.endsWith('/s-hub-ai-sheet.jsx')) {
+    next = patchAIContextLayoutSheet(next)
+  } else if (cleanId.endsWith('/s-hub-ai.css')) {
+    if (!next.includes('Preview AI context layout: reference tools first, composer last.')) next = `${next}\n${AI_CONTEXT_LAYOUT_CSS}`
+  }
+  return next
 }
