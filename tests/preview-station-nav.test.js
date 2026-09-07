@@ -3,6 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { patchDataSplitV1Source } from '../src/data-split-v1-patch.js'
 import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
+import { patchPreviewStationNavRefinementSource } from '../src/preview-station-nav-refine-patch.js'
 
 const patch = fs.readFileSync(new URL('../src/preview-station-nav-patch.js', import.meta.url), 'utf8')
 const refinement = fs.readFileSync(new URL('../src/preview-station-nav-refine-patch.js', import.meta.url), 'utf8')
@@ -58,6 +59,19 @@ test('station nav keeps identical downstream output after timetable revalidation
   assert.equal(legacyPipelineOutput, sourceOwnedOutput)
   assert.match(sourceOwnedOutput, /setClassNavExpanded\(true\)/)
   assert.match(sourceOwnedOutput, /const aiContext = useMemo/)
+})
+
+test('station refinement composes directly with source-owned timetable output', () => {
+  const path = new URL('../src/main.jsx', import.meta.url).pathname
+  const stationOutput = patchPreviewStationNavSource(main, path)
+  assert.equal(stationOutput.includes(LEGACY_TIMETABLE_REVALIDATION_EFFECT), false)
+
+  const refinedOutput = patchPreviewStationNavRefinementSource(stationOutput, path)
+  assert.match(refinedOutput, /setClassNavCollapsing\(false\)/)
+  assert.match(refinedOutput, /classExitTimerRef\.current/)
+  assert.match(refinedOutput, /const aiContext = useMemo/)
+  assert.equal(refinedOutput.includes(LEGACY_TIMETABLE_REVALIDATION_EFFECT), false)
+  assert.equal(refinement.includes('timetableActivityRevision'), false)
 })
 
 test('existing timetable and schedule features remain reachable', () => {
