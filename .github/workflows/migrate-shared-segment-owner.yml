@@ -1,0 +1,238 @@
+name: One-off shared segment owner migration
+
+on:
+  push:
+    branches:
+      - stability/shared-segment-source-owner
+    paths:
+      - .github/workflows/migrate-shared-segment-owner.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: stability/shared-segment-source-owner
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Move shared segment ownership upstream
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+
+          function replaceOnce(source, marker, replacement, label) {
+            const count = source.split(marker).length - 1
+            if (count !== 1) throw new Error(`${label}: expected one marker, found ${count}`)
+            return source.replace(marker, replacement)
+          }
+
+          function replaceRange(source, startMarker, endMarker, replacement, label) {
+            const start = source.indexOf(startMarker)
+            if (start < 0) throw new Error(`${label}: start marker missing`)
+            const end = source.indexOf(endMarker, start + startMarker.length)
+            if (end < 0) throw new Error(`${label}: end marker missing`)
+            return source.slice(0, start) + replacement + source.slice(end)
+          }
+
+          const classWrapper = [
+            'function useClassTopSegmentSpring(activeIndex) {',
+            '  return useSHubSegmentSpring(activeIndex, {',
+            "    paddingProperty: '--segment-padding',",
+            "    shellScaleProperty: '--segment-shell-scale-x',",
+            "    shellShiftProperty: '--segment-shell-shift-x',",
+            '    fallbackPadding: 5,',
+            '  })',
+            '}',
+            '',
+          ].join('\n')
+
+          let classPatch = fs.readFileSync('src/preview-class-top-segment-patch.js', 'utf8')
+          const physicsPattern = /export const PREVIEW_CLASS_SEGMENT_PHYSICS = Object\.freeze\(\{[\s\S]*?\n\}\)\n/
+          if (!physicsPattern.test(classPatch)) throw new Error('class physics marker drifted')
+          classPatch = classPatch.replace(
+            physicsPattern,
+            "import { S_HUB_SEGMENT_SPRING_PHYSICS } from './s-hub-segment-spring.js'\n\nexport const PREVIEW_CLASS_SEGMENT_PHYSICS = S_HUB_SEGMENT_SPRING_PHYSICS\n",
+          )
+          classPatch = replaceRange(
+            classPatch,
+            'function useClassTopSegmentSpring(activeIndex) {',
+            'function ClassTopSegment({ section, onSectionChange }) {',
+            classWrapper,
+            'class spring runtime',
+          )
+          classPatch = replaceOnce(
+            classPatch,
+            '          key={item.id}\n          type="button"\n          className=',
+            '          key={item.id}\n          type="button"\n          data-unread-key={item.id}\n          className=',
+            'class unread semantic key',
+          )
+          classPatch = replaceOnce(
+            classPatch,
+            "function patchMainSource(source) {\n  let next = String(source || '')\n\n  next = replaceRequired(",
+            "function patchMainSource(source) {\n  let next = String(source || '')\n  const sharedSpringImport = \"import { useSHubSegmentSpring } from './s-hub-segment-spring.js'\"\n  if (!next.includes(sharedSpringImport)) {\n    if (!next.startsWith('import React')) throw new Error('Preview class top segment marker missing: React import')\n    const lineEnd = next.indexOf('\\n')\n    if (lineEnd < 0) throw new Error('Preview class top segment marker missing: React import line')\n    next = next.slice(0, lineEnd + 1) + sharedSpringImport + '\\n' + next.slice(lineEnd + 1)\n  }\n\n  next = replaceRequired(",
+            'class shared hook import injection',
+          )
+          fs.writeFileSync('src/preview-class-top-segment-patch.js', classPatch)
+
+          const studyWrapper = [
+            'function useStudyRankingScopeSpring(activeIndex) {',
+            '  return useSHubSegmentSpring(activeIndex, {',
+            "    paddingProperty: '--study-ranking-padding',",
+            "    shellScaleProperty: '--study-ranking-shell-scale-x',",
+            "    shellShiftProperty: '--study-ranking-shell-shift-x',",
+            '    fallbackPadding: 4,',
+            '  })',
+            '}',
+            '',
+          ].join('\n')
+
+          let studyPatch = fs.readFileSync('src/preview-study-patch.js', 'utf8')
+          studyPatch = replaceOnce(
+            studyPatch,
+            "import { PREVIEW_CLASS_SEGMENT_PHYSICS } from './preview-class-top-segment-patch.js'\n\n",
+            '',
+            'study duplicate physics import',
+          )
+          studyPatch = replaceRange(
+            studyPatch,
+            'const STUDY_RANKING_SPRING_RUNTIME = String.raw`',
+            'const STUDY_RANKING_SPRING_CSS',
+            'const STUDY_RANKING_SPRING_RUNTIME = String.raw`\n' + studyWrapper + '`\n\n',
+            'study spring runtime',
+          )
+          const studyImportStart = "  next = replaceRequired(\n    next,\n    \"import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'\""
+          const studyImportEnd = "\n\n  next = replaceRequired(\n    next,\n    'function StudyRanking({'"
+          const studyImportReplacement = [
+            "  const sharedSpringImport = \"import { useSHubSegmentSpring } from './s-hub-segment-spring.js'\"",
+            '  if (!next.includes(sharedSpringImport)) {',
+            "    if (!next.startsWith('import React')) throw new Error('Preview study patch marker missing: React import')",
+            "    const lineEnd = next.indexOf('\\n')",
+            "    if (lineEnd < 0) throw new Error('Preview study patch marker missing: React import line')",
+            "    next = next.slice(0, lineEnd + 1) + sharedSpringImport + '\\n' + next.slice(lineEnd + 1)",
+            '  }',
+          ].join('\n')
+          studyPatch = replaceRange(studyPatch, studyImportStart, studyImportEnd, studyImportReplacement, 'study shared hook import injection')
+          fs.writeFileSync('src/preview-study-patch.js', studyPatch)
+
+          let vite = fs.readFileSync('vite.config.js', 'utf8')
+          vite = replaceOnce(vite, "import { patchSharedSegmentSpringOwnerSource } from './src/shared-segment-spring-owner-patch.js'\n", '', 'vite shared owner import')
+          vite = replaceOnce(vite, '  next = patchSharedSegmentSpringOwnerSource(next, cleanId)\n', '', 'vite shared owner call')
+          vite = replaceOnce(vite, "        || cleanId.endsWith('/shared-segment-spring-owner-patch.js')\n", '', 'vite shared owner polite exclusion')
+          fs.writeFileSync('vite.config.js', vite)
+
+          let effectTest = fs.readFileSync('tests/build-patch-effect.test.js', 'utf8')
+          effectTest = replaceOnce(effectTest, "  ['patchSharedSegmentSpringOwnerSource', 'shared-segment-spring-owner-patch.js'],\n", '', 'patch-effect shared owner')
+          fs.writeFileSync('tests/build-patch-effect.test.js', effectTest)
+
+          let singleOwner = fs.readFileSync('tests/single-owner-architecture.test.js', 'utf8')
+          singleOwner = replaceOnce(singleOwner, "  'shared-segment-spring-owner-patch.js',\n", '', 'grandfathered shared owner')
+          fs.writeFileSync('tests/single-owner-architecture.test.js', singleOwner)
+
+          let structure = fs.readFileSync('tests/repository-structure.test.js', 'utf8')
+          structure = replaceOnce(
+            structure,
+            "    'src/presence-split-patch.js',\n",
+            "    'src/presence-split-patch.js',\n    'src/shared-segment-spring-owner-patch.js',\n",
+            'retired shared owner file',
+          )
+          fs.writeFileSync('tests/repository-structure.test.js', structure)
+
+          fs.rmSync('src/shared-segment-spring-owner-patch.js')
+          NODE
+
+          cat > tests/shared-segment-spring-owner.test.js <<'TEST'
+          import fs from 'node:fs'
+          import test from 'node:test'
+          import assert from 'node:assert/strict'
+          import { PREVIEW_CLASS_SEGMENT_PHYSICS } from '../src/preview-class-top-segment-patch.js'
+          import { S_HUB_SEGMENT_SPRING_PHYSICS } from '../src/s-hub-segment-spring.js'
+
+          const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+
+          test('class segment physics is the canonical shared physics object', () => {
+            assert.strictEqual(PREVIEW_CLASS_SEGMENT_PHYSICS, S_HUB_SEGMENT_SPRING_PHYSICS)
+          })
+
+          test('class top-segment owner generates the shared spring wrapper and semantic unread key itself', () => {
+            const source = read('src/preview-class-top-segment-patch.js')
+            assert.match(source, /S_HUB_SEGMENT_SPRING_PHYSICS/)
+            assert.match(source, /function useClassTopSegmentSpring\(activeIndex\) \{\n  return useSHubSegmentSpring/)
+            assert.match(source, /paddingProperty: '--segment-padding'/)
+            assert.match(source, /data-unread-key=\{item\.id\}/)
+            assert.match(source, /sharedSpringImport = "import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'"/)
+            assert.doesNotMatch(source, /const physicsRef = useRef\(/)
+          })
+
+          test('study owner generates the same shared spring wrapper without its own physics copy', () => {
+            const source = read('src/preview-study-patch.js')
+            assert.match(source, /function useStudyRankingScopeSpring\(activeIndex\) \{\n  return useSHubSegmentSpring/)
+            assert.match(source, /paddingProperty: '--study-ranking-padding'/)
+            assert.match(source, /fallbackPadding: 4/)
+            assert.match(source, /sharedSpringImport = "import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'"/)
+            assert.doesNotMatch(source, /PREVIEW_CLASS_SEGMENT_PHYSICS/)
+            assert.doesNotMatch(source, /const physicsRef = useRef\(/)
+          })
+
+          test('schedule continues to reuse the class segment spring wrapper', () => {
+            const schedulePatch = read('src/preview-schedule-top-segment-patch.js')
+            assert.match(schedulePatch, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
+            assert.doesNotMatch(schedulePatch, /function useScheduleTopSegmentSpring/)
+          })
+
+          test('shared segment downstream build owner stays retired', () => {
+            const vite = read('vite.config.js')
+            assert.doesNotMatch(vite, /patchSharedSegmentSpringOwnerSource/)
+            assert.doesNotMatch(vite, /shared-segment-spring-owner-patch\.js/)
+            assert.equal(fs.existsSync(new URL('../src/shared-segment-spring-owner-patch.js', import.meta.url)), false)
+          })
+          TEST
+
+          rm .github/workflows/migrate-shared-segment-owner.yml
+
+      - name: Verify retired owner references
+        shell: bash
+        run: |
+          test ! -f src/shared-segment-spring-owner-patch.js
+          ! grep -n -E 'patchSharedSegmentSpringOwnerSource|shared-segment-spring-owner-patch\.js' vite.config.js
+          ! grep -n -E 'patchSharedSegmentSpringOwnerSource|shared-segment-spring-owner-patch\.js' tests/build-patch-effect.test.js tests/single-owner-architecture.test.js
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Test app source
+        run: npm test
+
+      - name: Build production app
+        run: npm run build
+
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Check diff integrity
+        run: git diff --check
+
+      - name: Commit migrated source ownership
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --stat
+          git commit -m "refactor: retire shared segment downstream owner"
+          git push origin HEAD:stability/shared-segment-source-owner
