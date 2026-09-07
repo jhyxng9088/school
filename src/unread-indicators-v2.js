@@ -1,6 +1,7 @@
 import { getApp } from 'firebase/app'
-import { collection, doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore'
+import { doc, getFirestore, setDoc } from 'firebase/firestore'
 import { classKeyFor, ensureSignedIn, readStudentProfile, studentKeyFor } from './school-sync'
+import { subscribeClassLiveData } from './class-live-data.js'
 import { reminderActivityEligibleForStudent, reminderExpiryMs } from './reminder-lifecycle.js'
 import { markPreviewBoardSectionSeen, subscribePreviewBoardUnread } from './preview-board-unread.js'
 import { markPreviewStudySeen, subscribePreviewStudyUnread } from './preview-study-unread.js'
@@ -409,11 +410,10 @@ async function startUnreadIndicators() {
     }
   }))
 
-  subscriptions.push(onSnapshot(collection(db, 'classes', classId, 'activity'), (snapshot) => {
+  subscriptions.push(subscribeClassLiveData('activity', classId, (activity) => {
     const next = new Map()
-    snapshot.docs.forEach((item) => {
-      const value = item.data() || {}
-      if (!value.entityType || !value.entityId) return
+    Object.values(activity || {}).forEach((value) => {
+      if (!value?.entityType || !value?.entityId) return
       next.set(`${value.entityType}:${value.entityId}`, {
         entityType: String(value.entityType),
         entityId: String(value.entityId),
@@ -425,10 +425,10 @@ async function startUnreadIndicators() {
     state.activity = next
     state.activityReady = true
     scheduleRender()
-  }, (error) => console.error('Unread activity sync failed:', error)))
+  }))
 
-  subscriptions.push(onSnapshot(doc(db, 'classes', classId, 'settings', 'timetable'), (snapshot) => {
-    const rawOverrides = snapshot.exists() ? snapshot.data()?.overrides : null
+  subscriptions.push(subscribeClassLiveData('timetable', classId, (timetable) => {
+    const rawOverrides = timetable?.overrides
     const nextOverrides = {}
     const today = todayDateKey()
     if (rawOverrides && typeof rawOverrides === 'object') {
@@ -447,18 +447,14 @@ async function startUnreadIndicators() {
     state.timetableOverrides = nextOverrides
     state.timetableReady = true
     scheduleRender()
-  }, (error) => {
-    state.timetableReady = false
-    console.error('Unread timetable sync failed:', error)
-    scheduleRender()
   }))
 
-  subscriptions.push(onSnapshot(collection(db, 'classes', classId, 'todos'), (snapshot) => {
+  subscriptions.push(subscribeClassLiveData('todos', classId, (todos) => {
     const next = new Map()
-    snapshot.docs.forEach((item) => {
-      const value = item.data() || {}
-      next.set(item.id, {
-        id: item.id,
+    ;(Array.isArray(todos) ? todos : []).forEach((value) => {
+      if (!value?.id) return
+      next.set(String(value.id), {
+        id: String(value.id),
         dueDate: String(value.dueDate || ''),
         dueTime: String(value.dueTime || ''),
         createdAt: Number(value.createdAt || 0),
@@ -468,17 +464,13 @@ async function startUnreadIndicators() {
     state.todos = next
     state.todosReady = true
     scheduleRender()
-  }, (error) => {
-    state.todosReady = false
-    console.error('Unread reminder sync failed:', error)
-    scheduleRender()
   }))
 
-  subscriptions.push(onSnapshot(collection(db, 'classes', classId, 'academicEvents'), (snapshot) => {
+  subscriptions.push(subscribeClassLiveData('academic', classId, (events) => {
     const next = new Map()
-    snapshot.docs.forEach((item) => {
-      const value = item.data() || {}
-      next.set(item.id, {
+    ;(Array.isArray(events) ? events : []).forEach((value) => {
+      if (!value?.id) return
+      next.set(String(value.id), {
         startDate: String(value.startDate || ''),
         endDate: String(value.endDate || value.startDate || ''),
         createdAt: Number(value.createdAt || 0),
@@ -489,27 +481,20 @@ async function startUnreadIndicators() {
     state.academic = next
     state.academicReady = true
     scheduleRender()
-  }, (error) => {
-    state.academicReady = false
-    console.error('Unread academic sync failed:', error)
-    scheduleRender()
   }))
 
-  subscriptions.push(onSnapshot(collection(db, 'students', studentKey, 'todoState'), (snapshot) => {
-    if (snapshot.metadata?.fromCache) return
-
+  subscriptions.push(subscribeClassLiveData('todoState', studentKey, (todoState) => {
     const nextSeen = new Map()
     const nextTodoState = new Map()
-    snapshot.docs.forEach((item) => {
-      const value = item.data() || {}
-      if (item.id.startsWith(INTERNAL_PREFIX)) {
-        nextSeen.set(item.id, { updatedAt: Number(value.updatedAt || 0) })
+    Object.entries(todoState || {}).forEach(([id, value]) => {
+      if (id.startsWith(INTERNAL_PREFIX)) {
+        nextSeen.set(id, { updatedAt: Number(value?.updatedAt || 0) })
         return
       }
-      nextTodoState.set(item.id, {
-        completed: Boolean(value.completed),
-        hidden: Boolean(value.hidden),
-        updatedAt: Number(value.updatedAt || 0),
+      nextTodoState.set(id, {
+        completed: Boolean(value?.completed),
+        hidden: Boolean(value?.hidden),
+        updatedAt: Number(value?.updatedAt || 0),
       })
     })
     pendingWrites.forEach((version, id) => {
@@ -521,7 +506,7 @@ async function startUnreadIndicators() {
     state.todoState = nextTodoState
     state.seenReady = true
     scheduleRender()
-  }, (error) => console.error('Unread seen-state sync failed:', error)))
+  }))
 
   document.addEventListener('click', handleClick, true)
 
