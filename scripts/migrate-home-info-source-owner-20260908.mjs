@@ -15,18 +15,6 @@ const sourceOwnedMain = patchPreviewHomeInfoSource(main, '/workspace/src/main.js
 if (sourceOwnedMain === main) throw new Error('home info patch did not change raw main source')
 fs.writeFileSync(mainPath, sourceOwnedMain)
 
-// station-nav owns the broad content object rewrite. Preserve source-owned Home
-// props instead of silently dropping them when that earlier owner runs.
-const stationNavPath = 'src/preview-station-nav-patch.js'
-let stationNav = fs.readFileSync(stationNavPath, 'utf8')
-stationNav = replaceOnce(
-  stationNav,
-  "  const contentReplacement = `  const content = {\\n    home: (\\n      <Home\\n        name={name}\\n",
-  "  const contentReplacement = `  const content = {\\n    home: (\\n      <Home\\n${next.includes('onNavigate={navigateHomeSignal}') ? '        profile={profile}\\\\n        onNavigate={navigateHomeSignal}\\\\n' : ''}        name={name}\\n",
-  'station nav source-owned Home prop preservation',
-)
-fs.writeFileSync(stationNavPath, stationNav)
-
 const vitePath = 'vite.config.js'
 let vite = fs.readFileSync(vitePath, 'utf8')
 vite = replaceOnce(vite, "import { patchPreviewHomeInfoSource } from './src/preview-home-info-patch.js'\n", '', 'vite home info import')
