@@ -95,8 +95,11 @@ test('installed app traverses every production station and class board without a
 
   await page.locator('.bottom-nav .nav-button[data-tab="class"]').click()
   await expect(page.locator('.class-top-segment')).toBeVisible({ timeout: 2_000 })
+  const timetableButton = page.getByRole('button', { name: '시간표', exact: true })
   const boardButton = page.getByRole('button', { name: '게시판', exact: true })
-  await expect(boardButton).toHaveAttribute('aria-pressed', 'false')
+  await timetableButton.click()
+  await expect(timetableButton).toHaveAttribute('aria-pressed', 'true')
+  await expectAppShell(page)
   await boardButton.click()
   await expect(boardButton).toHaveAttribute('aria-pressed', 'true')
   await expectAppShell(page)
