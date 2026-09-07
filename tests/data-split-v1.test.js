@@ -57,6 +57,14 @@ test('unread indicators reuse the app realtime stream instead of opening five du
   assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'students', studentKey, 'todoState'/)
 })
 
+test('unread data-split patch is idempotent before source ownership migration', () => {
+  const path = new URL('../src/unread-indicators-v2.js', import.meta.url).pathname
+  const source = read('../src/unread-indicators-v2.js')
+  const once = patchDataSplitV1Source(source, path)
+  const twice = patchDataSplitV1Source(once, path)
+  assert.equal(twice, once)
+})
+
 test('expired academic documents are no longer full-scanned by every client', () => {
   const source = patched('../src/academic-expiry-cleanup.js')
   const functionStart = source.indexOf('export async function cleanupExpiredCustomAcademicEvents')
