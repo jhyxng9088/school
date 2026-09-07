@@ -82,3 +82,13 @@ test('Vite applies read deduplication before the presence transport patch', () =
   assert.ok(dataSplitIndex >= 0)
   assert.ok(presenceIndex > dataSplitIndex)
 })
+
+test('presence patch is idempotent and accepts its fully source-owned output', () => {
+  const path = new URL('../src/school-sync.js', import.meta.url).pathname
+  const raw = read('../src/school-sync.js')
+  const dataSplit = patchDataSplitV1Source(raw, path)
+  const once = patchPresenceSplitSource(dataSplit, path)
+  const twice = patchPresenceSplitSource(once, path)
+
+  assert.equal(twice, once)
+})
