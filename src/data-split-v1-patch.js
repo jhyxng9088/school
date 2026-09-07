@@ -145,7 +145,14 @@ function patchSchoolSync(source) {
 }
 
 function patchClassActivity(source) {
-  let next = String(source || '')
+  const current = String(source || '')
+  const sourceOwned = current.includes("import { publishClassLiveData } from './class-live-data.js'")
+    && !current.includes('removeRevalidation = installServerRevalidation(refreshFromServer)')
+    && current.includes("publishClassLiveData('activity', classKeyFor(normalized), next)")
+    && current.includes("publishClassLiveData('academic', classKeyFor(normalized), next)")
+  if (sourceOwned) return current
+
+  let next = current
   next = replaceExact(
     next,
     "} from './school-sync'\n\nconst syncApp",
@@ -272,7 +279,20 @@ function unreadBusSubscriptions() {
 }
 
 function patchUnreadIndicators(source) {
-  let next = String(source || '')
+  const current = String(source || '')
+  const sourceOwned = current.includes("import { subscribeClassLiveData } from './class-live-data.js'")
+    && current.includes("subscribeClassLiveData('activity', classId")
+    && current.includes("subscribeClassLiveData('timetable', classId")
+    && current.includes("subscribeClassLiveData('todos', classId")
+    && current.includes("subscribeClassLiveData('academic', classId")
+    && current.includes("subscribeClassLiveData('todoState', studentKey")
+    && !current.includes("onSnapshot(collection(db, 'classes', classId, 'activity')")
+    && !current.includes("onSnapshot(collection(db, 'classes', classId, 'todos')")
+    && !current.includes("onSnapshot(collection(db, 'classes', classId, 'academicEvents')")
+    && !current.includes("onSnapshot(collection(db, 'students', studentKey, 'todoState')")
+  if (sourceOwned) return current
+
+  let next = current
   next = replaceExact(
     next,
     "import { classKeyFor, ensureSignedIn, readStudentProfile, studentKeyFor } from './school-sync'",
