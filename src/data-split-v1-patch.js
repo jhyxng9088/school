@@ -157,18 +157,6 @@ function patchClassActivity(source) {
   return next
 }
 
-function patchMain(source) {
-  const current = String(source || '')
-  const marker = `  useEffect(() => {
-    if (!timetableActivityRevision || navigator.onLine === false) return
-    refreshSharedTimetable()
-  }, [timetableActivityRevision, refreshSharedTimetable])
-
-`
-  if (!current.includes(marker)) return current
-  return replaceExact(current, marker, '')
-}
-
 function unreadBusSubscriptions() {
   return `  subscriptions.push(subscribeClassLiveData('activity', classId, (activity) => {
     const next = new Map()
@@ -290,7 +278,6 @@ export function patchDataSplitV1Source(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/school-sync.js')) return patchSchoolSync(source)
   if (cleanId.endsWith('/src/class-activity.js')) return patchClassActivity(source)
-  if (cleanId.endsWith('/src/main.jsx')) return patchMain(source)
   if (cleanId.endsWith('/src/unread-indicators-v2.js')) return patchUnreadIndicators(source)
   return String(source || '')
 }
