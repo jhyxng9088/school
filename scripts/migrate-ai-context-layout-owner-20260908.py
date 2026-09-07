@@ -74,14 +74,15 @@ main = replace_once(
 main_path.write_text(main)
 
 # Source-own meal normalization/output in s-hub-ai-core.js using the exact helper
-# previously emitted by the build patch.
+# previously emitted by the build patch. The helper lives inside a JS template
+# literal, so decode only its explicit newline escapes before writing raw source.
 core_path = Path('src/s-hub-ai-core.js')
 core = core_path.read_text()
 patch_core_start = context.index('function patchAICore(source) {')
 helper_prefix = '  const helper = `'
 helper_start = context.index(helper_prefix, patch_core_start) + len(helper_prefix)
 helper_end = context.index('`\n\n  next = replaceRequired(', helper_start)
-helper = context[helper_start:helper_end]
+helper = context[helper_start:helper_end].replace('\\n', '\n')
 if 'function normalizeContextMeals(mealRanges)' not in helper:
     raise SystemExit('AI context meal helper missing')
 core = replace_once(
