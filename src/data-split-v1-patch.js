@@ -132,7 +132,14 @@ function patchSchoolSync(source) {
 }
 
 function patchClassActivity(source) {
-  let next = String(source || '')
+  const current = String(source || '')
+  const sourceOwned = current.includes("import { publishClassLiveData } from './class-live-data.js'")
+    && !current.includes('removeRevalidation = installServerRevalidation(refreshFromServer)')
+    && current.includes("publishClassLiveData('activity', classKeyFor(normalized), next)")
+    && current.includes("publishClassLiveData('academic', classKeyFor(normalized), next)")
+  if (sourceOwned) return current
+
+  let next = current
   next = replaceExact(
     next,
     "} from './school-sync'\n\nconst syncApp",
