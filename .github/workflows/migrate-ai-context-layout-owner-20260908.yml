@@ -66,6 +66,8 @@ jobs:
           python - <<'PY'
           import subprocess
           expected = {
+            '.github/workflows/migrate-ai-context-layout-owner-20260908.yml',
+            'scripts/migrate-ai-context-layout-owner-20260908.py',
             'src/main.jsx',
             'src/preview-ai-context-layout-patch.js',
             'src/preview-ai-stage-motion-patch.js',
