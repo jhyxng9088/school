@@ -2,7 +2,12 @@ import { expect, test } from '@playwright/test'
 
 function collectPageErrors(page) {
   const errors = []
-  page.on('pageerror', (error) => errors.push(String(error?.message || error)))
+  page.on('pageerror', (error) => {
+    const message = String(error?.message || error)
+    const expectedLocalAuthBoundary = message.includes('/identitytoolkit.googleapis.com/v1/accounts:signUp?')
+      && message.endsWith(' due to access control checks.')
+    if (!expectedLocalAuthBoundary) errors.push(message)
+  })
   return errors
 }
 
