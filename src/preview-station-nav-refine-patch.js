@@ -99,8 +99,8 @@ function patchMainSource(source) {
 
   next = replaceRequired(
     next,
-    `  useEffect(() => {\n    if (activeTab !== 'class') {\n      setClassNavExpanded(false)\n      return undefined\n    }\n    const timer = window.setTimeout(() => setClassNavExpanded(true), 250)\n    return () => window.clearTimeout(timer)\n  }, [activeTab])\n\n  useEffect(() => {`,
-    `  useEffect(() => {\n    if (activeTab !== 'class') {\n      setClassNavExpanded(false)\n      setClassNavCollapsing(false)\n      return undefined\n    }\n    setClassNavCollapsing(false)\n    const timer = window.setTimeout(() => setClassNavExpanded(true), 220)\n    return () => window.clearTimeout(timer)\n  }, [activeTab])\n\n  useEffect(() => () => {\n    if (classExitTimerRef.current) window.clearTimeout(classExitTimerRef.current)\n  }, [])\n\n  useEffect(() => {`,
+    `  useEffect(() => {\n    if (activeTab !== 'class') {\n      setClassNavExpanded(false)\n      return undefined\n    }\n    const timer = window.setTimeout(() => setClassNavExpanded(true), 250)\n    return () => window.clearTimeout(timer)\n  }, [activeTab])`,
+    `  useEffect(() => {\n    if (activeTab !== 'class') {\n      setClassNavExpanded(false)\n      setClassNavCollapsing(false)\n      return undefined\n    }\n    setClassNavCollapsing(false)\n    const timer = window.setTimeout(() => setClassNavExpanded(true), 220)\n    return () => window.clearTimeout(timer)\n  }, [activeTab])\n\n  useEffect(() => () => {\n    if (classExitTimerRef.current) window.clearTimeout(classExitTimerRef.current)\n  }, [])`,
     'class expansion and exit cleanup',
   )
 
