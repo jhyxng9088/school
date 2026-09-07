@@ -1,0 +1,139 @@
+name: Migrate AI context layout owner 20260908
+
+on:
+  push:
+    branches:
+      - work/ai-context-layout-owner-retire-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: work/ai-context-layout-owner-retire-20260908
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Capture current final AI outputs
+        shell: bash
+        run: |
+          mkdir -p /tmp/ai-context-layout-baseline
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import { patchPreviewAIPageSource } from './src/preview-ai-page-patch.js'
+          import { patchPreviewAIStageMotionSource } from './src/preview-ai-stage-motion-patch.js'
+
+          const targets = [
+            'src/s-hub-ai-sheet.jsx',
+            'src/s-hub-ai.css',
+            'src/main.jsx',
+            'src/s-hub-ai-core.js',
+            'src/s-hub-ai-transport.js',
+          ]
+          for (const target of targets) {
+            const id = `/workspace/${target}`
+            let output = fs.readFileSync(target, 'utf8')
+            output = patchPreviewAIPageSource(output, id)
+            output = patchPreviewAIStageMotionSource(output, id)
+            fs.writeFileSync(path.join('/tmp/ai-context-layout-baseline', target.replaceAll('/', '__')), output)
+          }
+          NODE
+
+      - name: Migrate context layout ownership
+        run: python scripts/migrate-ai-context-layout-owner-20260908.py
+
+      - name: Remove retired and temporary owners
+        shell: bash
+        run: |
+          git rm src/preview-ai-context-layout-patch.js
+          git rm scripts/migrate-ai-context-layout-owner-20260908.py
+          git rm .github/workflows/migrate-ai-context-layout-owner-20260908.yml
+          python - <<'PY'
+          import subprocess
+          expected = {
+            'src/main.jsx',
+            'src/preview-ai-context-layout-patch.js',
+            'src/preview-ai-stage-motion-patch.js',
+            'src/s-hub-ai-core.js',
+            'src/s-hub-ai-transport.js',
+            'tests/final-runtime-owner.test.js',
+            'tests/preview-ai-context-layout.test.js',
+          }
+          changed = set(subprocess.check_output(['git', 'diff', 'HEAD', '--name-only'], text=True).splitlines())
+          assert changed == expected, f'unexpected migration paths: {sorted(changed)}'
+          PY
+          git diff --check
+
+      - name: Verify final build output equivalence
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import { patchPreviewAIPageSource } from './src/preview-ai-page-patch.js'
+          import { patchPreviewAIStageMotionSource } from './src/preview-ai-stage-motion-patch.js'
+
+          const targets = [
+            'src/s-hub-ai-sheet.jsx',
+            'src/s-hub-ai.css',
+            'src/main.jsx',
+            'src/s-hub-ai-core.js',
+            'src/s-hub-ai-transport.js',
+          ]
+          for (const target of targets) {
+            const id = `/workspace/${target}`
+            let output = fs.readFileSync(target, 'utf8')
+            output = patchPreviewAIPageSource(output, id)
+            output = patchPreviewAIStageMotionSource(output, id)
+            const baseline = fs.readFileSync(path.join('/tmp/ai-context-layout-baseline', target.replaceAll('/', '__')), 'utf8')
+            assert.equal(output, baseline, `${target} final build output changed during owner migration`)
+          }
+          NODE
+
+      - name: Test production app
+        id: app_tests
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee migration-test.log
+          status=${PIPESTATUS[0]}
+          grep -E "(^not ok|^# Subtest:|AssertionError|ERR_ASSERTION|actual:|expected:|operator:|tests? failed|fail [0-9]+)" migration-test.log | tail -n 240 > migration-test-summary.log || true
+          exit "$status"
+
+      - name: Upload migration failure summary
+        if: failure() && steps.app_tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-context-layout-migration-test-failure
+          path: |
+            migration-test-summary.log
+            migration-test.log
+          retention-days: 1
+
+      - name: Build production app
+        run: npm run build
+
+      - name: Commit clean migration
+        shell: bash
+        run: |
+          rm -f migration-test.log migration-test-summary.log
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor: retire nested AI context layout build owner'
+          git push origin HEAD:work/ai-context-layout-owner-retire-20260908
