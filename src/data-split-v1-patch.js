@@ -11,14 +11,6 @@ function replaceExact(source, marker, replacement, expectedCount = 1) {
   return source.split(marker).join(replacement)
 }
 
-function replaceBetween(source, startMarker, endMarker, replacement) {
-  const start = source.indexOf(startMarker)
-  if (start < 0) throw new Error(`S-Hub data-split patch drift: start marker missing: ${startMarker}`)
-  const end = source.indexOf(endMarker, start)
-  if (end < 0) throw new Error(`S-Hub data-split patch drift: end marker missing: ${endMarker}`)
-  return `${source.slice(0, start)}${replacement}${source.slice(end)}`
-}
-
 function patchSchoolSync(source) {
   const current = String(source || '')
   const sourceOwned = current.includes("import { publishClassLiveData } from './class-live-data.js'")
@@ -144,139 +136,8 @@ function patchSchoolSync(source) {
   return next
 }
 
-function unreadBusSubscriptions() {
-  return `  subscriptions.push(subscribeClassLiveData('activity', classId, (activity) => {
-    const next = new Map()
-    Object.values(activity || {}).forEach((value) => {
-      if (!value?.entityType || !value?.entityId) return
-      next.set(\`${'${value.entityType}:${value.entityId}'}\`, {
-        entityType: String(value.entityType),
-        entityId: String(value.entityId),
-        actorStudentKey: String(value.actorStudentKey || ''),
-        action: value.action === 'added' ? 'added' : 'edited',
-        updatedAt: Number(value.updatedAt || 0),
-      })
-    })
-    state.activity = next
-    state.activityReady = true
-    scheduleRender()
-  }))
-
-  subscriptions.push(subscribeClassLiveData('timetable', classId, (timetable) => {
-    const rawOverrides = timetable?.overrides
-    const nextOverrides = {}
-    const today = todayDateKey()
-    if (rawOverrides && typeof rawOverrides === 'object') {
-      Object.entries(rawOverrides).forEach(([date, periods]) => {
-        if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || date < today || !periods || typeof periods !== 'object') return
-        const nextPeriods = {}
-        Object.entries(periods).forEach(([period, subject]) => {
-          const number = Number(period)
-          const cleanSubject = String(subject || '').trim()
-          if (!Number.isInteger(number) || number < 1 || number > 7 || !cleanSubject) return
-          nextPeriods[String(number)] = cleanSubject
-        })
-        if (Object.keys(nextPeriods).length) nextOverrides[date] = nextPeriods
-      })
-    }
-    state.timetableOverrides = nextOverrides
-    state.timetableReady = true
-    scheduleRender()
-  }))
-
-  subscriptions.push(subscribeClassLiveData('todos', classId, (todos) => {
-    const next = new Map()
-    ;(Array.isArray(todos) ? todos : []).forEach((value) => {
-      if (!value?.id) return
-      next.set(String(value.id), {
-        id: String(value.id),
-        dueDate: String(value.dueDate || ''),
-        dueTime: String(value.dueTime || ''),
-        createdAt: Number(value.createdAt || 0),
-        updatedAt: Number(value.updatedAt || value.createdAt || 0),
-      })
-    })
-    state.todos = next
-    state.todosReady = true
-    scheduleRender()
-  }))
-
-  subscriptions.push(subscribeClassLiveData('academic', classId, (events) => {
-    const next = new Map()
-    ;(Array.isArray(events) ? events : []).forEach((value) => {
-      if (!value?.id) return
-      next.set(String(value.id), {
-        startDate: String(value.startDate || ''),
-        endDate: String(value.endDate || value.startDate || ''),
-        createdAt: Number(value.createdAt || 0),
-        updatedAt: Number(value.updatedAt || value.createdAt || 0),
-        lastEditedByStudentKey: String(value.lastEditedByStudentKey || ''),
-      })
-    })
-    state.academic = next
-    state.academicReady = true
-    scheduleRender()
-  }))
-
-  subscriptions.push(subscribeClassLiveData('todoState', studentKey, (todoState) => {
-    const nextSeen = new Map()
-    const nextTodoState = new Map()
-    Object.entries(todoState || {}).forEach(([id, value]) => {
-      if (id.startsWith(INTERNAL_PREFIX)) {
-        nextSeen.set(id, { updatedAt: Number(value?.updatedAt || 0) })
-        return
-      }
-      nextTodoState.set(id, {
-        completed: Boolean(value?.completed),
-        hidden: Boolean(value?.hidden),
-        updatedAt: Number(value?.updatedAt || 0),
-      })
-    })
-    pendingWrites.forEach((version, id) => {
-      if (Number(version || 0) > Number(nextSeen.get(id)?.updatedAt || 0)) {
-        nextSeen.set(id, { updatedAt: Number(version || 0) })
-      }
-    })
-    state.seen = nextSeen
-    state.todoState = nextTodoState
-    state.seenReady = true
-    scheduleRender()
-  }))
-`
-}
-
-function patchUnreadIndicators(source) {
-  const current = String(source || '')
-  const sourceOwned = current.includes("import { subscribeClassLiveData } from './class-live-data.js'")
-    && current.includes("subscribeClassLiveData('activity', classId")
-    && current.includes("subscribeClassLiveData('timetable', classId")
-    && current.includes("subscribeClassLiveData('todos', classId")
-    && current.includes("subscribeClassLiveData('academic', classId")
-    && current.includes("subscribeClassLiveData('todoState', studentKey")
-    && !current.includes("onSnapshot(collection(db, 'classes', classId, 'activity')")
-    && !current.includes("onSnapshot(collection(db, 'classes', classId, 'todos')")
-    && !current.includes("onSnapshot(collection(db, 'classes', classId, 'academicEvents')")
-    && !current.includes("onSnapshot(collection(db, 'students', studentKey, 'todoState')")
-  if (sourceOwned) return current
-
-  let next = current
-  next = replaceExact(
-    next,
-    "import { classKeyFor, ensureSignedIn, readStudentProfile, studentKeyFor } from './school-sync'",
-    "import { classKeyFor, ensureSignedIn, readStudentProfile, studentKeyFor } from './school-sync'\nimport { subscribeClassLiveData } from './class-live-data.js'",
-  )
-  next = replaceBetween(
-    next,
-    "  subscriptions.push(onSnapshot(collection(db, 'classes', classId, 'activity')",
-    "\n  document.addEventListener('click', handleClick, true)",
-    unreadBusSubscriptions(),
-  )
-  return next
-}
-
 export function patchDataSplitV1Source(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/school-sync.js')) return patchSchoolSync(source)
-  if (cleanId.endsWith('/src/unread-indicators-v2.js')) return patchUnreadIndicators(source)
   return String(source || '')
 }
