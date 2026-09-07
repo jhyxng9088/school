@@ -37,3 +37,14 @@ test('architecture protection tests remain part of the normal test suite', () =>
   assert.match(singleOwnerGuard, /new MutationObserver ownership is not added beyond frozen legacy sites/)
   assert.match(singleOwnerGuard, /new build-time source patch owners are not added/)
 })
+
+test('every pull request into main runs the full validation workflow before production deployment', () => {
+  const workflow = read('.github/workflows/deploy.yml')
+
+  assert.match(workflow, /pull_request:\n\s+branches:\n\s+- main/)
+  assert.match(workflow, /name: Test production app\n\s+run: npm test/)
+  assert.match(workflow, /name: Test board sheet lifecycle in Chromium and WebKit/)
+  assert.match(workflow, /name: Build production app\n\s+run: npm run build/)
+  assert.match(workflow, /name: Test production backend/)
+  assert.match(workflow, /deploy:\n\s+if: github\.ref == 'refs\/heads\/main'/)
+})
