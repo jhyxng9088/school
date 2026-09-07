@@ -61,7 +61,7 @@ test('semantic navigation preserves the latest request until an owner can receiv
 test('React home actions and notification routing share one semantic navigation bridge', () => {
   const index = read('index.html')
   const action = read('src/home-nav-action.jsx')
-  const homePatch = read('src/preview-home-info-patch.js')
+  const main = read('src/main.jsx')
   const notifications = read('public/notification-routing.js')
   const bridge = read('public/s-hub-navigation.js')
 
@@ -71,7 +71,7 @@ test('React home actions and notification routing share one semantic navigation 
   assert.doesNotMatch(index, /school-home-nav\.js/)
 
   assert.match(action, /window\.SHubNavigation\?\.navigate\(\{ tab, section \}\)/)
-  assert.match(homePatch, /<HomeNavAction tab="class" section="timetable" label="시간표 열기" \/>/)
+  assert.match(main, /<HomeNavAction tab="class" section="timetable" label="시간표 열기" \/>/)
 
   assert.match(notifications, /SHubNavigation\?\.navigate\(tab\)/)
   assert.doesNotMatch(notifications, /new MutationObserver/)
