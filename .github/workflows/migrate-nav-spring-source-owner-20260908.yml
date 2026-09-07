@@ -33,12 +33,15 @@ jobs:
           cp -a dist /tmp/s-hub-nav-spring-before
 
       - name: Source-own nav spring behavior
-        run: node scripts/migrate-nav-spring-source-owner-20260908.mjs
+        run: |
+          node scripts/migrate-nav-spring-source-owner-20260908.mjs
+          node scripts/retarget-nav-spring-tests-20260908.mjs
 
       - name: Remove retired and temporary owners
         run: |
           rm src/preview-nav-spring-patch.js
           rm scripts/migrate-nav-spring-source-owner-20260908.mjs
+          rm scripts/retarget-nav-spring-tests-20260908.mjs
           rm .github/workflows/migrate-nav-spring-source-owner-20260908.yml
 
       - name: Verify changed-file boundary
@@ -48,10 +51,17 @@ jobs:
           cat > /tmp/expected-files.txt <<'EOF'
           .github/workflows/migrate-nav-spring-source-owner-20260908.yml
           scripts/migrate-nav-spring-source-owner-20260908.mjs
+          scripts/retarget-nav-spring-tests-20260908.mjs
           src/main.jsx
           src/preview-nav-spring-patch.js
           src/styles.css
           tests/build-patch-effect.test.js
+          tests/preview-board.test.js
+          tests/preview-class-top-segment.test.js
+          tests/preview-nav-responsiveness.test.js
+          tests/preview-nested-geometry-coupling.test.js
+          tests/preview-physical-class-coupling.test.js
+          tests/preview-unified-station-physics.test.js
           vite.config.js
           EOF
           sort -o /tmp/expected-files.txt /tmp/expected-files.txt
