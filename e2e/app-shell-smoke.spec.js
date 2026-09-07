@@ -74,3 +74,37 @@ test('installed app relaunch returns to the real app shell without a black-scree
 
   expect(pageErrors).toEqual([])
 })
+
+test('installed app traverses every production station and class board without a black screen', async ({ page }) => {
+  const pageErrors = collectPageErrors(page)
+  await seedInstalledStudent(page)
+
+  await page.goto('index.html')
+  await expectAppShell(page)
+
+  const navButtons = page.locator('.bottom-nav .nav-button')
+  await expect(navButtons).toHaveCount(5)
+
+  for (const tab of ['home', 'class', 'study', 'schedule']) {
+    const button = page.locator(`.bottom-nav .nav-button[data-tab="${tab}"]`)
+    await expect(button).toBeVisible()
+    await button.click()
+    await expect(page.locator('.app-content')).toHaveClass(new RegExp(`\\btab-${tab}\\b`))
+    await expectAppShell(page)
+  }
+
+  await expect(page.locator('.class-nav-capsule')).not.toHaveClass(/is-open/)
+  await page.locator('.bottom-nav .nav-button[data-tab="class"]').click()
+  await expect(page.locator('.class-nav-capsule')).toHaveClass(/is-open/, { timeout: 2_000 })
+  await page.getByRole('button', { name: '우리 반 게시판' }).click()
+  await expectAppShell(page)
+
+  const aiButton = page.locator('.bottom-nav .nav-button[data-tab="ai"]')
+  await expect(aiButton).toBeVisible()
+  await aiButton.click()
+  await expect(page.locator('.app-content')).toHaveClass(/\btab-ai\b/)
+  await expectAppShell(page)
+  await page.waitForTimeout(750)
+
+  expect(pageErrors).toEqual([])
+})
