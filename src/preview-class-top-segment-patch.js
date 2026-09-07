@@ -31,10 +31,10 @@ const CLASS_TOP_SEGMENT_CSS = `
   --segment-padding: 5px;
   position: relative;
   width: 100%;
-  height: 46px;
+  height: 44px !important;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 2px 0 18px;
+  margin: 2px auto 18px !important;
   padding: var(--segment-padding);
   overflow: visible;
   border: 0;
@@ -73,8 +73,12 @@ const CLASS_TOP_SEGMENT_CSS = `
   left: 0;
   width: 0;
   border-radius: 14px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 0.5px var(--border);
+  background: var(--nav-indicator-surface) !important;
+  opacity: 1 !important;
+  box-shadow:
+    inset 0 1px 0 var(--specular-edge),
+    inset 0 0 0 0.75px var(--nav-indicator-edge),
+    var(--nav-indicator-shadow) !important;
   pointer-events: none;
   will-change: transform, width;
   backface-visibility: hidden;
@@ -85,7 +89,7 @@ const CLASS_TOP_SEGMENT_CSS = `
   position: relative;
   z-index: 2;
   min-width: 0;
-  min-height: 36px;
+  min-height: 34px !important;
   display: grid;
   place-items: center;
   padding: 0 14px;
@@ -119,6 +123,12 @@ html.school-samsung .class-top-segment::before {
   background: var(--surface);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+.current-class-copy > p:last-child {
+  max-width: 440px !important;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 @media (min-width: 700px) {
@@ -159,12 +169,12 @@ function useClassTopSegmentSpring(activeIndex) {
 }
 
 function ClassTopSegment({ section, onSectionChange }) {
-  const activeIndex = section === 'board' ? 1 : 0
+  const activeIndex = section === 'timetable' ? 1 : 0
   const spring = useClassTopSegmentSpring(activeIndex)
   const touchIntentRef = useRef({ key: '', at: 0 })
   const items = [
-    { id: 'timetable', label: '시간표' },
     { id: 'board', label: '게시판' },
+    { id: 'timetable', label: '시간표' },
   ]
 
   function selectSection(nextSection, pointerType = '') {
@@ -220,6 +230,12 @@ function ClassStationPage({ section, onSectionChange, timetablePage, boardPage }
 
 function patchMainSource(source) {
   let next = String(source || '')
+  next = replaceRequired(
+    next,
+    `  const [classSection, setClassSection] = useState('timetable')`,
+    `  const [classSection, setClassSection] = useState('board')`,
+    'class default section',
+  )
   const sharedSpringImport = "import { useSHubSegmentSpring } from './s-hub-segment-spring.js'\n"
   if (!next.includes(sharedSpringImport)) {
     if (!next.startsWith('import React')) throw new Error('Preview class top segment marker missing: React import')

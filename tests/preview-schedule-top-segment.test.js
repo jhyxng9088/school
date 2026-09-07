@@ -47,13 +47,13 @@ test('schedule segment is three columns while inheriting class segment material 
   assert.doesNotMatch(styles, /background:/)
 })
 
-test('vite applies schedule patch after the class segment structure and material patches', () => {
+test('vite applies schedule patch after the source-owned class segment structure and material', () => {
   const vite = read('vite.config.js')
-  const classStructure = vite.indexOf('patchPreviewClassTopSegmentSource(next, cleanId)')
-  const classStyle = vite.indexOf('patchPreviewClassTopSegmentStyleSource(next, cleanId)')
+  const classOwner = vite.indexOf('patchPreviewClassTopSegmentSource(next, cleanId)')
   const schedule = vite.indexOf('patchPreviewScheduleTopSegmentSource(next, cleanId)')
-  assert.ok(classStructure >= 0)
-  assert.ok(classStyle > classStructure)
-  assert.ok(schedule > classStyle)
+  assert.ok(classOwner >= 0)
+  assert.ok(schedule > classOwner)
+  assert.doesNotMatch(vite, /patchPreviewClassTopSegmentStyleSource/)
+  assert.doesNotMatch(vite, /preview-class-top-segment-style-patch\.js/)
   assert.match(vite, /preview-schedule-top-segment-patch\.js/)
 })

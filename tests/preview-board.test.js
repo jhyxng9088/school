@@ -12,7 +12,6 @@ import { patchPreviewPhysicalClassCouplingSource } from '../src/preview-physical
 import { patchPreviewNestedGeometryCouplingSource } from '../src/preview-nested-geometry-coupling-patch.js'
 import { patchPreviewNavResponsivenessSource } from '../src/preview-nav-responsiveness-patch.js'
 import { patchPreviewClassTopSegmentSource } from '../src/preview-class-top-segment-patch.js'
-import { patchPreviewClassTopSegmentStyleSource } from '../src/preview-class-top-segment-style-patch.js'
 import { patchPreviewBoardSource } from '../src/preview-board-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -32,7 +31,6 @@ function buildBoardMain() {
   source = patchPreviewNestedGeometryCouplingSource(source, id)
   source = patchPreviewNavResponsivenessSource(source, id)
   source = patchPreviewClassTopSegmentSource(source, id)
-  source = patchPreviewClassTopSegmentStyleSource(source, id)
   source = patchPreviewBoardSource(source, id)
   return source
 }
