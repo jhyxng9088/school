@@ -74,12 +74,21 @@ test('expired academic documents are no longer full-scanned by every client', ()
   assert.doesNotMatch(cleanupBody, /deleteDoc/)
 })
 
-test('timetable revalidation cleanup is source-owned before patch retirement', () => {
+test('timetable revalidation cleanup is source-owned and its main build-patch leg stays retired', () => {
   const path = new URL('../src/main.jsx', import.meta.url).pathname
   const source = read('../src/main.jsx')
+  const patchSource = read('../src/data-split-v1-patch.js')
+
   assert.equal(source.includes(LEGACY_TIMETABLE_REVALIDATION_EFFECT), false)
   assert.equal(patchDataSplitV1Source(source, path), source)
   assert.match(source, /  const aiContext = useMemo\(\(\) => \{/)
+
+  assert.doesNotMatch(patchSource, /function patchMain\(/)
+  assert.doesNotMatch(patchSource, /endsWith\('\/src\/main\.jsx'\)/)
+  assert.doesNotMatch(patchSource, /timetableActivityRevision/)
+  assert.match(patchSource, /endsWith\('\/src\/school-sync\.js'\)/)
+  assert.match(patchSource, /endsWith\('\/src\/class-activity\.js'\)/)
+  assert.match(patchSource, /endsWith\('\/src\/unread-indicators-v2\.js'\)/)
 })
 
 test('the in-memory bus is scoped so one class or student cannot replay another scope', () => {
