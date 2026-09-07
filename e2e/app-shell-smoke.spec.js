@@ -93,10 +93,12 @@ test('installed app traverses every production station and class board without a
     await expectAppShell(page)
   }
 
-  await expect(page.locator('.class-nav-capsule')).not.toHaveClass(/is-open/)
   await page.locator('.bottom-nav .nav-button[data-tab="class"]').click()
-  await expect(page.locator('.class-nav-capsule')).toHaveClass(/is-open/, { timeout: 2_000 })
-  await page.getByRole('button', { name: '우리 반 게시판' }).click()
+  await expect(page.locator('.class-top-segment')).toBeVisible({ timeout: 2_000 })
+  const boardButton = page.getByRole('button', { name: '게시판', exact: true })
+  await expect(boardButton).toHaveAttribute('aria-pressed', 'false')
+  await boardButton.click()
+  await expect(boardButton).toHaveAttribute('aria-pressed', 'true')
   await expectAppShell(page)
 
   const aiButton = page.locator('.bottom-nav .nav-button[data-tab="ai"]')
