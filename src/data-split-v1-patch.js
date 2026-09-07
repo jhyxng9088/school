@@ -144,39 +144,6 @@ function patchSchoolSync(source) {
   return next
 }
 
-function patchClassActivity(source) {
-  const current = String(source || '')
-  const sourceOwned = current.includes("import { publishClassLiveData } from './class-live-data.js'")
-    && !current.includes('removeRevalidation = installServerRevalidation(refreshFromServer)')
-    && current.includes("publishClassLiveData('activity', classKeyFor(normalized), next)")
-    && current.includes("publishClassLiveData('academic', classKeyFor(normalized), next)")
-  if (sourceOwned) return current
-
-  let next = current
-  next = replaceExact(
-    next,
-    "} from './school-sync'\n\nconst syncApp",
-    "} from './school-sync'\nimport { publishClassLiveData } from './class-live-data.js'\n\nconst syncApp",
-  )
-  next = replaceExact(
-    next,
-    'removeRevalidation = installServerRevalidation(refreshFromServer)',
-    'removeRevalidation = () => {}',
-    2,
-  )
-  next = replaceExact(
-    next,
-    '      writeActivityCache(normalized, next)\n      setActivity(next)',
-    "      writeActivityCache(normalized, next)\n      publishClassLiveData('activity', classKeyFor(normalized), next)\n      setActivity(next)",
-  )
-  next = replaceExact(
-    next,
-    '      writeAcademicCache(normalized, next)\n      setEvents(next)',
-    "      writeAcademicCache(normalized, next)\n      publishClassLiveData('academic', classKeyFor(normalized), next)\n      setEvents(next)",
-  )
-  return next
-}
-
 function unreadBusSubscriptions() {
   return `  subscriptions.push(subscribeClassLiveData('activity', classId, (activity) => {
     const next = new Map()
@@ -310,7 +277,6 @@ function patchUnreadIndicators(source) {
 export function patchDataSplitV1Source(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/school-sync.js')) return patchSchoolSync(source)
-  if (cleanId.endsWith('/src/class-activity.js')) return patchClassActivity(source)
   if (cleanId.endsWith('/src/unread-indicators-v2.js')) return patchUnreadIndicators(source)
   return String(source || '')
 }
