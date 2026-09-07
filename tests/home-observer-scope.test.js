@@ -7,11 +7,12 @@ const read = (path) => readFileSync(url(path), 'utf8')
 
 test('home lunch priority is React-owned without a runtime DOM observer', () => {
   const hook = read('src/home-meal-priority.js')
-  const patch = read('src/preview-home-info-patch.js')
+  const main = read('src/main.jsx')
   const index = read('index.html')
   const sw = read('public/sw.js')
 
   assert.equal(existsSync(url('public/school-home-live.js')), false)
+  assert.equal(existsSync(url('src/preview-home-info-patch.js')), false)
   assert.doesNotMatch(index, /school-home-live\.js/)
   assert.doesNotMatch(sw, /school-home-live\.js/)
   assert.doesNotMatch(hook, /MutationObserver/)
@@ -21,11 +22,11 @@ test('home lunch priority is React-owned without a runtime DOM observer', () => 
   assert.doesNotMatch(hook, /document\.addEventListener\('visibilitychange'/)
   assert.doesNotMatch(hook, /window\.addEventListener\('focus'/)
 
-  assert.match(patch, /HOME_MEAL_PRIORITY_IMPORT/)
-  assert.match(patch, /useHomeMealPriority\(now\)/)
-  assert.match(patch, /ref=\{homeStackRef\}/)
-  assert.match(patch, /mealPriority \? 'is-meal-priority' : ''/)
-  assert.match(patch, /data-home-lunch-ready/)
+  assert.match(main, /import \{ useHomeMealPriority \} from '\.\/home-meal-priority\.js'/)
+  assert.match(main, /useHomeMealPriority\(now\)/)
+  assert.match(main, /ref=\{homeStackRef\}/)
+  assert.match(main, /mealPriority \? 'is-meal-priority' : ''/)
+  assert.match(main, /data-home-lunch-ready/)
 })
 
 test('React lunch owner preserves exact boundaries and the existing FLIP motion', () => {

@@ -38,6 +38,9 @@ import { SHubAIOrb } from './s-hub-ai-orb.jsx'
 import { SHubIcon } from './s-hub-icon.jsx'
 import { buildSchoolAIContext } from './s-hub-ai-core.js'
 import { openClassRoster } from './class-roster-ui-v2.js'
+import { PreviewHomeSignals } from './preview-home-signals.jsx'
+import { HomeNavAction } from './home-nav-action.jsx'
+import { useHomeMealPriority } from './home-meal-priority.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -327,7 +330,8 @@ function CurrentClassPreview({ schoolState, now }) {
   }
 
   return (
-    <section className="current-class-card">
+    <section className="current-class-card home-nav-native-surface" data-home-nav-ready="true">
+      <HomeNavAction tab="class" section="timetable" label="시간표 열기" />
       <div className="current-class-icon"><Icon type="clock" size={20} /></div>
       <div className="current-class-copy">
         <p className="current-class-label">{label}</p>
@@ -345,7 +349,8 @@ function CurrentClassPreview({ schoolState, now }) {
 function TimetablePreview({ schedule, now, configured, title = '오늘 시간표', futureDay = false }) {
   if (!schedule.length) {
     return (
-      <section className="home-section">
+      <section className="home-section home-nav-native-surface" data-home-nav-ready="true">
+        <HomeNavAction tab="class" section="timetable" label="시간표 열기" />
         <SectionTitle>{title}</SectionTitle>
         <div className="today-timetable-empty">{futureDay ? '내일은 정규 수업이 없어.' : '오늘은 정규 수업이 없어.'}</div>
       </section>
@@ -358,7 +363,8 @@ function TimetablePreview({ schedule, now, configured, title = '오늘 시간표
     : schedule.find((period) => timeToMinutes(period.start) > nowMinutes) || null
 
   return (
-    <section className="home-section">
+    <section className="home-section home-nav-native-surface" data-home-nav-ready="true">
+      <HomeNavAction tab="class" section="timetable" label="시간표 열기" />
       <SectionTitle>{title}</SectionTitle>
       <div
         className="period-strip"
@@ -384,7 +390,8 @@ function TimetablePreview({ schedule, now, configured, title = '오늘 시간표
   )
 }
 
-function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI }) {
+function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI, onNavigate }) {
+  const { homeStackRef, mealPriority } = useHomeMealPriority(now)
   const today = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
@@ -431,8 +438,9 @@ function Home({ name, now, weeklySchedule, overrides, schoolData, todoData, pres
         </div>
       </header>
 
-      <div className="home-stack">
+      <div ref={homeStackRef} className={`home-stack ${mealPriority ? 'is-meal-priority' : ''}`} data-home-lunch-ready="true">
         <CurrentClassPreview schoolState={schoolState} now={now} />
+        <PreviewHomeSignals profile={profile} presence={presence} todos={todoData.todos} onNavigate={onNavigate} />
         <TodoHomePreview todos={todoData.todos} categories={todoData.categories} now={now} />
         <TimetablePreview
           schedule={timetablePreviewSchedule}
@@ -1241,9 +1249,31 @@ function AppShell({ profile }) {
     commitPersonalOverrides(pruned)
   }, [now, profile?.classNumber, personalOverrides, commitPersonalOverrides])
 
+  function navigateHomeSignal(target) {
+    if (target === 'class') {
+      openClassRoster()
+      return
+    }
+    if (target === 'board') {
+      setClassSection('board')
+      changeTab('class')
+      return
+    }
+    if (target === 'study') {
+      changeTab('study')
+      return
+    }
+    if (target === 'reminder') {
+      setScheduleSection('todo')
+      changeTab('schedule')
+    }
+  }
+
   const content = {
     home: (
       <Home
+        profile={profile}
+        onNavigate={navigateHomeSignal}
         name={name}
         now={now}
         weeklySchedule={weeklySchedule}
