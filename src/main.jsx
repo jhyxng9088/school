@@ -1081,8 +1081,9 @@ function AppShell({ profile }) {
       timetableDays,
       academicEvents: schoolData?.academicEvents || [],
       customAcademicEvents: academicData?.events || [],
+      mealRanges: schoolData?.mealRanges || {},
     })
-  }, [now, weeklySchedule, overrides, todoData.todos, schoolData?.academicEvents, academicData?.events])
+  }, [now, weeklySchedule, overrides, todoData.todos, schoolData?.academicEvents, schoolData?.mealRanges, academicData?.events])
 
   const aiConflictContext = useMemo(() => {
     const sharedReminderContext = buildSchoolAIContext({

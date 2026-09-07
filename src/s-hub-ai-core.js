@@ -247,12 +247,46 @@ function normalizeCustomAcademic(event, today) {
   }
 }
 
+function normalizeContextMeals(mealRanges) {
+  const ranges = mealRanges && typeof mealRanges === 'object' ? mealRanges : {}
+  const meals = []
+  const seen = new Set()
+
+  Object.values(ranges).forEach((entry) => {
+    const values = Array.isArray(entry?.meals) ? entry.meals : []
+    values.forEach((meal) => {
+      const date = unknownDateKey(meal?.rawDate || meal?.date)
+      const mealCode = clampText(meal?.mealCode, 4)
+      const key = date + '|' + mealCode
+      if (!date || seen.has(key)) return
+      const dishes = (Array.isArray(meal?.dishes) ? meal.dishes : [])
+        .map((dish) => clampText(dish, 80))
+        .filter(Boolean)
+        .slice(0, 24)
+      if (!dishes.length) return
+      seen.add(key)
+      meals.push({
+        date,
+        mealCode,
+        mealName: clampText(meal?.mealName || '중식', 20),
+        dishes,
+        calories: clampText(meal?.calories, 40),
+      })
+    })
+  })
+
+  return meals
+    .sort((a, b) => (a.date + '-' + a.mealCode).localeCompare(b.date + '-' + b.mealCode))
+    .slice(-30)
+}
+
 export function buildSchoolAIContext({
   now = new Date(),
   todos = [],
   timetableDays = [],
   academicEvents = [],
   customAcademicEvents = [],
+  mealRanges = {},
 } = {}) {
   const today = localDateKey(now)
   const reminders = (todos || [])
@@ -277,11 +311,14 @@ export function buildSchoolAIContext({
     .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title))
     .slice(0, 60)
 
+  const meals = normalizeContextMeals(mealRanges)
+
   return {
     reference: `${today} ${pad(now.getHours())}:${pad(now.getMinutes())}`,
     reminders,
     timetable,
     academic,
+    meals,
   }
 }
 

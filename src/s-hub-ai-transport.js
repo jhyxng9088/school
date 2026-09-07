@@ -60,7 +60,8 @@ function cachedMealContext() {
 }
 
 function enrichSchoolPromptWithMeals(prompt, purpose) {
-  if (purpose === 'reminder') return prompt
+  // Preview: SCHOOL_DATA already carries meals; keep the cache path only as a legacy fallback.
+  if (purpose === 'reminder' || /"meals"\s*:/.test(prompt)) return prompt
   const meals = cachedMealContext()
   if (!meals.length) return prompt
   return `${prompt}\n\n추가 SCHOOL_DATA - NEIS 급식 캐시(이 데이터도 SCHOOL_DATA의 일부로 취급):\n${JSON.stringify({ meals })}`
