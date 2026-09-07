@@ -33,6 +33,14 @@ test('class-shared reminders keep realtime listeners but stop focus-triggered fu
   assert.match(source, /publishClassLiveData\('todoState', studentKeyFor\(profile\), nextState\)/)
 })
 
+test('school sync data-split patch is idempotent before source ownership migration', () => {
+  const path = new URL('../src/school-sync.js', import.meta.url).pathname
+  const source = read('../src/school-sync.js')
+  const once = patchDataSplitV1Source(source, path)
+  const twice = patchDataSplitV1Source(once, path)
+  assert.equal(twice, once)
+})
+
 test('shared timetable stays realtime and applies local edits before server confirmation', () => {
   const source = patched('../src/school-sync.js')
   assert.match(source, /onSnapshot\(\s*timetableRef\(profile\)/)
