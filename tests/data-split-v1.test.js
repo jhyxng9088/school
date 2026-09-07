@@ -16,6 +16,13 @@ function count(source, marker) {
   return source.split(marker).length - 1
 }
 
+const LEGACY_TIMETABLE_REVALIDATION_EFFECT = `  useEffect(() => {
+    if (!timetableActivityRevision || navigator.onLine === false) return
+    refreshSharedTimetable()
+  }, [timetableActivityRevision, refreshSharedTimetable])
+
+`
+
 test('class-shared reminders keep realtime listeners but stop focus-triggered full re-reads', () => {
   const source = patched('../src/school-sync.js')
   assert.match(source, /onSnapshot\(classTodosCollection\(profile\)/)
@@ -67,17 +74,30 @@ test('expired academic documents are no longer full-scanned by every client', ()
   assert.doesNotMatch(cleanupBody, /deleteDoc/)
 })
 
-test('timetable activity no longer triggers an extra authoritative refetch after realtime already updated it', () => {
-  const source = patched('../src/main.jsx')
-  assert.doesNotMatch(source, /if \(!timetableActivityRevision \|\| navigator\.onLine === false\) return\n\s*refreshSharedTimetable\(\)/)
-})
-
-test('timetable revalidation patch is idempotent before source ownership migration', () => {
+test('timetable revalidation cleanup is source-owned and preserves the legacy transformed output', () => {
   const path = new URL('../src/main.jsx', import.meta.url).pathname
   const source = read('../src/main.jsx')
-  const once = patchDataSplitV1Source(source, path)
+  assert.equal(source.includes(LEGACY_TIMETABLE_REVALIDATION_EFFECT), false)
+  assert.equal(patchDataSplitV1Source(source, path), source)
+
+  const anchor = '  const aiContext = useMemo(() => {'
+  assert.match(source, /  const aiContext = useMemo\(\(\) => \{/)
+  const legacySource = source.replace(anchor, `${LEGACY_TIMETABLE_REVALIDATION_EFFECT}${anchor}`)
+  assert.notEqual(legacySource, source)
+  assert.equal(patchDataSplitV1Source(legacySource, path), source)
+})
+
+test('timetable revalidation patch remains idempotent across source-owned and legacy inputs', () => {
+  const path = new URL('../src/main.jsx', import.meta.url).pathname
+  const source = read('../src/main.jsx')
+  const legacySource = source.replace(
+    '  const aiContext = useMemo(() => {',
+    `${LEGACY_TIMETABLE_REVALIDATION_EFFECT}  const aiContext = useMemo(() => {`,
+  )
+  const once = patchDataSplitV1Source(legacySource, path)
   const twice = patchDataSplitV1Source(once, path)
-  assert.equal(twice, once)
+  assert.equal(once, source)
+  assert.equal(twice, source)
 })
 
 test('the in-memory bus is scoped so one class or student cannot replay another scope', () => {
