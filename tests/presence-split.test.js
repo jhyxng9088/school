@@ -1,20 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { patchPresenceSplitSource } from '../src/presence-split-patch.js'
 
 function read(path) {
   return fs.readFileSync(new URL(path, import.meta.url), 'utf8')
 }
 
-function transformedSchoolSync() {
-  const path = new URL('../src/school-sync.js', import.meta.url).pathname
-  const raw = read('../src/school-sync.js')
-  return patchPresenceSplitSource(raw, path)
-}
-
 test('presence prefers Supabase and keeps RTDB then Firestore as failure-only fallbacks', () => {
-  const source = transformedSchoolSync()
+  const source = read('../src/school-sync.js')
   assert.match(source, /import \{ startSupabasePresence \} from '\.\/supabase-presence\.js'/)
   assert.match(source, /supabasePresence = startSupabasePresence\(\{/)
   assert.match(source, /fallbackLevel = 'supabase'/)
@@ -41,7 +34,7 @@ test('normal Supabase presence heartbeat does not read or write Firestore presen
 })
 
 test('member total is cached and cannot block the active presence transport', () => {
-  const source = transformedSchoolSync()
+  const source = read('../src/school-sync.js')
   assert.match(source, /MEMBER_COUNT_CACHE_MS = 30 \* 60 \* 1000/)
   assert.match(source, /readCachedMemberCount\(\{ allowStale: true \}\)/)
   assert.match(source, /cacheMemberCount\(total\)/)
@@ -61,7 +54,7 @@ test('RTDB stays as a secondary fallback without inventing an unverified databas
 })
 
 test('Firestore presence remains an idempotent last-resort fallback', () => {
-  const source = transformedSchoolSync()
+  const source = read('../src/school-sync.js')
   assert.match(source, /if \(stopped \|\| fallbackLevel === 'firestore'\) return/)
   assert.match(source, /setDoc\(classPresenceRef\(profile\)/)
   assert.match(source, /getCountFromServer\(query\(/)
@@ -74,11 +67,11 @@ test('firebase config retains the locked RTDB rules file for emergency fallback'
   assert.equal(config.database?.rules, 'database.rules.json')
 })
 
-test('Vite applies the presence transport patch after source-owned live-data setup', () => {
+test('presence transport is raw-source-owned without a Vite build patch', () => {
+  const source = read('../src/school-sync.js')
   const vite = read('../vite.config.js')
-  const liveDataIndex = vite.indexOf('next = patchPreviewAILiveContextSource(next, cleanId)')
-  const presenceIndex = vite.indexOf('next = patchPresenceSplitSource(next, cleanId)')
-  assert.ok(liveDataIndex >= 0)
-  assert.ok(presenceIndex > liveDataIndex)
-  assert.doesNotMatch(vite, /patchDataSplitV1Source|data-split-v1-patch/)
+  assert.match(source, /import \{ realtimePresenceConfigured, startRealtimePresence \} from '\.\/presence-rtdb\.js'/)
+  assert.match(source, /import \{ startSupabasePresence \} from '\.\/supabase-presence\.js'/)
+  assert.doesNotMatch(vite, /patchPresenceSplitSource|presence-split-patch/)
+  assert.equal(fs.existsSync(new URL('../src/presence-split-patch.js', import.meta.url)), false)
 })

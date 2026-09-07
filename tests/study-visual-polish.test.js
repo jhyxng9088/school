@@ -125,14 +125,13 @@ test('board and AI hero descriptions keep Korean words intact when wrapping', ()
   assert.match(aiCss, /\.s-hub-ai-page-title p:last-child \{[\s\S]*word-break: keep-all;[\s\S]*overflow-wrap: break-word;/)
 })
 
-test('study visual polish remains downstream of study data and UI transforms after recovery retirement', () => {
+test('study visual polish remains downstream of study UI transforms after presence source migration', () => {
   const vite = read('vite.config.js')
   const studyUi = vite.indexOf('patchPreviewStudyUnifiedUISource(next, cleanId)')
-  const presence = vite.indexOf('patchPresenceSplitSource(next, cleanId)')
   const visual = vite.indexOf('patchStudyVisualPolishSource(next, cleanId)')
   assert.ok(studyUi >= 0)
-  assert.ok(presence > studyUi)
-  assert.ok(visual > presence)
+  assert.ok(visual > studyUi)
+  assert.doesNotMatch(vite, /patchPresenceSplitSource|presence-split-patch/)
   assert.doesNotMatch(vite, /patchProductionRecoverySource/)
   assert.doesNotMatch(vite, /production-recovery-patch\.js/)
 })

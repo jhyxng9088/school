@@ -45,7 +45,6 @@ const suffix = [
   ['patchPreviewBoardSectionManagementSource', 'preview-board-section-management-patch.js'],
   ['patchPreviewStudyUnifiedUISource', 'preview-study-unified-ui-patch.js'],
   ['patchPreviewAILiveContextSource', 'preview-ai-live-context-patch.js'],
-  ['patchPresenceSplitSource', 'presence-split-patch.js'],
   ['patchStudyVisualPolishSource', 'study-visual-polish-patch.js'],
   ['patchSharedSegmentSpringOwnerSource', 'shared-segment-spring-owner-patch.js'],
 ]
