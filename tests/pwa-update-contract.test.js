@@ -40,6 +40,22 @@ test('service worker registration bypasses browser cache for worker updates', ()
   assert.match(client, /updateViaCache: 'none'/)
 })
 
+test('service worker lifecycle keeps one primary owner and one guarded push fallback', () => {
+  const index = read('../index.html')
+  const main = read('../src/main.jsx')
+  const client = read('../src/push-client.js')
+
+  assert.doesNotMatch(index, /navigator\.serviceWorker\.register\(/)
+  assert.match(main, /window\.addEventListener\('load',[\s\S]*navigator\.serviceWorker\.register\(`\$\{import\.meta\.env\.BASE_URL\}sw\.js`/)
+  assert.match(main, /registration\.update\(\)\.catch\(\(\) => \{\}\)/)
+  assert.match(client, /const existing = await navigator\.serviceWorker\.getRegistration\(\)[\s\S]*if \(existing\) return existing[\s\S]*navigator\.serviceWorker\.register\(/)
+  assert.doesNotMatch(client, /\.update\(\)/)
+
+  const directRegisterCalls = [index, main, client]
+    .reduce((count, source) => count + (source.match(/navigator\.serviceWorker\.register\(/g) || []).length, 0)
+  assert.equal(directRegisterCalls, 2)
+})
+
 test('deployment refresh checks the newest HTML without cache and reloads only when module entries changed', () => {
   const refresh = read('../src/deployment-refresh.js')
 
