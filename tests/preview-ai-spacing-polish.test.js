@@ -35,3 +35,13 @@ test('AI page uses a consistent vertical rhythm across headings, buttons and con
   assert.match(output, /text-indent: 7px;/)
   assert.match(output, /animation: s-hub-ai-quick-fill 440ms cubic-bezier\(0\.16, 1, 0\.3, 1\) both;/)
 })
+
+
+test('AI spacing polish is owned inside stage motion without a nested build patch file', () => {
+  const stage = fs.readFileSync(new URL('../src/preview-ai-stage-motion-patch.js', import.meta.url), 'utf8')
+  assert.equal(fs.existsSync(new URL('../src/preview-ai-spacing-polish-patch.js', import.meta.url)), false)
+  assert.doesNotMatch(stage, /preview-ai-spacing-polish-patch\.js/)
+  assert.match(stage, /const AI_SPACING_POLISH_CSS = `/)
+  assert.match(stage, /function patchAISpacingPolishSource\(source, id = ''\)/)
+  assert.match(stage, /next = patchAISpacingPolishSource\(next, id\)/)
+})
