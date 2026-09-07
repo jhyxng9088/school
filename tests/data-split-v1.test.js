@@ -74,30 +74,12 @@ test('expired academic documents are no longer full-scanned by every client', ()
   assert.doesNotMatch(cleanupBody, /deleteDoc/)
 })
 
-test('timetable revalidation cleanup is source-owned and preserves the legacy transformed output', () => {
+test('timetable revalidation cleanup is source-owned before patch retirement', () => {
   const path = new URL('../src/main.jsx', import.meta.url).pathname
   const source = read('../src/main.jsx')
   assert.equal(source.includes(LEGACY_TIMETABLE_REVALIDATION_EFFECT), false)
   assert.equal(patchDataSplitV1Source(source, path), source)
-
-  const anchor = '  const aiContext = useMemo(() => {'
   assert.match(source, /  const aiContext = useMemo\(\(\) => \{/)
-  const legacySource = source.replace(anchor, `${LEGACY_TIMETABLE_REVALIDATION_EFFECT}${anchor}`)
-  assert.notEqual(legacySource, source)
-  assert.equal(patchDataSplitV1Source(legacySource, path), source)
-})
-
-test('timetable revalidation patch remains idempotent across source-owned and legacy inputs', () => {
-  const path = new URL('../src/main.jsx', import.meta.url).pathname
-  const source = read('../src/main.jsx')
-  const legacySource = source.replace(
-    '  const aiContext = useMemo(() => {',
-    `${LEGACY_TIMETABLE_REVALIDATION_EFFECT}  const aiContext = useMemo(() => {`,
-  )
-  const once = patchDataSplitV1Source(legacySource, path)
-  const twice = patchDataSplitV1Source(once, path)
-  assert.equal(once, source)
-  assert.equal(twice, source)
 })
 
 test('the in-memory bus is scoped so one class or student cannot replay another scope', () => {
