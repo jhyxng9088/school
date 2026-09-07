@@ -2,7 +2,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
-import { patchPreviewAIDensitySource } from '../src/preview-ai-density-patch.js'
 import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
 import { patchPreviewAILiveContextSource } from '../src/preview-ai-live-context-patch.js'
 
@@ -11,7 +10,6 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 test('preview AI question path resolves live context before asking the model', () => {
   let sheet = read('src/s-hub-ai-sheet.jsx')
   sheet = patchPreviewAIPageSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
-  sheet = patchPreviewAIDensitySource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
   sheet = patchPreviewAIStageMotionSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
   sheet = patchPreviewAILiveContextSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
 
@@ -56,12 +54,11 @@ test('preview AI prompt understands live study ranks, board posts, and unavailab
 test('AI reference panel truthfully shows study and board as live sources', () => {
   let sheet = read('src/s-hub-ai-sheet.jsx')
   sheet = patchPreviewAIPageSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
-  sheet = patchPreviewAIDensitySource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
   sheet = patchPreviewAIStageMotionSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
   sheet = patchPreviewAILiveContextSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
   const css = patchPreviewAILiveContextSource(
     patchPreviewAIStageMotionSource(
-      patchPreviewAIDensitySource(read('src/s-hub-ai.css'), '/virtual/src/s-hub-ai.css'),
+      patchPreviewAIPageSource(read('src/s-hub-ai.css'), '/virtual/src/s-hub-ai.css'),
       '/virtual/src/s-hub-ai.css',
     ),
     '/virtual/src/s-hub-ai.css',

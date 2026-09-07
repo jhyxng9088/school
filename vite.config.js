@@ -27,7 +27,6 @@ import { patchPreviewClassTopSegmentSource } from './src/preview-class-top-segme
 import { patchPreviewBoardSource } from './src/preview-board-patch.js'
 import { patchPreviewScheduleTopSegmentSource } from './src/preview-schedule-top-segment-patch.js'
 import { patchPreviewAIPageSource } from './src/preview-ai-page-patch.js'
-import { patchPreviewAIDensitySource } from './src/preview-ai-density-patch.js'
 import { patchPreviewAIStageMotionSource } from './src/preview-ai-stage-motion-patch.js'
 import { patchPreviewAIBackgroundSource } from './src/preview-ai-background-patch.js'
 import { patchPreviewHomeInfoSource } from './src/preview-home-info-patch.js'
@@ -102,7 +101,6 @@ function replaceV2Source(source, id) {
 
   next = patchPreviewScheduleTopSegmentSource(next, cleanId)
   next = patchPreviewAIPageSource(next, cleanId)
-  next = patchPreviewAIDensitySource(next, cleanId)
   next = patchPreviewAIStageMotionSource(next, cleanId)
   next = patchPreviewAIBackgroundSource(next, cleanId)
   next = patchPreviewHomeInfoSource(next, cleanId)
@@ -167,7 +165,6 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-board-section-management-patch.js')
         || cleanId.endsWith('/preview-schedule-top-segment-patch.js')
         || cleanId.endsWith('/preview-ai-page-patch.js')
-        || cleanId.endsWith('/preview-ai-density-patch.js')
         || cleanId.endsWith('/preview-ai-stage-motion-patch.js')
         || cleanId.endsWith('/preview-ai-background-patch.js')
         || cleanId.endsWith('/preview-ai-live-context-patch.js')

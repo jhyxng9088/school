@@ -2,7 +2,6 @@ import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
-import { patchPreviewAIDensitySource } from '../src/preview-ai-density-patch.js'
 import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
 import { patchPreviewAIBackgroundSource } from '../src/preview-ai-background-patch.js'
 
@@ -11,7 +10,6 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 function builtSheet() {
   let source = read('src/s-hub-ai-sheet.jsx')
   source = patchPreviewAIPageSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
-  source = patchPreviewAIDensitySource(source, '/workspace/src/s-hub-ai-sheet.jsx')
   source = patchPreviewAIStageMotionSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
   return patchPreviewAIBackgroundSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
 }
