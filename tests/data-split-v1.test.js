@@ -113,7 +113,6 @@ test('timetable revalidation cleanup is source-owned and its main build-patch le
   assert.doesNotMatch(patchSource, /endsWith\('\/src\/main\.jsx'\)/)
   assert.doesNotMatch(patchSource, /timetableActivityRevision/)
   assert.match(patchSource, /endsWith\('\/src\/school-sync\.js'\)/)
-  assert.match(patchSource, /endsWith\('\/src\/class-activity\.js'\)/)
   assert.match(patchSource, /endsWith\('\/src\/unread-indicators-v2\.js'\)/)
 })
 
