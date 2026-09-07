@@ -45,7 +45,10 @@ jobs:
             'src/preview-class-top-segment-style-patch.js',
             'tests/build-patch-effect.test.js',
             'tests/final-runtime-owner.test.js',
+            'tests/preview-board.test.js',
             'tests/preview-class-top-segment-style.test.js',
+            'tests/preview-class-top-segment.test.js',
+            'tests/preview-schedule-top-segment.test.js',
             'vite.config.js',
           }
           changed = set(subprocess.check_output(['git', 'diff', 'HEAD', '--name-only'], text=True).splitlines())
