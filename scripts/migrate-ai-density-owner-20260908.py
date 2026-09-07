@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 
 def replace_once(text, old, new, label):
@@ -112,6 +113,62 @@ test('downstream AI density build owner is retired', () => {
   assert.match(vite, /patchPreviewAIPageSource\\(next, cleanId\\)/)
 })
 """)
+
+# Dependent tests used to replay the downstream density layer explicitly.
+# They now replay only the upstream page owner, which emits the exact same density markup/CSS.
+dependent_tests = [
+    'tests/polite-copy-audit.test.js',
+    'tests/preview-ai-background.test.js',
+    'tests/preview-ai-context-layout.test.js',
+    'tests/preview-ai-live-context.test.js',
+    'tests/preview-ai-spacing-polish.test.js',
+    'tests/preview-ai-stage-motion.test.js',
+]
+for relative_path in dependent_tests:
+    test_path = Path(relative_path)
+    source = test_path.read_text()
+    import_pattern = r"^import \{ patchPreviewAIDensitySource \} from '\.\./src/preview-ai-density-patch\.js'\n"
+    source, import_count = re.subn(import_pattern, '', source, flags=re.MULTILINE)
+    if import_count != 1:
+        raise SystemExit(f'{relative_path}: expected one AI density import, found {import_count}')
+
+    simple_pattern = r"^([ \t]*)(source|sheet|next|css) = patchPreviewAIDensitySource\(\2, [^\n]+\)\n"
+    source, simple_count = re.subn(simple_pattern, '', source, flags=re.MULTILINE)
+    if simple_count < 1:
+        raise SystemExit(f'{relative_path}: expected at least one replayed AI density call')
+    test_path.write_text(source)
+
+live_path = Path('tests/preview-ai-live-context.test.js')
+live = live_path.read_text()
+live = replace_once(
+    live,
+    "      patchPreviewAIDensitySource(read('src/s-hub-ai.css'), '/virtual/src/s-hub-ai.css'),",
+    "      patchPreviewAIPageSource(read('src/s-hub-ai.css'), '/virtual/src/s-hub-ai.css'),",
+    'live context CSS now starts from source-owned AI page density',
+)
+live_path.write_text(live)
+
+stage_path = Path('tests/preview-ai-stage-motion.test.js')
+stage = stage_path.read_text()
+stage = replace_once(
+    stage,
+    "test('vite applies state motion after AI page and density layers', () => {",
+    "test('vite applies state motion after the source-owned AI page density', () => {",
+    'stage motion Vite contract title',
+)
+stage = replace_once(
+    stage,
+    "  const density = vite.indexOf('patchPreviewAIDensitySource(next, cleanId)')\n",
+    '',
+    'stage motion retired density index',
+)
+stage = replace_once(
+    stage,
+    "  assert.ok(density > page)\n  assert.ok(motion > density)\n",
+    "  assert.ok(motion > page)\n  assert.doesNotMatch(vite, /patchPreviewAIDensitySource/)\n",
+    'stage motion upstream ordering contract',
+)
+stage_path.write_text(stage)
 
 # Lock the retired owner at the repository architecture boundary.
 final_path = Path('tests/final-runtime-owner.test.js')
