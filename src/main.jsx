@@ -1060,11 +1060,6 @@ function AppShell({ profile }) {
   activeIndexRef.current = activeIndex
   const { navRef, indicatorRef, buttonRefs } = useNavSpring(activeIndex)
 
-  useEffect(() => {
-    if (!timetableActivityRevision || navigator.onLine === false) return
-    refreshSharedTimetable()
-  }, [timetableActivityRevision, refreshSharedTimetable])
-
   const aiContext = useMemo(() => {
     const timetableDays = Array.from({ length: 14 }, (_, offset) => {
       const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12, 0, 0, 0)
