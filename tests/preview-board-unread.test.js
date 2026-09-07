@@ -79,9 +79,9 @@ test('an already open post stays read when a realtime comment or edit arrives', 
 })
 
 test('AI working state keeps board unread class when both nav indicators are active', () => {
-  const aiPatch = read('src/preview-ai-background-patch.js')
-  assert.match(aiPatch, /boardUnreadNavMarker/)
-  assert.match(aiPatch, /tab\.id === 'class' && boardUnread\.hasUnread \? 'has-board-unread' : ''/)
-  assert.match(aiPatch, /tab\.id === 'ai' && aiWorking \? 'is-ai-working' : ''/)
-  assert.match(aiPatch, /s-hub-ai-nav-progress/)
+  const aiOwner = read('src/preview-ai-stage-motion-patch.js')
+  assert.match(aiOwner, /boardUnreadNavMarker/)
+  assert.match(aiOwner, /tab\.id === 'class' && boardUnread\.hasUnread \? 'has-board-unread' : ''/)
+  assert.match(aiOwner, /tab\.id === 'ai' && aiWorking \? 'is-ai-working' : ''/)
+  assert.match(aiOwner, /s-hub-ai-nav-progress/)
 })
