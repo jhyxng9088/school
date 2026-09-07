@@ -88,12 +88,19 @@ test('unread indicators reuse the app realtime stream instead of opening five du
   assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'students', studentKey, 'todoState'/)
 })
 
-test('unread live-data subscriptions are source-owned before patch retirement', () => {
+test('unread live-data subscriptions are source-owned and their build-patch leg stays retired', () => {
   const path = new URL('../src/unread-indicators-v2.js', import.meta.url).pathname
   const source = read('../src/unread-indicators-v2.js')
+  const patchSource = read('../src/data-split-v1-patch.js')
+
   assert.match(source, /import \{ subscribeClassLiveData \} from '\.\/class-live-data\.js'/)
   assert.doesNotMatch(source, /\bonSnapshot\(/)
   assert.equal(patchDataSplitV1Source(source, path), source)
+
+  assert.doesNotMatch(patchSource, /function patchUnreadIndicators\(/)
+  assert.doesNotMatch(patchSource, /function unreadBusSubscriptions\(/)
+  assert.doesNotMatch(patchSource, /endsWith\('\/src\/unread-indicators-v2\.js'\)/)
+  assert.match(patchSource, /endsWith\('\/src\/school-sync\.js'\)/)
 })
 
 test('expired academic documents are no longer full-scanned by every client', () => {

@@ -62,7 +62,7 @@ test('timetable unread dot ignores historical and stale override activity', () =
   assert.match(source, /function ensureTimetableBaseline\(\)/)
   assert.match(source, /seenVersion\(NAV_STATE_IDS\.timetable\) > 0/)
   assert.match(source, /!state\.activityReady \|\| !state\.seenReady \|\| !state\.timetableReady/)
-  assert.match(source, /doc\(db, 'classes', classId, 'settings', 'timetable'\)/)
+  assert.match(source, /subscribeClassLiveData\('timetable', classId/)
 })
 
 test('reminder unread baseline waits for the real reminder snapshot and repairs the old baseline generation', () => {
@@ -73,7 +73,7 @@ test('reminder unread baseline waits for the real reminder snapshot and repairs 
   assert.match(source, /!state\.activityReady \|\| !state\.seenReady \|\| !state\.todosReady/)
   assert.match(source, /function ensureReminderBaseline\(\)/)
   assert.match(source, /state\.todosReady = true/)
-  assert.match(source, /state\.todosReady = false/)
+  assert.match(source, /subscribeClassLiveData\('todos', classId/)
 })
 
 test('academic unread dot establishes a fresh baseline and ignores finished schedules', () => {
