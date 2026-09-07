@@ -5,7 +5,6 @@ import { POLITE_COPY_REPLACEMENTS, POLITE_SOURCE_FRAGMENTS } from '../src/polite
 import { PREVIEW_POLITE_COPY_REPLACEMENTS } from '../src/preview-polite-copy-additions.js'
 import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
-import { patchPreviewAIDensitySource } from '../src/preview-ai-density-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -71,7 +70,6 @@ function previewBuiltSource(path) {
   source = patchPreviewSHubV2Source(source, `/workspace/${path}`)
   if (path === 'src/s-hub-ai-sheet.jsx') {
     source = patchPreviewAIPageSource(source, `/workspace/${path}`)
-    source = patchPreviewAIDensitySource(source, `/workspace/${path}`)
   }
   source = replacePairs(source, [
     ...POLITE_COPY_REPLACEMENTS.filter(([from]) => from !== '등록된 급식이 없어'),

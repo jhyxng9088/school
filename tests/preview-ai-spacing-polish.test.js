@@ -2,12 +2,10 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import test from 'node:test'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
-import { patchPreviewAIDensitySource } from '../src/preview-ai-density-patch.js'
 import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
 
 function applyPreviewAI(source, id) {
   let next = patchPreviewAIPageSource(source, id)
-  next = patchPreviewAIDensitySource(next, id)
   next = patchPreviewAIStageMotionSource(next, id)
   return next
 }

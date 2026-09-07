@@ -2,7 +2,6 @@ import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
-import { patchPreviewAIDensitySource } from '../src/preview-ai-density-patch.js'
 import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -10,7 +9,6 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 function builtAISheet() {
   let source = read('src/s-hub-ai-sheet.jsx')
   source = patchPreviewAIPageSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
-  source = patchPreviewAIDensitySource(source, '/workspace/src/s-hub-ai-sheet.jsx')
   source = patchPreviewAIStageMotionSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
   return source
 }
@@ -18,7 +16,6 @@ function builtAISheet() {
 function builtAICss() {
   let css = read('src/s-hub-ai.css')
   css = patchPreviewAIPageSource(css, '/workspace/src/s-hub-ai.css')
-  css = patchPreviewAIDensitySource(css, '/workspace/src/s-hub-ai.css')
   css = patchPreviewAIStageMotionSource(css, '/workspace/src/s-hub-ai.css')
   return css
 }
@@ -76,12 +73,11 @@ test('mobile and reduced-motion modes keep the transition safe', () => {
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation-duration: 0\.01ms !important;[\s\S]*transition-duration: 0\.01ms !important;/)
 })
 
-test('vite applies state motion after AI page and density layers', () => {
+test('vite applies state motion after the source-owned AI page density', () => {
   const vite = read('vite.config.js')
   const page = vite.indexOf('patchPreviewAIPageSource(next, cleanId)')
-  const density = vite.indexOf('patchPreviewAIDensitySource(next, cleanId)')
   const motion = vite.indexOf('patchPreviewAIStageMotionSource(next, cleanId)')
   assert.ok(page >= 0)
-  assert.ok(density > page)
-  assert.ok(motion > density)
+  assert.ok(motion > page)
+  assert.doesNotMatch(vite, /patchPreviewAIDensitySource/)
 })

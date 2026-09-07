@@ -5,7 +5,6 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
-import { patchPreviewAIDensitySource } from '../src/preview-ai-density-patch.js'
 import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
 import { patchPreviewAIContextLayoutSource } from '../src/preview-ai-context-layout-patch.js'
 
@@ -19,7 +18,6 @@ test('preview AI puts quick questions and context before the composer and shows 
   const id = path.join(root, 'src/s-hub-ai-sheet.jsx')
   let source = read('src/s-hub-ai-sheet.jsx')
   source = patchPreviewAIPageSource(source, id)
-  source = patchPreviewAIDensitySource(source, id)
   source = patchPreviewAIStageMotionSource(source, id)
 
   const quickIndex = source.indexOf('aria-label="빠른 질문"')
