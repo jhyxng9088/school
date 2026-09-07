@@ -57,7 +57,7 @@ test('leaving class uses the ordinary five-station change path with no collapse 
   assert.doesNotMatch(block, /classNavCollapsing|classExitTargetRef|setTimeout/)
 })
 
-test('top segment uses the same canonical spring law as the bottom nav', () => {
+test('top segment emits the canonical shared spring wrapper directly', () => {
   assert.deepEqual(PREVIEW_CLASS_SEGMENT_PHYSICS, {
     stiffness: 56,
     damping: 10.5,
@@ -72,9 +72,14 @@ test('top segment uses the same canonical spring law as the bottom nav', () => {
     settleVelocityPx: 0.06,
   })
   const source = buildFinalMain()
-  assert.match(source, /physics\.velocity \+= acceleration \* dt/)
-  assert.match(source, /physics\.x \+= physics\.velocity \* dt/)
-  assert.match(source, /const visualX = movingLeft \? physics\.x - stretch : physics\.x/)
+  assert.match(source, /import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'/)
+  assert.match(source, /function useClassTopSegmentSpring\(activeIndex\) \{\n  return useSHubSegmentSpring/)
+  assert.match(source, /paddingProperty: '--segment-padding'/)
+  assert.match(source, /data-unread-key=\{item\.id\}/)
+  const springStart = source.indexOf('function useClassTopSegmentSpring(activeIndex) {')
+  const springEnd = source.indexOf('function ClassTopSegment', springStart)
+  assert.ok(springStart >= 0 && springEnd > springStart)
+  assert.doesNotMatch(source.slice(springStart, springEnd), /physics\.velocity \+= acceleration \* dt/)
 })
 
 test('top segment is thin and spans the class content width', () => {

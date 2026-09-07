@@ -1,5 +1,3 @@
-import { PREVIEW_CLASS_SEGMENT_PHYSICS } from './preview-class-top-segment-patch.js'
-
 function replaceRequired(source, marker, replacement, label) {
   if (!source.includes(marker)) throw new Error(`Preview study patch marker missing: ${label}`)
   return source.replace(marker, replacement)
@@ -14,135 +12,12 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
 
 const STUDY_RANKING_SPRING_RUNTIME = String.raw`
 function useStudyRankingScopeSpring(activeIndex) {
-  const containerRef = useRef(null)
-  const indicatorRef = useRef(null)
-  const buttonRefs = useRef([])
-  const physicsRef = useRef({
-    x: 0,
-    velocity: 0,
-    targetX: 0,
-    baseWidth: 0,
-    initialized: false,
-    frame: null,
-    lastTime: 0,
+  return useSHubSegmentSpring(activeIndex, {
+    paddingProperty: '--study-ranking-padding',
+    shellScaleProperty: '--study-ranking-shell-scale-x',
+    shellShiftProperty: '--study-ranking-shell-shift-x',
+    fallbackPadding: 4,
   })
-
-  useLayoutEffect(() => {
-    const container = containerRef.current
-    const indicator = indicatorRef.current
-    const targetButton = buttonRefs.current[activeIndex]
-    if (!container || !indicator || !targetButton) return undefined
-
-    const physics = physicsRef.current
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const padding = Number.parseFloat(window.getComputedStyle(container).getPropertyValue('--study-ranking-padding')) || 4
-
-    indicator.dataset.springMotion = 'true'
-    indicator.style.setProperty('left', '0px', 'important')
-    indicator.style.setProperty('transition', 'none', 'important')
-
-    function paint() {
-      const speed = Math.abs(physics.velocity)
-      const stretch = Math.min(speed * ${PREVIEW_CLASS_SEGMENT_PHYSICS.stretchPerVelocity}, ${PREVIEW_CLASS_SEGMENT_PHYSICS.maxStretch})
-      const movingRight = physics.velocity > 0
-      const movingLeft = physics.velocity < 0
-      const visualX = movingLeft ? physics.x - stretch : physics.x
-      const visualWidth = physics.baseWidth + stretch
-      const compression = Math.min(speed / ${PREVIEW_CLASS_SEGMENT_PHYSICS.compressionVelocity}, ${PREVIEW_CLASS_SEGMENT_PHYSICS.maxCompression})
-      const visualRight = visualX + visualWidth
-      const containerWidth = container.clientWidth || 1
-      const leftShellStretch = Math.max(0, padding - visualX)
-      const rightShellStretch = Math.max(0, visualRight - (containerWidth - padding))
-      const shellScaleX = (containerWidth + leftShellStretch + rightShellStretch) / containerWidth
-      const shellShiftX = (rightShellStretch - leftShellStretch) / 2
-
-      container.style.setProperty('--study-ranking-shell-scale-x', shellScaleX.toFixed(5))
-      container.style.setProperty('--study-ranking-shell-shift-x', shellShiftX.toFixed(3) + 'px')
-      indicator.style.setProperty('width', visualWidth + 'px', 'important')
-      indicator.style.setProperty('transform', 'translate3d(' + visualX + 'px, 0, 0) scaleY(' + (1 - compression) + ')', 'important')
-      indicator.style.setProperty('border-radius', Math.max(11, 14 - stretch * ${PREVIEW_CLASS_SEGMENT_PHYSICS.radiusShrinkPerStretch}) + 'px', 'important')
-      indicator.dataset.direction = movingRight ? 'right' : movingLeft ? 'left' : 'still'
-    }
-
-    function measure(immediate = false) {
-      const containerRect = container.getBoundingClientRect()
-      const buttonRect = targetButton.getBoundingClientRect()
-      physics.targetX = buttonRect.left - containerRect.left
-      physics.baseWidth = buttonRect.width
-
-      if (!physics.initialized || immediate || reduceMotion) {
-        physics.initialized = true
-        physics.x = physics.targetX
-        physics.velocity = 0
-        paint()
-      }
-    }
-
-    function stopAnimation() {
-      if (physics.frame !== null) {
-        cancelAnimationFrame(physics.frame)
-        physics.frame = null
-      }
-    }
-
-    function animate(time) {
-      if (!physics.lastTime) physics.lastTime = time
-      const dt = Math.min((time - physics.lastTime) / 1000, ${PREVIEW_CLASS_SEGMENT_PHYSICS.maxDt})
-      physics.lastTime = time
-
-      const displacement = physics.x - physics.targetX
-      const springForce = -${PREVIEW_CLASS_SEGMENT_PHYSICS.stiffness} * displacement
-      const dampingForce = -${PREVIEW_CLASS_SEGMENT_PHYSICS.damping} * physics.velocity
-      const acceleration = (springForce + dampingForce) / ${PREVIEW_CLASS_SEGMENT_PHYSICS.mass}
-
-      physics.velocity += acceleration * dt
-      physics.x += physics.velocity * dt
-      paint()
-
-      const settled = Math.abs(physics.x - physics.targetX) < ${PREVIEW_CLASS_SEGMENT_PHYSICS.settleDistancePx}
-        && Math.abs(physics.velocity) < ${PREVIEW_CLASS_SEGMENT_PHYSICS.settleVelocityPx}
-      if (settled) {
-        physics.x = physics.targetX
-        physics.velocity = 0
-        physics.lastTime = 0
-        physics.frame = null
-        container.style.setProperty('--study-ranking-shell-scale-x', '1')
-        container.style.setProperty('--study-ranking-shell-shift-x', '0px')
-        paint()
-        return
-      }
-
-      physics.frame = requestAnimationFrame(animate)
-    }
-
-    stopAnimation()
-    measure(!physics.initialized)
-    if (!reduceMotion && Math.abs(physics.x - physics.targetX) > 0.01) {
-      physics.lastTime = 0
-      physics.frame = requestAnimationFrame(animate)
-    }
-
-    const handleViewportChange = () => {
-      stopAnimation()
-      physics.lastTime = 0
-      measure(true)
-      container.style.setProperty('--study-ranking-shell-scale-x', '1')
-      container.style.setProperty('--study-ranking-shell-shift-x', '0px')
-    }
-
-    window.addEventListener('resize', handleViewportChange)
-    window.addEventListener('orientationchange', handleViewportChange)
-    window.visualViewport?.addEventListener('resize', handleViewportChange)
-
-    return () => {
-      stopAnimation()
-      window.removeEventListener('resize', handleViewportChange)
-      window.removeEventListener('orientationchange', handleViewportChange)
-      window.visualViewport?.removeEventListener('resize', handleViewportChange)
-    }
-  }, [activeIndex])
-
-  return { containerRef, indicatorRef, buttonRefs }
 }
 
 `
@@ -296,8 +171,8 @@ function patchStudyRankingPageSource(source) {
   next = replaceRequired(
     next,
     "import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'",
-    "import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'",
-    'study ranking layout effect import',
+    "import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'\nimport { useSHubSegmentSpring } from './s-hub-segment-spring.js'",
+    'study ranking shared spring import',
   )
 
   next = replaceRequired(

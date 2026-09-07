@@ -3,7 +3,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { patchPreviewStationNavSource } from '../src/preview-station-nav-patch.js'
 import { patchStudyVisualPolishSource } from '../src/study-visual-polish-patch.js'
-import { patchSharedSegmentSpringOwnerSource } from '../src/shared-segment-spring-owner-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -35,7 +34,6 @@ test('station and study transforms preserve the source-owned icon wrapper', () =
   let source = read('src/main.jsx')
   source = patchPreviewStationNavSource(source, id)
   source = patchStudyVisualPolishSource(source, id)
-  source = patchSharedSegmentSpringOwnerSource(source, id)
 
   assert.match(source, /function Icon\(\{ type, size = 22 \}\) \{\n  return <SHubIcon name=\{type\} size=\{size\} \/>\n\}/)
   const start = source.indexOf('function Icon({ type, size = 22 }) {')
@@ -45,13 +43,14 @@ test('station and study transforms preserve the source-owned icon wrapper', () =
   assert.doesNotMatch(source, /M4\.2 5\.1h5\.5/)
 })
 
-test('Vite calls the shared segment spring owner directly after visual polish', () => {
+test('Vite keeps icon ownership source-owned and retired segment/icon build owners absent', () => {
   const vite = read('vite.config.js')
   const visual = vite.indexOf('patchStudyVisualPolishSource(next, cleanId)')
-  const shared = vite.indexOf('patchSharedSegmentSpringOwnerSource(next, cleanId)')
   assert.ok(visual >= 0)
-  assert.ok(shared > visual)
+  assert.doesNotMatch(vite, /patchSharedSegmentSpringOwnerSource/)
+  assert.doesNotMatch(vite, /shared-segment-spring-owner-patch\.js/)
   assert.doesNotMatch(vite, /patchSharedIconOwnerSource/)
   assert.doesNotMatch(vite, /shared-icon-owner-patch\.js/)
+  assert.equal(fs.existsSync(new URL('../src/shared-segment-spring-owner-patch.js', import.meta.url)), false)
   assert.equal(fs.existsSync(new URL('../src/shared-icon-owner-patch.js', import.meta.url)), false)
 })

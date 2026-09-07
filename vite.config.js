@@ -36,7 +36,6 @@ import { patchPreviewBoardAllSource } from './src/preview-board-all-patch.js'
 import { patchPreviewBoardSectionManagementSource } from './src/preview-board-section-management-patch.js'
 import { patchPreviewAILiveContextSource } from './src/preview-ai-live-context-patch.js'
 import { patchStudyVisualPolishSource } from './src/study-visual-polish-patch.js'
-import { patchSharedSegmentSpringOwnerSource } from './src/shared-segment-spring-owner-patch.js'
 
 const AI_PROMPT_MARKERS = [
   '너는 한국 고등학생용 S-Hub의 학교 공지 분석기다.',
@@ -114,7 +113,6 @@ function replaceV2Source(source, id) {
   next = patchPreviewStudyUnifiedUISource(next, cleanId)
   next = patchPreviewAILiveContextSource(next, cleanId)
   next = patchStudyVisualPolishSource(next, cleanId)
-  next = patchSharedSegmentSpringOwnerSource(next, cleanId)
   return next
 }
 
@@ -178,7 +176,6 @@ function politeCopyPlugin() {
         || cleanId.endsWith('/preview-ai-live-context-patch.js')
         || cleanId.endsWith('/preview-home-info-patch.js')
         || cleanId.endsWith('/study-visual-polish-patch.js')
-        || cleanId.endsWith('/shared-segment-spring-owner-patch.js')
       ) return null
 
       const next = replaceCopy(code)
