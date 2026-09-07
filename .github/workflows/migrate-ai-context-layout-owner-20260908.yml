@@ -44,10 +44,11 @@ jobs:
             'src/s-hub-ai-core.js',
             'src/s-hub-ai-transport.js',
           ]
+          const pageTargets = new Set(['src/s-hub-ai-sheet.jsx', 'src/s-hub-ai.css'])
           for (const target of targets) {
             const id = `/workspace/${target}`
             let output = fs.readFileSync(target, 'utf8')
-            output = patchPreviewAIPageSource(output, id)
+            if (pageTargets.has(target)) output = patchPreviewAIPageSource(output, id)
             output = patchPreviewAIStageMotionSource(output, id)
             fs.writeFileSync(path.join('/tmp/ai-context-layout-baseline', target.replaceAll('/', '__')), output)
           }
@@ -95,10 +96,11 @@ jobs:
             'src/s-hub-ai-core.js',
             'src/s-hub-ai-transport.js',
           ]
+          const pageTargets = new Set(['src/s-hub-ai-sheet.jsx', 'src/s-hub-ai.css'])
           for (const target of targets) {
             const id = `/workspace/${target}`
             let output = fs.readFileSync(target, 'utf8')
-            output = patchPreviewAIPageSource(output, id)
+            if (pageTargets.has(target)) output = patchPreviewAIPageSource(output, id)
             output = patchPreviewAIStageMotionSource(output, id)
             const baseline = fs.readFileSync(path.join('/tmp/ai-context-layout-baseline', target.replaceAll('/', '__')), 'utf8')
             assert.equal(output, baseline, `${target} final build output changed during owner migration`)
