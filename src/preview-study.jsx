@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
 import {
   loadPreviewStudy,
   pausePreviewStudy,
@@ -258,6 +259,15 @@ function ActiveClassmates({ students, meId, nowMs, onStudent }) {
   )
 }
 
+function useStudyRankingScopeSpring(activeIndex) {
+  return useSHubSegmentSpring(activeIndex, {
+    paddingProperty: '--study-ranking-padding',
+    shellScaleProperty: '--study-ranking-shell-scale-x',
+    shellShiftProperty: '--study-ranking-shell-shift-x',
+    fallbackPadding: 4,
+  })
+}
+
 function StudyRanking({
   classSnapshot,
   schoolSnapshot,
@@ -273,6 +283,14 @@ function StudyRanking({
   const source = scope === 'school' ? schoolSnapshot : classSnapshot
   const ranked = rankedStudents(source?.students, nowMs)
   const waitingForSchool = scope === 'school' && schoolLoading && !schoolSnapshot
+  const scopeSpring = useStudyRankingScopeSpring(scope === 'school' ? 1 : 0)
+  const [stageDirection, setStageDirection] = useState('forward')
+
+  function selectScope(nextScope) {
+    if (nextScope === scope) return
+    setStageDirection(nextScope === 'school' ? 'forward' : 'back')
+    onScope(nextScope)
+  }
 
   return (
     <section className="preview-study-section preview-study-ranking-section">
@@ -281,26 +299,29 @@ function StudyRanking({
         <span>{waitingForSchool ? '불러오는 중' : `${ranked.length}명 기록`}</span>
       </div>
 
-      <div className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">
+      <div ref={scopeSpring.containerRef} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">
+        <span ref={scopeSpring.indicatorRef} className="preview-study-ranking-pill" aria-hidden="true" />
         <button
+          ref={(node) => { scopeSpring.buttonRefs.current[0] = node }}
           type="button"
           className={scope === 'class' ? 'is-selected' : ''}
           aria-pressed={scope === 'class'}
-          onClick={() => onScope('class')}
+          onClick={() => selectScope('class')}
         >
           우리반
         </button>
         <button
+          ref={(node) => { scopeSpring.buttonRefs.current[1] = node }}
           type="button"
           className={scope === 'school' ? 'is-selected' : ''}
           aria-pressed={scope === 'school'}
-          onClick={() => onScope('school')}
+          onClick={() => selectScope('school')}
         >
           전교
         </button>
       </div>
 
-      <div className="preview-study-ranking-stage" key={scope}>
+      <div className="preview-study-ranking-stage" data-direction={stageDirection} key={scope}>
         {waitingForSchool ? (
           <div className="preview-study-empty preview-study-ranking-loading">전교 랭킹을 불러오는 중…</div>
         ) : schoolError && scope === 'school' && !schoolSnapshot ? (
