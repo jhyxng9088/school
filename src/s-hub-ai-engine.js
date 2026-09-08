@@ -140,6 +140,7 @@ reminder.type 규칙:
 - 상대 날짜와 요일은 현재 기준 시각에서 실제 YYYY-MM-DD로 계산한다.
 - 문서에 날짜가 명확하지 않으면 날짜를 지어내지 말고 해당 날짜 필드를 빈 문자열로 두고 confidence=low로 한다.
 - 시간 정보가 없으면 dueTime은 빈 문자열이다.
+- dueTime은 원문에 명시된 실제 시각만 추출한다. 알림 시각, 만료 시각, 학교 종료 시각을 추측하거나 생성하지 않는다. 수행평가의 전날 23:00 알림과 당일 수업 종료 후 만료는 앱의 고정 정책이 처리한다.
 - timetable_change는 date, period, subject 세 값이 핵심이다. 교시를 모르면 period=0으로 둔다.
 - academic은 startDate/endDate를 사용하고 하루 일정이면 둘을 같은 날짜로 둔다.
 

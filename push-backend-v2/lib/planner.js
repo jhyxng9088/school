@@ -72,7 +72,7 @@ export function planClassNotifications({
   const tomorrowExpiresAt = endOfKstDate(tomorrow)
   const tomorrowTodos = (todos || []).filter((todo) => (
     String(todo?.dueDate || '') === tomorrow
-    && !validTime(todo?.dueTime)
+    && (todo?.type === 'performance' || !validTime(todo?.dueTime))
     && !hourlyTodoIds.has(String(todo?.id || ''))
   ))
 

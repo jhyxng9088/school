@@ -87,8 +87,8 @@ function parseDue(todo) {
 }
 
 
-function visibleUnexpiredTodos(todos, nowMs = Date.now()) {
-  return (todos || []).filter((todo) => !isReminderExpired(todo, nowMs))
+function visibleUnexpiredTodos(todos, nowMs = Date.now(), reminderTimetable = null) {
+  return (todos || []).filter((todo) => !isReminderExpired(todo, nowMs, reminderTimetable))
 }
 
 function sortTodos(todos) {
@@ -252,7 +252,7 @@ function writePersonalTodoStateCache(profile, state) {
   }
 }
 
-export function useTodos(profile) {
+export function useTodos(profile, reminderTimetable = null) {
   const signature = profileSignature(profile)
   const [categories, setCategories] = useState(() => readReminderCategoriesCache(profile))
   const categoriesRef = useRef(categories)
@@ -269,7 +269,7 @@ export function useTodos(profile) {
   const remotePersonalRef = useRef(null)
   const mergedTodos = useMemo(() => mergeSharedTodos(sharedTodos, personalState), [sharedTodos, personalState])
   const sourceTodos = remoteReady ? mergedTodos : bootTodos
-  const todos = useMemo(() => visibleUnexpiredTodos(sourceTodos, expiryClock), [sourceTodos, expiryClock])
+  const todos = useMemo(() => visibleUnexpiredTodos(sourceTodos, Math.max(expiryClock, Date.now()), reminderTimetable), [sourceTodos, expiryClock, reminderTimetable])
 
   useEffect(() => {
     writeVisibleTodosCache(profile, todos)
@@ -279,7 +279,7 @@ export function useTodos(profile) {
   useEffect(() => {
     const syncExpiryClock = () => setExpiryClock(Date.now())
     const upcoming = sourceTodos
-      .map(reminderExpiryMs)
+      .map((todo) => reminderExpiryMs(todo, reminderTimetable))
       .filter((time) => Number.isFinite(time) && time > Date.now())
       .sort((a, b) => a - b)[0]
     const delay = upcoming
@@ -298,11 +298,12 @@ export function useTodos(profile) {
       window.removeEventListener('focus', syncExpiryClock)
       window.removeEventListener('online', syncExpiryClock)
     }
-  }, [sourceTodos])
+  }, [sourceTodos, expiryClock, reminderTimetable])
 
   useEffect(() => {
     if (!signature || navigator.onLine === false) return
-    const expired = sourceTodos.filter((todo) => isReminderExpired(todo, expiryClock))
+    // Performance expiry hides the item without deleting the shared document.
+    const expired = sourceTodos.filter((todo) => todo.type !== 'performance' && isReminderExpired(todo, expiryClock))
     expired.forEach((todo) => {
       if (expiryDeleteAttemptsRef.current.has(todo.id)) return
       expiryDeleteAttemptsRef.current.add(todo.id)

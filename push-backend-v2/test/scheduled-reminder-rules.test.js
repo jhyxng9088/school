@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { planClassNotifications } from '../lib/planner.js'
+import { todoRelevantForCheckpoints } from '../lib/scheduled-candidates.js'
 
 function epochKst(value) {
   return Date.parse(`${value}+09:00`)
@@ -56,4 +57,27 @@ test('completed or hidden reminder does not produce an alert', () => {
   }
   assert.equal(planClassNotifications({ ...input, statesByStudent: completedStates }).length, 0)
   assert.equal(planClassNotifications({ ...input, statesByStudent: hiddenStates }).length, 0)
+})
+
+test('performance notification is D-1 23:00 regardless of extracted or fabricated dueTime', () => {
+  for (const dueTime of ['', '00:00', '09:10', '15:00', '23:59', '99:99']) {
+    const todo = { id: 'performance-1', type: 'performance', title: '수행평가', dueDate: '2026-09-09', dueTime }
+    const input = { classId: 'class-1', subscriptions, todos: [todo] }
+    for (const [time, count] of [['2026-09-08T22:59:59', 0], ['2026-09-08T23:00:00', 1], ['2026-09-08T23:09:59', 1], ['2026-09-08T23:10:00', 0], ['2026-09-09T00:00:00', 0], ['2026-09-09T14:00:00', 0]]) {
+      const nowMs = epochKst(time)
+      assert.equal(todoRelevantForCheckpoints(todo, [nowMs], nowMs), count === 1)
+      const plans = planClassNotifications({ ...input, nowMs })
+      assert.equal(plans.length, count, `${dueTime} / ${time}`)
+      if (count) assert.equal(plans[0].type, 'reminder-tomorrow')
+    }
+  }
+})
+
+test('performance backfill cannot deliver a stale tomorrow alert on the due day', () => {
+  const todo = { type: 'performance', dueDate: '2026-09-09', dueTime: '' }
+  const checkpoints = [epochKst('2026-09-08T23:05:00')]
+  assert.equal(todoRelevantForCheckpoints(todo, checkpoints, epochKst('2026-09-08T23:30:00')), true)
+  assert.equal(todoRelevantForCheckpoints(todo, checkpoints, epochKst('2026-09-09T00:00:00')), false)
+  assert.equal(todoRelevantForCheckpoints(todo, checkpoints, epochKst('2026-09-09T17:00:00')), false)
+  assert.equal(todoRelevantForCheckpoints({ ...todo, type: 'task' }, checkpoints, epochKst('2026-09-09T17:00:00')), true)
 })

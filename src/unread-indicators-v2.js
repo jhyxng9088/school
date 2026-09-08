@@ -112,6 +112,7 @@ async function startUnreadIndicators() {
     seen: new Map(),
     todoState: new Map(),
     timetableOverrides: {},
+    reminderTimetable: null,
     activityReady: false,
     seenReady: false,
     todosReady: false,
@@ -143,7 +144,7 @@ async function startUnreadIndicators() {
     }
     const nowMs = Date.now()
     const nextExpiry = [...state.todos.values()]
-      .map(reminderExpiryMs)
+      .map((todo) => reminderExpiryMs(todo, state.reminderTimetable))
       .filter((value) => Number.isFinite(value) && value > nowMs)
       .sort((a, b) => a - b)[0]
     if (!nextExpiry) return
@@ -197,7 +198,7 @@ async function startUnreadIndicators() {
   function reminderActivity(todo) {
     if (!todo?.id) return null
     const personalState = state.todoState.get(String(todo.id)) || null
-    if (!reminderActivityEligibleForStudent(todo, personalState)) return null
+    if (!reminderActivityEligibleForStudent(todo, personalState, Date.now(), state.reminderTimetable)) return null
     const activity = state.activity.get(`reminder:${todo.id}`)
     if (!activity) return null
     if (!['added', 'edited'].includes(activity.action)) return null
@@ -428,6 +429,7 @@ async function startUnreadIndicators() {
   }))
 
   subscriptions.push(subscribeClassLiveData('timetable', classId, (timetable) => {
+    state.reminderTimetable = timetable
     const rawOverrides = timetable?.overrides
     const nextOverrides = {}
     const today = todayDateKey()
@@ -455,6 +457,7 @@ async function startUnreadIndicators() {
       if (!value?.id) return
       next.set(String(value.id), {
         id: String(value.id),
+        type: String(value.type || 'task'),
         dueDate: String(value.dueDate || ''),
         dueTime: String(value.dueTime || ''),
         createdAt: Number(value.createdAt || 0),

@@ -88,8 +88,8 @@ async function finishSchoolAIReminderEnrichment(todoData, todoId, input, source)
   }
 }
 
-export function useTodos(profile) {
-  const todoData = useBaseTodos(profile)
+export function useTodos(profile, reminderTimetable = null) {
+  const todoData = useBaseTodos(profile, reminderTimetable)
 
   async function saveTodo(input) {
     const source = schoolAIImportSheetOpen() ? claimSchoolAIReminderSource() : null

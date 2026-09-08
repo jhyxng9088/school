@@ -189,7 +189,7 @@ export default async function handler(req, res) {
 
       const todos = todoDocs
         .map((snapshot) => ({ id: snapshot.id, ...(snapshot.data() || {}) }))
-        .filter((todo) => todoRelevantForCheckpoints(todo, checkpoints))
+        .filter((todo) => todoRelevantForCheckpoints(todo, checkpoints, nowMs))
       const customAcademicEvents = academicDocs
         .map((snapshot) => ({ id: snapshot.id, ...(snapshot.data() || {}) }))
       const academicEvents = dedupeAcademicEvents([

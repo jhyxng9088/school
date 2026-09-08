@@ -1083,7 +1083,11 @@ function AppShell({ profile }) {
     refreshSharedTimetable,
   } = useSharedTimetable(profile, now)
   const schoolData = useSchoolData(now)
-  const todoData = useTodos(profile)
+  const reminderTimetable = useMemo(() => ({
+    weeklySchedule: sharedWeeklySchedule,
+    overrides: sharedOverrides,
+  }), [sharedWeeklySchedule, sharedOverrides])
+  const todoData = useTodos(profile, reminderTimetable)
   const presence = useClassPresence(profile)
   const academicData = useSharedAcademic(profile)
   const activity = useClassActivity(profile)
