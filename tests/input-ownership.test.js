@@ -6,16 +6,16 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 
 test('Study ranking input is owned by its React control, not a document pointer interceptor', () => {
   const refinements = read('public/school-refinements.css')
-  const studyPatch = read('src/preview-study-patch.js')
+  const study = read('src/preview-study.jsx')
   const rankingCss = read('src/preview-study-ranking.css')
 
   assert.doesNotMatch(refinements, /preview-study-ranking-stage\[data-direction\]/)
   assert.doesNotMatch(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
 
-  assert.match(studyPatch, /onClick=\{\(\) => selectScope\('class'\)\}/)
-  assert.match(studyPatch, /onClick=\{\(\) => selectScope\('school'\)\}/)
-  assert.doesNotMatch(studyPatch, /touchIntentRef/)
-  assert.doesNotMatch(studyPatch, /onPointerDown=/)
+  assert.match(study, /onClick=\{\(\) => selectScope\('class'\)\}/)
+  assert.match(study, /onClick=\{\(\) => selectScope\('school'\)\}/)
+  assert.doesNotMatch(study, /touchIntentRef/)
+  assert.doesNotMatch(study, /onPointerDown=/)
   assert.equal((rankingCss.match(/touch-action: pan-y;/g) || []).length, 2)
   assert.doesNotMatch(rankingCss, /touch-action: manipulation/)
 })
