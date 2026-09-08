@@ -31,10 +31,20 @@ test('normal roster reads use Supabase presence and do not scan history', () => 
   assert.match(source, /classRef\.collection\('academicEvents'\)\.get\(\)/)
 })
 
+test('active authoritative presence keys participate in roster recovery without another presence read', () => {
+  assert.match(source, /function presenceStudentKeys\(presence\)/)
+  assert.match(source, /const recoveryMemberKeys = new Set\(\[[\s\S]*\.\.\.memberKeys,[\s\S]*\.\.\.presenceStudentKeys\(presence\)/)
+  assert.match(source, /memberKeys: recoveryMemberKeys/)
+  assert.match(source, /cacheCanServeRoster\(\{ cache: supabaseCache, memberKeys: recoveryMemberKeys, result \}\)/)
+
+  const presenceReads = source.match(/loadSupabaseClassPresence\(\{ token, classId \}\)/g) || []
+  assert.equal(presenceReads.length, 1)
+})
+
 test('Supabase identity cache bypasses the class-wide users query only when complete and conflict-free', () => {
   assert.match(source, /supabaseRosterCacheCoversMembers\(cache\.users, memberKeys\)/)
   assert.match(source, /result\.roster\.members\.some\(\(member\) => member\.conflict\)/)
-  assert.match(source, /if \(!cacheCanServeRoster\(\{ cache: supabaseCache, memberKeys, result \}\)\) \{/)
+  assert.match(source, /if \(!cacheCanServeRoster\(\{ cache: supabaseCache, memberKeys: recoveryMemberKeys, result \}\)\) \{/)
   assert.match(source, /db\.collection\('users'\)\.where\('classId', '==', classId\)\.get\(\)/)
   assert.match(source, /mergeRosterUsers\(firestoreUsers, supabaseCache\.users\)/)
 })
