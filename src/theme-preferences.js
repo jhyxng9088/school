@@ -14,6 +14,9 @@ export const THEME_ACCENTS = [
   { id: 'mint', label: '민트' },
   { id: 'peach', label: '피치' },
   { id: 'avocado', label: '아보카도' },
+  { id: 'cream', label: '크림' },
+  { id: 'ivory', label: '아이보리' },
+  { id: 'sand', label: '샌드' },
 ]
 
 const MODE_IDS = new Set(THEME_MODES.map((item) => item.id))

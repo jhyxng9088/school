@@ -1,3 +1,128 @@
+@property --bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f5f5f7;
+}
+
+@property --surface {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ffffff;
+}
+
+@property --surface-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ececef;
+}
+
+@property --surface-glass {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(248, 248, 250, 0.84);
+}
+
+@property --text {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #161617;
+}
+
+@property --text-secondary {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #6e6e73;
+}
+
+@property --text-tertiary {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #8e8e93;
+}
+
+@property --border {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(22, 22, 23, 0.07);
+}
+
+@property --divider {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(22, 22, 23, 0.08);
+}
+
+@property --nav-shell-surface {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(246, 246, 248, 0.78);
+}
+
+@property --s-hub-active-pill-surface {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(255, 255, 255, 0.98);
+}
+
+@property --s-hub-active-pill-edge {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(22, 22, 23, 0.08);
+}
+
+@property --specular-edge {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(255, 255, 255, 0.92);
+}
+
+@property --lower-edge {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(22, 22, 23, 0.025);
+}
+
+@property --focus-surface {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #fbfbfc;
+}
+
+@property --focus-accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(72, 110, 210, 0.72);
+}
+
+@property --focus-accent-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(72, 110, 210, 0.09);
+}
+
+html {
+  transition-property:
+    --bg,
+    --surface,
+    --surface-soft,
+    --surface-glass,
+    --text,
+    --text-secondary,
+    --text-tertiary,
+    --border,
+    --divider,
+    --nav-shell-surface,
+    --s-hub-active-pill-surface,
+    --s-hub-active-pill-edge,
+    --specular-edge,
+    --lower-edge,
+    --focus-surface,
+    --focus-accent,
+    --focus-accent-soft;
+  transition-duration: 460ms;
+  transition-timing-function: var(--motion-soft, cubic-bezier(0.33, 1, 0.68, 1));
+}
+
 html[data-theme-mode="light"] {
   color-scheme: light;
   --bg: #f5f5f7;
@@ -58,25 +183,28 @@ html[data-theme-accent="lavender"] { --theme-accent: #ab9bcf; }
 html[data-theme-accent="mint"] { --theme-accent: #9eaf91; }
 html[data-theme-accent="peach"] { --theme-accent: #d2a080; }
 html[data-theme-accent="avocado"] { --theme-accent: #b2c66a; }
+html[data-theme-accent="cream"] { --theme-accent: #e2c487; }
+html[data-theme-accent="ivory"] { --theme-accent: #e7deca; }
+html[data-theme-accent="sand"] { --theme-accent: #c8b295; }
 
 html[data-theme-accent] {
-  --bg: color-mix(in srgb, #f5f5f7 88%, var(--theme-accent));
-  --surface: color-mix(in srgb, #ffffff 84%, var(--theme-accent));
-  --surface-soft: color-mix(in srgb, #ececef 76%, var(--theme-accent));
-  --surface-glass: color-mix(in srgb, rgba(248, 248, 250, 0.84) 82%, var(--theme-accent));
-  --border: color-mix(in srgb, rgba(22, 22, 23, 0.07) 75%, var(--theme-accent));
-  --divider: color-mix(in srgb, rgba(22, 22, 23, 0.08) 78%, var(--theme-accent));
-  --nav-shell-surface: color-mix(in srgb, rgba(246, 246, 248, 0.78) 80%, var(--theme-accent));
-  --s-hub-active-pill-surface: color-mix(in srgb, #ffffff 68%, var(--theme-accent));
-  --s-hub-active-pill-edge: color-mix(in srgb, rgba(22, 22, 23, 0.08) 58%, var(--theme-accent));
+  --bg: color-mix(in srgb, #f5f5f7 86%, var(--theme-accent));
+  --surface: color-mix(in srgb, #ffffff 81%, var(--theme-accent));
+  --surface-soft: color-mix(in srgb, #ececef 72%, var(--theme-accent));
+  --surface-glass: color-mix(in srgb, rgba(248, 248, 250, 0.84) 79%, var(--theme-accent));
+  --border: color-mix(in srgb, rgba(22, 22, 23, 0.07) 72%, var(--theme-accent));
+  --divider: color-mix(in srgb, rgba(22, 22, 23, 0.08) 75%, var(--theme-accent));
+  --nav-shell-surface: color-mix(in srgb, rgba(246, 246, 248, 0.78) 77%, var(--theme-accent));
+  --s-hub-active-pill-surface: color-mix(in srgb, #ffffff 64%, var(--theme-accent));
+  --s-hub-active-pill-edge: color-mix(in srgb, rgba(22, 22, 23, 0.08) 55%, var(--theme-accent));
   --s-hub-active-pill-shadow: inset 0 0 0 0.5px var(--s-hub-active-pill-edge), 0 5px 18px rgba(0, 0, 0, 0.1);
   --nav-indicator-surface: var(--s-hub-active-pill-surface);
   --nav-indicator-edge: var(--s-hub-active-pill-edge);
   --nav-indicator-shadow: var(--s-hub-active-pill-shadow);
-  --specular-edge: color-mix(in srgb, rgba(255, 255, 255, 0.92) 86%, var(--theme-accent));
-  --focus-surface: color-mix(in srgb, #fbfbfc 70%, var(--theme-accent));
+  --specular-edge: color-mix(in srgb, rgba(255, 255, 255, 0.92) 84%, var(--theme-accent));
+  --focus-surface: color-mix(in srgb, #fbfbfc 66%, var(--theme-accent));
   --focus-accent: color-mix(in srgb, var(--theme-accent) 82%, #59606c);
-  --focus-accent-soft: color-mix(in srgb, #ffffff 72%, var(--theme-accent));
+  --focus-accent-soft: color-mix(in srgb, #ffffff 68%, var(--theme-accent));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -122,42 +250,41 @@ html[data-theme-mode="dark"][data-theme-accent] {
 }
 
 #theme-settings-root {
-  position: fixed;
+  position: absolute;
   z-index: 19;
-  right: max(18px, calc((100vw - 720px) / 2 + 20px));
-  bottom: calc(var(--nav-bottom, 12px) + 76px);
+  top: calc(max(32px, env(safe-area-inset-top)) + 34px);
+  right: max(64px, calc((100vw - 720px) / 2 + 64px));
   opacity: 0;
   pointer-events: none;
-  transform: translateY(5px);
+  transform: translateY(4px) scale(.98);
   transition: opacity 220ms var(--motion-soft, ease), transform 320ms var(--motion-ease, ease);
 }
 
 body:has(.app-content.tab-home) #theme-settings-root {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .theme-settings-trigger {
-  min-height: 34px;
-  padding: 0 13px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 50%;
   background: var(--surface-glass);
   color: var(--text-secondary);
   box-shadow: var(--shadow-nav);
   backdrop-filter: blur(18px) saturate(135%);
   -webkit-backdrop-filter: blur(18px) saturate(135%);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 680;
-  letter-spacing: -0.02em;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 150ms var(--motion-ease, ease), background-color 220ms var(--motion-soft, ease);
+  transition: transform 150ms var(--motion-ease, ease), background-color 360ms var(--motion-soft, ease), border-color 360ms var(--motion-soft, ease), color 360ms var(--motion-soft, ease);
 }
 
-.theme-settings-trigger:active { transform: scale(.96); }
+.theme-settings-trigger:active { transform: scale(.94); }
 
 .theme-settings-panel {
   display: grid;
@@ -183,9 +310,19 @@ body:has(.app-content.tab-home) #theme-settings-root {
   margin: 0 !important;
 }
 
+.theme-mode-segment .class-top-segment-button {
+  opacity: 1 !important;
+  color: var(--text-secondary) !important;
+  transition: color 360ms var(--motion-soft, ease), transform 90ms var(--motion-ease, ease) !important;
+}
+
+.theme-mode-segment .class-top-segment-button.is-active {
+  color: var(--text) !important;
+}
+
 .theme-accent-options {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px 8px;
 }
 
@@ -202,6 +339,7 @@ body:has(.app-content.tab-home) #theme-settings-root {
   font-size: 10px;
   font-weight: 620;
   cursor: pointer;
+  transition: color 360ms var(--motion-soft, ease);
 }
 
 .theme-accent-swatch {
@@ -227,16 +365,32 @@ body:has(.app-content.tab-home) #theme-settings-root {
 .theme-accent-option[data-accent="mint"] { --swatch: #9eaf91; }
 .theme-accent-option[data-accent="peach"] { --swatch: #d2a080; }
 .theme-accent-option[data-accent="avocado"] { --swatch: #b2c66a; }
+.theme-accent-option[data-accent="cream"] { --swatch: #e2c487; }
+.theme-accent-option[data-accent="ivory"] { --swatch: #e7deca; }
+.theme-accent-option[data-accent="sand"] { --swatch: #c8b295; }
 
 @media (max-width: 390px) {
-  .theme-accent-options { gap: 7px 4px; }
+  #theme-settings-root {
+    right: 60px;
+  }
+
+  .theme-accent-options {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px 4px;
+  }
   .theme-accent-option { font-size: 9px; }
   .theme-accent-swatch { width: 29px; height: 29px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    transition-duration: .01ms;
+  }
+
   #theme-settings-root,
   .theme-settings-trigger,
+  .theme-mode-segment .class-top-segment-button,
+  .theme-accent-option,
   .theme-accent-swatch {
     transition-duration: .01ms !important;
   }
