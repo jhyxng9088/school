@@ -147,7 +147,10 @@ async function authToken() {
 
 async function fetchRoster({ force = false } = {}) {
   hydrateRosterCache()
-  if (!force && cachedRoster && Date.now() - lastFetchedAt < ROSTER_FRESH_MS) return cachedRoster
+  if (!force
+    && cachedRoster
+    && Date.now() - lastFetchedAt < ROSTER_FRESH_MS
+    && !rosterPresenceNeedsRefresh(cachedRoster)) return cachedRoster
   if (refreshPromise) return refreshPromise
 
   refreshPromise = (async () => {
@@ -257,11 +260,28 @@ function applyLivePresenceSnapshot(detail) {
   updateModalSummary()
 }
 
-function applyLatestPresenceSnapshot() {
+function latestPresenceSnapshot() {
   const classNumber = profileClassNumber()
-  if (!classNumber) return
-  const snapshot = readLatestSupabasePresenceSnapshot(`class-${classNumber}`)
+  if (!classNumber) return null
+  return readLatestSupabasePresenceSnapshot(`class-${classNumber}`)
+}
+
+function applyLatestPresenceSnapshot() {
+  const snapshot = latestPresenceSnapshot()
   if (snapshot) applyLivePresenceSnapshot(snapshot)
+}
+
+function rosterPresenceNeedsRefresh(roster = cachedRoster) {
+  if (!roster) return false
+  const snapshot = latestPresenceSnapshot()
+  if (!snapshot) return false
+  const knownKeys = new Set(
+    roster.members
+      .filter((member) => !member.conflict && member.studentKey)
+      .map((member) => member.studentKey),
+  )
+  return snapshot.activeStudentKeys.some((studentKey) => !knownKeys.has(studentKey))
+    || Number(snapshot.online || 0) > Number(roster.registeredTotal || roster.total || 0)
 }
 
 function clearCloseTimer() {
