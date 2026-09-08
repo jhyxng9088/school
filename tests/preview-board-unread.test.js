@@ -55,22 +55,24 @@ test('board realtime supports global unread and visible-board refresh listeners 
   assert.doesNotMatch(realtime, /if \(socketState\) stopSocketState\(socketState\)\n  const state/)
 })
 
-test('board unread UI reaches class nav, board segment, and changed post cards', () => {
+test('board post unread stays card-owned while unified unread alone owns Class nav and segment dots', () => {
   const patch = read('src/preview-board-patch.js')
   const boardCss = read('src/preview-board-unread.css')
   const unified = read('src/unread-indicators-v2.js')
   const unifiedCss = read('src/unread-indicators.css')
 
   assert.match(patch, /const boardUnread = usePreviewBoardUnread\(profile\)/)
-  assert.match(patch, /hasBoardUnread=\{boardUnread\.hasUnread\}/)
-  assert.match(patch, /tab\.id === 'class' && boardUnread\.hasUnread/)
   assert.match(patch, /boardUnread\.isPostUnread\(post\.id\)/)
   assert.match(patch, /boardUnread\.markPostRead\(post\.id\)/)
   assert.match(patch, /preview-board-unread-dot/)
   assert.match(boardCss, /preview-board-card\.has-unread/)
+  assert.doesNotMatch(patch, /hasBoardUnread/)
+  assert.doesNotMatch(patch, /bottom nav unread class/)
+  assert.doesNotMatch(patch, /boardUnreadImport/)
 
   assert.match(unified, /if \(tab === 'board'\) return state\.boardUnread/)
   assert.match(unified, /if \(tab === 'class'\) return navUnread\('timetable'\) \|\| navUnread\('board'\)/)
+  assert.match(unified, /const unread = Boolean\(next\?\.hasSectionUnread\)/)
   assert.match(unified, /renderTopSegments\(\)/)
   assert.match(unified, /renderNav\(\)/)
   assert.match(unified, /addDot\(button, 'segment'\)/)
@@ -86,12 +88,4 @@ test('an already open post stays read when a realtime comment or edit arrives', 
   assert.match(patch, /if \(!detailPostId \|\| !boardUnread\.isPostUnread\(detailPostId\)\) return/)
   assert.match(patch, /boardUnread\.markPostRead\(detailPostId\)/)
   assert.match(patch, /\[detailPostId, boardUnread\.revision\]/)
-})
-
-test('AI working state keeps board unread class when both nav indicators are active', () => {
-  const aiOwner = read('src/preview-ai-stage-motion-patch.js')
-  assert.match(aiOwner, /boardUnreadNavMarker/)
-  assert.match(aiOwner, /tab\.id === 'class' && boardUnread\.hasUnread \? 'has-board-unread' : ''/)
-  assert.match(aiOwner, /tab\.id === 'ai' && aiWorking \? 'is-ai-working' : ''/)
-  assert.match(aiOwner, /s-hub-ai-nav-progress/)
 })
