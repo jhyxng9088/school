@@ -8,7 +8,6 @@ import {
   readThemePreferences,
   saveThemePreferences,
 } from './theme-preferences.js'
-import './theme-preferences.css'
 
 initializeThemePreferences()
 
