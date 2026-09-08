@@ -23,6 +23,45 @@ const MODE_IDS = new Set(THEME_MODES.map((item) => item.id))
 const ACCENT_IDS = new Set(THEME_ACCENTS.map((item) => item.id))
 const LEGACY_ACCENT_ALIASES = Object.freeze({ sand: 'cream' })
 
+function applyThemeChangeWithoutBackgroundLag(preferences, root) {
+  if (!root?.style || typeof globalThis.getComputedStyle !== 'function') {
+    return applyThemePreferences(preferences, root)
+  }
+
+  const transitionProperties = globalThis.getComputedStyle(root).transitionProperty
+    .split(',')
+    .map((property) => property.trim())
+    .filter(Boolean)
+
+  if (!transitionProperties.includes('--bg')) {
+    return applyThemePreferences(preferences, root)
+  }
+
+  const previousInlineTransitionProperty = root.style.transitionProperty
+  const immediateBackgroundProperties = transitionProperties.filter((property) => property !== '--bg')
+  root.style.transitionProperty = immediateBackgroundProperties.join(', ') || 'none'
+
+  const next = applyThemePreferences(preferences, root)
+
+  const restoreTransitionOwner = () => {
+    if (previousInlineTransitionProperty) {
+      root.style.transitionProperty = previousInlineTransitionProperty
+    } else {
+      root.style.removeProperty('transition-property')
+    }
+  }
+
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    globalThis.requestAnimationFrame(() => {
+      globalThis.requestAnimationFrame(restoreTransitionOwner)
+    })
+  } else {
+    restoreTransitionOwner()
+  }
+
+  return next
+}
+
 export function normalizeThemePreferences(value) {
   const source = value && typeof value === 'object' ? value : {}
   const requestedAccent = LEGACY_ACCENT_ALIASES[source.accent] || source.accent
@@ -55,7 +94,7 @@ export function applyThemePreferences(preferences, root = globalThis.document?.d
 }
 
 export function saveThemePreferences(preferences, storage = globalThis.localStorage, root = globalThis.document?.documentElement) {
-  const next = applyThemePreferences(preferences, root)
+  const next = applyThemeChangeWithoutBackgroundLag(preferences, root)
   try {
     storage?.setItem(THEME_STORAGE_KEY, JSON.stringify(next))
   } catch {
