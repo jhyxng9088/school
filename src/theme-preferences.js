@@ -8,6 +8,7 @@ export const THEME_MODES = [
 
 export const THEME_ACCENTS = [
   { id: 'default', label: '기본' },
+  { id: 'gray', label: '회색' },
   { id: 'pink', label: '핑크' },
   { id: 'blue', label: '블루' },
   { id: 'lavender', label: '라벤더' },
@@ -16,17 +17,18 @@ export const THEME_ACCENTS = [
   { id: 'avocado', label: '아보카도' },
   { id: 'cream', label: '크림' },
   { id: 'ivory', label: '아이보리' },
-  { id: 'sand', label: '샌드' },
 ]
 
 const MODE_IDS = new Set(THEME_MODES.map((item) => item.id))
 const ACCENT_IDS = new Set(THEME_ACCENTS.map((item) => item.id))
+const LEGACY_ACCENT_ALIASES = Object.freeze({ sand: 'cream' })
 
 export function normalizeThemePreferences(value) {
   const source = value && typeof value === 'object' ? value : {}
+  const requestedAccent = LEGACY_ACCENT_ALIASES[source.accent] || source.accent
   return {
     mode: MODE_IDS.has(source.mode) ? source.mode : 'system',
-    accent: ACCENT_IDS.has(source.accent) ? source.accent : 'default',
+    accent: ACCENT_IDS.has(requestedAccent) ? requestedAccent : 'default',
   }
 }
 
