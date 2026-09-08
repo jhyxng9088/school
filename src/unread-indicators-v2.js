@@ -354,12 +354,12 @@ async function startUnreadIndicators() {
     ensureReminderBaseline()
     ensureTimetableBaseline()
     ensureAcademicBaseline()
+    const tab = activeLeafTab()
+    if (tab) markTabSeen(tab)
     renderReminderRows()
     renderTopSegments()
     renderNav()
     scheduleNextReminderExpiry()
-    const tab = activeLeafTab()
-    if (tab) markTabSeen(tab)
   }
 
   function markReminderSeen(todo) {
@@ -496,6 +496,12 @@ async function startUnreadIndicators() {
         hidden: Boolean(value?.hidden),
         updatedAt: Number(value?.updatedAt || 0),
       })
+    })
+    state.seen.forEach((value, id) => {
+      const localVersion = Number(value?.updatedAt || 0)
+      if (localVersion > Number(nextSeen.get(id)?.updatedAt || 0)) {
+        nextSeen.set(id, { updatedAt: localVersion })
+      }
     })
     pendingWrites.forEach((version, id) => {
       if (Number(version || 0) > Number(nextSeen.get(id)?.updatedAt || 0)) {
