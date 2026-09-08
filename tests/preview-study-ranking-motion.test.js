@@ -34,7 +34,7 @@ test('study ranking scope uses one physical pill with direct click ownership', (
 
 test('study ranking content reuses the meal content motion with a visibly perceptible Study mapping and reduced-motion fallback', () => {
   const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
-  const style = patchPreviewStudySource(read('src/preview-study-ranking.css'), '/workspace/src/preview-study-ranking.css')
+  const style = read('src/preview-study-ranking.css')
   const stage3 = read('src/stage3.css')
   const main = read('src/main.jsx')
 
@@ -54,6 +54,17 @@ test('study ranking content reuses the meal content motion with a visibly percep
   assert.doesNotMatch(style, /@keyframes preview-study-ranking-back/)
   assert.match(style, /prefers-reduced-motion: reduce/)
   assert.match(style, /preview-study-ranking-stage\[data-direction\][\s\S]*animation: none !important/)
+})
+
+test('Study ranking motion CSS is source-owned instead of appended by the build patch', () => {
+  const style = read('src/preview-study-ranking.css')
+  const patch = read('src/preview-study-patch.js')
+  const patchedStyle = patchPreviewStudySource(style, '/workspace/src/preview-study-ranking.css')
+
+  assert.match(style, /Study ranking scope uses the exact class top-segment spring mechanism/)
+  assert.equal(patchedStyle, style)
+  assert.doesNotMatch(patch, /STUDY_RANKING_SPRING_CSS/)
+  assert.doesNotMatch(patch, /patchStudyRankingStyleSource/)
 })
 
 test('late-loaded school refinements do not globally suppress Study motion', () => {

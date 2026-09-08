@@ -45,6 +45,6 @@ test('study ranking keeps scroll stability while allowing controlled React-owned
   assert.match(studyPatch, /onClick=\{\(\) => selectScope\('school'\)\}/)
   assert.doesNotMatch(studyPatch, /touchIntentRef/)
   assert.doesNotMatch(studyPatch, /onPointerDown=/)
-  assert.equal((studyPatch.match(/touch-action: pan-y;/g) || []).length, 2)
-  assert.doesNotMatch(studyPatch, /touch-action: manipulation/)
+  assert.equal((rankingCss.match(/touch-action: pan-y;/g) || []).length, 2)
+  assert.doesNotMatch(rankingCss, /touch-action: manipulation/)
 })
