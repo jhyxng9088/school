@@ -203,7 +203,7 @@ async function syncController(controller) {
         return
       }
 
-      let cursor = Math.max(controller.state.seenCursor, Number(firstPage.cursor || 0))
+      let cursor = Math.max(0, Number(controller.state.seenCursor || 0))
       let combinedLatestCursor = Math.max(controller.state.eventCursor, latestCursor)
       let latestOther = latestOtherEvent(firstPage.events, controller.identityKey)
       let page = firstPage
