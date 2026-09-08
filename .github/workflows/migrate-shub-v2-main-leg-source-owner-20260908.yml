@@ -1,0 +1,80 @@
+name: Migrate S-Hub V2 main leg source owner 20260908
+
+on:
+  push:
+    branches:
+      - work/shub-v2-main-leg-source-owner-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: work/shub-v2-main-leg-source-owner-20260908
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Capture current production build
+        run: |
+          npm run build
+          rm -rf /tmp/s-hub-v2-main-before
+          cp -a dist /tmp/s-hub-v2-main-before
+
+      - name: Source-own S-Hub V2 main leg
+        run: node scripts/migrate-shub-v2-main-leg-source-owner-20260908.mjs
+
+      - name: Remove temporary migration owners
+        run: |
+          rm scripts/migrate-shub-v2-main-leg-source-owner-20260908.mjs
+          rm .github/workflows/migrate-shub-v2-main-leg-source-owner-20260908.yml
+
+      - name: Verify changed-file boundary
+        run: |
+          git diff --check
+          git diff --name-only | sort > /tmp/actual-files.txt
+          cat > /tmp/expected-files.txt <<'EOF'
+          .github/workflows/migrate-shub-v2-main-leg-source-owner-20260908.yml
+          scripts/migrate-shub-v2-main-leg-source-owner-20260908.mjs
+          src/main.jsx
+          src/preview-s-hub-v2-patch.js
+          tests/shub-v2-main-source-owner.test.js
+          EOF
+          sort -o /tmp/expected-files.txt /tmp/expected-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+
+      - name: Verify complete production build equivalence
+        run: |
+          rm -rf dist
+          npm run build
+          diff -qr /tmp/s-hub-v2-main-before dist
+
+      - name: Test production app
+        run: npm test
+
+      - name: Install production backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test production backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit clean migration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "refactor: source-own S-Hub V2 main scroll reset"
+          git push origin HEAD:work/shub-v2-main-leg-source-owner-20260908
