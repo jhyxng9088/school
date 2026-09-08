@@ -113,12 +113,10 @@ function StudyControlCard({
   const paused = Boolean(active?.isPaused)
   const elapsed = activeSessionSeconds(active, nowMs)
 
-  let primaryLabel = '공부 시작'
-  if (hasActive) primaryLabel = paused ? '계속하기' : '일시정지'
-  if (saving && actionKind === 'pause') primaryLabel = '일시정지 중…'
-  if (saving && actionKind === 'resume') primaryLabel = '계속하는 중…'
-
-  const stopLabel = saving && actionKind === 'stop' ? '종료 중…' : '공부 종료'
+  const primaryLabel = hasActive ? (paused ? '계속하기' : '일시정지') : '공부 시작'
+  const stopLabel = '공부 종료'
+  const primarySyncing = saving && (actionKind === 'pause' || actionKind === 'resume')
+  const stopSyncing = saving && actionKind === 'stop'
   const primaryDisabled = saving || (!hasActive && !finalSubject)
 
   function handlePrimary() {
@@ -199,6 +197,7 @@ function StudyControlCard({
           onClick={handlePrimary}
           disabled={primaryDisabled}
           aria-live="polite"
+          aria-busy={primarySyncing || undefined}
         >
           <span className="preview-study-action-label" key={primaryLabel}>{primaryLabel}</span>
         </button>
@@ -209,6 +208,7 @@ function StudyControlCard({
           disabled={!hasActive || saving}
           tabIndex={hasActive ? 0 : -1}
           aria-hidden={!hasActive}
+          aria-busy={stopSyncing || undefined}
         >
           <span className="preview-study-action-label" key={stopLabel}>{stopLabel}</span>
         </button>
@@ -439,6 +439,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   const [saving, setSaving] = useState(false)
   const [actionKind, setActionKind] = useState('')
   const [optimisticActive, setOptimisticActive] = useState(null)
+  const [optimisticStopped, setOptimisticStopped] = useState(false)
   const [selectedSubject, setSelectedSubject] = useState('')
   const [customSubject, setCustomSubject] = useState('')
   const [rankingScope, setRankingScope] = useState('class')
@@ -562,20 +563,29 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   const me = snapshot?.me || null
   const meId = studentIdentity(me)
   const serverActive = me?.active || null
-  const myActive = optimisticActive || serverActive
-  const displayMe = useMemo(
-    () => (me && optimisticActive ? { ...me, active: optimisticActive } : me),
-    [me, optimisticActive],
-  )
+  const myActive = optimisticStopped ? null : (optimisticActive || serverActive)
+  const displayMe = useMemo(() => {
+    if (!me) return me
+    if (optimisticStopped) return { ...me, active: null }
+    if (optimisticActive) return { ...me, active: optimisticActive }
+    return me
+  }, [me, optimisticActive, optimisticStopped])
   const myTodaySeconds = useMemo(
     () => studentTodaySeconds(displayMe, nowMs),
     [displayMe, nowMs],
   )
 
   useEffect(() => {
+    if (optimisticStopped) {
+      if (!serverActive && !startRequestRef.current) setOptimisticStopped(false)
+      return
+    }
     if (!optimisticActive || !serverActive) return
-    if (serverActive.subject === optimisticActive.subject) setOptimisticActive(null)
-  }, [optimisticActive, serverActive])
+    if (
+      serverActive.subject === optimisticActive.subject
+      && Boolean(serverActive.isPaused) === Boolean(optimisticActive.isPaused)
+    ) setOptimisticActive(null)
+  }, [optimisticActive, optimisticStopped, serverActive])
 
   const selectedStudent = useMemo(() => {
     if (!selectedStudentId) return null
@@ -586,12 +596,24 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
 
   const closeStudentSheet = useCallback(() => setSelectedStudentId(''), [])
 
-  async function runAction({ kind, onlineLabel, action, broadcastAction, fallbackMessage }) {
+  async function waitForPendingStart() {
+    const pending = startRequestRef.current
+    if (!pending) return true
+    return pending
+  }
+
+  async function runAction({ kind, onlineLabel, action, broadcastAction, fallbackMessage, optimistic, rollback }) {
     if (saving || !requireOnline(onlineLabel)) return false
     setSaving(true)
     setActionKind(kind)
     setActionError('')
+    optimistic?.()
     try {
+      if (!(await waitForPendingStart())) {
+        setOptimisticActive(null)
+        setOptimisticStopped(false)
+        return false
+      }
       await action()
       await broadcastPreviewStudyRealtime(broadcastAction)
       await load({ silent: true })
@@ -599,18 +621,13 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       setNowMs(Date.now())
       return true
     } catch (error) {
+      rollback?.()
       setActionError(error?.message || fallbackMessage)
       return false
     } finally {
       setSaving(false)
       setActionKind('')
     }
-  }
-
-  async function waitForPendingStart() {
-    const pending = startRequestRef.current
-    if (!pending) return true
-    return pending
   }
 
   async function start() {
@@ -622,6 +639,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     const previousSelectedSubject = selectedSubject
     const previousCustomSubject = customSubject
     setActionError('')
+    setOptimisticStopped(false)
     setOptimisticActive({
       subject,
       startedAt,
@@ -639,6 +657,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
         await startPreviewStudy(subject)
       } catch (error) {
         setOptimisticActive(null)
+        setOptimisticStopped(false)
         setSelectedSubject(previousSelectedSubject)
         setCustomSubject(previousCustomSubject)
         setActionError(error?.message || '공부를 시작하지 못했습니다.')
@@ -663,38 +682,84 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   }
 
   async function pause() {
-    if (!myActive || myActive.isPaused) return
-    if (!(await waitForPendingStart())) return
+    const active = myActive
+    if (!active || active.isPaused) return
+    const pausedAt = Date.now()
+    const pausedActive = {
+      ...active,
+      isPaused: true,
+      pausedAt,
+      segmentStartedAt: 0,
+      sessionSeconds: activeSessionSeconds(active, pausedAt),
+    }
     await runAction({
       kind: 'pause',
       onlineLabel: '스터디를 일시정지',
       action: pausePreviewStudy,
       broadcastAction: 'pause',
       fallbackMessage: '스터디를 일시정지하지 못했습니다.',
+      optimistic: () => {
+        setOptimisticStopped(false)
+        setOptimisticActive(pausedActive)
+        setNowMs(pausedAt)
+      },
+      rollback: () => {
+        setOptimisticStopped(false)
+        setOptimisticActive(active)
+        setNowMs(Date.now())
+      },
     })
   }
 
   async function resume() {
-    if (!myActive || !myActive.isPaused) return
-    if (!(await waitForPendingStart())) return
+    const active = myActive
+    if (!active || !active.isPaused) return
+    const resumedAt = Date.now()
+    const resumedActive = {
+      ...active,
+      isPaused: false,
+      pausedAt: 0,
+      segmentStartedAt: resumedAt,
+      sessionSeconds: activeSessionSeconds(active, resumedAt),
+    }
     await runAction({
       kind: 'resume',
       onlineLabel: '스터디를 계속',
       action: resumePreviewStudy,
       broadcastAction: 'resume',
       fallbackMessage: '스터디를 계속하지 못했습니다.',
+      optimistic: () => {
+        setOptimisticStopped(false)
+        setOptimisticActive(resumedActive)
+        setNowMs(resumedAt)
+      },
+      rollback: () => {
+        setOptimisticStopped(false)
+        setOptimisticActive(active)
+        setNowMs(Date.now())
+      },
     })
   }
 
   async function stop() {
-    if (!myActive) return
-    if (!(await waitForPendingStart())) return
+    const active = myActive
+    if (!active) return
     await runAction({
       kind: 'stop',
       onlineLabel: '스터디를 종료',
       action: stopPreviewStudy,
       broadcastAction: 'stop',
       fallbackMessage: '공부를 종료하지 못했습니다.',
+      optimistic: () => {
+        setOptimisticActive(null)
+        setOptimisticStopped(true)
+        setNowMs(Date.now())
+      },
+      rollback: () => {
+        setOptimisticStopped(false)
+        setOptimisticActive(active)
+        setNowMs(Date.now())
+      },
     })
   }
 
