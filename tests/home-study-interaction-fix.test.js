@@ -30,14 +30,15 @@ test('home cards use semantic V2 destinations through React-owned navigation', (
   assert.doesNotMatch(sw, /school-home-nav\.js/)
 })
 
-test('study ranking keeps the existing scroll-stability rules with direct React input ownership', () => {
+test('study ranking keeps scroll stability while allowing controlled React-owned motion', () => {
   const refinements = read('public/school-refinements.css')
   const studyPatch = read('src/preview-study-patch.js')
+  const rankingCss = read('src/preview-study-ranking.css')
 
-  assert.match(refinements, /preview-study-ranking-stage\[data-direction\]/)
-  assert.match(refinements, /animation: none !important/)
-  assert.match(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
-  assert.match(refinements, /will-change: auto !important/)
+  assert.doesNotMatch(refinements, /preview-study-ranking-stage\[data-direction\]/)
+  assert.doesNotMatch(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
+  assert.match(rankingCss, /\.preview-study-ranking-stage/)
+  assert.match(rankingCss, /animation: todo-item-state-in/)
 
   assert.match(studyPatch, /onClick=\{\(\) => selectScope\('class'\)\}/)
   assert.match(studyPatch, /onClick=\{\(\) => selectScope\('school'\)\}/)
