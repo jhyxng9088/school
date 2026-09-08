@@ -139,12 +139,13 @@ test('default theme swatch is a clean black-white circle with no rectangular foc
   assert.match(css, /\.theme-accent-option:focus-visible \.theme-accent-swatch \{[\s\S]*box-shadow:/)
 })
 
-test('theme settings trigger follows the username on its right without colliding with Home AI', () => {
+test('theme settings trigger stays between the username and in-flow Home AI so narrow layouts cannot clip it', () => {
   const css = read('src/theme-preferences.css')
 
-  assert.match(css, /\.home-top-actions \.user-name \{[\s\S]*anchor-name: --home-user-name/)
-  assert.match(css, /#theme-settings-root \{[\s\S]*position: absolute[\s\S]*position-anchor: --home-user-name[\s\S]*top: anchor\(--home-user-name center\)[\s\S]*left: anchor\(--home-user-name right\)[\s\S]*translate: 9px -50%/)
+  assert.match(css, /\.home-top-actions \.home-ai-trigger \{[\s\S]*anchor-name: --home-ai-trigger/)
+  assert.match(css, /#theme-settings-root \{[\s\S]*position: absolute[\s\S]*position-anchor: --home-ai-trigger[\s\S]*top: anchor\(--home-ai-trigger center\)[\s\S]*left: anchor\(--home-ai-trigger left\)[\s\S]*translate: calc\(-100% - 9px\) -50%/)
   assert.match(css, /body:has\(\.app-content\.tab-home\) \.home-top-actions \.home-ai-trigger \{[\s\S]*margin-left: 43px/)
+  assert.doesNotMatch(css, /--home-user-name/)
   assert.match(css, /@keyframes theme-settings-home-in \{[\s\S]*translate3d\(0, -1px, 0\)/)
   assert.match(css, /body:has\(\.app-content\.tab-home\) #theme-settings-root \{[\s\S]*transform: translate3d\(0, -1px, 0\) scale\(1\)[\s\S]*animation: theme-settings-home-in 980ms cubic-bezier\(0\.16, 1, 0\.3, 1\) both/)
   assert.match(css, /html\.school-mobile-compat body:has\(\.app-content\.tab-home\) #theme-settings-root \{[\s\S]*animation-duration: 760ms/)

@@ -318,17 +318,17 @@ html[data-theme-mode="light"][data-theme-accent] {
   --focus-accent-soft: color-mix(in srgb, #ffffff 52%, var(--theme-accent));
 }
 
-.home-top-actions .user-name {
-  anchor-name: --home-user-name;
+.home-top-actions .home-ai-trigger {
+  anchor-name: --home-ai-trigger;
 }
 
 #theme-settings-root {
   position: absolute;
-  position-anchor: --home-user-name;
+  position-anchor: --home-ai-trigger;
   z-index: 19;
-  top: anchor(--home-user-name center);
-  left: anchor(--home-user-name right);
-  translate: 9px -50%;
+  top: anchor(--home-ai-trigger center);
+  left: anchor(--home-ai-trigger left);
+  translate: calc(-100% - 9px) -50%;
   opacity: 0;
   pointer-events: none;
   transform: translate3d(0, 7px, 0) scale(.996);
