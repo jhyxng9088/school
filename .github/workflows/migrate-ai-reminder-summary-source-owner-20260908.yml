@@ -52,6 +52,12 @@ jobs:
           src/preview-ai-reminder-summary-patch.js
           src/reminder-summary.jsx
           tests/build-patch-effect.test.js
+          tests/home-signal-navigation.test.js
+          tests/preview-reminder-summary-viewport.test.js
+          tests/preview-ui-regressions.test.js
+          tests/reminder-original-download.test.js
+          tests/s-hub-ai-presave-summary.test.js
+          tests/s-hub-ai-reminder-summary-import.test.js
           vite.config.js
           EOF
           sort -o /tmp/expected-files.txt /tmp/expected-files.txt
