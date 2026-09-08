@@ -131,11 +131,19 @@ test('theme palette adds gray, keeps cream and ivory, and removes sand from sele
   assert.doesNotMatch(css, /MutationObserver/)
 })
 
-test('theme settings trigger remains a corner circular control', () => {
+test('default theme swatch is clipped to the same true circle as every accent swatch', () => {
   const css = read('src/theme-preferences.css')
 
-  assert.match(css, /#theme-settings-root \{[\s\S]*position: absolute[\s\S]*top: calc\(max\(32px, env\(safe-area-inset-top\)\) \+ 34px\)/)
-  assert.match(css, /#theme-settings-root \{[\s\S]*right: max\(64px, calc\(\(100vw - 720px\) \/ 2 \+ 64px\)\)/)
+  assert.match(css, /\.theme-accent-swatch \{[\s\S]*aspect-ratio: 1[\s\S]*overflow: hidden[\s\S]*border-radius: 999px[\s\S]*clip-path: circle\(50% at 50% 50%\)/)
+  assert.match(css, /theme-accent-option\[data-accent="default"\][\s\S]*linear-gradient\(135deg, #f5f5f7 0 49\.5%, #1c1c1e 50\.5% 100%\)/)
+})
+
+test('theme settings trigger reserves a right-side home identity slot and aligns vertically with the name row', () => {
+  const css = read('src/theme-preferences.css')
+
+  assert.match(css, /#theme-settings-root \{[\s\S]*position: absolute[\s\S]*top: calc\(max\(32px, env\(safe-area-inset-top\)\) \+ 48px\)/)
+  assert.match(css, /#theme-settings-root \{[\s\S]*right: max\(20px, calc\(\(100vw - 720px\) \/ 2 \+ 20px\)\)/)
+  assert.match(css, /body:has\(\.app-content\.tab-home\) \.home-top-actions \{[\s\S]*padding-right: 42px/)
   assert.match(css, /\.theme-settings-trigger \{[\s\S]*width: 34px[\s\S]*height: 34px[\s\S]*border-radius: 50%/)
   assert.doesNotMatch(css, /bottom: calc\(var\(--nav-bottom/)
 })
