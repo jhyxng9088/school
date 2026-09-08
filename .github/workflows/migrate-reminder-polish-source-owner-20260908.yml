@@ -1,0 +1,84 @@
+name: Migrate reminder polish source owner 20260908
+
+on:
+  push:
+    branches:
+      - work/reminder-polish-source-owner-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: work/reminder-polish-source-owner-20260908
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Capture current production build
+        run: |
+          npm run build
+          rm -rf /tmp/reminder-polish-before
+          cp -a dist /tmp/reminder-polish-before
+
+      - name: Source-own reminder polish
+        run: node scripts/migrate-reminder-polish-source-owner-20260908.mjs
+
+      - name: Remove temporary migration owners
+        run: |
+          rm scripts/migrate-reminder-polish-source-owner-20260908.mjs
+          rm .github/workflows/migrate-reminder-polish-source-owner-20260908.yml
+
+      - name: Verify changed-file boundary
+        run: |
+          git diff --check
+          git diff --name-only | sort > /tmp/actual-files.txt
+          cat > /tmp/expected-files.txt <<'EOF'
+          .github/workflows/migrate-reminder-polish-source-owner-20260908.yml
+          scripts/migrate-reminder-polish-source-owner-20260908.mjs
+          src/preview-reminder-polish-patch.js
+          src/todo-stage5-ai.jsx
+          tests/build-patch-effect.test.js
+          tests/reminder-categories.test.js
+          tests/reminder-summary-indicator.test.js
+          tests/shub-v2-main-source-owner.test.js
+          vite.config.js
+          EOF
+          sort -o /tmp/expected-files.txt /tmp/expected-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+
+      - name: Verify complete production build equivalence
+        run: |
+          rm -rf dist
+          npm run build
+          diff -qr /tmp/reminder-polish-before dist
+
+      - name: Test production app
+        run: npm test
+
+      - name: Install production backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test production backend
+        working-directory: push-backend-v2
+        run: npm test
+
+      - name: Commit clean migration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "refactor: source-own reminder polish"
+          git push origin HEAD:work/reminder-polish-source-owner-20260908
