@@ -32,7 +32,7 @@ test('study ranking scope uses one physical pill with direct click ownership', (
   assert.doesNotMatch(page, /performance\.now\(\) - intent\.at/)
 })
 
-test('study ranking content reuses the meal content motion with directional mapping and reduced-motion fallback', () => {
+test('study ranking content reuses the meal content motion with a visibly perceptible Study mapping and reduced-motion fallback', () => {
   const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
   const style = patchPreviewStudySource(read('src/preview-study-ranking.css'), '/workspace/src/preview-study-ranking.css')
   const stage3 = read('src/stage3.css')
@@ -43,9 +43,11 @@ test('study ranking content reuses the meal content motion with directional mapp
   assert.match(style, /\.preview-study-ranking-tabs::before/)
   assert.match(style, /\.preview-study-ranking-pill/)
   assert.match(style, /animation: stage3-detail-in 760ms cubic-bezier\(0\.16, 1, 0\.3, 1\) both/)
-  assert.match(style, /data-direction="forward"[\s\S]*--stage3-direction: 1/)
-  assert.match(style, /data-direction="back"[\s\S]*--stage3-direction: -1/)
+  assert.match(style, /\.preview-study-ranking-stage\s*\{[\s\S]*animation-duration: 580ms/)
+  assert.match(style, /data-direction="forward"[\s\S]*--stage3-direction: 2\.4/)
+  assert.match(style, /data-direction="back"[\s\S]*--stage3-direction: -2\.4/)
   assert.match(stage3, /@keyframes stage3-detail-in/)
+  assert.match(stage3, /translate3d\(calc\(var\(--stage3-direction, 1\) \* 9px\), 2px, 0\)/)
   assert.match(main, /import '\.\/stage3\.css'/)
   assert.doesNotMatch(style, /@keyframes preview-study-ranking-swap/)
   assert.doesNotMatch(style, /@keyframes preview-study-ranking-forward/)
