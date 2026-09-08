@@ -17,17 +17,48 @@
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
     <script>
       (() => {
+        const root = document.documentElement
+
+        // Theme transitions are useful after launch, but the stored theme must own the first paint.
+        root.style.setProperty('transition', 'none', 'important')
+        try {
+          const stored = JSON.parse(localStorage.getItem('school.themePreferences.v1') || 'null')
+          const firstPaintModes = new Set(['light', 'dark'])
+          const firstPaintAccents = new Set([
+            'gray',
+            'pink',
+            'blue',
+            'lavender',
+            'mint',
+            'peach',
+            'avocado',
+            'cream',
+            'ivory',
+          ])
+          const mode = stored?.mode
+          const accent = stored?.accent === 'sand' ? 'cream' : stored?.accent
+
+          if (firstPaintModes.has(mode)) root.dataset.themeMode = mode
+          if (firstPaintAccents.has(accent)) root.dataset.themeAccent = accent
+        } catch {
+          // The canonical theme owner will fall back to system/default after module startup.
+        }
+
         const ua = navigator.userAgent
         const mobileBrowser = /iPhone|iPod|Android|SamsungBrowser/i.test(ua)
         const samsungBrowser = /SamsungBrowser/i.test(ua)
         const iPadDesktopUA = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1
         const finePointer = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
         if (samsungBrowser) {
-          document.documentElement.classList.add('school-samsung')
+          root.classList.add('school-samsung')
         }
         if (!mobileBrowser && !iPadDesktopUA && finePointer) {
-          document.documentElement.classList.add('school-desktop-laptop')
+          root.classList.add('school-desktop-laptop')
         }
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => root.style.removeProperty('transition'))
+        })
       })()
     </script>
     <link rel="stylesheet" href="/src/desktop-motion.css" />
