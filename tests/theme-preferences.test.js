@@ -39,25 +39,39 @@ test('theme defaults preserve the existing system/default appearance with no dat
 
 test('theme preference owner accepts only canonical modes and accents and persists one local preference object', () => {
   assert.deepEqual(THEME_MODES.map((item) => item.id), ['system', 'light', 'dark'])
-  assert.deepEqual(THEME_ACCENTS.map((item) => item.id), ['default', 'pink', 'blue', 'lavender', 'mint', 'peach', 'avocado'])
+  assert.deepEqual(THEME_ACCENTS.map((item) => item.id), [
+    'default',
+    'pink',
+    'blue',
+    'lavender',
+    'mint',
+    'peach',
+    'avocado',
+    'cream',
+    'ivory',
+    'sand',
+  ])
   assert.deepEqual(normalizeThemePreferences({ mode: 'neon', accent: 'red' }), { mode: 'system', accent: 'default' })
 
   const storage = fakeStorage()
   const root = fakeRoot()
-  const saved = saveThemePreferences({ mode: 'dark', accent: 'avocado' }, storage, root)
+  const saved = saveThemePreferences({ mode: 'dark', accent: 'ivory' }, storage, root)
 
-  assert.deepEqual(saved, { mode: 'dark', accent: 'avocado' })
+  assert.deepEqual(saved, { mode: 'dark', accent: 'ivory' })
   assert.equal(root.dataset.themeMode, 'dark')
-  assert.equal(root.dataset.themeAccent, 'avocado')
+  assert.equal(root.dataset.themeAccent, 'ivory')
   assert.match(storage.value(), /"mode":"dark"/)
-  assert.match(storage.value(), /"accent":"avocado"/)
+  assert.match(storage.value(), /"accent":"ivory"/)
 })
 
-test('theme settings UI owns a real button, reuses UnifiedBottomSheet, and uses the canonical schedule segment spring', () => {
+test('theme settings UI owns a real circular settings button, reuses UnifiedBottomSheet, and uses the canonical schedule segment spring', () => {
   const entry = read('src/theme-settings-entry.jsx')
+  const icon = read('src/s-hub-icon.jsx')
   const index = read('index.html')
 
   assert.match(entry, /<button[\s\S]*className="theme-settings-trigger"[\s\S]*onClick=\{\(\) => setOpen\(true\)\}/)
+  assert.match(entry, /<SHubIcon name="settings" size=\{17\} \/>/)
+  assert.match(icon, /if \(name === 'settings'\)/)
   assert.match(entry, /<UnifiedBottomSheet/)
   assert.match(entry, /subtitle="S-Hub의 분위기를 선택해 주세요\."/)
   assert.match(entry, /import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'/)
@@ -67,26 +81,48 @@ test('theme settings UI owns a real button, reuses UnifiedBottomSheet, and uses 
   assert.match(entry, /className="class-top-segment schedule-top-segment theme-mode-segment"/)
   assert.match(entry, /className="class-top-segment-pill"/)
   assert.match(entry, /className=\{'class-top-segment-button ' \+ \(mode === item\.id \? 'is-active' : ''\)\}/)
-  assert.doesNotMatch(entry, /theme-mode-options/)
+  assert.doesNotMatch(entry, />\s*테마\s*<\/button>/)
   assert.match(index, /<div id="theme-settings-root"><\/div>/)
   assert.match(index, /src="\/src\/theme-settings-entry\.jsx"/)
   assert.match(index, /href="\/src\/theme-preferences\.css"/)
 })
 
-test('theme CSS visibly tints canonical surfaces plus home focus and station pill tokens', () => {
+test('theme CSS smoothly interpolates canonical tokens, keeps labels stable, and slightly strengthens light accents', () => {
   const css = read('src/theme-preferences.css')
 
-  assert.match(css, /html\[data-theme-accent="pink"\] \{ --theme-accent: #d39aaf; \}/)
+  assert.match(css, /@property --bg/)
+  assert.match(css, /@property --surface/)
+  assert.match(css, /@property --focus-surface/)
+  assert.match(css, /html\s*\{[\s\S]*transition-property:[\s\S]*--bg[\s\S]*--focus-accent-soft/)
+  assert.match(css, /transition-duration: 460ms/)
+  assert.match(css, /\.theme-mode-segment \.class-top-segment-button[\s\S]*opacity: 1 !important/)
+  assert.match(css, /\.theme-mode-segment \.class-top-segment-button\.is-active[\s\S]*color: var\(--text\) !important/)
+  assert.match(css, /html\[data-theme-accent\] \{[\s\S]*--surface: color-mix\(in srgb, #ffffff 81%, var\(--theme-accent\)\)/)
+  assert.match(css, /--surface-soft: color-mix\(in srgb, #ececef 72%, var\(--theme-accent\)\)/)
+  assert.match(css, /--focus-surface: color-mix\(in srgb, #fbfbfc 66%, var\(--theme-accent\)\)/)
+  assert.match(css, /--s-hub-active-pill-surface: color-mix\(in srgb, #ffffff 64%, var\(--theme-accent\)\)/)
+  assert.match(css, /html\[data-theme-mode="dark"\]\[data-theme-accent\][\s\S]*--surface: color-mix\(in srgb, #1c1c1e 80%, var\(--theme-accent\)\)/)
+})
+
+test('theme palette includes avocado plus warm cream, ivory and sand without bypassing canonical tokens', () => {
+  const css = read('src/theme-preferences.css')
+
   assert.match(css, /html\[data-theme-accent="avocado"\] \{ --theme-accent: #b2c66a; \}/)
-  assert.match(css, /html\[data-theme-accent\] \{[\s\S]*--surface: color-mix\(in srgb, #ffffff 84%, var\(--theme-accent\)\)/)
-  assert.match(css, /--surface-soft: color-mix\(in srgb, #ececef 76%, var\(--theme-accent\)\)/)
-  assert.match(css, /--focus-surface: color-mix\(in srgb, #fbfbfc 70%, var\(--theme-accent\)\)/)
-  assert.match(css, /--s-hub-active-pill-surface: color-mix\(in srgb, #ffffff 68%, var\(--theme-accent\)\)/)
-  assert.match(css, /html\[data-theme-mode="light"\][\s\S]*--focus-surface: #fbfbfc/)
-  assert.match(css, /html\[data-theme-mode="dark"\][\s\S]*--focus-surface: #202023/)
-  assert.match(css, /html\[data-theme-mode="dark"\]\[data-theme-accent\]/)
-  assert.match(css, /theme-accent-option\[data-accent="avocado"\]/)
-  assert.match(css, /\.theme-mode-segment[\s\S]*grid-template-columns: repeat\(3/)
+  assert.match(css, /html\[data-theme-accent="cream"\] \{ --theme-accent: #e2c487; \}/)
+  assert.match(css, /html\[data-theme-accent="ivory"\] \{ --theme-accent: #e7deca; \}/)
+  assert.match(css, /html\[data-theme-accent="sand"\] \{ --theme-accent: #c8b295; \}/)
+  assert.match(css, /theme-accent-option\[data-accent="cream"\]/)
+  assert.match(css, /theme-accent-option\[data-accent="ivory"\]/)
+  assert.match(css, /theme-accent-option\[data-accent="sand"\]/)
   assert.doesNotMatch(css, /:root\s*\{[\s\S]*--theme-accent/)
   assert.doesNotMatch(css, /MutationObserver/)
+})
+
+test('theme settings trigger is a corner circular control instead of the old bottom-nav text button', () => {
+  const css = read('src/theme-preferences.css')
+
+  assert.match(css, /#theme-settings-root \{[\s\S]*position: absolute[\s\S]*top: calc\(max\(32px, env\(safe-area-inset-top\)\) \+ 34px\)/)
+  assert.match(css, /#theme-settings-root \{[\s\S]*right: max\(64px, calc\(\(100vw - 720px\) \/ 2 \+ 64px\)\)/)
+  assert.match(css, /\.theme-settings-trigger \{[\s\S]*width: 34px[\s\S]*height: 34px[\s\S]*border-radius: 50%/)
+  assert.doesNotMatch(css, /bottom: calc\(var\(--nav-bottom/)
 })
