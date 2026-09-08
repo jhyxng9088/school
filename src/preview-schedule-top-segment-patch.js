@@ -33,6 +33,7 @@ function ScheduleTopSegment({ section, onSectionChange }) {
           ref={(node) => { spring.buttonRefs.current[index] = node }}
           key={item.id}
           type="button"
+          data-unread-key={item.id}
           className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '')}
           aria-pressed={section === item.id}
           onPointerDown={(event) => {
