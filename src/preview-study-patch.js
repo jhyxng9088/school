@@ -111,15 +111,16 @@ html.school-samsung .preview-study-ranking-tabs button.is-selected {
 }
 
 .preview-study-ranking-stage {
+  animation-duration: 580ms;
   will-change: transform, opacity;
 }
 
 .preview-study-ranking-stage[data-direction="forward"] {
-  --stage3-direction: 1;
+  --stage3-direction: 2.4;
 }
 
 .preview-study-ranking-stage[data-direction="back"] {
-  --stage3-direction: -1;
+  --stage3-direction: -2.4;
 }
 
 html.school-samsung .preview-study-ranking-tabs::before {
