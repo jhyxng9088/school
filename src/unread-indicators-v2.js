@@ -405,6 +405,14 @@ async function startUnreadIndicators() {
 
   subscriptions.push(subscribePreviewStudyUnread(profile, (next) => {
     const unread = Boolean(next?.hasUnread)
+    if (unread && activeLeafTab() === 'study') {
+      markPreviewStudySeen(profile)
+      if (state.studyUnread) {
+        state.studyUnread = false
+        scheduleRender()
+      }
+      return
+    }
     if (unread !== state.studyUnread) {
       state.studyUnread = unread
       scheduleRender()
