@@ -75,3 +75,18 @@ test('presence transport is raw-source-owned without a Vite build patch', () => 
   assert.doesNotMatch(vite, /patchPresenceSplitSource|presence-split-patch/)
   assert.equal(fs.existsSync(new URL('../src/presence-split-patch.js', import.meta.url)), false)
 })
+
+test('app shell E2E cannot reach production network while using the synthetic student profile', () => {
+  const source = read('../e2e/app-shell-smoke.spec.js')
+  assert.match(source, /async function isolateProductionNetwork\(page\)/)
+  assert.match(source, /await page\.route\('\*\*\/\*'/)
+  assert.match(source, /requestUrl\.hostname === '127\.0\.0\.1'/)
+  assert.match(source, /requestUrl\.hostname === 'localhost'/)
+  assert.match(source, /await route\.abort\('blockedbyclient'\)/)
+  assert.match(source, /name: 'E2E Student'/)
+
+  const isolatedRuns = source.match(/await isolateProductionNetwork\(page\)/g) || []
+  const navigations = source.match(/await page\.goto\('index\.html'\)/g) || []
+  assert.equal(isolatedRuns.length, navigations.length)
+  assert.ok(isolatedRuns.length >= 4)
+})
