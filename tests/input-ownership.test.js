@@ -8,10 +8,8 @@ test('Study ranking input is owned by its React control, not a document pointer 
   const refinements = read('public/school-refinements.css')
   const studyPatch = read('src/preview-study-patch.js')
 
-  assert.match(refinements, /preview-study-ranking-stage\[data-direction\]/)
-  assert.match(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
-  assert.match(refinements, /animation: none !important/)
-  assert.match(refinements, /will-change: auto !important/)
+  assert.doesNotMatch(refinements, /preview-study-ranking-stage\[data-direction\]/)
+  assert.doesNotMatch(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
 
   assert.match(studyPatch, /onClick=\{\(\) => selectScope\('class'\)\}/)
   assert.match(studyPatch, /onClick=\{\(\) => selectScope\('school'\)\}/)
