@@ -637,23 +637,30 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     const request = (async () => {
       try {
         await startPreviewStudy(subject)
-        await broadcastPreviewStudyRealtime('start')
-        await load({ silent: true })
-        if (schoolSnapshotRef.current || rankingScopeRef.current === 'school') await loadSchool({ silent: true })
-        setNowMs(Date.now())
-        return true
       } catch (error) {
         setOptimisticActive(null)
         setSelectedSubject(previousSelectedSubject)
         setCustomSubject(previousCustomSubject)
         setActionError(error?.message || '공부를 시작하지 못했습니다.')
         return false
-      } finally {
-        if (startRequestRef.current === request) startRequestRef.current = null
       }
+
+      try {
+        await broadcastPreviewStudyRealtime('start')
+      } catch (error) {
+        console.warn('S-Hub study realtime broadcast unavailable:', error)
+      }
+      await load({ silent: true })
+      if (schoolSnapshotRef.current || rankingScopeRef.current === 'school') await loadSchool({ silent: true })
+      setNowMs(Date.now())
+      return true
     })()
     startRequestRef.current = request
-    await request
+    try {
+      await request
+    } finally {
+      if (startRequestRef.current === request) startRequestRef.current = null
+    }
   }
 
   async function pause() {
