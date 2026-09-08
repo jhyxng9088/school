@@ -111,12 +111,16 @@ test('study UI uses neutral polite copy instead of casual second-person copy', (
   assert.match(page, /학생이 없습니다\./)
 })
 
-test('new study presence rows animate in and respect reduced motion', () => {
-  const style = read('src/preview-study.css')
-  assert.match(style, /animation: preview-study-person-enter/)
-  assert.match(style, /@keyframes preview-study-person-enter/)
-  assert.match(style, /prefers-reduced-motion: reduce/)
-  assert.match(style, /animation: none !important/)
+test('new study person rows reuse the reminder row-enter owner and respect reduced motion', () => {
+  const studyStyle = read('src/preview-study.css')
+  const todoStyle = read('src/todo.css')
+
+  assert.match(todoStyle, /@keyframes todo-item-state-in/)
+  assert.match(studyStyle, /animation: todo-item-state-in 360ms cubic-bezier\(\.16, 1, \.3, 1\) both/)
+  assert.doesNotMatch(studyStyle, /@keyframes preview-study-person-enter/)
+  assert.doesNotMatch(studyStyle, /animation: preview-study-person-enter/)
+  assert.match(studyStyle, /prefers-reduced-motion: reduce/)
+  assert.match(studyStyle, /animation: none !important/)
 })
 
 test('study action buttons morph smoothly between idle, running and paused states', () => {
