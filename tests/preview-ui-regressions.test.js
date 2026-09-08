@@ -65,7 +65,7 @@ test('production V2 config applies feature patches without preview identity rewr
   const config = read('vite.config.js')
   assert.match(config, /school-s-hub-v2-features/)
   assert.match(config, /patchPreviewSHubV2Source/)
-  assert.match(config, /patchPreviewAIReminderSummarySource/)
+  assert.doesNotMatch(config, /patchPreviewAIReminderSummarySource/)
   assert.doesNotMatch(config, /previewLocalStorageText/)
   assert.doesNotMatch(config, /school-sync-preview/)
   assert.doesNotMatch(config, /preview-class-\$\{normalized\.classNumber\}/)

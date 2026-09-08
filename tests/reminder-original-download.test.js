@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { patchPreviewAIReminderSummarySource } from '../src/preview-ai-reminder-summary-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -19,10 +18,7 @@ test('original files share only on Apple touch devices and download directly els
 
 test('original save uses one shared immediate ref lock and reminder runtime removes its duplicate viewer', () => {
   const shared = read('src/original-file-viewer.jsx')
-  const summary = patchPreviewAIReminderSummarySource(
-    read('src/reminder-summary.jsx'),
-    '/workspace/src/reminder-summary.jsx',
-  )
+  const summary = read('src/reminder-summary.jsx')
 
   assert.match(shared, /const DOWNLOAD_GESTURE_LOCK_MS = 700/)
   assert.match(shared, /const savingRef = useRef\(false\)/)

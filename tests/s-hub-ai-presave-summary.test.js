@@ -29,7 +29,7 @@ test('known conflict guard tolerates malformed context collections instead of cr
 test('preview import is one model pass and filters existing S-Hub items locally', () => {
   const ai = readFileSync(new URL('../src/s-hub-ai.js', import.meta.url), 'utf8')
   const pagePatch = readFileSync(new URL('../src/preview-ai-page-patch.js', import.meta.url), 'utf8')
-  const summaryPatch = readFileSync(new URL('../src/preview-ai-reminder-summary-patch.js', import.meta.url), 'utf8')
+  const main = readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8')
 
   assert.doesNotMatch(ai, /prepareAttachment/)
   assert.doesNotMatch(ai, /generateSchoolStructured/)
@@ -43,6 +43,6 @@ test('preview import is one model pass and filters existing S-Hub items locally'
   assert.match(ai, /return localConflictMap\(items, context\)/)
   assert.match(pagePatch, /AI 요약/)
   assert.match(pagePatch, /s-hub-ai-item-summary/)
-  assert.match(summaryPatch, /const previewSummary = item\?\.previewSummary\?\.overview/)
-  assert.match(summaryPatch, /let parsed = previewSummary \? \{ summary: previewSummary, attachment: null \} : null/)
+  assert.match(main, /const previewSummary = item\?\.previewSummary\?\.overview/)
+  assert.match(main, /let parsed = previewSummary \? \{ summary: previewSummary, attachment: null \} : null/)
 })
