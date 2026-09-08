@@ -1,5 +1,5 @@
 import { studentKeyFor } from './school-sync.js'
-import { loadPreviewStudy, loadPreviewStudyEvents, savePreviewStudySeen } from './preview-study-client.js'
+import { loadPreviewStudyEvents, savePreviewStudySeen } from './preview-study-client.js'
 import { subscribePreviewStudyRealtime } from './preview-study-realtime.js'
 
 const STORAGE_PREFIX = 'school.studyUnread.v2:'
@@ -16,9 +16,11 @@ function storageKey(key) {
 function blankState() {
   return {
     initialized: false,
+    hasUnread: false,
     latestAt: 0,
     seenAt: 0,
     eventCursor: 0,
+    seenCursor: 0,
     pendingSeenAt: 0,
     pendingSeenCursor: 0,
     revision: 0,
@@ -29,13 +31,24 @@ function loadStored(key) {
   if (typeof localStorage === 'undefined') return blankState()
   try {
     const parsed = JSON.parse(localStorage.getItem(storageKey(key)) || '{}')
+    const initialized = Boolean(parsed?.initialized)
+    const latestAt = Math.max(0, Number(parsed?.latestAt || 0))
+    const seenAt = Math.max(0, Number(parsed?.seenAt || 0))
+    const eventCursor = Math.max(0, Math.floor(Number(parsed?.eventCursor || 0)))
+    const pendingSeenCursor = Math.max(0, Math.floor(Number(parsed?.pendingSeenCursor || 0)))
+    const legacyUnread = initialized && latestAt > seenAt
+    const hasUnread = typeof parsed?.hasUnread === 'boolean' ? parsed.hasUnread : legacyUnread
+    const storedSeenCursor = Math.max(0, Math.floor(Number(parsed?.seenCursor || 0)))
+    const seenCursor = storedSeenCursor || (initialized && !hasUnread ? eventCursor : pendingSeenCursor)
     return {
-      initialized: Boolean(parsed?.initialized),
-      latestAt: Math.max(0, Number(parsed?.latestAt || 0)),
-      seenAt: Math.max(0, Number(parsed?.seenAt || 0)),
-      eventCursor: Math.max(0, Math.floor(Number(parsed?.eventCursor || 0))),
+      initialized,
+      hasUnread,
+      latestAt,
+      seenAt,
+      eventCursor,
+      seenCursor,
       pendingSeenAt: Math.max(0, Number(parsed?.pendingSeenAt || 0)),
-      pendingSeenCursor: Math.max(0, Math.floor(Number(parsed?.pendingSeenCursor || 0))),
+      pendingSeenCursor,
       revision: 0,
     }
   } catch {
@@ -48,9 +61,11 @@ function persist(controller) {
   try {
     localStorage.setItem(storageKey(controller.identityKey), JSON.stringify({
       initialized: controller.state.initialized,
+      hasUnread: controller.state.hasUnread,
       latestAt: controller.state.latestAt,
       seenAt: controller.state.seenAt,
       eventCursor: controller.state.eventCursor,
+      seenCursor: controller.state.seenCursor,
       pendingSeenAt: controller.state.pendingSeenAt,
       pendingSeenCursor: controller.state.pendingSeenCursor,
     }))
@@ -60,13 +75,12 @@ function persist(controller) {
 }
 
 function snapshot(controller) {
-  const latestAt = Math.max(0, Number(controller.state.latestAt || 0))
-  const seenAt = Math.max(0, Number(controller.state.seenAt || 0))
   return {
-    hasUnread: controller.state.initialized && latestAt > seenAt,
-    latestAt,
-    seenAt,
+    hasUnread: controller.state.initialized && Boolean(controller.state.hasUnread),
+    latestAt: Math.max(0, Number(controller.state.latestAt || 0)),
+    seenAt: Math.max(0, Number(controller.state.seenAt || 0)),
     eventCursor: Math.max(0, Number(controller.state.eventCursor || 0)),
+    seenCursor: Math.max(0, Number(controller.state.seenCursor || 0)),
     revision: controller.state.revision,
   }
 }
@@ -77,52 +91,54 @@ function notify(controller) {
   for (const listener of [...controller.listeners]) listener(next)
 }
 
-function latestOtherStart(snapshotValue, myStudentKey) {
-  let latest = 0
-  for (const student of Array.isArray(snapshotValue?.students) ? snapshotValue.students : []) {
-    if (!student?.active || String(student.studentKey || '') === myStudentKey) continue
-    latest = Math.max(latest, Number(student.active.startedAt || 0))
-  }
-  return latest
-}
-
 function latestOtherEvent(events, myStudentKey) {
-  let latest = 0
+  let cursor = 0
+  let startedAt = 0
   for (const event of Array.isArray(events) ? events : []) {
     if (String(event?.studentKey || '') === myStudentKey) continue
-    latest = Math.max(latest, Number(event?.startedAt || 0))
+    const eventCursor = Math.max(0, Math.floor(Number(event?.cursor || 0)))
+    if (eventCursor > cursor) cursor = eventCursor
+    startedAt = Math.max(startedAt, Number(event?.startedAt || 0))
   }
-  return latest
+  return { cursor, startedAt }
 }
 
-function applyServerReadState(controller, readState, currentLatest, eventLatest, latestCursor) {
+function applyServerReadState(controller, readState, latestCursor) {
   if (readState?.initialized !== true) return false
   const nextSeenAt = Math.max(
     0,
+    Number(controller.state.seenAt || 0),
     Number(readState.seenAt || 0),
     Number(controller.state.pendingSeenAt || 0),
   )
-  const nextLatestAt = Math.max(
+  const nextSeenCursor = Math.max(
     0,
-    Number(readState.latestAt || 0),
-    Number(currentLatest || 0),
-    Number(eventLatest || 0),
+    Number(controller.state.seenCursor || 0),
+    Number(readState.seenCursor || 0),
+    Number(controller.state.pendingSeenCursor || 0),
   )
-  const nextCursor = Math.max(
+  const nextEventCursor = Math.max(
     0,
+    Number(controller.state.eventCursor || 0),
     Number(readState.seenCursor || 0),
     Number(latestCursor || 0),
     Number(controller.state.pendingSeenCursor || 0),
   )
+  const serverLatestAt = Math.max(0, Number(readState.latestAt || 0))
+  const nextHasUnread = serverLatestAt > 0 && nextEventCursor > nextSeenCursor
   const changed = !controller.state.initialized
     || nextSeenAt !== controller.state.seenAt
-    || nextLatestAt !== controller.state.latestAt
-    || nextCursor !== controller.state.eventCursor
+    || nextSeenCursor !== controller.state.seenCursor
+    || nextEventCursor !== controller.state.eventCursor
+    || serverLatestAt !== controller.state.latestAt
+    || nextHasUnread !== controller.state.hasUnread
 
   controller.state.initialized = true
   controller.state.seenAt = nextSeenAt
-  controller.state.latestAt = nextLatestAt
-  controller.state.eventCursor = nextCursor
+  controller.state.seenCursor = nextSeenCursor
+  controller.state.latestAt = serverLatestAt
+  controller.state.eventCursor = nextEventCursor
+  controller.state.hasUnread = nextHasUnread
   if (changed) {
     persist(controller)
     notify(controller)
@@ -166,33 +182,30 @@ async function syncController(controller) {
       const flushed = await flushPending(controller)
       if (!flushed && hasPendingWrite(controller)) return
 
-      const [current, firstPage] = await Promise.all([
-        loadPreviewStudy({ scope: 'class' }),
-        loadPreviewStudyEvents({ since: controller.state.eventCursor }),
-      ])
-      const currentLatest = latestOtherStart(current, controller.identityKey)
-      const eventLatest = latestOtherEvent(firstPage.events, controller.identityKey)
+      const firstPage = await loadPreviewStudyEvents({ since: controller.state.seenCursor })
       const latestCursor = Math.max(
         Number(firstPage.latestCursor || 0),
         Number(firstPage.cursor || 0),
       )
 
-      if (applyServerReadState(controller, firstPage.readState, currentLatest, eventLatest, latestCursor)) return
+      if (applyServerReadState(controller, firstPage.readState, latestCursor)) return
 
       // Compatibility fallback while an older Edge Function is still serving.
       if (!controller.state.initialized) {
         controller.state.initialized = true
         controller.state.eventCursor = latestCursor
-        controller.state.latestAt = currentLatest
-        controller.state.seenAt = currentLatest
+        controller.state.seenCursor = latestCursor
+        controller.state.latestAt = 0
+        controller.state.seenAt = 0
+        controller.state.hasUnread = false
         persist(controller)
         notify(controller)
         return
       }
 
-      let cursor = controller.state.eventCursor
-      let combinedEventLatest = eventLatest
-      let combinedLatestCursor = Math.max(cursor, latestCursor)
+      let cursor = Math.max(controller.state.seenCursor, Number(firstPage.cursor || 0))
+      let combinedLatestCursor = Math.max(controller.state.eventCursor, latestCursor)
+      let latestOther = latestOtherEvent(firstPage.events, controller.identityKey)
       let page = firstPage
       let guard = 0
       while (page.hasMore && guard < 20) {
@@ -200,16 +213,23 @@ async function syncController(controller) {
         if (nextCursor <= cursor) break
         cursor = nextCursor
         page = await loadPreviewStudyEvents({ since: cursor })
-        combinedEventLatest = Math.max(combinedEventLatest, latestOtherEvent(page.events, controller.identityKey))
+        const pageOther = latestOtherEvent(page.events, controller.identityKey)
+        if (pageOther.cursor > latestOther.cursor) latestOther = pageOther
+        else latestOther.startedAt = Math.max(latestOther.startedAt, pageOther.startedAt)
         combinedLatestCursor = Math.max(combinedLatestCursor, Number(page.latestCursor || 0), Number(page.cursor || 0))
         guard += 1
       }
 
-      const nextLatestAt = Math.max(controller.state.latestAt, currentLatest, combinedEventLatest)
-      const nextCursor = Math.max(controller.state.eventCursor, combinedLatestCursor)
-      if (nextLatestAt !== controller.state.latestAt || nextCursor !== controller.state.eventCursor) {
-        controller.state.latestAt = nextLatestAt
-        controller.state.eventCursor = nextCursor
+      const nextEventCursor = Math.max(controller.state.eventCursor, combinedLatestCursor)
+      const nextHasUnread = latestOther.cursor > Number(controller.state.seenCursor || 0)
+      if (
+        nextEventCursor !== controller.state.eventCursor
+        || nextHasUnread !== controller.state.hasUnread
+        || latestOther.startedAt !== controller.state.latestAt
+      ) {
+        controller.state.eventCursor = nextEventCursor
+        controller.state.latestAt = latestOther.startedAt
+        controller.state.hasUnread = nextHasUnread
         persist(controller)
         notify(controller)
       }
@@ -291,12 +311,15 @@ export function subscribePreviewStudyUnread(profile, listener) {
 
 export function markPreviewStudySeen(profile) {
   const controller = controllerFor(profile)
-  const latest = Math.max(0, Number(controller.state.latestAt || 0))
-  if (!controller.state.initialized || latest <= controller.state.seenAt) return
-  controller.state.seenAt = latest
-  controller.state.pendingSeenAt = Math.max(latest, Number(controller.state.pendingSeenAt || 0))
+  if (!controller.state.initialized || !controller.state.hasUnread) return
+  const latestAt = Math.max(0, Number(controller.state.latestAt || 0))
+  const eventCursor = Math.max(0, Number(controller.state.eventCursor || 0))
+  controller.state.hasUnread = false
+  controller.state.seenAt = Math.max(Number(controller.state.seenAt || 0), latestAt)
+  controller.state.seenCursor = Math.max(Number(controller.state.seenCursor || 0), eventCursor)
+  controller.state.pendingSeenAt = Math.max(latestAt, Number(controller.state.pendingSeenAt || 0))
   controller.state.pendingSeenCursor = Math.max(
-    Number(controller.state.eventCursor || 0),
+    eventCursor,
     Number(controller.state.pendingSeenCursor || 0),
   )
   persist(controller)
