@@ -11,6 +11,19 @@ function collectPageErrors(page) {
   return errors
 }
 
+async function isolateProductionNetwork(page) {
+  await page.route('**/*', async (route) => {
+    const requestUrl = new URL(route.request().url())
+    const isHttp = requestUrl.protocol === 'http:' || requestUrl.protocol === 'https:'
+    const isLocal = requestUrl.hostname === '127.0.0.1' || requestUrl.hostname === 'localhost'
+    if (isHttp && !isLocal) {
+      await route.abort('blockedbyclient')
+      return
+    }
+    await route.continue()
+  })
+}
+
 async function seedInstalledStudent(page) {
   await page.addInitScript(() => {
     const nativeMatchMedia = window.matchMedia.bind(window)
@@ -46,6 +59,7 @@ async function expectAppShell(page) {
 
 test('production cold start renders the install path without an uncaught boot error', async ({ page }) => {
   const pageErrors = collectPageErrors(page)
+  await isolateProductionNetwork(page)
 
   await page.goto('index.html')
   await expect(page.locator('.onboarding-page')).toBeVisible()
@@ -58,6 +72,7 @@ test('production cold start renders the install path without an uncaught boot er
 
 test('installed student profile cold start renders the real app shell without an uncaught boot error', async ({ page }) => {
   const pageErrors = collectPageErrors(page)
+  await isolateProductionNetwork(page)
   await seedInstalledStudent(page)
 
   await page.goto('index.html')
@@ -69,6 +84,7 @@ test('installed student profile cold start renders the real app shell without an
 
 test('installed app relaunch returns to the real app shell without a black-screen boot failure', async ({ page }) => {
   const pageErrors = collectPageErrors(page)
+  await isolateProductionNetwork(page)
   await seedInstalledStudent(page)
 
   await page.goto('index.html')
@@ -82,6 +98,7 @@ test('installed app relaunch returns to the real app shell without a black-scree
 
 test('installed app traverses every production station and class board without a black screen', async ({ page }) => {
   const pageErrors = collectPageErrors(page)
+  await isolateProductionNetwork(page)
   await seedInstalledStudent(page)
 
   await page.goto('index.html')
