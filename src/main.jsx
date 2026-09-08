@@ -48,6 +48,7 @@ import { openClassRoster } from './class-roster-ui-v2.js'
 import { PreviewHomeSignals } from './preview-home-signals.jsx'
 import { HomeNavAction } from './home-nav-action.jsx'
 import { useHomeMealPriority } from './home-meal-priority.js'
+import { ThemeSettingsIsland } from './theme-settings-entry.jsx'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -439,6 +440,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
         </div>
         <div className="home-top-actions">
           <span className="user-name">{name}</span>
+          <ThemeSettingsIsland />
           <button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick={onOpenAI}>
             <SHubAIOrb size={27} />
           </button>
