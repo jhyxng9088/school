@@ -22,126 +22,6 @@ function useStudyRankingScopeSpring(activeIndex) {
 
 `
 
-const STUDY_RANKING_SPRING_CSS = String.raw`
-
-/* Study ranking scope uses the exact class top-segment spring mechanism. */
-.preview-study-ranking-tabs {
-  --study-ranking-padding: 4px;
-  position: relative;
-  height: 46px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-  padding: var(--study-ranking-padding);
-  overflow: visible;
-  border: 0;
-  border-radius: 18px;
-  background: transparent;
-  contain: layout;
-  isolation: isolate;
-  touch-action: pan-y;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.preview-study-ranking-tabs::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--surface-glass);
-  box-shadow: var(--shadow-nav);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  pointer-events: none;
-  transform: translate3d(var(--study-ranking-shell-shift-x, 0px), 0, 0) scaleX(var(--study-ranking-shell-scale-x, 1));
-  transform-origin: 50% 50%;
-  will-change: transform;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
-.preview-study-ranking-pill {
-  position: absolute;
-  z-index: 1;
-  top: var(--study-ranking-padding);
-  bottom: var(--study-ranking-padding);
-  left: 0;
-  width: 0;
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: inset 0 0 0 0.5px var(--border);
-  pointer-events: none;
-  will-change: transform, width;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
-.preview-study-ranking-tabs button {
-  position: relative;
-  z-index: 2;
-  min-width: 0;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 14px;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-tertiary);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 690;
-  letter-spacing: -0.025em;
-  cursor: pointer;
-  touch-action: pan-y;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 220ms var(--motion-soft), transform 90ms var(--motion-ease);
-}
-
-.preview-study-ranking-tabs button.is-selected,
-html.school-samsung .preview-study-ranking-tabs button.is-selected {
-  background: transparent;
-  box-shadow: none;
-  color: var(--text);
-}
-
-.preview-study-ranking-tabs button:active {
-  transform: scale(.965);
-}
-
-.preview-study-ranking-stage {
-  animation-duration: 580ms;
-  will-change: transform, opacity;
-}
-
-.preview-study-ranking-stage[data-direction="forward"] {
-  --stage3-direction: 2.4;
-}
-
-.preview-study-ranking-stage[data-direction="back"] {
-  --stage3-direction: -2.4;
-}
-
-html.school-samsung .preview-study-ranking-tabs::before {
-  background: var(--surface);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .preview-study-ranking-tabs::before,
-  .preview-study-ranking-pill,
-  .preview-study-ranking-tabs button {
-    transition-duration: .01ms !important;
-  }
-
-  .preview-study-ranking-stage[data-direction] {
-    animation: none !important;
-  }
-}
-`
-
 function patchStudyRankingPageSource(source) {
   let next = String(source || '')
   if (next.includes('function useStudyRankingScopeSpring(activeIndex)')) return next
@@ -181,12 +61,6 @@ function patchStudyRankingPageSource(source) {
   return next
 }
 
-function patchStudyRankingStyleSource(source) {
-  const current = String(source || '')
-  if (current.includes('Study ranking scope uses the exact class top-segment spring mechanism.')) return current
-  return `${current}${STUDY_RANKING_SPRING_CSS}`
-}
-
 function patchMainSource(source) {
   let next = String(source || '')
   const importMarker = "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n"
@@ -221,7 +95,6 @@ function patchMainSource(source) {
 export function patchPreviewStudySource(source, id = '') {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/preview-study.jsx')) return patchStudyRankingPageSource(source)
-  if (cleanId.endsWith('/preview-study-ranking.css')) return patchStudyRankingStyleSource(source)
   if (!cleanId.endsWith('/main.jsx')) return String(source || '')
   return patchMainSource(source)
 }
