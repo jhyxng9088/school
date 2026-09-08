@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { SHubIcon } from './s-hub-icon.jsx'
 import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import {
@@ -60,8 +61,9 @@ function ThemeSettingsIsland() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="테마 설정 열기"
+        title="테마 설정"
       >
-        테마
+        <SHubIcon name="settings" size={17} />
       </button>
       <UnifiedBottomSheet
         open={open}
