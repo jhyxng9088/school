@@ -32,7 +32,7 @@ test('home cards use semantic V2 destinations through React-owned navigation', (
 
 test('study ranking keeps scroll stability while allowing controlled React-owned motion', () => {
   const refinements = read('public/school-refinements.css')
-  const studyPatch = read('src/preview-study-patch.js')
+  const study = read('src/preview-study.jsx')
   const rankingCss = read('src/preview-study-ranking.css')
 
   assert.doesNotMatch(refinements, /preview-study-ranking-stage\[data-direction\]/)
@@ -41,10 +41,10 @@ test('study ranking keeps scroll stability while allowing controlled React-owned
   assert.match(rankingCss, /animation: stage3-detail-in 760ms/)
   assert.match(rankingCss, /prefers-reduced-motion: reduce/)
 
-  assert.match(studyPatch, /onClick=\{\(\) => selectScope\('class'\)\}/)
-  assert.match(studyPatch, /onClick=\{\(\) => selectScope\('school'\)\}/)
-  assert.doesNotMatch(studyPatch, /touchIntentRef/)
-  assert.doesNotMatch(studyPatch, /onPointerDown=/)
+  assert.match(study, /onClick=\{\(\) => selectScope\('class'\)\}/)
+  assert.match(study, /onClick=\{\(\) => selectScope\('school'\)\}/)
+  assert.doesNotMatch(study, /touchIntentRef/)
+  assert.doesNotMatch(study, /onPointerDown=/)
   assert.equal((rankingCss.match(/touch-action: pan-y;/g) || []).length, 2)
   assert.doesNotMatch(rankingCss, /touch-action: manipulation/)
 })
