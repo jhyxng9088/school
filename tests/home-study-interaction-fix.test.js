@@ -38,7 +38,8 @@ test('study ranking keeps scroll stability while allowing controlled React-owned
   assert.doesNotMatch(refinements, /preview-study-ranking-stage\[data-direction\]/)
   assert.doesNotMatch(refinements, /preview-study-ranking-stage \.preview-study-today-person/)
   assert.match(rankingCss, /\.preview-study-ranking-stage/)
-  assert.match(rankingCss, /animation: todo-item-state-in/)
+  assert.match(rankingCss, /animation: stage3-detail-in 760ms/)
+  assert.match(rankingCss, /prefers-reduced-motion: reduce/)
 
   assert.match(studyPatch, /onClick=\{\(\) => selectScope\('class'\)\}/)
   assert.match(studyPatch, /onClick=\{\(\) => selectScope\('school'\)\}/)
