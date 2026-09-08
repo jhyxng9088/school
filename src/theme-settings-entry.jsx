@@ -39,7 +39,7 @@ function ThemeModeSegment({ mode, onModeChange }) {
           aria-pressed={mode === item.id}
           onClick={() => onModeChange(item.id)}
         >
-          {item.label}
+          <span className="theme-mode-label">{item.label}</span>
         </button>
       ))}
     </div>
