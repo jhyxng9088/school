@@ -11,7 +11,6 @@ export default defineConfig({
     : 'list',
   use: {
     baseURL: 'http://127.0.0.1:4173/school/',
-    serviceWorkers: 'block',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -21,6 +20,7 @@ export default defineConfig({
       name: 'chromium-mobile',
       use: {
         browserName: 'chromium',
+        serviceWorkers: 'block',
         viewport: { width: 412, height: 915 },
         deviceScaleFactor: 2,
         isMobile: true,
