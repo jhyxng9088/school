@@ -6,7 +6,7 @@ import { patchPreviewStudySource } from '../src/preview-study-patch.js'
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('study ranking emits the canonical shared segment spring wrapper directly', () => {
-  const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
+  const page = read('src/preview-study.jsx')
 
   assert.match(page, /import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'/)
   assert.match(page, /function useStudyRankingScopeSpring\(activeIndex\) \{\n  return useSHubSegmentSpring/)
@@ -19,7 +19,7 @@ test('study ranking emits the canonical shared segment spring wrapper directly',
 })
 
 test('study ranking scope uses one physical pill with direct click ownership', () => {
-  const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
+  const page = read('src/preview-study.jsx')
 
   assert.match(page, /preview-study-ranking-pill/)
   assert.match(page, /ref=\{scopeSpring\.containerRef\}/)
@@ -33,7 +33,7 @@ test('study ranking scope uses one physical pill with direct click ownership', (
 })
 
 test('study ranking content reuses the meal content motion with a visibly perceptible Study mapping and reduced-motion fallback', () => {
-  const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
+  const page = read('src/preview-study.jsx')
   const style = read('src/preview-study-ranking.css')
   const stage3 = read('src/stage3.css')
   const main = read('src/main.jsx')
@@ -54,6 +54,19 @@ test('study ranking content reuses the meal content motion with a visibly percep
   assert.doesNotMatch(style, /@keyframes preview-study-ranking-back/)
   assert.match(style, /prefers-reduced-motion: reduce/)
   assert.match(style, /preview-study-ranking-stage\[data-direction\][\s\S]*animation: none !important/)
+})
+
+test('Study ranking runtime is source-owned instead of injected by the build patch', () => {
+  const page = read('src/preview-study.jsx')
+  const patch = read('src/preview-study-patch.js')
+  const patchedPage = patchPreviewStudySource(page, '/workspace/src/preview-study.jsx')
+
+  assert.match(page, /function useStudyRankingScopeSpring\(activeIndex\)/)
+  assert.match(page, /preview-study-ranking-pill/)
+  assert.match(page, /data-direction=\{stageDirection\}/)
+  assert.equal(patchedPage, page)
+  assert.doesNotMatch(patch, /STUDY_RANKING_SPRING_RUNTIME/)
+  assert.doesNotMatch(patch, /patchStudyRankingPageSource/)
 })
 
 test('Study ranking motion CSS is source-owned instead of appended by the build patch', () => {
