@@ -40,11 +40,13 @@ test('study unread reacts to new starts only and realtime supports parallel cons
 test('segment unread keys are rendered semantically without a text-inference observer', () => {
   const html = read('index.html')
   const css = read('src/unread-indicators.css')
-  const owner = read('src/preview-class-top-segment-patch.js')
+  const classOwner = read('src/preview-class-top-segment-patch.js')
+  const scheduleOwner = read('src/preview-schedule-top-segment-patch.js')
   assert.doesNotMatch(html, /preview-unread-dom-keys\.js/)
   assert.match(html, /unread-indicators-v2\.js/)
-  assert.match(owner, /data-unread-key=\{item\.id\}/)
-  assert.match(owner, /return useSHubSegmentSpring\(activeIndex, \{/)
+  assert.match(classOwner, /data-unread-key=\{item\.id\}/)
+  assert.match(scheduleOwner, /data-unread-key=\{item\.id\}/)
+  assert.match(classOwner, /return useSHubSegmentSpring\(activeIndex, \{/)
   assert.match(css, /school-unread-dot\.is-segment/)
 })
 
