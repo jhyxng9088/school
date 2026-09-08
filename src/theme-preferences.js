@@ -13,6 +13,7 @@ export const THEME_ACCENTS = [
   { id: 'lavender', label: '라벤더' },
   { id: 'mint', label: '민트' },
   { id: 'peach', label: '피치' },
+  { id: 'avocado', label: '아보카도' },
 ]
 
 const MODE_IDS = new Set(THEME_MODES.map((item) => item.id))
