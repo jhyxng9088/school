@@ -177,76 +177,111 @@ html[data-theme-mode="dark"] {
   --focus-accent-soft: rgba(126, 158, 238, 0.11);
 }
 
-html[data-theme-accent="pink"] { --theme-accent: #d39aaf; }
-html[data-theme-accent="blue"] { --theme-accent: #8da9d8; }
-html[data-theme-accent="lavender"] { --theme-accent: #ab9bcf; }
-html[data-theme-accent="mint"] { --theme-accent: #9eaf91; }
-html[data-theme-accent="peach"] { --theme-accent: #d2a080; }
-html[data-theme-accent="avocado"] { --theme-accent: #b2c66a; }
-html[data-theme-accent="cream"] { --theme-accent: #e2c487; }
-html[data-theme-accent="ivory"] { --theme-accent: #e7deca; }
-html[data-theme-accent="sand"] { --theme-accent: #c8b295; }
+html[data-theme-accent="gray"] {
+  --theme-accent: #a9aab0;
+  --theme-dark-accent: #5d6068;
+}
+
+html[data-theme-accent="pink"] {
+  --theme-accent: #d39aaf;
+  --theme-dark-accent: #8e536a;
+}
+
+html[data-theme-accent="blue"] {
+  --theme-accent: #8da9d8;
+  --theme-dark-accent: #4d678f;
+}
+
+html[data-theme-accent="lavender"] {
+  --theme-accent: #ab9bcf;
+  --theme-dark-accent: #705b96;
+}
+
+html[data-theme-accent="mint"] {
+  --theme-accent: #9eaf91;
+  --theme-dark-accent: #5f7257;
+}
+
+html[data-theme-accent="peach"] {
+  --theme-accent: #d2a080;
+  --theme-dark-accent: #8a5b44;
+}
+
+html[data-theme-accent="avocado"] {
+  --theme-accent: #b2c66a;
+  --theme-dark-accent: #6a7838;
+}
+
+html[data-theme-accent="cream"] {
+  --theme-accent: #e2c487;
+  --theme-dark-accent: #8e7040;
+}
+
+html[data-theme-accent="ivory"] {
+  --theme-accent: #e7deca;
+  --theme-dark-accent: #766f63;
+}
 
 html[data-theme-accent] {
-  --bg: color-mix(in srgb, #f5f5f7 86%, var(--theme-accent));
-  --surface: color-mix(in srgb, #ffffff 81%, var(--theme-accent));
-  --surface-soft: color-mix(in srgb, #ececef 72%, var(--theme-accent));
-  --surface-glass: color-mix(in srgb, rgba(248, 248, 250, 0.84) 79%, var(--theme-accent));
-  --border: color-mix(in srgb, rgba(22, 22, 23, 0.07) 72%, var(--theme-accent));
-  --divider: color-mix(in srgb, rgba(22, 22, 23, 0.08) 75%, var(--theme-accent));
-  --nav-shell-surface: color-mix(in srgb, rgba(246, 246, 248, 0.78) 77%, var(--theme-accent));
-  --s-hub-active-pill-surface: color-mix(in srgb, #ffffff 64%, var(--theme-accent));
-  --s-hub-active-pill-edge: color-mix(in srgb, rgba(22, 22, 23, 0.08) 55%, var(--theme-accent));
+  --bg: color-mix(in srgb, #f5f5f7 82%, var(--theme-accent));
+  --surface: color-mix(in srgb, #ffffff 77%, var(--theme-accent));
+  --surface-soft: color-mix(in srgb, #ececef 68%, var(--theme-accent));
+  --surface-glass: color-mix(in srgb, rgba(248, 248, 250, 0.84) 75%, var(--theme-accent));
+  --border: color-mix(in srgb, rgba(22, 22, 23, 0.07) 68%, var(--theme-accent));
+  --divider: color-mix(in srgb, rgba(22, 22, 23, 0.08) 71%, var(--theme-accent));
+  --nav-shell-surface: color-mix(in srgb, rgba(246, 246, 248, 0.78) 73%, var(--theme-accent));
+  --s-hub-active-pill-surface: color-mix(in srgb, #ffffff 60%, var(--theme-accent));
+  --s-hub-active-pill-edge: color-mix(in srgb, rgba(22, 22, 23, 0.08) 51%, var(--theme-accent));
   --s-hub-active-pill-shadow: inset 0 0 0 0.5px var(--s-hub-active-pill-edge), 0 5px 18px rgba(0, 0, 0, 0.1);
   --nav-indicator-surface: var(--s-hub-active-pill-surface);
   --nav-indicator-edge: var(--s-hub-active-pill-edge);
   --nav-indicator-shadow: var(--s-hub-active-pill-shadow);
-  --specular-edge: color-mix(in srgb, rgba(255, 255, 255, 0.92) 84%, var(--theme-accent));
-  --focus-surface: color-mix(in srgb, #fbfbfc 66%, var(--theme-accent));
-  --focus-accent: color-mix(in srgb, var(--theme-accent) 82%, #59606c);
-  --focus-accent-soft: color-mix(in srgb, #ffffff 68%, var(--theme-accent));
+  --specular-edge: color-mix(in srgb, rgba(255, 255, 255, 0.92) 82%, var(--theme-accent));
+  --focus-surface: color-mix(in srgb, #fbfbfc 61%, var(--theme-accent));
+  --focus-accent: color-mix(in srgb, var(--theme-accent) 86%, #59606c);
+  --focus-accent-soft: color-mix(in srgb, #ffffff 63%, var(--theme-accent));
 }
 
 @media (prefers-color-scheme: dark) {
   html:not([data-theme-mode])[data-theme-accent] {
-    --bg: #000000;
-    --surface: color-mix(in srgb, #1c1c1e 80%, var(--theme-accent));
-    --surface-soft: color-mix(in srgb, #2c2c2e 74%, var(--theme-accent));
-    --surface-glass: color-mix(in srgb, rgba(28, 28, 30, 0.86) 78%, var(--theme-accent));
-    --border: color-mix(in srgb, rgba(255, 255, 255, 0.09) 76%, var(--theme-accent));
-    --divider: color-mix(in srgb, rgba(255, 255, 255, 0.1) 78%, var(--theme-accent));
-    --nav-shell-surface: color-mix(in srgb, rgba(22, 22, 24, 0.8) 82%, var(--theme-accent));
-    --s-hub-active-pill-surface: color-mix(in srgb, #323235 66%, var(--theme-accent));
-    --s-hub-active-pill-edge: color-mix(in srgb, rgba(255, 255, 255, 0.14) 64%, var(--theme-accent));
+    --bg: color-mix(in srgb, #101012 78%, var(--theme-dark-accent));
+    --surface: color-mix(in srgb, #1b191d 68%, var(--theme-dark-accent));
+    --surface-soft: color-mix(in srgb, #29262b 62%, var(--theme-dark-accent));
+    --surface-glass: color-mix(in srgb, rgba(27, 25, 29, 0.9) 66%, var(--theme-dark-accent));
+    --border: rgba(255, 255, 255, 0.11);
+    --divider: rgba(255, 255, 255, 0.12);
+    --nav-shell-surface: color-mix(in srgb, rgba(24, 22, 26, 0.86) 66%, var(--theme-dark-accent));
+    --s-hub-active-pill-surface: color-mix(in srgb, #373138 55%, var(--theme-dark-accent));
+    --s-hub-active-pill-edge: rgba(255, 255, 255, 0.16);
     --s-hub-active-pill-shadow: inset 0 0 0 0.5px var(--s-hub-active-pill-edge), 0 5px 18px rgba(0, 0, 0, 0.24);
     --nav-indicator-surface: var(--s-hub-active-pill-surface);
     --nav-indicator-edge: var(--s-hub-active-pill-edge);
     --nav-indicator-shadow: var(--s-hub-active-pill-shadow);
-    --specular-edge: color-mix(in srgb, rgba(255, 255, 255, 0.075) 78%, var(--theme-accent));
-    --focus-surface: color-mix(in srgb, #202023 68%, var(--theme-accent));
-    --focus-accent: color-mix(in srgb, var(--theme-accent) 84%, #f5f5f7);
-    --focus-accent-soft: color-mix(in srgb, #202023 72%, var(--theme-accent));
+    --specular-edge: rgba(255, 255, 255, 0.085);
+    --focus-surface: color-mix(in srgb, #252026 54%, var(--theme-dark-accent));
+    --focus-accent: color-mix(in srgb, var(--theme-dark-accent) 80%, #f5f5f7);
+    --focus-accent-soft: color-mix(in srgb, #241f25 58%, var(--theme-dark-accent));
   }
 }
 
 html[data-theme-mode="dark"][data-theme-accent] {
-  --bg: #000000;
-  --surface: color-mix(in srgb, #1c1c1e 80%, var(--theme-accent));
-  --surface-soft: color-mix(in srgb, #2c2c2e 74%, var(--theme-accent));
-  --surface-glass: color-mix(in srgb, rgba(28, 28, 30, 0.86) 78%, var(--theme-accent));
-  --border: color-mix(in srgb, rgba(255, 255, 255, 0.09) 76%, var(--theme-accent));
-  --divider: color-mix(in srgb, rgba(255, 255, 255, 0.1) 78%, var(--theme-accent));
-  --nav-shell-surface: color-mix(in srgb, rgba(22, 22, 24, 0.8) 82%, var(--theme-accent));
-  --s-hub-active-pill-surface: color-mix(in srgb, #323235 66%, var(--theme-accent));
-  --s-hub-active-pill-edge: color-mix(in srgb, rgba(255, 255, 255, 0.14) 64%, var(--theme-accent));
+  --bg: color-mix(in srgb, #101012 78%, var(--theme-dark-accent));
+  --surface: color-mix(in srgb, #1b191d 68%, var(--theme-dark-accent));
+  --surface-soft: color-mix(in srgb, #29262b 62%, var(--theme-dark-accent));
+  --surface-glass: color-mix(in srgb, rgba(27, 25, 29, 0.9) 66%, var(--theme-dark-accent));
+  --border: rgba(255, 255, 255, 0.11);
+  --divider: rgba(255, 255, 255, 0.12);
+  --nav-shell-surface: color-mix(in srgb, rgba(24, 22, 26, 0.86) 66%, var(--theme-dark-accent));
+  --s-hub-active-pill-surface: color-mix(in srgb, #373138 55%, var(--theme-dark-accent));
+  --s-hub-active-pill-edge: rgba(255, 255, 255, 0.16);
   --s-hub-active-pill-shadow: inset 0 0 0 0.5px var(--s-hub-active-pill-edge), 0 5px 18px rgba(0, 0, 0, 0.24);
   --nav-indicator-surface: var(--s-hub-active-pill-surface);
   --nav-indicator-edge: var(--s-hub-active-pill-edge);
   --nav-indicator-shadow: var(--s-hub-active-pill-shadow);
-  --specular-edge: color-mix(in srgb, rgba(255, 255, 255, 0.075) 78%, var(--theme-accent));
-  --focus-surface: color-mix(in srgb, #202023 68%, var(--theme-accent));
-  --focus-accent: color-mix(in srgb, var(--theme-accent) 84%, #f5f5f7);
-  --focus-accent-soft: color-mix(in srgb, #202023 72%, var(--theme-accent));
+  --specular-edge: rgba(255, 255, 255, 0.085);
+  --focus-surface: color-mix(in srgb, #252026 54%, var(--theme-dark-accent));
+  --focus-accent: color-mix(in srgb, var(--theme-dark-accent) 80%, #f5f5f7);
+  --focus-accent-soft: color-mix(in srgb, #241f25 58%, var(--theme-dark-accent));
 }
 
 #theme-settings-root {
@@ -312,12 +347,29 @@ body:has(.app-content.tab-home) #theme-settings-root {
 
 .theme-mode-segment .class-top-segment-button {
   opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+  animation: none !important;
+  animation-delay: 0ms !important;
+  transition: transform 90ms var(--motion-ease, ease) !important;
+  transition-delay: 0ms !important;
   color: var(--text-secondary) !important;
-  transition: color 360ms var(--motion-soft, ease), transform 90ms var(--motion-ease, ease) !important;
 }
 
 .theme-mode-segment .class-top-segment-button.is-active {
   color: var(--text) !important;
+}
+
+.theme-mode-label {
+  display: block;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  filter: none !important;
+  animation: none !important;
+  animation-delay: 0ms !important;
+  transition: none !important;
+  transition-delay: 0ms !important;
 }
 
 .theme-accent-options {
@@ -359,6 +411,7 @@ body:has(.app-content.tab-home) #theme-settings-root {
   transform: scale(1.08);
 }
 
+.theme-accent-option[data-accent="gray"] { --swatch: #a9aab0; }
 .theme-accent-option[data-accent="pink"] { --swatch: #d39aaf; }
 .theme-accent-option[data-accent="blue"] { --swatch: #8da9d8; }
 .theme-accent-option[data-accent="lavender"] { --swatch: #ab9bcf; }
@@ -367,7 +420,6 @@ body:has(.app-content.tab-home) #theme-settings-root {
 .theme-accent-option[data-accent="avocado"] { --swatch: #b2c66a; }
 .theme-accent-option[data-accent="cream"] { --swatch: #e2c487; }
 .theme-accent-option[data-accent="ivory"] { --swatch: #e7deca; }
-.theme-accent-option[data-accent="sand"] { --swatch: #c8b295; }
 
 @media (max-width: 390px) {
   #theme-settings-root {
@@ -389,7 +441,6 @@ body:has(.app-content.tab-home) #theme-settings-root {
 
   #theme-settings-root,
   .theme-settings-trigger,
-  .theme-mode-segment .class-top-segment-button,
   .theme-accent-option,
   .theme-accent-swatch {
     transition-duration: .01ms !important;
