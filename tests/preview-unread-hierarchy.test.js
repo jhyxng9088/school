@@ -59,3 +59,23 @@ test('unread redraw follows semantic interactions without a DOM observer', () =>
   assert.match(clickHandler, /todo-item-main[\s\S]*scheduleRender\(\)/)
   assert.equal((clickHandler.match(/scheduleRender\(\)/g) || []).length, 3)
 })
+
+test('active leaf is marked seen before parent and nav dots render', () => {
+  const source = read('src/unread-indicators-v2.js')
+  const renderBody = source.slice(source.indexOf('function render()'), source.indexOf('function markReminderSeen'))
+  const markIndex = renderBody.indexOf('markTabSeen(tab)')
+  assert.ok(markIndex >= 0)
+  assert.ok(markIndex < renderBody.indexOf('renderTopSegments()'))
+  assert.ok(markIndex < renderBody.indexOf('renderNav()'))
+})
+
+test('Firestore unread seen state never regresses behind a local read', () => {
+  const source = read('src/unread-indicators-v2.js')
+  const todoStateSubscription = source.slice(
+    source.indexOf("subscribeClassLiveData('todoState'"),
+    source.indexOf("document.addEventListener('click', handleClick, true)"),
+  )
+  assert.match(todoStateSubscription, /state\.seen\.forEach\(\(value, id\) =>/)
+  assert.match(todoStateSubscription, /localVersion > Number\(nextSeen\.get\(id\)\?\.updatedAt \|\| 0\)/)
+  assert.ok(todoStateSubscription.indexOf('state.seen.forEach') < todoStateSubscription.indexOf('pendingWrites.forEach'))
+})
