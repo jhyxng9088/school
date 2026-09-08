@@ -3,7 +3,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PREVIEW_CLASS_SEGMENT_PHYSICS } from '../src/preview-class-top-segment-patch.js'
 import { S_HUB_SEGMENT_SPRING_PHYSICS } from '../src/s-hub-segment-spring.js'
-import { patchPreviewStudySource } from '../src/preview-study-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -20,8 +19,8 @@ test('class segment generator owns the shared spring wrapper and unread semantic
   assert.doesNotMatch(source, /physics\.velocity \+= acceleration \* dt/)
 })
 
-test('study generator emits the same shared spring wrapper without a duplicate physics runtime', () => {
-  const page = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
+test('Study raw source reuses the same shared spring wrapper without a duplicate physics runtime', () => {
+  const page = read('src/preview-study.jsx')
   assert.match(page, /import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'/)
   assert.match(page, /function useStudyRankingScopeSpring\(activeIndex\) \{\n  return useSHubSegmentSpring/)
   assert.match(page, /paddingProperty: '--study-ranking-padding'/)
