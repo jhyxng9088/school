@@ -111,38 +111,15 @@ html.school-samsung .preview-study-ranking-tabs button.is-selected {
 }
 
 .preview-study-ranking-stage {
-  animation: none;
   will-change: transform, opacity;
 }
 
 .preview-study-ranking-stage[data-direction="forward"] {
-  animation: preview-study-ranking-forward 360ms cubic-bezier(.16, 1, .3, 1) both;
+  --stage3-direction: 1;
 }
 
 .preview-study-ranking-stage[data-direction="back"] {
-  animation: preview-study-ranking-back 360ms cubic-bezier(.16, 1, .3, 1) both;
-}
-
-@keyframes preview-study-ranking-forward {
-  from {
-    opacity: .34;
-    transform: translate3d(14px, 0, 0) scale(.996);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes preview-study-ranking-back {
-  from {
-    opacity: .34;
-    transform: translate3d(-14px, 0, 0) scale(.996);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
+  --stage3-direction: -1;
 }
 
 html.school-samsung .preview-study-ranking-tabs::before {
