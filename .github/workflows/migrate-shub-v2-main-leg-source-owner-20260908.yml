@@ -43,6 +43,7 @@ jobs:
       - name: Verify changed-file boundary
         run: |
           git diff --check
+          git add -N tests/shub-v2-main-source-owner.test.js
           git diff --name-only | sort > /tmp/actual-files.txt
           cat > /tmp/expected-files.txt <<'EOF'
           .github/workflows/migrate-shub-v2-main-leg-source-owner-20260908.yml
