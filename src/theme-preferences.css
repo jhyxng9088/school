@@ -318,43 +318,25 @@ html[data-theme-mode="light"][data-theme-accent] {
   --focus-accent-soft: color-mix(in srgb, #ffffff 52%, var(--theme-accent));
 }
 
+.home-top-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.home-top-actions .user-name {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-top-actions .theme-settings-trigger,
 .home-top-actions .home-ai-trigger {
-  anchor-name: --home-ai-trigger;
-}
-
-#theme-settings-root {
-  position: absolute;
-  position-anchor: --home-ai-trigger;
-  z-index: 19;
-  top: anchor(--home-ai-trigger center);
-  left: anchor(--home-ai-trigger left);
-  translate: calc(-100% - 9px) -50%;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate3d(0, 7px, 0) scale(.996);
-  transition: opacity 220ms var(--motion-soft, ease), transform 320ms var(--motion-ease, ease);
-}
-
-@keyframes theme-settings-home-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 7px, 0) scale(.996);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, -1px, 0) scale(1);
-  }
-}
-
-body:has(.app-content.tab-home) #theme-settings-root {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translate3d(0, -1px, 0) scale(1);
-  animation: theme-settings-home-in 980ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-body:has(.app-content.tab-home) .home-top-actions .home-ai-trigger {
-  margin-left: 43px;
+  flex: 0 0 auto;
 }
 
 .theme-settings-trigger {
@@ -545,21 +527,11 @@ body:has(.app-content.tab-home) .home-top-actions .home-ai-trigger {
   .theme-accent-swatch { width: 29px; height: 29px; }
 }
 
-html.school-mobile-compat body:has(.app-content.tab-home) #theme-settings-root {
-  animation-duration: 760ms;
-}
-
 @media (prefers-reduced-motion: reduce) {
   html {
     transition-duration: .01ms;
   }
 
-  body:has(.app-content.tab-home) #theme-settings-root {
-    animation-duration: .01ms !important;
-    animation-delay: 0ms !important;
-  }
-
-  #theme-settings-root,
   .theme-settings-trigger,
   .theme-accent-option,
   .theme-accent-swatch {
