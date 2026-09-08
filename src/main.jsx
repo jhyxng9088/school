@@ -1053,6 +1053,20 @@ function AppShell({ profile }) {
   const [activeTab, setActiveTab] = useState('home')
   const [contentDirection, setContentDirection] = useState(1)
   const [aiOpen, setAiOpen] = useState(false)
+
+  useLayoutEffect(() => {
+    const resetScroll = () => {
+      window.scrollTo(0, 0)
+      const scroller = document.scrollingElement
+      if (scroller) scroller.scrollTop = 0
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+    resetScroll()
+    const frame = window.requestAnimationFrame(resetScroll)
+    return () => window.cancelAnimationFrame(frame)
+  }, [activeTab])
+
   const { toast, requireOnline } = useNetworkGuard()
   const now = useNow()
   const {

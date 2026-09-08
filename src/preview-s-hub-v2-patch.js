@@ -3,18 +3,6 @@ function replaceRequired(source, marker, replacement, label) {
   return source.replace(marker, replacement)
 }
 
-function patchMainSource(source) {
-  let next = source
-  next = replaceRequired(
-    next,
-    "  const [aiOpen, setAiOpen] = useState(false)\n  const { toast, requireOnline } = useNetworkGuard()",
-    `  const [aiOpen, setAiOpen] = useState(false)\n\n  useLayoutEffect(() => {\n    const resetScroll = () => {\n      window.scrollTo(0, 0)\n      const scroller = document.scrollingElement\n      if (scroller) scroller.scrollTop = 0\n      document.documentElement.scrollTop = 0\n      document.body.scrollTop = 0\n    }\n    resetScroll()\n    const frame = window.requestAnimationFrame(resetScroll)\n    return () => window.cancelAnimationFrame(frame)\n  }, [activeTab])\n\n  const { toast, requireOnline } = useNetworkGuard()`,
-    'tab scroll reset',
-  )
-
-  return next
-}
-
 function patchTodoStage5Source(source) {
   let next = source
   next = replaceRequired(
@@ -111,7 +99,6 @@ function patchTodoStage5Source(source) {
 
 export function patchPreviewSHubV2Source(source, id) {
   const cleanId = String(id || '').split('?')[0]
-  if (cleanId.endsWith('/main.jsx')) return patchMainSource(String(source || ''))
   if (cleanId.endsWith('/todo-stage5-ai.jsx')) return patchTodoStage5Source(String(source || ''))
   return String(source || '')
 }
