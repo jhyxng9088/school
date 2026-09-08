@@ -36,6 +36,16 @@ test('board unread uses student-scoped server state with local cache and retryab
   assert.match(realtime, /action: 'mark-section-seen'/)
 })
 
+test('stale Board server state cannot roll local cursor or section seen cursor backward', () => {
+  const source = read('src/preview-board-unread.js')
+  const apply = source.slice(source.indexOf('function applyServerReadState'), source.indexOf('function applyEvents'))
+
+  assert.match(apply, /const nextCursor = Math\.max\([\s\S]*Number\(controller\.state\.cursor \|\| 0\)[\s\S]*Number\(readState\.cursor \|\| 0\)/)
+  assert.match(apply, /const nextSeenCursor = Math\.max\([\s\S]*Number\(controller\.state\.seenCursor \|\| 0\)[\s\S]*Number\(readState\.seenCursor \|\| 0\)[\s\S]*Number\(controller\.state\.pendingSeenCursor \|\| 0\)/)
+  assert.match(apply, /controller\.state\.cursor = nextCursor/)
+  assert.match(apply, /controller\.state\.seenCursor = nextSeenCursor/)
+})
+
 test('board realtime supports global unread and visible-board refresh listeners at the same time', () => {
   const realtime = read('src/preview-board-realtime.js')
   assert.match(realtime, /const listeners = new Set\(\)/)
