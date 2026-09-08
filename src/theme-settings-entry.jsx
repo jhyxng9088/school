@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import {
   THEME_ACCENTS,
@@ -10,6 +11,39 @@ import {
 } from './theme-preferences.js'
 
 initializeThemePreferences()
+
+function ThemeModeSegment({ mode, onModeChange }) {
+  const activeIndex = Math.max(0, THEME_MODES.findIndex((item) => item.id === mode))
+  const spring = useSHubSegmentSpring(activeIndex, {
+    paddingProperty: '--segment-padding',
+    shellScaleProperty: '--segment-shell-scale-x',
+    shellShiftProperty: '--segment-shell-shift-x',
+    fallbackPadding: 5,
+  })
+
+  return (
+    <div
+      ref={spring.containerRef}
+      className="class-top-segment schedule-top-segment theme-mode-segment"
+      role="group"
+      aria-label="화면 모드"
+    >
+      <span ref={spring.indicatorRef} className="class-top-segment-pill" aria-hidden="true" />
+      {THEME_MODES.map((item, index) => (
+        <button
+          ref={(node) => { spring.buttonRefs.current[index] = node }}
+          key={item.id}
+          type="button"
+          className={'class-top-segment-button ' + (mode === item.id ? 'is-active' : '')}
+          aria-pressed={mode === item.id}
+          onClick={() => onModeChange(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 function ThemeSettingsIsland() {
   const [open, setOpen] = useState(false)
@@ -39,19 +73,10 @@ function ThemeSettingsIsland() {
         <div className="theme-settings-panel">
           <section className="theme-settings-group" aria-labelledby="theme-mode-label">
             <p className="theme-settings-label" id="theme-mode-label">화면 모드</p>
-            <div className="theme-mode-options" role="group" aria-label="화면 모드">
-              {THEME_MODES.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className={preferences.mode === mode.id ? 'is-selected' : ''}
-                  aria-pressed={preferences.mode === mode.id}
-                  onClick={() => updatePreferences({ mode: mode.id })}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
+            <ThemeModeSegment
+              mode={preferences.mode}
+              onModeChange={(mode) => updatePreferences({ mode })}
+            />
           </section>
 
           <section className="theme-settings-group" aria-labelledby="theme-accent-label">
