@@ -8,7 +8,6 @@ import {
   POLITE_SOURCE_FRAGMENTS,
 } from './src/polite-copy-runtime.js'
 import { PREVIEW_POLITE_COPY_REPLACEMENTS } from './src/preview-polite-copy-additions.js'
-import { patchPreviewReminderPolishSource } from './src/preview-reminder-polish-patch.js'
 import { patchPreviewStationNavSource } from './src/preview-station-nav-patch.js'
 import { patchPreviewStudySource } from './src/preview-study-patch.js'
 import { patchPreviewStudyUnifiedUISource } from './src/preview-study-unified-ui-patch.js'
@@ -70,7 +69,6 @@ function replaceV2Source(source, id) {
   if (!cleanId.includes('/src/')) return String(source || '')
 
   let next = String(source || '')
-  next = patchPreviewReminderPolishSource(next, cleanId)
   next = patchPreviewStationNavSource(next, cleanId)
   next = patchPreviewStationNavRefinementSource(next, cleanId)
   next = patchPreviewStationJellyMotionSource(next, cleanId)
@@ -134,7 +132,6 @@ function politeCopyPlugin() {
         !cleanId.includes('/src/')
         || cleanId.endsWith('/polite-copy-runtime.js')
         || cleanId.endsWith('/preview-polite-copy-additions.js')
-        || cleanId.endsWith('/preview-reminder-polish-patch.js')
         || cleanId.endsWith('/preview-station-nav-patch.js')
         || cleanId.endsWith('/preview-study-patch.js')
         || cleanId.endsWith('/preview-study-unified-ui-patch.js')
