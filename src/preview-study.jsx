@@ -651,7 +651,6 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
         console.warn('S-Hub study realtime broadcast unavailable:', error)
       }
       await load({ silent: true })
-      if (schoolSnapshotRef.current || rankingScopeRef.current === 'school') await loadSchool({ silent: true })
       setNowMs(Date.now())
       return true
     })()
