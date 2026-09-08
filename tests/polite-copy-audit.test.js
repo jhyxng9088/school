@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { POLITE_COPY_REPLACEMENTS, POLITE_SOURCE_FRAGMENTS } from '../src/polite-copy-runtime.js'
 import { PREVIEW_POLITE_COPY_REPLACEMENTS } from '../src/preview-polite-copy-additions.js'
-import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -67,7 +66,6 @@ function replacePairs(source, pairs) {
 
 function previewBuiltSource(path) {
   let source = read(path)
-  source = patchPreviewSHubV2Source(source, `/workspace/${path}`)
   if (path === 'src/s-hub-ai-sheet.jsx') {
     source = patchPreviewAIPageSource(source, `/workspace/${path}`)
   }

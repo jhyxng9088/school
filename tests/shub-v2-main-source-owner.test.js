@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
+import { existsSync, readFileSync } from 'node:fs'
+import { patchPreviewReminderPolishSource } from '../src/preview-reminder-polish-patch.js'
 
 const read = (path) => readFileSync(new URL('../' + path, import.meta.url), 'utf8')
 
@@ -11,14 +11,23 @@ test('S-Hub V2 tab scroll reset is owned by raw main source', () => {
   assert.match(main, /window\.scrollTo\(0, 0\)/)
   assert.match(main, /requestAnimationFrame\(resetScroll\)/)
   assert.match(main, /\}, \[activeTab\]\)/)
-  assert.equal(patchPreviewSHubV2Source(main, '/workspace/src/main.jsx'), main)
 })
 
-test('S-Hub V2 build patch still owns the remaining reminder-section leg', () => {
+test('S-Hub V2 reminder section management is owned by raw todo source', () => {
   const todo = read('src/todo-stage5-ai.jsx')
-  assert.notEqual(patchPreviewSHubV2Source(todo, '/workspace/src/todo-stage5-ai.jsx'), todo)
-  const patchSource = read('src/preview-s-hub-v2-patch.js')
-  assert.doesNotMatch(patchSource, /function patchMainSource/)
-  assert.equal(patchSource.includes("endsWith('/main.jsx')"), false)
-  assert.match(patchSource, /function patchTodoStage5Source/)
+  assert.match(todo, /CUSTOM_REMINDER_CATEGORY_COLORS/)
+  assert.match(todo, /reminderFilterOptions\(categories\)/)
+  assert.match(todo, /saveReminderSectionChange/)
+  assert.match(todo, /function beginSectionPress/)
+  assert.match(todo, /function submitSectionEdit/)
+  assert.match(todo, /function deleteSectionFromAction/)
+  assert.notEqual(patchPreviewReminderPolishSource(todo, '/workspace/src/todo-stage5-ai.jsx'), todo)
+})
+
+test('retired S-Hub V2 build patch stays out of the production build graph', () => {
+  const vite = read('vite.config.js')
+  assert.equal(existsSync(new URL('../src/preview-s-hub-v2-patch.js', import.meta.url)), false)
+  assert.doesNotMatch(vite, /patchPreviewSHubV2Source/)
+  assert.doesNotMatch(vite, /preview-s-hub-v2-patch\.js/)
+  assert.match(vite, /patchPreviewReminderPolishSource/)
 })

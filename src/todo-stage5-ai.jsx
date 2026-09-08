@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   REMINDER_CATEGORY_COLORS,
+  CUSTOM_REMINDER_CATEGORY_COLORS,
+  reminderFilterOptions,
+  reminderSectionById,
   reminderTypeColor,
   reminderTypeLabel,
   reminderTypeOptions,
@@ -12,8 +15,10 @@ import { findReminderConflict } from './s-hub-ai.js'
 import { AttachmentPicker, SummarySheet, createPendingReminderSummary, isReminderSummaryPending, withAttachmentManifest } from './reminder-summary.jsx'
 import { activityKey, activityLabel, useClassActivity } from './class-activity'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
+import { saveReminderSectionChange } from './reminder-section-client.js'
 import './todo-stage5.css'
 import './todo-ai.css'
+import './preview-section-management.css'
 
 const SAMSUNG_INTERNET = /SamsungBrowser/i.test(navigator.userAgent)
 
@@ -269,6 +274,15 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const [categoryColor, setCategoryColor] = useState('')
   const [categorySaving, setCategorySaving] = useState(false)
   const [categorySaveError, setCategorySaveError] = useState('')
+  const [sectionActionTarget, setSectionActionTarget] = useState(null)
+  const [sectionActionOpen, setSectionActionOpen] = useState(false)
+  const [sectionActionError, setSectionActionError] = useState('')
+  const [sectionEditTarget, setSectionEditTarget] = useState(null)
+  const [sectionEditOpen, setSectionEditOpen] = useState(false)
+  const [sectionEditName, setSectionEditName] = useState('')
+  const [sectionEditColor, setSectionEditColor] = useState('')
+  const [sectionSaving, setSectionSaving] = useState(false)
+  const [sectionEditError, setSectionEditError] = useState('')
   const activity = useClassActivity()
   const pageRef = useRef(null)
   const rowMotionRef = useRef(new Map())
@@ -276,15 +290,24 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   const summaryPromiseRef = useRef(null)
   const pendingCreateIdRef = useRef('')
   const conflictApprovalRef = useRef('')
+  const sectionPressTimerRef = useRef(0)
+  const sectionEditTimerRef = useRef(0)
+  const suppressSectionClickRef = useRef(false)
 
   const sorted = useMemo(() => sortTodos(todos), [todos])
   const types = useMemo(() => reminderTypeOptions(categories), [categories])
-  const filters = useMemo(() => [{ id: 'all', label: '전체' }, ...types], [types])
+  const filters = useMemo(() => reminderFilterOptions(categories), [categories])
   const usedCategoryColors = useMemo(() => usedReminderCategoryColors(categories), [categories])
   const availableCategoryColors = useMemo(
-    () => REMINDER_CATEGORY_COLORS.filter((color) => !usedCategoryColors.has(color.id)),
+    () => CUSTOM_REMINDER_CATEGORY_COLORS.filter((color) => !usedCategoryColors.has(color.id)),
     [usedCategoryColors],
   )
+  const sectionEditUsedColors = useMemo(() => {
+    const used = usedReminderCategoryColors(categories)
+    const current = reminderSectionById(sectionEditTarget?.id, categories)
+    if (current?.color) used.delete(current.color)
+    return used
+  }, [categories, sectionEditTarget?.id])
   const active = sorted.filter((todo) => !todo.completed)
   const completed = sorted.filter((todo) => todo.completed)
   const visibleActive = filter === 'all' ? active : active.filter((todo) => todo.type === filter)
@@ -305,6 +328,16 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   useEffect(() => {
     const timer = window.setTimeout(() => setPageEntering(false), 1150)
     return () => window.clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    if (filters.some((item) => item.id === filter)) return
+    setFilter(filters[0]?.id || 'all')
+  }, [filter, filters])
+
+  useEffect(() => () => {
+    if (sectionPressTimerRef.current) window.clearTimeout(sectionPressTimerRef.current)
+    if (sectionEditTimerRef.current) window.clearTimeout(sectionEditTimerRef.current)
   }, [])
 
   useEffect(() => {
@@ -398,6 +431,126 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     setSummaryResult(null)
     setSummaryState('idle')
     setSummaryError(null)
+  }
+
+  function clearSectionPressTimer() {
+    if (!sectionPressTimerRef.current) return
+    window.clearTimeout(sectionPressTimerRef.current)
+    sectionPressTimerRef.current = 0
+  }
+
+  function openSectionActions(item) {
+    if (!item) return
+    setSectionActionTarget(item)
+    setSectionActionError('')
+    setSectionActionOpen(true)
+  }
+
+  function beginSectionPress(item, event) {
+    if (event?.button != null && event.button > 0) return
+    suppressSectionClickRef.current = false
+    clearSectionPressTimer()
+    sectionPressTimerRef.current = window.setTimeout(() => {
+      sectionPressTimerRef.current = 0
+      suppressSectionClickRef.current = true
+      openSectionActions(item)
+    }, 520)
+  }
+
+  function finishSectionPress() {
+    clearSectionPressTimer()
+  }
+
+  function handleSectionClick(item) {
+    if (suppressSectionClickRef.current) {
+      suppressSectionClickRef.current = false
+      return
+    }
+    setFilter(item.id)
+  }
+
+  function handleSectionContextMenu(event, item) {
+    event.preventDefault()
+    clearSectionPressTimer()
+    suppressSectionClickRef.current = true
+    openSectionActions(item)
+  }
+
+  function sectionSaveErrorMessage(error) {
+    const code = String(error?.code || '')
+    if (code === 'reminder-section/duplicate-label') return '이미 사용 중인 섹션 이름입니다.'
+    if (code === 'reminder-section/duplicate-color') return '이미 사용 중인 색상입니다. 다른 색상을 선택해 주세요.'
+    if (code === 'reminder-section/last-visible') return '마지막 남은 섹션은 삭제할 수 없습니다.'
+    if (code === 'reminder-section/profile-required') return '학생 정보를 확인하지 못했습니다. 앱을 다시 열어 주세요.'
+    return '섹션 설정을 저장하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'
+  }
+
+  function openSectionEditFromAction() {
+    const target = sectionActionTarget
+    if (!target || sectionSaving) return
+    setSectionActionOpen(false)
+    if (sectionEditTimerRef.current) window.clearTimeout(sectionEditTimerRef.current)
+    sectionEditTimerRef.current = window.setTimeout(() => {
+      sectionEditTimerRef.current = 0
+      const current = reminderSectionById(target.id, categories) || target
+      setSectionEditTarget(current)
+      setSectionEditName(current.label || '')
+      setSectionEditColor(current.color || '')
+      setSectionEditError('')
+      setSectionEditOpen(true)
+    }, 340)
+  }
+
+  async function submitSectionEdit() {
+    const target = sectionEditTarget
+    const label = sectionEditName.normalize('NFKC').trim().replace(/\s+/g, ' ')
+    if (!target || !label || sectionSaving) return
+    if (target.id !== 'all' && !sectionEditColor) return
+    if (!requireOnline('리마인더 섹션을 수정')) return
+    setSectionSaving(true)
+    setSectionEditError('')
+    try {
+      const result = await saveReminderSectionChange({
+        action: 'update',
+        sectionId: target.id,
+        label,
+        color: sectionEditColor,
+        categories,
+      })
+      if (result?.pendingSync) {
+        setSectionEditError('서버 사용량 제한으로 이 기기에 임시 저장했어요. 서버 제한이 풀리면 자동으로 다시 반영돼요.')
+        return
+      }
+      setSectionEditOpen(false)
+    } catch (error) {
+      setSectionEditError(sectionSaveErrorMessage(error))
+    } finally {
+      setSectionSaving(false)
+    }
+  }
+
+  async function deleteSectionFromAction() {
+    const target = sectionActionTarget
+    if (!target || sectionSaving) return
+    if (!requireOnline('리마인더 섹션을 삭제')) return
+    setSectionSaving(true)
+    setSectionActionError('')
+    try {
+      await saveReminderSectionChange({
+        action: 'delete',
+        sectionId: target.id,
+        categories,
+      })
+      if (filter === target.id) {
+        const fallback = filters.find((item) => item.id !== target.id)
+        if (fallback) setFilter(fallback.id)
+      }
+      setSectionActionOpen(false)
+    } catch (error) {
+      setSectionActionError(sectionSaveErrorMessage(error))
+    } finally {
+      setSectionSaving(false)
+    }
   }
 
   function openCreate() {
@@ -836,13 +989,18 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
                 type="button"
                 className={filter === item.id ? 'is-selected' : ''}
                 aria-pressed={filter === item.id}
-                onClick={() => setFilter(item.id)}
+                onPointerDown={(event) => beginSectionPress(item, event)}
+                onPointerUp={finishSectionPress}
+                onPointerCancel={finishSectionPress}
+                onPointerLeave={finishSectionPress}
+                onContextMenu={(event) => handleSectionContextMenu(event, item)}
+                onClick={() => handleSectionClick(item)}
                 key={item.id}
               >
-                {item.id !== 'all' ? (
+                {item.color ? (
                   <span
                     className="reminder-filter-dot"
-                    style={{ '--reminder-type-color': reminderTypeColor(item.id, categories) }}
+                    style={{ '--reminder-type-color': item.color }}
                     aria-hidden="true"
                   />
                 ) : null}
@@ -921,11 +1079,98 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
       />
 
       <UnifiedBottomSheet
+        open={sectionActionOpen}
+        onClose={() => { if (!sectionSaving) setSectionActionOpen(false) }}
+        closeDisabled={sectionSaving}
+        title={sectionActionTarget?.label || '섹션'}
+        subtitle="이 반의 섹션 설정입니다."
+        ariaLabel="리마인더 섹션 메뉴"
+        className="reminder-section-action-sheet"
+      >
+        <div className="reminder-section-action-buttons">
+          <button type="button" onClick={openSectionEditFromAction} disabled={sectionSaving}>수정</button>
+          <button type="button" className="is-danger" onClick={deleteSectionFromAction} disabled={sectionSaving}>
+            {sectionSaving ? '삭제 중…' : '삭제'}
+          </button>
+          {sectionActionError ? <p className="change-warning">{sectionActionError}</p> : null}
+        </div>
+      </UnifiedBottomSheet>
+
+      <UnifiedBottomSheet
+        open={sectionEditOpen}
+        onClose={() => { if (!sectionSaving) setSectionEditOpen(false) }}
+        closeDisabled={sectionSaving}
+        title="섹션 수정"
+        subtitle="변경 내용은 이 반에만 적용됩니다."
+        ariaLabel="리마인더 섹션 수정"
+        className="reminder-section-edit-sheet"
+      >
+        <div className="reminder-category-form">
+          <label className="change-field full reminder-category-name-field">
+            <span>섹션 이름</span>
+            <input
+              value={sectionEditName}
+              onChange={(event) => setSectionEditName(event.target.value.slice(0, 16))}
+              placeholder="섹션 이름"
+              autoComplete="off"
+              spellCheck="false"
+            />
+          </label>
+
+          <fieldset className="reminder-category-colors">
+            <legend>색상</legend>
+            <div>
+              {sectionEditTarget?.id === 'all' ? (
+                <button
+                  type="button"
+                  className={sectionEditColor === '' ? 'is-selected reminder-section-no-color' : 'reminder-section-no-color'}
+                  aria-label="색상 없음"
+                  aria-pressed={sectionEditColor === ''}
+                  onClick={() => setSectionEditColor('')}
+                >
+                  <span aria-hidden="true">—</span>
+                </button>
+              ) : null}
+              {REMINDER_CATEGORY_COLORS.map((color) => {
+                const used = sectionEditUsedColors.has(color.id)
+                return (
+                  <button
+                    type="button"
+                    className={sectionEditColor === color.id ? 'is-selected' : ''}
+                    aria-label={color.label + (used ? ', 사용 중' : '')}
+                    aria-pressed={sectionEditColor === color.id}
+                    disabled={used}
+                    onClick={() => setSectionEditColor(color.id)}
+                    key={color.id}
+                  >
+                    <span style={{ '--reminder-type-color': color.id }} aria-hidden="true" />
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
+
+          {sectionEditError ? <p className="change-warning">{sectionEditError}</p> : null}
+          <div className="change-submit-row">
+            <button type="button" onClick={() => setSectionEditOpen(false)} disabled={sectionSaving}>취소</button>
+            <button
+              type="button"
+              className="save-change"
+              disabled={!sectionEditName.trim() || (sectionEditTarget?.id !== 'all' && !sectionEditColor) || sectionSaving}
+              onClick={submitSectionEdit}
+            >
+              {sectionSaving ? '저장 중…' : '저장'}
+            </button>
+          </div>
+        </div>
+      </UnifiedBottomSheet>
+
+      <UnifiedBottomSheet
         open={categorySheetOpen}
         onClose={() => setCategorySheetOpen(false)}
         closeDisabled={categorySaving}
         title="새 섹션"
-        subtitle="리마인더를 구분할 이름과 색을 골라."
+        subtitle="리마인더를 구분할 이름과 색상을 골라 주세요."
         ariaLabel="리마인더 섹션 추가"
         className="reminder-category-sheet"
       >

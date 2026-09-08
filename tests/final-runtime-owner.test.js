@@ -7,12 +7,13 @@ const exists = (path) => fs.existsSync(new URL(`../${path}`, import.meta.url))
 
 test('main build path never injects the retired polite DOM runtime', () => {
   const main = read('src/main.jsx')
-  const preview = read('src/preview-s-hub-v2-patch.js')
+  const todo = read('src/todo-stage5-ai.jsx')
   const polite = read('src/polite-copy-runtime.js')
 
   assert.doesNotMatch(main, /installPoliteCopyRuntime/)
-  assert.doesNotMatch(preview, /installPoliteCopyRuntime/)
-  assert.doesNotMatch(preview, /polite-copy-runtime\.js/)
+  assert.doesNotMatch(todo, /installPoliteCopyRuntime/)
+  assert.doesNotMatch(todo, /polite-copy-runtime\.js/)
+  assert.equal(exists('src/preview-s-hub-v2-patch.js'), false)
   assert.match(main, /import \{ PreviewHomeSignals \} from '\.\/preview-home-signals\.jsx'/)
   assert.match(main, /import \{ HomeNavAction \} from '\.\/home-nav-action\.jsx'/)
   assert.match(main, /import \{ useHomeMealPriority \} from '\.\/home-meal-priority\.js'/)

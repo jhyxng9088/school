@@ -2,14 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { patchPreviewReminderPolishSource } from '../src/preview-reminder-polish-patch.js'
-import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 function builtReminderPage() {
   const source = read('src/todo-stage5-ai.jsx')
-  const withSections = patchPreviewSHubV2Source(source, '/workspace/src/todo-stage5-ai.jsx')
-  return patchPreviewReminderPolishSource(withSections, '/workspace/src/todo-stage5-ai.jsx')
+  return patchPreviewReminderPolishSource(source, '/workspace/src/todo-stage5-ai.jsx')
 }
 
 test('readable summaries use a compact text badge beside the reminder type instead of the right action rail', () => {

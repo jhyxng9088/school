@@ -14,7 +14,6 @@ import {
   usedReminderCategoryColors,
 } from '../src/reminder-categories.js'
 import { patchPreviewReminderPolishSource } from '../src/preview-reminder-polish-patch.js'
-import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
@@ -75,9 +74,8 @@ test('deleted built-in sections are hidden from filters without losing reminder 
   assert.equal(reminderSectionById('performance', categories)?.hidden, true)
 })
 
-test('reminder page build patch adds long-press section editing and keeps custom add colors safe', () => {
-  const raw = read('src/todo-stage5-ai.jsx')
-  const page = patchPreviewSHubV2Source(raw, path.join(root, 'src', 'todo-stage5-ai.jsx'))
+test('raw reminder page owns long-press section editing and keeps custom add colors safe', () => {
+  const page = read('src/todo-stage5-ai.jsx')
   const css = read('src/preview-section-management.css')
 
   assert.match(page, /reminderFilterOptions\(categories\)/)
@@ -92,8 +90,7 @@ test('reminder page build patch adds long-press section editing and keeps custom
 
 test('adding the name of a hidden built-in section restores it instead of creating a duplicate custom section', () => {
   const raw = read('src/todo-stage5-ai.jsx')
-  const sectionPatched = patchPreviewSHubV2Source(raw, path.join(root, 'src', 'todo-stage5-ai.jsx'))
-  const page = patchPreviewReminderPolishSource(sectionPatched, path.join(root, 'src', 'todo-stage5-ai.jsx'))
+  const page = patchPreviewReminderPolishSource(raw, path.join(root, 'src', 'todo-stage5-ai.jsx'))
   const client = read('src/reminder-section-client.js')
 
   assert.match(page, /const hiddenBuiltinSections = useMemo/)
