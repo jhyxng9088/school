@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { POLITE_COPY_REPLACEMENTS, POLITE_SOURCE_FRAGMENTS } from '../src/polite-copy-runtime.js'
 import { PREVIEW_POLITE_COPY_REPLACEMENTS } from '../src/preview-polite-copy-additions.js'
-import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -15,14 +14,13 @@ function replacePairs(source, pairs) {
 
 test('tab changes reset the shared document scroll position before the new page settles', () => {
   const source = read('src/main.jsx')
-  const patched = patchPreviewSHubV2Source(source, '/workspace/src/main.jsx')
-  assert.match(patched, /useLayoutEffect\(\(\) => \{[\s\S]*?window\.scrollTo\(0, 0\)[\s\S]*?\}, \[activeTab\]\)/)
-  assert.match(patched, /document\.scrollingElement/)
+  assert.match(source, /useLayoutEffect\(\(\) => \{[\s\S]*?window\.scrollTo\(0, 0\)[\s\S]*?\}, \[activeTab\]\)/)
+  assert.match(source, /document\.scrollingElement/)
 })
 
 test('reported Safari and reminder-section copy is polite after the V2 build transform', () => {
-  const main = patchPreviewSHubV2Source(read('src/main.jsx'), '/workspace/src/main.jsx')
-  const todo = patchPreviewSHubV2Source(read('src/todo-stage5-ai.jsx'), '/workspace/src/todo-stage5-ai.jsx')
+  const main = read('src/main.jsx')
+  const todo = read('src/todo-stage5-ai.jsx')
   const replacements = [
     ...POLITE_COPY_REPLACEMENTS,
     ...PREVIEW_POLITE_COPY_REPLACEMENTS,
@@ -64,7 +62,7 @@ test('production service worker cache is bumped so installed PWAs receive the fr
 test('production V2 config applies feature patches without preview identity rewrites', () => {
   const config = read('vite.config.js')
   assert.match(config, /school-s-hub-v2-features/)
-  assert.match(config, /patchPreviewSHubV2Source/)
+  assert.doesNotMatch(config, /patchPreviewSHubV2Source/)
   assert.doesNotMatch(config, /patchPreviewAIReminderSummarySource/)
   assert.doesNotMatch(config, /previewLocalStorageText/)
   assert.doesNotMatch(config, /school-sync-preview/)

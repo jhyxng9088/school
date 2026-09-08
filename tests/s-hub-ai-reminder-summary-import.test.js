@@ -42,7 +42,7 @@ test('AI 요약 생성 실패 시에도 무한 요약중 상태로 남기지 않
 test('AI 요약은 raw source가 소유하고 Vite는 퇴역 patch를 다시 적용하지 않는다', () => {
   const vite = fs.readFileSync(vitePath, 'utf8')
   const source = sourceOwnedMain()
-  assert.match(vite, /patchPreviewSHubV2Source/)
+  assert.doesNotMatch(vite, /patchPreviewSHubV2Source/)
   assert.doesNotMatch(vite, /patchPreviewAIReminderSummarySource/)
   assert.match(source, /enrichImportedAIReminder/)
   assert.equal(fs.existsSync(path.join(root, 'src', 'preview-ai-reminder-summary-patch.js')), false)

@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { patchPreviewSHubV2Source } from '../src/preview-s-hub-v2-patch.js'
 import { patchPreviewStudySource } from '../src/preview-study-patch.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -41,8 +40,7 @@ test('section edits use only the production backend and never reload the PWA on 
 })
 
 test('section editor pending-sync is owned by the upstream reminder UI transform', () => {
-  const id = path.join(root, 'src/todo-stage5-ai.jsx')
-  const source = patchPreviewSHubV2Source(read('src/todo-stage5-ai.jsx'), id)
+  const source = read('src/todo-stage5-ai.jsx')
   assert.equal(fs.existsSync(recoveryPath), false)
   assert.match(source, /const result = await saveReminderSectionChange/)
   assert.match(source, /if \(result\?\.pendingSync\)/)
