@@ -50,6 +50,14 @@ jobs:
           src/preview-s-hub-v2-patch.js
           src/todo-stage5-ai.jsx
           tests/build-patch-effect.test.js
+          tests/final-runtime-owner.test.js
+          tests/polite-copy-audit.test.js
+          tests/preview-board.test.js
+          tests/preview-ui-regressions.test.js
+          tests/production-recovery-regression.test.js
+          tests/reminder-categories.test.js
+          tests/reminder-summary-indicator.test.js
+          tests/s-hub-ai-reminder-summary-import.test.js
           tests/shub-v2-main-source-owner.test.js
           vite.config.js
           EOF
