@@ -34,8 +34,12 @@ export function candidateDateKeys(checkpoints = []) {
   }
 }
 
-export function todoRelevantForCheckpoints(todo, checkpoints = []) {
+export function todoRelevantForCheckpoints(todo, checkpoints = [], dispatchNowMs = null) {
   if (!todo || typeof todo !== 'object') return false
+  // A recovered performance preview still belongs to D-1. Never deliver an
+  // old "tomorrow" performance alert on its due day after a scheduler outage.
+  if (todo.type === 'performance' && dispatchNowMs !== null
+    && String(todo.dueDate || '') <= kstDateKey(dispatchNowMs)) return false
 
   for (const checkpoint of checkpoints || []) {
     const nowMs = Number(checkpoint)
@@ -44,7 +48,7 @@ export function todoRelevantForCheckpoints(todo, checkpoints = []) {
     if (isReminderHourDue(todo, nowMs)) return true
 
     if (
-      !validTime(todo.dueTime)
+      (todo.type === 'performance' || !validTime(todo.dueTime))
       && isNightPreviewWindow(nowMs)
       && String(todo.dueDate || '') === tomorrowDateKey(nowMs)
     ) {

@@ -346,7 +346,8 @@ ${hasAttachments ? '첨부된 사진/파일 전체를 빠르게 읽고 제목에
 첨부에 과목명이나 수행 내용이 있으면 제목에 반영한다.
 상대 날짜는 현재 시각을 기준으로 실제 YYYY-MM-DD로 계산한다.
 날짜가 전혀 없으면 오늘 날짜를 사용하고 assumedDate=true로 한다.
-시간이 없으면 dueTime은 빈 문자열이다.`
+시간이 없으면 dueTime은 빈 문자열이다.
+dueTime은 원문에 명시된 실제 시각만 추출한다. 알림·만료·학교 종료 시각을 추측하지 않는다. 수행평가의 전날 23:00 알림과 당일 수업 종료 후 만료는 앱의 고정 정책이 처리한다.`
 }
 
 function reminderSummaryPrompt(text, reference) {

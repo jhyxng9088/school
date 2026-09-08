@@ -56,7 +56,7 @@ export function withinDueWindow(nowMs, targetMs, windowMs = WINDOW_MS) {
 }
 
 export function isReminderHourDue(todo, nowMs = Date.now()) {
-  if (!todo || !validTime(todo.dueTime)) return false
+  if (!todo || todo.type === 'performance' || !validTime(todo.dueTime)) return false
   const dueMs = dueEpochKst(todo.dueDate, todo.dueTime)
   if (!Number.isFinite(dueMs)) return false
   return withinDueWindow(nowMs, dueMs - 60 * 60 * 1000)

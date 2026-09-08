@@ -135,3 +135,44 @@ test('installed app traverses every production station and class board without a
 
   expect(pageErrors).toEqual([])
 })
+
+test('performance expires at school end, stays gone on reload, and the next generic expiry still runs', async ({ page }) => {
+  await isolateProductionNetwork(page)
+  await seedInstalledStudent(page)
+  await page.clock.install({ time: new Date('2026-09-09T16:49:00+09:00') })
+  await page.addInitScript(() => {
+    if (localStorage.getItem('e2e.performance.seeded')) return
+    localStorage.setItem('e2e.performance.seeded', '1')
+    localStorage.setItem('school.timetable.weekly.v2.class-1', JSON.stringify({ wed: { 7: '자율' } }))
+    localStorage.setItem('school.sharedTodos.v1.class-1', JSON.stringify([
+      { id: 'performance-e2e', type: 'performance', title: '영어 수행평가', dueDate: '2026-09-09', dueTime: '00:01', createdAt: 1 },
+      { id: 'timed-e2e', type: 'task', title: '일반 시간 지정', dueDate: '2026-09-09', dueTime: '17:00', createdAt: 2 },
+      { id: 'untimed-e2e', type: 'task', title: '일반 날짜 지정', dueDate: '2026-09-09', dueTime: '', createdAt: 3 },
+    ]))
+  })
+  await page.goto('index.html')
+  await expectAppShell(page)
+  await page.locator('.bottom-nav .nav-button[data-tab="schedule"]').click()
+  const performanceRow = page.locator('[data-reminder-id="performance-e2e"]')
+  const timedRow = page.locator('[data-reminder-id="timed-e2e"]')
+  const untimedRow = page.locator('[data-reminder-id="untimed-e2e"]')
+  await expect(performanceRow).toBeVisible()
+  await expect(timedRow).toBeVisible()
+  await expect(untimedRow).toBeVisible()
+  await page.clock.fastForward(70_000)
+  await expect(performanceRow).toHaveCount(0)
+  await expect(timedRow).toBeVisible()
+  await expect(untimedRow).toBeVisible()
+  await page.clock.fastForward(10 * 60_000)
+  await expect(timedRow).toHaveCount(0)
+  await expect(untimedRow).toBeVisible()
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expectAppShell(page)
+  await page.locator('.bottom-nav .nav-button[data-tab="schedule"]').click()
+  await expect(performanceRow).toHaveCount(0)
+  await expect(timedRow).toHaveCount(0)
+  await expect(untimedRow).toBeVisible()
+  // Expiry must not remove the shared source: the row policy owns hiding.
+  const retained = await page.evaluate(() => JSON.parse(localStorage.getItem('school.sharedTodos.v1.class-1') || '[]').some((todo) => todo.id === 'performance-e2e'))
+  expect(retained).toBe(true)
+})
