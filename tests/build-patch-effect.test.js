@@ -8,7 +8,6 @@ const srcDir = resolve(root, 'src')
 
 const prefix = [
   ['patchPreviewSHubV2Source', 'preview-s-hub-v2-patch.js'],
-  ['patchPreviewAIReminderSummarySource', 'preview-ai-reminder-summary-patch.js'],
   ['patchPreviewReminderPolishSource', 'preview-reminder-polish-patch.js'],
   ['patchPreviewStationNavSource', 'preview-station-nav-patch.js'],
   ['patchPreviewStationNavRefinementSource', 'preview-station-nav-refine-patch.js'],

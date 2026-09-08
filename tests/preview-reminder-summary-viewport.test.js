@@ -1,18 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { patchPreviewAIReminderSummarySource } from '../src/preview-ai-reminder-summary-patch.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('preview reminder summary escapes transformed station ancestors without changing the shared source', () => {
+test('reminder summary source owns the body portal after the build owner is retired', () => {
   const source = read('src/reminder-summary.jsx')
-  const transformed = patchPreviewAIReminderSummarySource(source, '/virtual/src/reminder-summary.jsx')
 
-  assert.doesNotMatch(source, /createPortal/)
-  assert.match(transformed, /import \{ createPortal \} from 'react-dom'/)
-  assert.match(transformed, /return createPortal\([\s\S]*?className="reminder-summary-layer"/)
-  assert.match(transformed, /<\/div>,\s*document\.body,\s*\)\s*\}/)
+  assert.match(source, /import \{ createPortal \} from 'react-dom'/)
+  assert.match(source, /return createPortal\([\s\S]*?className="reminder-summary-layer"/)
+  assert.match(source, /<\/div>,\s*document\.body,\s*\)\s*\}/)
+  assert.equal(fs.existsSync(new URL('../src/preview-ai-reminder-summary-patch.js', import.meta.url)), false)
 })
 
 test('preview reminder summary keeps the production sheet geometry and native vertical scroller', () => {
@@ -23,11 +21,10 @@ test('preview reminder summary keeps the production sheet geometry and native ve
   assert.match(css, /\.reminder-summary-scroll\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?overflow-y:\s*auto;[\s\S]*?-webkit-overflow-scrolling:\s*touch;[\s\S]*?touch-action:\s*pan-y;/)
 })
 
-test('AI reminder import transform still applies after adding the summary portal path', () => {
+test('AI reminder import source remains owned after adding the summary portal path', () => {
   const main = read('src/main.jsx')
-  const transformed = patchPreviewAIReminderSummarySource(main, '/virtual/src/main.jsx')
 
-  assert.match(transformed, /enrichImportedAIReminder/)
-  assert.match(transformed, /createPendingReminderSummary/)
-  assert.match(transformed, /claimSchoolAIReminderSource/)
+  assert.match(main, /enrichImportedAIReminder/)
+  assert.match(main, /createPendingReminderSummary/)
+  assert.match(main, /claimSchoolAIReminderSource/)
 })

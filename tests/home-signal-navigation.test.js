@@ -28,13 +28,16 @@ test('home source owns its imports directly after the build owner is retired', (
   const mealPriority = "import { useHomeMealPriority } from './home-meal-priority.js'\n"
   const roster = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
   const aiCore = "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n"
-  const canonical = `${aiCore}${roster}${signals}${homeNav}${mealPriority}`
 
   assert.equal(main.split(roster).length - 1, 1)
   assert.equal(main.split(signals).length - 1, 1)
   assert.equal(main.split(homeNav).length - 1, 1)
   assert.equal(main.split(mealPriority).length - 1, 1)
-  assert.ok(main.includes(canonical))
+  assert.equal(main.split(aiCore).length - 1, 1)
+  assert.ok(main.indexOf(aiCore) < main.indexOf(roster))
+  assert.ok(main.indexOf(roster) < main.indexOf(signals))
+  assert.ok(main.indexOf(signals) < main.indexOf(homeNav))
+  assert.ok(main.indexOf(homeNav) < main.indexOf(mealPriority))
   assert.equal(existsSync(url('src/preview-home-info-patch.js')), false)
 })
 

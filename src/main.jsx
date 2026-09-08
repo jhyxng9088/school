@@ -37,6 +37,13 @@ import { SchoolAISheet } from './s-hub-ai-sheet.jsx'
 import { SHubAIOrb } from './s-hub-ai-orb.jsx'
 import { SHubIcon } from './s-hub-icon.jsx'
 import { buildSchoolAIContext } from './s-hub-ai-core.js'
+import { parseReminderWithAI } from './firebase-ai.js'
+import { createPendingReminderSummary, withAttachmentManifest } from './reminder-summary.jsx'
+import {
+  claimSchoolAIReminderSource,
+  completeSchoolAIReminderSource,
+  releaseSchoolAIReminderSource,
+} from './s-hub-reminder-source.js'
 import { openClassRoster } from './class-roster-ui-v2.js'
 import { PreviewHomeSignals } from './preview-home-signals.jsx'
 import { HomeNavAction } from './home-nav-action.jsx'
@@ -1113,6 +1120,67 @@ function AppShell({ profile }) {
     }
   }, [aiContext, now, todoData.sharedTodos, todoData.todos])
 
+  async function enrichImportedAIReminder(savedId, item, sourceClaim) {
+    if (!savedId || !sourceClaim?.claimId || !sourceClaim.files?.length) return
+    const files = sourceClaim.files.slice(0, 4)
+    const targetHint = [
+      sourceClaim.text,
+      'S-Hub AI가 선택한 리마인더: ' + String(item?.title || '').trim(),
+      '분류: ' + String(item?.type || 'task'),
+      '마감: ' + String(item?.dueDate || '') + (item?.dueTime ? ' ' + item.dueTime : ''),
+      '첨부 전체에서 위 리마인더와 직접 관련된 내용만 골라 요약해 주세요.',
+    ].filter(Boolean).join('\n')
+
+    const uploadsPromise = Promise.all(files.map(async (file, index) => {
+      try {
+        await todoData.uploadOriginalAttachment(savedId, file, 'a' + index)
+        return true
+      } catch (error) {
+        console.error('S-Hub AI reminder original ' + (index + 1) + ' save failed:', error)
+        return false
+      }
+    }))
+
+    const previewSummary = item?.previewSummary?.overview ? item.previewSummary : null
+    let parsed = previewSummary ? { summary: previewSummary, attachment: null } : null
+    for (let attempt = 0; attempt < 2 && !parsed?.summary; attempt += 1) {
+      try {
+        parsed = await parseReminderWithAI(targetHint, new Date(), files)
+      } catch (error) {
+        console.error('S-Hub AI imported reminder summary attempt ' + (attempt + 1) + ' failed:', error)
+      }
+      if (!parsed?.summary && attempt === 0 && navigator.onLine !== false) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1200))
+      }
+    }
+
+    const uploadResults = await uploadsPromise
+    const originalsReady = uploadResults.every(Boolean)
+
+    try {
+      if (parsed?.summary) {
+        const summary = originalsReady ? withAttachmentManifest(parsed.summary, files) : parsed.summary
+        await todoData.enrichTodo(savedId, {
+          summary,
+          attachment: parsed.attachment || null,
+        })
+      } else {
+        const fallback = {
+          overview: '첨부 내용의 자동 요약을 완료하지 못했습니다. 원본 파일에서 내용을 확인해 주세요.',
+          sections: [],
+        }
+        await todoData.enrichTodo(savedId, {
+          summary: originalsReady ? withAttachmentManifest(fallback, files) : fallback,
+          attachment: null,
+        })
+      }
+      completeSchoolAIReminderSource(sourceClaim.claimId)
+    } catch (error) {
+      console.error('S-Hub AI imported reminder summary save failed:', error)
+      releaseSchoolAIReminderSource(sourceClaim.claimId)
+    }
+  }
+
   async function importAIItems(items) {
     const saved = []
     const failed = []
@@ -1134,14 +1202,28 @@ function AppShell({ profile }) {
           seenReminder.add(batchKey)
           const targetId = item.resolution === 'replace' ? String(item.existingId || '') : ''
           if (item.resolution === 'replace' && !targetId) throw new Error('수정할 기존 리마인더를 찾지 못했어.')
-          const savedId = await todoData.saveTodo({
-            id: targetId,
-            type: item.type,
-            title: item.title,
-            dueDate: item.dueDate,
-            dueTime: item.dueTime || '',
-          })
-          if (!savedId) throw new Error('리마인더를 저장하지 못했어.')
+          const sourceClaim = claimSchoolAIReminderSource()
+          const previewSummary = item?.previewSummary?.overview ? item.previewSummary : null
+          let savedId = ''
+          try {
+            savedId = await todoData.saveTodo({
+              id: targetId,
+              type: item.type,
+              title: item.title,
+              dueDate: item.dueDate,
+              dueTime: item.dueTime || '',
+              ...(previewSummary
+                ? { summary: previewSummary }
+                : sourceClaim?.files?.length
+                  ? { summary: createPendingReminderSummary(sourceClaim.files) }
+                  : {}),
+            })
+            if (!savedId) throw new Error('리마인더를 저장하지 못했어.')
+          } catch (error) {
+            if (sourceClaim?.claimId) releaseSchoolAIReminderSource(sourceClaim.claimId)
+            throw error
+          }
+          if (sourceClaim?.files?.length) void enrichImportedAIReminder(savedId, item, sourceClaim)
           saved.push({ item, id: savedId })
           continue
         }
