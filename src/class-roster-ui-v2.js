@@ -1,4 +1,5 @@
 import { ensureSignedIn, readStudentProfile } from './school-sync'
+import { readLatestSupabasePresenceSnapshot } from './supabase-presence.js'
 import './class-roster.css'
 
 const CLASS_ROSTER_API_URL = 'https://school-reminder-backend.vercel.app/api/class-roster-v2'
@@ -29,6 +30,10 @@ function cacheKey(classNumber = profileClassNumber()) {
   return classNumber ? `${ROSTER_CACHE_PREFIX}${classNumber}` : ''
 }
 
+function rosterCount(...values) {
+  return Math.max(0, ...values.map(Number).filter(Number.isFinite))
+}
+
 function normalizeRoster(payload) {
   if (!payload?.ok || !Array.isArray(payload.members)) throw new Error('반 명단 응답이 올바르지 않아요.')
   const members = payload.members
@@ -45,12 +50,13 @@ function normalizeRoster(payload) {
     .filter((member) => Number.isInteger(member.studentNumber) && member.studentNumber >= 1 && member.studentNumber <= 60 && member.name)
     .sort((a, b) => a.studentNumber - b.studentNumber)
 
+  const total = rosterCount(payload.total, members.length)
   return {
     classNumber: Number(payload.classNumber || 0),
-    total: Number(payload.total || members.length),
-    registeredTotal: Number(payload.legacyMemberCount || payload.registeredTotal || payload.total || members.length),
-    online: Number(payload.online || 0),
-    unresolved: Number(payload.unresolved || 0),
+    total,
+    registeredTotal: rosterCount(payload.legacyMemberCount, payload.registeredTotal, total, members.length),
+    online: rosterCount(payload.online),
+    unresolved: rosterCount(payload.unresolved),
     members,
   }
 }
@@ -88,7 +94,10 @@ function hydrateRosterCache() {
     if (hydratedClassNumber) resetRosterState(0)
     return null
   }
-  if (hydratedClassNumber === classNumber) return cachedRoster
+  if (hydratedClassNumber === classNumber) {
+    applyLatestPresenceSnapshot()
+    return cachedRoster
+  }
 
   resetRosterState(classNumber)
   const key = cacheKey(classNumber)
@@ -98,18 +107,22 @@ function hydrateRosterCache() {
     const checkedAt = Number(stored?.checkedAt || 0)
     if (!checkedAt || Date.now() - checkedAt > ROSTER_STALE_CACHE_MS) {
       localStorage.removeItem(key)
+      applyLatestPresenceSnapshot()
       return null
     }
     const roster = normalizeRoster({ ok: true, ...(stored?.roster || {}) })
     if (roster.classNumber && roster.classNumber !== classNumber) {
       localStorage.removeItem(key)
+      applyLatestPresenceSnapshot()
       return null
     }
     cachedRoster = roster
     lastFetchedAt = checkedAt
+    applyLatestPresenceSnapshot()
     return cachedRoster
   } catch {
     try { localStorage.removeItem(key) } catch { /* best effort */ }
+    applyLatestPresenceSnapshot()
     return null
   }
 }
@@ -134,7 +147,10 @@ async function authToken() {
 
 async function fetchRoster({ force = false } = {}) {
   hydrateRosterCache()
-  if (!force && cachedRoster && Date.now() - lastFetchedAt < ROSTER_FRESH_MS) return cachedRoster
+  if (!force
+    && cachedRoster
+    && Date.now() - lastFetchedAt < ROSTER_FRESH_MS
+    && !rosterPresenceNeedsRefresh(cachedRoster)) return cachedRoster
   if (refreshPromise) return refreshPromise
 
   refreshPromise = (async () => {
@@ -151,6 +167,7 @@ async function fetchRoster({ force = false } = {}) {
     cachedRoster = normalizeRoster(payload)
     lastFetchedAt = Date.now()
     persistRosterCache()
+    applyLatestPresenceSnapshot()
     return cachedRoster
   })().finally(() => {
     refreshPromise = null
@@ -241,6 +258,30 @@ function applyLivePresenceSnapshot(detail) {
   }
 
   updateModalSummary()
+}
+
+function latestPresenceSnapshot() {
+  const classNumber = profileClassNumber()
+  if (!classNumber) return null
+  return readLatestSupabasePresenceSnapshot(`class-${classNumber}`)
+}
+
+function applyLatestPresenceSnapshot() {
+  const snapshot = latestPresenceSnapshot()
+  if (snapshot) applyLivePresenceSnapshot(snapshot)
+}
+
+function rosterPresenceNeedsRefresh(roster = cachedRoster) {
+  if (!roster) return false
+  const snapshot = latestPresenceSnapshot()
+  if (!snapshot) return false
+  const knownKeys = new Set(
+    roster.members
+      .filter((member) => !member.conflict && member.studentKey)
+      .map((member) => member.studentKey),
+  )
+  return snapshot.activeStudentKeys.some((studentKey) => !knownKeys.has(studentKey))
+    || Number(snapshot.online || 0) > Number(roster.registeredTotal || roster.total || 0)
 }
 
 function clearCloseTimer() {

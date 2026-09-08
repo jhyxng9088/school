@@ -1,5 +1,6 @@
 const SUPABASE_PRESENCE_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-presence'
 const PRESENCE_REFRESH_MS = 45_000
+const latestSnapshots = new Map()
 
 function safeStudentKeys(value) {
   const source = Array.isArray(value) ? value : []
@@ -8,19 +9,34 @@ function safeStudentKeys(value) {
     .filter((item) => item.length >= 16))]
 }
 
+function presenceSnapshot(classId, online, activeStudentKeys) {
+  return {
+    classId: String(classId || ''),
+    online: Math.max(0, Number(online || 0)),
+    activeStudentKeys: safeStudentKeys(activeStudentKeys),
+    receivedAt: Date.now(),
+  }
+}
+
 function dispatchPresenceSnapshot(classId, online, activeStudentKeys) {
-  if (typeof window === 'undefined') return
+  const detail = presenceSnapshot(classId, online, activeStudentKeys)
+  if (detail.classId) latestSnapshots.set(detail.classId, detail)
+  if (typeof window === 'undefined') return detail
   try {
-    window.dispatchEvent(new CustomEvent('school:class-presence', {
-      detail: {
-        classId: String(classId || ''),
-        online: Math.max(0, Number(online || 0)),
-        activeStudentKeys: safeStudentKeys(activeStudentKeys),
-        receivedAt: Date.now(),
-      },
-    }))
+    window.dispatchEvent(new CustomEvent('school:class-presence', { detail }))
   } catch {
     // Presence transport remains usable when CustomEvent is unavailable.
+  }
+  return detail
+}
+
+export function readLatestSupabasePresenceSnapshot(classId) {
+  const key = String(classId || '').trim()
+  const snapshot = latestSnapshots.get(key)
+  if (!snapshot) return null
+  return {
+    ...snapshot,
+    activeStudentKeys: [...snapshot.activeStudentKeys],
   }
 }
 

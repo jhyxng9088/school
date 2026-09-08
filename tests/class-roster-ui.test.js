@@ -78,6 +78,41 @@ test('live per-student presence stays visible without restoring roster polling',
   assert.doesNotMatch(source, /window\.setInterval\(/)
 })
 
+test('roster replays the canonical latest presence snapshot instead of creating a second subscriber', () => {
+  const source = read('src/class-roster-ui-v2.js')
+
+  assert.match(source, /import \{ readLatestSupabasePresenceSnapshot \} from '\.\/supabase-presence\.js'/)
+  assert.match(source, /function latestPresenceSnapshot\(\)/)
+  assert.match(source, /return readLatestSupabasePresenceSnapshot\(`class-\$\{classNumber\}`\)/)
+  assert.match(source, /function applyLatestPresenceSnapshot\(\)/)
+  assert.match(source, /const snapshot = latestPresenceSnapshot\(\)/)
+  assert.match(source, /if \(snapshot\) applyLivePresenceSnapshot\(snapshot\)/)
+  assert.match(source, /if \(hydratedClassNumber === classNumber\) \{[\s\S]*applyLatestPresenceSnapshot\(\)[\s\S]*return cachedRoster/)
+  assert.match(source, /persistRosterCache\(\)\n    applyLatestPresenceSnapshot\(\)/)
+
+  const listeners = source.match(/addEventListener\('school:class-presence'/g) || []
+  assert.equal(listeners.length, 1)
+})
+
+test('fresh roster cache is revalidated only when canonical live presence cannot be represented', () => {
+  const source = read('src/class-roster-ui-v2.js')
+
+  assert.match(source, /function rosterPresenceNeedsRefresh\(roster = cachedRoster\)/)
+  assert.match(source, /snapshot\.activeStudentKeys\.some\(\(studentKey\) => !knownKeys\.has\(studentKey\)\)/)
+  assert.match(source, /Number\(snapshot\.online \|\| 0\) > Number\(roster\.registeredTotal \|\| roster\.total \|\| 0\)/)
+  assert.match(source, /Date\.now\(\) - lastFetchedAt < ROSTER_FRESH_MS[\s\S]*&& !rosterPresenceNeedsRefresh\(cachedRoster\)\) return cachedRoster/)
+  assert.doesNotMatch(source, /fetch\([^\n]*class-presence/)
+})
+
+test('roster totals cannot hide recovered members behind a smaller legacy member count', () => {
+  const source = read('src/class-roster-ui-v2.js')
+
+  assert.match(source, /function rosterCount\(\.\.\.values\)/)
+  assert.match(source, /const total = rosterCount\(payload\.total, members\.length\)/)
+  assert.match(source, /registeredTotal: rosterCount\(payload\.legacyMemberCount, payload\.registeredTotal, total, members\.length\)/)
+  assert.doesNotMatch(source, /registeredTotal: Number\(payload\.legacyMemberCount \|\|/)
+})
+
 test('first roster open paints cached data immediately without forced pointer focus or refresh replay', () => {
   const source = read('src/class-roster-ui-v2.js')
   const css = read('src/class-roster.css')

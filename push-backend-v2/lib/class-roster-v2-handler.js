@@ -81,6 +81,14 @@ function rosterMembersWithStudentKeys(classId, result) {
   })
 }
 
+function presenceStudentKeys(presence) {
+  return new Set(
+    (Array.isArray(presence) ? presence : [])
+      .map((entry) => String(entry?.studentKey || '').trim())
+      .filter(Boolean),
+  )
+}
+
 async function recoverFromClassHistory({ classRef, classId, memberKeys, users, presence, nowMs }) {
   const [activitySnapshot, academicSnapshot] = await Promise.all([
     classRef.collection('activity').get(),
@@ -158,9 +166,14 @@ export default async function handleClassRosterV2(req, res) {
       presenceSource = 'firestore-fallback'
     }
 
+    const recoveryMemberKeys = new Set([
+      ...memberKeys,
+      ...presenceStudentKeys(presence),
+    ])
+
     let result = rosterFromUsers({
       classId,
-      memberKeys,
+      memberKeys: recoveryMemberKeys,
       users: supabaseCache.users,
       presence,
       nowMs,
@@ -168,18 +181,24 @@ export default async function handleClassRosterV2(req, res) {
     let identitySource = 'supabase-cache'
     let historicalRecoveryUsed = false
 
-    if (!cacheCanServeRoster({ cache: supabaseCache, memberKeys, result })) {
+    if (!cacheCanServeRoster({ cache: supabaseCache, memberKeys: recoveryMemberKeys, result })) {
       const usersSnapshot = await db.collection('users').where('classId', '==', classId).get()
       const firestoreUsers = usersSnapshot.docs.map((snapshot) => snapshot.data() || {})
       const candidateUsers = mergeRosterUsers(firestoreUsers, supabaseCache.users)
-      result = rosterFromUsers({ classId, memberKeys, users: candidateUsers, presence, nowMs })
+      result = rosterFromUsers({
+        classId,
+        memberKeys: recoveryMemberKeys,
+        users: candidateUsers,
+        presence,
+        nowMs,
+      })
       identitySource = supabaseCache.users.length ? 'firestore+supabase-cache' : 'firestore'
 
       if (unresolvedCount(result) > 0) {
         result = await recoverFromClassHistory({
           classRef,
           classId,
-          memberKeys,
+          memberKeys: recoveryMemberKeys,
           users: candidateUsers,
           presence,
           nowMs,
