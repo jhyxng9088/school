@@ -141,6 +141,12 @@ test('performance expires at school end, stays gone on reload, and the next gene
   await seedInstalledStudent(page)
   await page.clock.install({ time: new Date('2026-09-09T16:49:00+09:00') })
   await page.addInitScript(() => {
+    // Chromium's blocked-worker shim resolves register() with undefined.
+    // Model an actual registration failure so fast-forwarded update timers
+    // cannot run against that shim; keep all production networking isolated.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register = async () => { throw new Error('Service Worker disabled in lifecycle fixture') }
+    }
     if (localStorage.getItem('e2e.performance.seeded')) return
     localStorage.setItem('e2e.performance.seeded', '1')
     localStorage.setItem('school.timetable.weekly.v2.class-1', JSON.stringify({ wed: { 7: '자율' } }))
