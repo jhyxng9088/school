@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { createRoot } from 'react-dom/client'
 import { SHubIcon } from './s-hub-icon.jsx'
 import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
@@ -46,7 +45,7 @@ function ThemeModeSegment({ mode, onModeChange }) {
   )
 }
 
-function ThemeSettingsIsland() {
+export function ThemeSettingsControl() {
   const [open, setOpen] = useState(false)
   const [preferences, setPreferences] = useState(() => readThemePreferences())
 
@@ -102,14 +101,5 @@ function ThemeSettingsIsland() {
         </div>
       </UnifiedBottomSheet>
     </>
-  )
-}
-
-const themeRoot = document.getElementById('theme-settings-root')
-if (themeRoot) {
-  createRoot(themeRoot).render(
-    <React.StrictMode>
-      <ThemeSettingsIsland />
-    </React.StrictMode>,
   )
 }
