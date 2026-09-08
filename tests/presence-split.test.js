@@ -95,12 +95,14 @@ test('presence transport is raw-source-owned without a Vite build patch', () => 
 
 test('app shell E2E cannot reach production network while using the synthetic student profile', () => {
   const source = read('../e2e/app-shell-smoke.spec.js')
+  const playwright = read('../playwright.config.js')
   assert.match(source, /async function isolateProductionNetwork\(page\)/)
   assert.match(source, /await page\.route\('\*\*\/\*'/)
   assert.match(source, /requestUrl\.hostname === '127\.0\.0\.1'/)
   assert.match(source, /requestUrl\.hostname === 'localhost'/)
   assert.match(source, /await route\.abort\('blockedbyclient'\)/)
   assert.match(source, /name: 'E2E Student'/)
+  assert.match(playwright, /serviceWorkers: 'block'/)
 
   const isolatedRuns = source.match(/await isolateProductionNetwork\(page\)/g) || []
   const navigations = source.match(/await page\.goto\('index\.html'\)/g) || []
