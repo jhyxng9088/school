@@ -163,7 +163,8 @@ test('optimistic Study start rolls back safely on failure and serializes later c
   const wait = page.slice(page.indexOf('async function waitForPendingStart()'), page.indexOf('async function start()'))
   const pause = page.slice(page.indexOf('async function pause()'), page.indexOf('async function resume()'))
   const resume = page.slice(page.indexOf('async function resume()'), page.indexOf('async function stop()'))
-  const stop = page.slice(page.indexOf('async function stop()'), page.indexOf('return ('))
+  const stopStart = page.indexOf('async function stop()')
+  const stop = page.slice(stopStart, page.indexOf('\n\n  return (', stopStart))
 
   assert.match(start, /setOptimisticActive\(null\)/)
   assert.match(start, /setSelectedSubject\(previousSelectedSubject\)/)
