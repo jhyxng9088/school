@@ -102,7 +102,9 @@ test('app shell E2E cannot reach production network while using the synthetic st
   assert.match(source, /requestUrl\.hostname === 'localhost'/)
   assert.match(source, /await route\.abort\('blockedbyclient'\)/)
   assert.match(source, /name: 'E2E Student'/)
-  assert.match(playwright, /serviceWorkers: 'block'/)
+  assert.match(playwright, /name: 'chromium-mobile',[\s\S]*browserName: 'chromium',[\s\S]*serviceWorkers: 'block'/)
+  const serviceWorkerBlocks = playwright.match(/serviceWorkers: 'block'/g) || []
+  assert.equal(serviceWorkerBlocks.length, 1)
 
   const isolatedRuns = source.match(/await isolateProductionNetwork\(page\)/g) || []
   const navigations = source.match(/await page\.goto\('index\.html'\)/g) || []
