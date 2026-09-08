@@ -20,6 +20,7 @@ export default defineConfig({
       name: 'chromium-mobile',
       use: {
         browserName: 'chromium',
+        serviceWorkers: 'block',
         viewport: { width: 412, height: 915 },
         deviceScaleFactor: 2,
         isMobile: true,
