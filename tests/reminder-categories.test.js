@@ -13,7 +13,6 @@ import {
   reminderTypeOptions,
   usedReminderCategoryColors,
 } from '../src/reminder-categories.js'
-import { patchPreviewReminderPolishSource } from '../src/preview-reminder-polish-patch.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
@@ -89,8 +88,7 @@ test('raw reminder page owns long-press section editing and keeps custom add col
 })
 
 test('adding the name of a hidden built-in section restores it instead of creating a duplicate custom section', () => {
-  const raw = read('src/todo-stage5-ai.jsx')
-  const page = patchPreviewReminderPolishSource(raw, path.join(root, 'src', 'todo-stage5-ai.jsx'))
+  const page = read('src/todo-stage5-ai.jsx')
   const client = read('src/reminder-section-client.js')
 
   assert.match(page, /const hiddenBuiltinSections = useMemo/)

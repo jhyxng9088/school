@@ -19,6 +19,7 @@ import { saveReminderSectionChange } from './reminder-section-client.js'
 import './todo-stage5.css'
 import './todo-ai.css'
 import './preview-section-management.css'
+import './preview-reminder-polish.css'
 
 const SAMSUNG_INTERNET = /SamsungBrowser/i.test(navigator.userAgent)
 
@@ -158,6 +159,11 @@ function ReminderRow({ todo, categories, now, completed = false, motion = '', on
           aria-hidden="true"
         />
         <AnimatedText as="span" className="todo-kind" value={reminderTypeLabel(todo.type, categories)} delay={0} />
+        {readableSummary ? (
+          <span className="reminder-summary-badge" aria-hidden="true">
+            <span>요약</span>
+          </span>
+        ) : null}
       </span>
       <AnimatedText as="strong" value={todo.title} delay={45} />
       {(summaryPending || attribution) ? (
@@ -196,19 +202,6 @@ function ReminderRow({ todo, categories, now, completed = false, motion = '', on
       <div className="todo-row-actions">
         {meta ? <AnimatedText as="span" className="todo-meta-text" value={meta} delay={90} /> : null}
         <span className="todo-date-text">{dateLabel}</span>
-        {readableSummary ? (
-          <button
-            className="reminder-summary-handle"
-            type="button"
-            aria-label={`${todo.title} 요약 열기`}
-            onClick={() => onOpenSummary(todo)}
-          >
-            <span className="reminder-summary-handle-icon" aria-hidden="true">
-              <span className="reminder-summary-handle-grip" />
-              <span className="reminder-summary-handle-sheet" />
-            </span>
-          </button>
-        ) : null}
         {completed ? (
           <button
             className="todo-permanent-delete"
@@ -308,6 +301,19 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     if (current?.color) used.delete(current.color)
     return used
   }, [categories, sectionEditTarget?.id])
+  const hiddenBuiltinSections = useMemo(() => reminderFilterOptions(categories, { includeHidden: true }).filter((section) => (
+    Boolean(section.hidden) && ['task', 'performance', 'exam', 'material'].includes(section.id)
+  )), [categories])
+  const categoryRestoreTarget = useMemo(() => {
+    const comparable = categoryName.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('ko')
+    if (!comparable) return null
+    const canonicalLabels = { task: '일반', performance: '수행평가', exam: '시험', material: '준비물' }
+    return hiddenBuiltinSections.find((section) => [
+      String(section.label || ''),
+      String(canonicalLabels[section.id] || ''),
+    ].some((label) => label.toLocaleLowerCase('ko') === comparable)) || null
+  }, [categoryName, hiddenBuiltinSections])
+  const hasRestorableHiddenBuiltin = hiddenBuiltinSections.length > 0
   const active = sorted.filter((todo) => !todo.completed)
   const completed = sorted.filter((todo) => todo.completed)
   const visibleActive = filter === 'all' ? active : active.filter((todo) => todo.type === filter)
@@ -334,6 +340,14 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     if (filters.some((item) => item.id === filter)) return
     setFilter(filters[0]?.id || 'all')
   }, [filter, filters])
+
+  useEffect(() => {
+    if (!categoryRestoreTarget?.color) return
+    const colorUsedElsewhere = reminderFilterOptions(categories).some((section) => (
+      section.id !== categoryRestoreTarget.id && section.color === categoryRestoreTarget.color
+    ))
+    if (!colorUsedElsewhere) setCategoryColor(categoryRestoreTarget.color)
+  }, [categoryRestoreTarget?.id])
 
   useEffect(() => () => {
     if (sectionPressTimerRef.current) window.clearTimeout(sectionPressTimerRef.current)
@@ -573,7 +587,10 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
   function openCategoryCreate() {
     if (!requireOnline('리마인더 섹션을 추가')) return
     setCategoryName('')
-    setCategoryColor(availableCategoryColors[0]?.id || '')
+    const restorableColor = hiddenBuiltinSections.find((section) => (
+      section.color && !usedCategoryColors.has(section.color)
+    ))?.color || ''
+    setCategoryColor(availableCategoryColors[0]?.id || restorableColor)
     setCategorySaveError('')
     setCategorySaving(false)
     setCategorySheetOpen(true)
@@ -586,6 +603,18 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
     setCategorySaving(true)
     setCategorySaveError('')
     try {
+      if (categoryRestoreTarget) {
+        const result = await saveReminderSectionChange({
+          action: 'restore',
+          sectionId: categoryRestoreTarget.id,
+          label,
+          color: categoryColor,
+          categories,
+        })
+        setCategorySheetOpen(false)
+        setFilter(result?.section?.id || categoryRestoreTarget.id)
+        return
+      }
       const category = await addReminderCategory({ label, color: categoryColor })
       setCategorySheetOpen(false)
       setFilter(category.id)
@@ -1011,7 +1040,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
               type="button"
               className="reminder-filter-add"
               aria-label="리마인더 섹션 추가"
-              disabled={!availableCategoryColors.length}
+              disabled={!availableCategoryColors.length && !hasRestorableHiddenBuiltin}
               onClick={openCategoryCreate}
             >
               <span aria-hidden="true">+</span>
@@ -1208,8 +1237,11 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
             </div>
           </fieldset>
 
+          {categoryRestoreTarget ? (
+            <p className="reminder-category-restore-hint">숨겨진 {categoryRestoreTarget.label} 섹션을 다시 사용합니다.</p>
+          ) : null}
           {categorySaveError ? <p className="change-warning">{categorySaveError}</p> : null}
-          {!availableCategoryColors.length ? <p className="change-warning">사용할 수 있는 색을 모두 썼어.</p> : null}
+          {!availableCategoryColors.length && !categoryRestoreTarget ? <p className="change-warning">사용할 수 있는 색을 모두 썼어.</p> : null}
 
           <div className="change-submit-row">
             <button type="button" onClick={() => setCategorySheetOpen(false)}>취소</button>
@@ -1219,7 +1251,7 @@ export function TodoPage({ now, todoData, requireOnline = () => true }) {
               disabled={!categoryName.trim() || !categoryColor || categorySaving}
               onClick={submitCategory}
             >
-              {categorySaving ? '추가 중…' : '추가'}
+              {categorySaving ? (categoryRestoreTarget ? '복원 중…' : '추가 중…') : (categoryRestoreTarget ? '복원' : '추가')}
             </button>
           </div>
         </div>
