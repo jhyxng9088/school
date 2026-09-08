@@ -115,7 +115,6 @@ function StudyControlCard({
 
   let primaryLabel = '공부 시작'
   if (hasActive) primaryLabel = paused ? '계속하기' : '일시정지'
-  if (saving && actionKind === 'start') primaryLabel = '시작 중…'
   if (saving && actionKind === 'pause') primaryLabel = '일시정지 중…'
   if (saving && actionKind === 'resume') primaryLabel = '계속하는 중…'
 
@@ -439,6 +438,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   const [actionError, setActionError] = useState('')
   const [saving, setSaving] = useState(false)
   const [actionKind, setActionKind] = useState('')
+  const [optimisticActive, setOptimisticActive] = useState(null)
   const [selectedSubject, setSelectedSubject] = useState('')
   const [customSubject, setCustomSubject] = useState('')
   const [rankingScope, setRankingScope] = useState('class')
@@ -450,6 +450,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   const schoolRealtimeRefreshRef = useRef(0)
   const schoolSnapshotRef = useRef(null)
   const rankingScopeRef = useRef('class')
+  const startRequestRef = useRef(null)
 
   useEffect(() => {
     schoolSnapshotRef.current = schoolSnapshot
@@ -560,11 +561,21 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
 
   const me = snapshot?.me || null
   const meId = studentIdentity(me)
-  const myActive = me?.active || null
-  const myTodaySeconds = useMemo(
-    () => studentTodaySeconds(me, nowMs),
-    [me, nowMs],
+  const serverActive = me?.active || null
+  const myActive = optimisticActive || serverActive
+  const displayMe = useMemo(
+    () => (me && optimisticActive ? { ...me, active: optimisticActive } : me),
+    [me, optimisticActive],
   )
+  const myTodaySeconds = useMemo(
+    () => studentTodaySeconds(displayMe, nowMs),
+    [displayMe, nowMs],
+  )
+
+  useEffect(() => {
+    if (!optimisticActive || !serverActive) return
+    if (serverActive.subject === optimisticActive.subject) setOptimisticActive(null)
+  }, [optimisticActive, serverActive])
 
   const selectedStudent = useMemo(() => {
     if (!selectedStudentId) return null
@@ -596,24 +607,58 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     }
   }
 
+  async function waitForPendingStart() {
+    const pending = startRequestRef.current
+    if (!pending) return true
+    return pending
+  }
+
   async function start() {
     const subject = selectedSubject === '기타' ? customSubject.trim() : selectedSubject
-    if (!subject || saving) return
-    const succeeded = await runAction({
-      kind: 'start',
-      onlineLabel: '스터디를 시작',
-      action: () => startPreviewStudy(subject),
-      broadcastAction: 'start',
-      fallbackMessage: '공부를 시작하지 못했습니다.',
+    if (!subject || saving || startRequestRef.current) return
+    if (!requireOnline('스터디를 시작')) return
+
+    const startedAt = Date.now()
+    const previousSelectedSubject = selectedSubject
+    const previousCustomSubject = customSubject
+    setActionError('')
+    setOptimisticActive({
+      subject,
+      startedAt,
+      segmentStartedAt: startedAt,
+      isPaused: false,
+      pausedAt: 0,
+      sessionSeconds: 0,
     })
-    if (succeeded) {
-      setSelectedSubject('')
-      setCustomSubject('')
-    }
+    setSelectedSubject('')
+    setCustomSubject('')
+    setNowMs(startedAt)
+
+    const request = (async () => {
+      try {
+        await startPreviewStudy(subject)
+        await broadcastPreviewStudyRealtime('start')
+        await load({ silent: true })
+        if (schoolSnapshotRef.current || rankingScopeRef.current === 'school') await loadSchool({ silent: true })
+        setNowMs(Date.now())
+        return true
+      } catch (error) {
+        setOptimisticActive(null)
+        setSelectedSubject(previousSelectedSubject)
+        setCustomSubject(previousCustomSubject)
+        setActionError(error?.message || '공부를 시작하지 못했습니다.')
+        return false
+      } finally {
+        if (startRequestRef.current === request) startRequestRef.current = null
+      }
+    })()
+    startRequestRef.current = request
+    await request
   }
 
   async function pause() {
     if (!myActive || myActive.isPaused) return
+    if (!(await waitForPendingStart())) return
     await runAction({
       kind: 'pause',
       onlineLabel: '스터디를 일시정지',
@@ -625,6 +670,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
 
   async function resume() {
     if (!myActive || !myActive.isPaused) return
+    if (!(await waitForPendingStart())) return
     await runAction({
       kind: 'resume',
       onlineLabel: '스터디를 계속',
@@ -636,6 +682,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
 
   async function stop() {
     if (!myActive) return
+    if (!(await waitForPendingStart())) return
     await runAction({
       kind: 'stop',
       onlineLabel: '스터디를 종료',
