@@ -13,14 +13,17 @@ test('study start is recorded before best-effort push dispatch', () => {
   assert.ok(start.indexOf('await recordPreviewStudyStartEvent(response.active)') < start.indexOf('dispatchPreviewStudyStartPush(response.active)'))
 })
 
-test('study unread keeps a server-shared seen marker with an offline local cache', () => {
+test('study unread has one event owner with a shared seen cursor and offline local cache', () => {
   const source = read('src/preview-study-unread.js')
   const client = read('src/preview-study-client.js')
 
   assert.match(source, /STORAGE_PREFIX = 'school\.studyUnread\.v2:'/)
+  assert.match(source, /hasUnread/)
   assert.match(source, /eventCursor/)
-  assert.match(source, /loadPreviewStudyEvents\(\{ since: controller\.state\.eventCursor \}\)/)
-  assert.match(source, /applyServerReadState\(controller, firstPage\.readState/)
+  assert.match(source, /seenCursor/)
+  assert.match(source, /loadPreviewStudyEvents\(\{ since: controller\.state\.seenCursor \}\)/)
+  assert.doesNotMatch(source, /\bloadPreviewStudy\(/)
+  assert.match(source, /applyServerReadState\(controller, firstPage\.readState, latestCursor\)/)
   assert.match(source, /pendingSeenAt/)
   assert.match(source, /pendingSeenCursor/)
   assert.match(source, /async function flushPending\(controller\)/)
@@ -34,13 +37,30 @@ test('study unread keeps a server-shared seen marker with an offline local cache
   assert.match(client, /action: 'mark-seen'/)
 })
 
-test('server read state replaces stale per-device Study history while keeping live class starts', () => {
+test('server Study state cannot roll a locally advanced seen cursor backward or resurrect an old dot', () => {
   const source = read('src/preview-study-unread.js')
   const apply = source.slice(source.indexOf('function applyServerReadState'), source.indexOf('function hasPendingWrite'))
+  const snap = source.slice(source.indexOf('function snapshot'), source.indexOf('function notify'))
+
   assert.match(apply, /readState\?\.initialized !== true/)
-  assert.match(apply, /Number\(readState\.seenAt \|\| 0\)/)
-  assert.match(apply, /Number\(readState\.latestAt \|\| 0\)/)
-  assert.match(apply, /Number\(currentLatest \|\| 0\)/)
-  assert.match(apply, /controller\.state\.eventCursor = nextCursor/)
-  assert.doesNotMatch(apply, /Math\.max\(\s*controller\.state\.latestAt/)
+  assert.match(apply, /Number\(controller\.state\.seenAt \|\| 0\)/)
+  assert.match(apply, /Number\(controller\.state\.seenCursor \|\| 0\)/)
+  assert.match(apply, /Number\(readState\.seenCursor \|\| 0\)/)
+  assert.match(apply, /const nextHasUnread = serverLatestAt > 0 && nextEventCursor > nextSeenCursor/)
+  assert.match(apply, /controller\.state\.seenCursor = nextSeenCursor/)
+  assert.match(apply, /controller\.state\.eventCursor = nextEventCursor/)
+  assert.match(apply, /controller\.state\.hasUnread = nextHasUnread/)
+  assert.match(snap, /hasUnread: controller\.state\.initialized && Boolean\(controller\.state\.hasUnread\)/)
+  assert.doesNotMatch(snap, /latestAt > seenAt/)
+})
+
+test('opening Study clears unread locally before the shared seen write finishes', () => {
+  const source = read('src/preview-study-unread.js')
+  const markSeen = source.slice(source.indexOf('export function markPreviewStudySeen'), source.indexOf('export function previewStudyUnreadSnapshot'))
+
+  assert.match(markSeen, /!controller\.state\.initialized \|\| !controller\.state\.hasUnread/)
+  assert.match(markSeen, /controller\.state\.hasUnread = false/)
+  assert.match(markSeen, /controller\.state\.seenCursor = Math\.max\(Number\(controller\.state\.seenCursor \|\| 0\), eventCursor\)/)
+  assert.match(markSeen, /controller\.state\.pendingSeenCursor = Math\.max/)
+  assert.ok(markSeen.indexOf('controller.state.hasUnread = false') < markSeen.indexOf('void flushPending(controller)'))
 })
