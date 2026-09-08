@@ -53,3 +53,16 @@ test('study ranking content reuses the meal content motion with directional mapp
   assert.match(style, /prefers-reduced-motion: reduce/)
   assert.match(style, /preview-study-ranking-stage\[data-direction\][\s\S]*animation: none !important/)
 })
+
+test('late-loaded school refinements do not globally suppress Study motion', () => {
+  const refinements = read('public/school-refinements.css')
+
+  assert.doesNotMatch(
+    refinements,
+    /\.preview-study-ranking-stage\[data-direction\][\s\S]*?animation:\s*none\s*!important/,
+  )
+  assert.doesNotMatch(
+    refinements,
+    /\.preview-study-ranking-stage\s+\.preview-study-today-person[\s\S]*?animation:\s*none\s*!important/,
+  )
+})
