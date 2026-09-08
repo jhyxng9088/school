@@ -128,9 +128,14 @@ function unreadMapFromServer(readState, pendingReads = {}) {
 
 function applyServerReadState(controller, readState) {
   if (readState?.initialized !== true) return false
-  const nextCursor = Math.max(0, Number(readState.cursor || 0))
+  const nextCursor = Math.max(
+    0,
+    Number(controller.state.cursor || 0),
+    Number(readState.cursor || 0),
+  )
   const nextSeenCursor = Math.max(
     0,
+    Number(controller.state.seenCursor || 0),
     Number(readState.seenCursor || 0),
     Number(controller.state.pendingSeenCursor || 0),
   )

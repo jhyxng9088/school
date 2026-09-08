@@ -120,10 +120,10 @@ const CLASS_STATION_PAGE_MARKER = String.raw`function ClassStationPage({ section
 }
 `
 
-const CLASS_STATION_PAGE_WITH_MOTION = String.raw`function ClassStationPage({ section, onSectionChange, timetablePage, boardPage, hasBoardUnread = false }) {
+const CLASS_STATION_PAGE_WITH_MOTION = String.raw`function ClassStationPage({ section, onSectionChange, timetablePage, boardPage }) {
   return (
     <section className="class-station-page">
-      <ClassTopSegment section={section} onSectionChange={onSectionChange} hasBoardUnread={hasBoardUnread} />
+      <ClassTopSegment section={section} onSectionChange={onSectionChange} />
       <div className="class-station-content">
         <div
           key={section}
@@ -137,43 +137,6 @@ const CLASS_STATION_PAGE_WITH_MOTION = String.raw`function ClassStationPage({ se
 }
 `
 
-function patchMainUnread(source) {
-  let next = String(source || '')
-  if (next.includes('const boardUnread = usePreviewBoardUnread(profile)')) return next
-
-  next = replaceRequired(
-    next,
-    `function ClassTopSegment({ section, onSectionChange }) {`,
-    `function ClassTopSegment({ section, onSectionChange, hasBoardUnread = false }) {`,
-    'class segment unread prop',
-  )
-  next = replaceRequired(
-    next,
-    `          className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '')}`,
-    `          className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '') + (item.id === 'board' && hasBoardUnread ? ' has-board-unread' : '')}`,
-    'class segment unread class',
-  )
-  next = replaceRequired(
-    next,
-    `function AppShell({ profile }) {`,
-    `function AppShell({ profile }) {\n  const boardUnread = usePreviewBoardUnread(profile)`,
-    'app shell board unread hook',
-  )
-  next = replaceRequired(
-    next,
-    `        onSectionChange={setClassSection}\n        boardPage=`,
-    `        onSectionChange={setClassSection}\n        hasBoardUnread={boardUnread.hasUnread}\n        boardPage=`,
-    'class page unread prop',
-  )
-  next = replaceRequired(
-    next,
-    "className={`nav-button ${activeTab === tab.id ? 'active' : ''}`}",
-    "className={`nav-button ${activeTab === tab.id ? 'active' : ''} ${tab.id === 'class' && boardUnread.hasUnread ? 'has-board-unread' : ''}`}",
-    'bottom nav unread class',
-  )
-  return next
-}
-
 export function patchPreviewBoardSource(source, id = '') {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/preview-board-complete.jsx')) return patchCompletedBoardUnread(patchCompletedBoardRealtime(source))
@@ -182,16 +145,13 @@ export function patchPreviewBoardSource(source, id = '') {
   let next = String(source || '')
   const boardImport = `import { PreviewBoard } from './preview-board.jsx'`
   const boardThemeImport = `import './preview-board-theme.css'`
-  const boardUnreadImport = `import { usePreviewBoardUnread } from './preview-board-unread.js'`
   if (!next.includes(boardImport)) {
     next = replaceRequired(
       next,
       `import { SHubAIOrb } from './s-hub-ai-orb.jsx'`,
-      `import { SHubAIOrb } from './s-hub-ai-orb.jsx'\n${boardImport}\n${boardThemeImport}\n${boardUnreadImport}`,
+      `import { SHubAIOrb } from './s-hub-ai-orb.jsx'\n${boardImport}\n${boardThemeImport}`,
       'board import',
     )
-  } else if (!next.includes(boardUnreadImport)) {
-    next = replaceRequired(next, boardImport, `${boardImport}\n${boardUnreadImport}`, 'board unread import')
   }
 
   next = spliceRequired(
@@ -204,6 +164,5 @@ export function patchPreviewBoardSource(source, id = '') {
 
   next = replaceRequired(next, CLASS_STATION_PAGE_MARKER, CLASS_STATION_PAGE_WITH_MOTION, 'class station transition')
   next = replaceRequired(next, `<PreviewBoardPage />`, `<PreviewBoardPage profile={profile} />`, 'board page profile props')
-  next = patchMainUnread(next)
   return next
 }
