@@ -318,11 +318,17 @@ html[data-theme-mode="light"][data-theme-accent] {
   --focus-accent-soft: color-mix(in srgb, #ffffff 52%, var(--theme-accent));
 }
 
+.home-top-actions .user-name {
+  anchor-name: --home-user-name;
+}
+
 #theme-settings-root {
   position: absolute;
+  position-anchor: --home-user-name;
   z-index: 19;
-  top: calc(max(32px, env(safe-area-inset-top)) + 48px);
-  right: max(20px, calc((100vw - 720px) / 2 + 20px));
+  top: anchor(--home-user-name center);
+  left: anchor(--home-user-name left);
+  translate: calc(-100% - 9px) -50%;
   opacity: 0;
   pointer-events: none;
   transform: translate3d(0, 7px, 0) scale(.996);
@@ -345,10 +351,6 @@ body:has(.app-content.tab-home) #theme-settings-root {
   pointer-events: auto;
   transform: translate3d(0, -1px, 0) scale(1);
   animation: theme-settings-home-in 980ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-body:has(.app-content.tab-home) .home-top-actions {
-  padding-right: 42px;
 }
 
 .theme-settings-trigger {
@@ -531,14 +533,6 @@ body:has(.app-content.tab-home) .home-top-actions {
 .theme-accent-option[data-accent="ivory"] { --swatch: #e7deca; }
 
 @media (max-width: 390px) {
-  #theme-settings-root {
-    right: 18px;
-  }
-
-  body:has(.app-content.tab-home) .home-top-actions {
-    padding-right: 40px;
-  }
-
   .theme-accent-options {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 7px 4px;
