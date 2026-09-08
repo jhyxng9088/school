@@ -30,6 +30,16 @@ function ThemeModeSegment({ mode, onModeChange }) {
       aria-label="화면 모드"
     >
       <span ref={spring.indicatorRef} className="class-top-segment-pill" aria-hidden="true" />
+      <span className="theme-mode-label-layer" aria-hidden="true">
+        {THEME_MODES.map((item) => (
+          <span
+            key={item.id}
+            className={`theme-mode-visual-label ${mode === item.id ? 'is-active' : ''}`}
+          >
+            {item.label}
+          </span>
+        ))}
+      </span>
       {THEME_MODES.map((item, index) => (
         <button
           ref={(node) => { spring.buttonRefs.current[index] = node }}
