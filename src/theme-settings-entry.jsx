@@ -56,6 +56,26 @@ function ThemeModeSegment({ mode, onModeChange }) {
   )
 }
 
+function DefaultThemeSwatch({ selected }) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      width="100%"
+      height="100%"
+      aria-hidden="true"
+      focusable="false"
+      shapeRendering="geometricPrecision"
+      style={{ display: 'block' }}
+    >
+      <circle cx="16" cy="16" r="16" fill="#f5f5f7" />
+      <path d="M16 0a16 16 0 0 1 0 32V0Z" fill="#1c1c1e" />
+      {selected ? (
+        <circle cx="16" cy="16" r="15" fill="none" stroke="currentColor" strokeWidth="2" />
+      ) : null}
+    </svg>
+  )
+}
+
 function ThemeSettingsIsland() {
   const [open, setOpen] = useState(false)
   const [preferences, setPreferences] = useState(() => readThemePreferences())
@@ -94,19 +114,37 @@ function ThemeSettingsIsland() {
           <section className="theme-settings-group" aria-labelledby="theme-accent-label">
             <p className="theme-settings-label" id="theme-accent-label">컬러</p>
             <div className="theme-accent-options" role="group" aria-label="테마 컬러">
-              {THEME_ACCENTS.map((accent) => (
-                <button
-                  key={accent.id}
-                  type="button"
-                  data-accent={accent.id}
-                  className={`theme-accent-option ${preferences.accent === accent.id ? 'is-selected' : ''}`}
-                  aria-pressed={preferences.accent === accent.id}
-                  onClick={() => updatePreferences({ accent: accent.id })}
-                >
-                  <span className="theme-accent-swatch" aria-hidden="true" />
-                  <span>{accent.label}</span>
-                </button>
-              ))}
+              {THEME_ACCENTS.map((accent) => {
+                const selected = preferences.accent === accent.id
+                const isDefault = accent.id === 'default'
+
+                return (
+                  <button
+                    key={accent.id}
+                    type="button"
+                    data-accent={accent.id}
+                    className={`theme-accent-option ${selected ? 'is-selected' : ''}`}
+                    aria-pressed={selected}
+                    onClick={() => updatePreferences({ accent: accent.id })}
+                  >
+                    <span
+                      className="theme-accent-swatch"
+                      aria-hidden="true"
+                      style={isDefault ? {
+                        border: 0,
+                        background: 'transparent',
+                        boxShadow: 'none',
+                        clipPath: 'none',
+                        WebkitClipPath: 'none',
+                        overflow: 'visible',
+                      } : undefined}
+                    >
+                      {isDefault ? <DefaultThemeSwatch selected={selected} /> : null}
+                    </span>
+                    <span>{accent.label}</span>
+                  </button>
+                )
+              })}
             </div>
           </section>
         </div>
