@@ -33,6 +33,23 @@ test('normal Supabase presence heartbeat does not read or write Firestore presen
   assert.doesNotMatch(source, /getCountFromServer/)
 })
 
+test('canonical Supabase presence owner retains one replayable snapshot without another network owner', () => {
+  const source = read('../src/supabase-presence.js')
+  const roster = read('../src/class-roster-ui-v2.js')
+
+  assert.match(source, /const latestSnapshots = new Map\(\)/)
+  assert.match(source, /latestSnapshots\.set\(detail\.classId, detail\)/)
+  assert.match(source, /export function readLatestSupabasePresenceSnapshot\(classId\)/)
+  assert.match(roster, /import \{ readLatestSupabasePresenceSnapshot \} from '\.\/supabase-presence\.js'/)
+  assert.match(roster, /function applyLatestPresenceSnapshot\(\)/)
+  assert.match(roster, /readLatestSupabasePresenceSnapshot\(`class-\$\{classNumber\}`\)/)
+
+  const rosterPresenceListeners = roster.match(/addEventListener\('school:class-presence'/g) || []
+  assert.equal(rosterPresenceListeners.length, 1)
+  assert.doesNotMatch(roster, /functions\/v1\/class-presence/)
+  assert.doesNotMatch(roster, /setInterval\(/)
+})
+
 test('member total is cached and cannot block the active presence transport', () => {
   const source = read('../src/school-sync.js')
   assert.match(source, /MEMBER_COUNT_CACHE_MS = 30 \* 60 \* 1000/)
