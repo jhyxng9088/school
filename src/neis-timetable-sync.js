@@ -1,9 +1,10 @@
 import { ensureSignedIn, readStudentProfile } from './school-sync'
-import { fetchGrade2ClassTimetable, neisTargetWeek } from './neis-timetable'
+import { fetchClassTimetable, neisTargetWeek } from './neis-timetable'
+import { schoolScopeKey } from './school-directory.js'
 
 const SYNC_MAX_AGE_MS = 6 * 60 * 60 * 1000
 const RETRY_GUARD_MS = 15 * 60 * 1000
-const CACHE_PREFIX = 'school.neisTimetableSync.v1'
+const CACHE_PREFIX = 'school.neisTimetableSync.v2'
 const NEIS_TIMETABLE_SYNC_API_URL = 'https://school-reminder-backend.vercel.app/api/timetable-neis-sync'
 const attemptTimes = new Map()
 let syncTimer = 0
@@ -11,31 +12,37 @@ let syncDueAt = 0
 
 function validProfile(profile) {
   const classNumber = Number(profile?.classNumber)
-  return profile && Number.isInteger(classNumber) && classNumber >= 1 && classNumber <= 30
+  const grade = Number(profile?.grade)
+  return profile
+    && String(profile?.officeCode || '').trim()
+    && String(profile?.schoolCode || '').trim()
+    && Number.isInteger(grade) && grade >= 1 && grade <= 6
+    && Number.isInteger(classNumber) && classNumber >= 1 && classNumber <= 30
 }
 
-function cacheKey(classNumber, weekStart) {
-  return `${CACHE_PREFIX}.class-${classNumber}.${weekStart}`
+function cacheKey(profile, weekStart) {
+  const scope = schoolScopeKey(profile)
+  return `${CACHE_PREFIX}.${scope}.class-${profile.classNumber}.${weekStart}`
 }
 
-function readCache(classNumber, weekStart) {
+function readCache(profile, weekStart) {
   try {
-    return JSON.parse(localStorage.getItem(cacheKey(classNumber, weekStart)) || 'null')
+    return JSON.parse(localStorage.getItem(cacheKey(profile, weekStart)) || 'null')
   } catch {
     return null
   }
 }
 
-function writeCache(classNumber, weekStart, value) {
+function writeCache(profile, weekStart, value) {
   try {
-    localStorage.setItem(cacheKey(classNumber, weekStart), JSON.stringify(value))
+    localStorage.setItem(cacheKey(profile, weekStart), JSON.stringify(value))
   } catch {
     // A failed local cache must never block Firestore/NEIS sync.
   }
 }
 
-function recentlyAttempted(classNumber, weekStart) {
-  const key = `${classNumber}:${weekStart}`
+function recentlyAttempted(profile, weekStart) {
+  const key = `${schoolScopeKey(profile)}:${profile.classNumber}:${weekStart}`
   const previous = Number(attemptTimes.get(key) || 0)
   if (Date.now() - previous < RETRY_GUARD_MS) return true
   attemptTimes.set(key, Date.now())
@@ -71,17 +78,17 @@ export async function syncCurrentClassTimetableFromNeis({ force = false } = {}) 
 
   const classNumber = Number(profile.classNumber)
   const week = neisTargetWeek(new Date())
-  const cached = readCache(classNumber, week.weekStart)
+  const cached = readCache(profile, week.weekStart)
   const cachedFresh = cached?.ok === true
     && cached.weekStart === week.weekStart
     && Date.now() - Number(cached.syncedAt || 0) < SYNC_MAX_AGE_MS
 
   if (!force && cachedFresh) return { ok: true, reason: 'fresh' }
-  if (!force && recentlyAttempted(classNumber, week.weekStart)) return { ok: true, reason: 'recent_attempt' }
+  if (!force && recentlyAttempted(profile, week.weekStart)) return { ok: true, reason: 'recent_attempt' }
 
-  const result = await fetchGrade2ClassTimetable(classNumber, new Date())
+  const result = await fetchClassTimetable(profile, new Date())
   if (!result.available) {
-    writeCache(classNumber, week.weekStart, {
+    writeCache(profile, week.weekStart, {
       ok: false,
       attemptedAt: Date.now(),
       weekStart: result.weekStart,
@@ -93,7 +100,7 @@ export async function syncCurrentClassTimetableFromNeis({ force = false } = {}) 
   await writeNeisTimetableThroughServer(result, cached)
   const now = Date.now()
 
-  writeCache(classNumber, result.weekStart, {
+  writeCache(profile, result.weekStart, {
     ok: true,
     syncedAt: now,
     weekStart: result.weekStart,

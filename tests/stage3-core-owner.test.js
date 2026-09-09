@@ -28,9 +28,14 @@ test('stage3 core keeps only data-owner dependencies after UI retirement', () =>
   assert.doesNotMatch(core, /function daysBetween\b/)
 })
 
-test('stage3 school identity stays private to the NEIS data owner', () => {
+test('stage3 school identity stays inside the NEIS data owner and resolves from the student profile', () => {
   const core = text('src/stage3-core.js')
-  assert.match(core, /const SUJI_SCHOOL = \{/)
-  assert.doesNotMatch(core, /export const SUJI_SCHOOL/)
-  assert.doesNotMatch(core, /schoolName:/)
+  assert.match(core, /import \{ LEGACY_SCHOOL_CONTEXT, schoolScopeKey \} from '\.\/school-directory\.js'/)
+  assert.match(core, /function schoolContext\(profile\)/)
+  assert.match(core, /const officeCode = String\(profile\?\.officeCode \|\| ''\)\.trim\(\)/)
+  assert.match(core, /const schoolCode = String\(profile\?\.schoolCode \|\| ''\)\.trim\(\)/)
+  assert.match(core, /return \{ \.\.\.LEGACY_SCHOOL_CONTEXT \}/)
+  assert.doesNotMatch(core, /const SUJI_SCHOOL\s*=/)
+  assert.doesNotMatch(core, /officeCode:\s*'J10'/)
+  assert.doesNotMatch(core, /schoolCode:\s*'7530093'/)
 })
