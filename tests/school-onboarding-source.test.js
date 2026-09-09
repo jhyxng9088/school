@@ -12,6 +12,7 @@ const setupCss = fs.readFileSync(new URL('../src/school-setup.css', import.meta.
 test('first setup is routed through the school-search bootstrap', () => {
   assert.match(indexSource, /src\/app-bootstrap\.jsx/)
   assert.doesNotMatch(indexSource, /type="module" src="\/src\/main\.jsx"/)
+  assert.match(bootstrapSource, /import '\.\/styles\.css'/)
   assert.match(bootstrapSource, /StudentSetup/)
   assert.match(bootstrapSource, /saveStudentProfile/)
   assert.match(bootstrapSource, /import\('\.\/main\.jsx'\)/)
