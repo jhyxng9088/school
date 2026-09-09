@@ -106,12 +106,18 @@ service cloud.firestore {
     }
 
     function validTimetable() {
-      return request.resource.data.keys().hasOnly(['weeklySchedule', 'overrides', 'updatedAt'])
+      return request.resource.data.keys().hasOnly([
+          'weeklySchedule', 'neisWeeklySchedule', 'manualWeeklyOverrides', 'overrides', 'updatedAt'
+        ])
         && request.resource.data.keys().hasAll(['updatedAt'])
         && request.resource.data.get('weeklySchedule', {}) is map
+        && request.resource.data.get('neisWeeklySchedule', {}) is map
+        && request.resource.data.get('manualWeeklyOverrides', {}) is map
         && request.resource.data.get('overrides', {}) is map
         && request.resource.data.updatedAt is int
-        && request.resource.data.keys().hasAny(['weeklySchedule', 'overrides']);
+        && request.resource.data.keys().hasAny([
+          'weeklySchedule', 'neisWeeklySchedule', 'manualWeeklyOverrides', 'overrides'
+        ]);
     }
 
     function validMember() {
