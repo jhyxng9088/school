@@ -28,10 +28,21 @@ test('student setup requires school, grade, class, number, and name', () => {
   assert.match(setupSource, /schoolCode: selectedSchool\.schoolCode/)
 })
 
-test('legacy Suji grade 2 data keys remain backward compatible while new schools are scoped', () => {
+test('legacy Suji grade 2 data keys remain backward compatible while new schools use compact scoped keys', () => {
   assert.match(syncSource, /if \(isLegacySchoolScope\(normalized\)\) return `class-\$\{normalized\.classNumber\}`/)
-  assert.match(syncSource, /school-\$\{normalized\.officeCode\}-\$\{normalized\.schoolCode\}-g\$\{normalized\.grade\}-c\$\{normalized\.classNumber\}/)
+  assert.match(syncSource, /const schoolScope = `\$\{normalized\.officeCode\}\|\$\{normalized\.schoolCode\}\|\$\{normalized\.grade\}`/)
+  assert.match(syncSource, /hash32\(schoolScope, 2246822519\)\.slice\(0, 4\)/)
+  assert.match(syncSource, /return `s-\$\{schoolDigest\}-c\$\{normalized\.classNumber\}`/)
   assert.match(syncSource, /\.\.\.LEGACY_SCHOOL_CONTEXT/)
+})
+
+test('stored Firebase identity stays within the existing security-rule field contract', () => {
+  assert.match(syncSource, /await setDoc\(identity, \{\s*classId,\s*studentKey,\s*name: profile\.name,\s*createdAt: now,\s*updatedAt: now,\s*\}\)/)
+})
+
+test('Suji-only personal timetable backend does not activate for other schools', () => {
+  assert.match(syncSource, /const normalized = normalizeStudentProfile\(profile\)/)
+  assert.match(syncSource, /if \(!normalized \|\| !isLegacySchoolScope\(normalized\)\) return false/)
 })
 
 test('meal and academic data resolve the stored school profile', () => {
