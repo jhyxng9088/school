@@ -93,6 +93,10 @@ jobs:
           mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' | sort)
           node --test "${files[@]:75}"
 
+      - name: Diagnose full app tests sequentially
+        continue-on-error: true
+        run: node --test --test-concurrency=1 tests/*.test.js
+
       - name: Test production app
         run: npm test
 
