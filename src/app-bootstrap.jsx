@@ -16,10 +16,17 @@ function startMainApp() {
 
 prepareClientDataGeneration()
 
+const standalone = isStandalone()
 const profile = readStudentProfile()
-const installDone = localStorage.getItem(INSTALL_DONE_KEY) === 'true'
 
-if (!profile && installDone && isStandalone()) {
+// If this page is already running as an installed PWA, installation itself is
+// the confirmation. Mark the legacy guide complete before deciding which first
+// screen owns the session so new users cannot fall through to the old setup.
+if (standalone && localStorage.getItem(INSTALL_DONE_KEY) !== 'true') {
+  localStorage.setItem(INSTALL_DONE_KEY, 'true')
+}
+
+if (!profile && standalone) {
   const container = document.getElementById('root')
   const root = createRoot(container)
   const legacyName = localStorage.getItem(USER_NAME_KEY) || ''
