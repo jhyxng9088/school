@@ -66,24 +66,26 @@ test('class activity live-data sync is source-owned and its build-patch leg stay
   assert.equal(count(source, 'removeRevalidation = installServerRevalidation(refreshFromServer)'), 0)
 })
 
-test('unread indicators reuse the app realtime stream instead of opening five duplicate Firestore listeners', () => {
-  const source = read('../src/unread-indicators-v2.js')
-  assert.match(source, /subscribeClassLiveData\('activity', classId/)
-  assert.match(source, /subscribeClassLiveData\('timetable', classId/)
-  assert.match(source, /subscribeClassLiveData\('todos', classId/)
-  assert.match(source, /subscribeClassLiveData\('academic', classId/)
-  assert.match(source, /subscribeClassLiveData\('todoState', studentKey/)
-  assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'classes', classId, 'activity'/)
-  assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'classes', classId, 'todos'/)
-  assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'classes', classId, 'academicEvents'/)
-  assert.doesNotMatch(source, /onSnapshot\(collection\(db, 'students', studentKey, 'todoState'/)
+test('unread store reuses the app realtime stream instead of opening duplicate Firestore listeners', () => {
+  const store = read('../src/unread-store.js')
+  const indicator = read('../src/unread-indicators-v2.js')
+
+  assert.match(store, /subscribeClassLiveData\('activity', store\.classId/)
+  assert.match(store, /subscribeClassLiveData\('timetable', store\.classId/)
+  assert.match(store, /subscribeClassLiveData\('todos', store\.classId/)
+  assert.match(store, /subscribeClassLiveData\('academic', store\.classId/)
+  assert.match(store, /subscribeClassLiveData\('todoState', store\.studentKey/)
+  assert.doesNotMatch(store, /onSnapshot\(/)
+  assert.doesNotMatch(indicator, /subscribeClassLiveData|onSnapshot\(/)
 })
 
-test('unread live-data subscriptions are source-owned and their build-patch leg stays retired', () => {
-  const source = read('../src/unread-indicators-v2.js')
+test('unread live-data subscriptions are owned only by the unified store', () => {
+  const store = read('../src/unread-store.js')
+  const indicator = read('../src/unread-indicators-v2.js')
 
-  assert.match(source, /import \{ subscribeClassLiveData \} from '\.\/class-live-data\.js'/)
-  assert.doesNotMatch(source, /\bonSnapshot\(/)
+  assert.match(store, /import \{ subscribeClassLiveData \} from '\.\/class-live-data\.js'/)
+  assert.match(indicator, /subscribeUnreadState\(profile/)
+  assert.doesNotMatch(indicator, /class-live-data\.js|preview-board-unread|preview-study-unread|\bonSnapshot\(/)
 })
 
 test('expired academic documents are no longer full-scanned by every client', () => {
