@@ -1,19 +1,13 @@
-import { getApp } from 'firebase/app'
-import { doc, getFirestore, runTransaction } from 'firebase/firestore'
-import { classKeyFor, ensureSignedIn, readStudentProfile } from './school-sync'
+import { ensureSignedIn, readStudentProfile } from './school-sync'
 import { fetchGrade2ClassTimetable, neisTargetWeek } from './neis-timetable'
-import { buildNeisTimetableSyncState } from './timetable-neis-policy'
 
 const SYNC_MAX_AGE_MS = 6 * 60 * 60 * 1000
 const RETRY_GUARD_MS = 15 * 60 * 1000
 const CACHE_PREFIX = 'school.neisTimetableSync.v1'
+const NEIS_TIMETABLE_SYNC_API_URL = 'https://school-reminder-backend.vercel.app/api/timetable-neis-sync'
 const attemptTimes = new Map()
 let syncTimer = 0
 let syncDueAt = 0
-
-function timetableRef(db, profile) {
-  return doc(db, 'classes', classKeyFor(profile), 'settings', 'timetable')
-}
 
 function validProfile(profile) {
   const classNumber = Number(profile?.classNumber)
@@ -48,6 +42,29 @@ function recentlyAttempted(classNumber, weekStart) {
   return false
 }
 
+async function writeNeisTimetableThroughServer(result, cached) {
+  const user = await ensureSignedIn()
+  const idToken = String(await user.getIdToken()).trim()
+  if (!idToken) throw new Error('NEIS timetable sync auth unavailable')
+
+  const response = await fetch(NEIS_TIMETABLE_SYNC_API_URL, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${idToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      weeklySchedule: result.weeklySchedule,
+      lastClientSyncAt: Number(cached?.syncedAt || 0),
+    }),
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body?.ok !== true) {
+    throw new Error(String(body?.error || `NEIS timetable sync failed (${response.status})`))
+  }
+  return body
+}
+
 export async function syncCurrentClassTimetableFromNeis({ force = false } = {}) {
   const profile = readStudentProfile()
   if (!validProfile(profile)) return { ok: false, reason: 'no_profile' }
@@ -73,29 +90,8 @@ export async function syncCurrentClassTimetableFromNeis({ force = false } = {}) 
     return { ok: false, reason: 'neis_unavailable', classNumber, weekStart: result.weekStart }
   }
 
-  await ensureSignedIn()
-  const db = getFirestore(getApp('school-sync'))
-  const ref = timetableRef(db, profile)
+  await writeNeisTimetableThroughServer(result, cached)
   const now = Date.now()
-
-  // NEIS owns only the raw base. Human edits remain as sparse manual overrides,
-  // and weeklySchedule stays the effective value consumed by existing UI clients.
-  await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(ref)
-    const currentData = snapshot.exists() ? snapshot.data() : {}
-    const next = buildNeisTimetableSyncState({
-      documentData: currentData,
-      neisWeeklySchedule: result.weeklySchedule,
-      lastClientSyncAt: Number(cached?.syncedAt || 0),
-    })
-
-    transaction.set(ref, {
-      weeklySchedule: next.weeklySchedule,
-      neisWeeklySchedule: next.neisWeeklySchedule,
-      manualWeeklyOverrides: next.manualWeeklyOverrides,
-      updatedAt: now,
-    }, { merge: true })
-  })
 
   writeCache(classNumber, result.weekStart, {
     ok: true,
