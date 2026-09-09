@@ -17,6 +17,15 @@ test('first setup is routed through the school-search bootstrap', () => {
   assert.match(bootstrapSource, /import\('\.\/main\.jsx'\)/)
 })
 
+test('legacy normalized profiles cannot skip explicit school selection', () => {
+  assert.match(bootstrapSource, /const STUDENT_PROFILE_KEY = 'school\.studentProfile\.v1'/)
+  assert.match(bootstrapSource, /function hasExplicitSchoolSelection\(\)/)
+  assert.match(bootstrapSource, /stored\.officeCode, stored\.schoolCode, stored\.schoolName, stored\.schoolKind/)
+  assert.match(bootstrapSource, /const schoolSelectionComplete = hasExplicitSchoolSelection\(\)/)
+  assert.match(bootstrapSource, /if \(standalone && \(!profile \|\| !schoolSelectionComplete\)\)/)
+  assert.match(bootstrapSource, /const legacyName = profile\?\.name \|\| localStorage\.getItem\(USER_NAME_KEY\) \|\| ''/)
+})
+
 test('student setup requires school, grade, class, number, and name', () => {
   assert.match(setupSource, /searchNeisSchools/)
   assert.match(setupSource, /<span>학교<\/span>/)
