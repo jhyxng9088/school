@@ -40,33 +40,6 @@ jobs:
       - name: Test production app
         run: npm test
 
-      - name: Build board sheet E2E harness
-        run: npm run build -- --config vite.e2e.config.js
-
-      - name: Install Playwright test runner
-        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
-
-      - name: Test board sheet lifecycle in Chromium and WebKit
-        run: npx playwright test
-
-      - name: Upload Playwright diagnostics on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: board-sheet-playwright-report
-          path: |
-            playwright-report/
-            test-results/
-            dist-e2e/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Build production app
-        run: npm run build
-
       - name: Install production backend dependencies
         working-directory: push-backend-v2
         run: npm ci
@@ -122,9 +95,41 @@ jobs:
         working-directory: push-backend-v2
         run: node --test --test-concurrency=1 test/timetable-neis-policy.test.js
 
+      - name: Diagnose all explicit backend tests
+        continue-on-error: true
+        working-directory: push-backend-v2
+        run: node --test --test-concurrency=1 test/*.test.js
+
       - name: Test production backend
         working-directory: push-backend-v2
         run: npm test
+
+      - name: Build board sheet E2E harness
+        run: npm run build -- --config vite.e2e.config.js
+
+      - name: Install Playwright test runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.62.1
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Test board sheet lifecycle in Chromium and WebKit
+        run: npx playwright test
+
+      - name: Upload Playwright diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-sheet-playwright-report
+          path: |
+            playwright-report/
+            test-results/
+            dist-e2e/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Build production app
+        run: npm run build
 
       - name: Configure Pages
         if: github.ref == 'refs/heads/main'
