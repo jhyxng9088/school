@@ -1,23 +1,12 @@
 
 const FIREBASE_AI_API_KEY = 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0'
 
-const TEXT_MODELS = [
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-]
-const ATTACHMENT_MODELS = [
+const DEFAULT_MODELS = [
+  'gemini-3.8-flash',
   'gemini-3.7-flash',
   'gemini-3.6-flash',
   'gemini-3.5-flash-lite',
   'gemini-3.1-flash-lite',
-]
-const REMINDER_ATTACHMENT_MODELS = [
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
 ]
 const MAX_ATTACHMENT_BASE64_CHARS = 3_200_000
 const MAX_SCHEMA_CHARS = 14_000
@@ -175,14 +164,10 @@ export async function generateStructuredWithFirebaseAI({
   const deadline = Date.now() + overallTimeout
   const attempts = []
   let lastError = null
-  const preferredModels = Array.isArray(models) && models.length
-    ? models
-    : parts.length
-      ? (purpose === 'reminder' ? REMINDER_ATTACHMENT_MODELS : ATTACHMENT_MODELS)
-      : TEXT_MODELS
+  const preferredModels = Array.isArray(models) && models.length ? models : DEFAULT_MODELS
   const attachmentAttemptCap = purpose === 'reminder' ? 9000 : 20000
 
-  for (const modelName of preferredModels.slice(0, 4)) {
+  for (const modelName of preferredModels.slice(0, 5)) {
     const remaining = deadline - Date.now()
     if (remaining < 2500) break
     const attemptTimeout = Math.max(2000, Math.min(remaining, parts.length ? attachmentAttemptCap : 10_000))

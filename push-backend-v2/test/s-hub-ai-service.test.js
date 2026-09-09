@@ -49,7 +49,7 @@ test('server Firebase AI request uses Admin OAuth, App Check and API key', async
   }
 })
 
-test('school and reminder requests use their intended model profiles', async () => {
+test('text, school attachments and reminder attachments share the same Flash-first model profile', async () => {
   const originalFetch = globalThis.fetch
   const urls = []
   globalThis.fetch = async (url) => {
@@ -70,9 +70,42 @@ test('school and reminder requests use their intended model profiles', async () 
       projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'reminder image', responseSchema: schema,
       attachments: [{ mimeType: 'image/jpeg', dataBase64: 'AA==' }], purpose: 'reminder',
     })
-    assert.match(urls[0], /gemini-3\.5-flash-lite/)
-    assert.match(urls[1], /gemini-3\.7-flash/)
-    assert.match(urls[2], /gemini-3\.5-flash-lite/)
+    assert.match(urls[0], /gemini-3\.8-flash/)
+    assert.match(urls[1], /gemini-3\.8-flash/)
+    assert.match(urls[2], /gemini-3\.8-flash/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('default model fallback reaches Flash Lite after all Flash models fail', async () => {
+  const originalFetch = globalThis.fetch
+  const urls = []
+  globalThis.fetch = async (url) => {
+    urls.push(String(url))
+    if (urls.length < 5) return response(503, { error: { status: 'UNAVAILABLE', message: 'try next model' } })
+    return response(200, {
+      candidates: [{ content: { parts: [{ text: JSON.stringify({ answer: 'lite-ok' }) }] } }],
+    })
+  }
+  try {
+    const result = await generateStructuredWithFirebaseAI({
+      projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'hello', responseSchema: schema,
+      timeoutMs: 8000,
+    })
+    assert.deepEqual(
+      urls.map((url) => url.match(/models\/([^:]+):generateContent/)?.[1]),
+      [
+        'gemini-3.8-flash',
+        'gemini-3.7-flash',
+        'gemini-3.6-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
+      ],
+    )
+    assert.equal(result.value.answer, 'lite-ok')
+    assert.equal(result.modelName, 'gemini-3.1-flash-lite')
+    assert.equal(result.attempts.length, 4)
   } finally {
     globalThis.fetch = originalFetch
   }
