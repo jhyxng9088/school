@@ -230,7 +230,9 @@ export function classKeyFor(profile) {
   const normalized = normalizeStudentProfile(profile)
   if (!normalized) return ''
   if (isLegacySchoolScope(normalized)) return `class-${normalized.classNumber}`
-  return `school-${normalized.officeCode}-${normalized.schoolCode}-g${normalized.grade}-c${normalized.classNumber}`
+  const schoolScope = `${normalized.officeCode}|${normalized.schoolCode}|${normalized.grade}`
+  const schoolDigest = `${hash32(schoolScope, 2166136261)}${hash32(schoolScope, 2246822519).slice(0, 4)}`
+  return `s-${schoolDigest}-c${normalized.classNumber}`
 }
 
 export function studentKeyFor(profile) {
@@ -313,12 +315,6 @@ async function ensureStoredProfileIdentity(user) {
           classId,
           studentKey,
           name: profile.name,
-          schoolName: profile.schoolName,
-          schoolCode: profile.schoolCode,
-          officeCode: profile.officeCode,
-          grade: profile.grade,
-          classNumber: profile.classNumber,
-          studentNumber: profile.studentNumber,
           createdAt: now,
           updatedAt: now,
         })
@@ -1044,7 +1040,9 @@ export async function migrateLegacyTodos(profile, legacyTodos) {
 }
 
 function movingClassEnabled(profile) {
-  const classNumber = Number(profile?.classNumber)
+  const normalized = normalizeStudentProfile(profile)
+  if (!normalized || !isLegacySchoolScope(normalized)) return false
+  const classNumber = Number(normalized.classNumber)
   return Number.isInteger(classNumber) && classNumber >= 7 && classNumber <= 15
 }
 
