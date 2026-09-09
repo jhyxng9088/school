@@ -18,6 +18,7 @@ const USER_VISIBLE_FILES = [
   'src/class-roster-ui-v2.js',
   'src/push-client.js',
   'src/s-hub-ai-sheet.jsx',
+  'src/student-setup.jsx',
   'src/unread-indicators-v2.js',
   'public/first-run-notice.js',
   'public/feature-tour-ai-orb.js',
