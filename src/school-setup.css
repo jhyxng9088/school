@@ -70,12 +70,26 @@
 
 .student-setup-grid select {
   width: 100%;
-  border: 0;
+  height: 56px;
+  padding: 0 14px;
   outline: 0;
-  background: transparent;
-  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
-  font-size: 16px;
+  font-size: 17px;
+  transition: border-color 440ms var(--motion-soft), box-shadow 440ms var(--motion-soft), background-color 520ms var(--motion-soft);
+}
+
+.student-setup-grid select:focus {
+  border-color: var(--text-tertiary);
+  box-shadow: 0 0 0 4px var(--border);
+}
+
+.student-setup-grid select:disabled {
+  color: var(--text-tertiary);
+  opacity: .72;
 }
 
 @media (max-width: 430px) {
