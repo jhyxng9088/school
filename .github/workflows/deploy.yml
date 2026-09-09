@@ -23,6 +23,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  backend-discover:
+    runs-on: ubuntu-latest
+    outputs:
+      files: ${{ steps.tests.outputs.files }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Discover backend tests
+        id: tests
+        shell: bash
+        run: |
+          files=$(find push-backend-v2/test -maxdepth 1 -name '*.test.js' -printf '%f\n' | sort | jq -R -s -c 'split("\n")[:-1]')
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+
+  backend-diagnose:
+    needs: backend-discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ${{ fromJSON(needs.backend-discover.outputs.files) }}
+    name: backend ${{ matrix.file }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+      - name: Run isolated backend test
+        working-directory: push-backend-v2
+        run: node --test "test/${{ matrix.file }}"
+
   build:
     runs-on: ubuntu-latest
     steps:
