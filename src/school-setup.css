@@ -79,7 +79,6 @@
   color: var(--text);
   font: inherit;
   font-size: 17px;
-  transition: border-color 440ms var(--motion-soft), box-shadow 440ms var(--motion-soft), background-color 520ms var(--motion-soft);
 }
 
 .student-setup-grid select:focus {
