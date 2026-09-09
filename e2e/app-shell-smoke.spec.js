@@ -6,7 +6,9 @@ function collectPageErrors(page) {
     const message = String(error?.message || error)
     const expectedLocalAuthBoundary = message.includes('/identitytoolkit.googleapis.com/v1/accounts:signUp?')
       && message.endsWith(' due to access control checks.')
-    if (!expectedLocalAuthBoundary) errors.push(message)
+    const expectedBlockedNeisSyncBoundary = message.includes('/school-reminder-backend.vercel.app/api/timetable-neis-sync')
+      && message.endsWith(' due to access control checks.')
+    if (!expectedLocalAuthBoundary && !expectedBlockedNeisSyncBoundary) errors.push(message)
   })
   return errors
 }
@@ -45,7 +47,7 @@ async function seedInstalledStudent(page) {
     localStorage.setItem('school.installGuideDone', 'true')
     localStorage.setItem('school.studentProfile.v1', JSON.stringify({
       name: 'E2E Student',
-      classNumber: 1,
+      classNumber: 15,
       studentNumber: 1,
     }))
   })
@@ -149,8 +151,8 @@ test('performance expires at 23:00 KST, stays gone on reload, and the next gener
     }
     if (localStorage.getItem('e2e.performance.seeded')) return
     localStorage.setItem('e2e.performance.seeded', '1')
-    localStorage.setItem('school.timetable.weekly.v2.class-1', JSON.stringify({ wed: { 7: '자율' } }))
-    localStorage.setItem('school.sharedTodos.v1.class-1', JSON.stringify([
+    localStorage.setItem('school.timetable.weekly.v2.class-15', JSON.stringify({ wed: { 7: '자율' } }))
+    localStorage.setItem('school.sharedTodos.v1.class-15', JSON.stringify([
       { id: 'performance-e2e', type: 'performance', title: '영어 수행평가', dueDate: '2026-09-09', dueTime: '00:01', createdAt: 1 },
       { id: 'timed-e2e', type: 'task', title: '일반 시간 지정', dueDate: '2026-09-09', dueTime: '23:02', createdAt: 2 },
       { id: 'untimed-e2e', type: 'task', title: '일반 날짜 지정', dueDate: '2026-09-09', dueTime: '', createdAt: 3 },
@@ -179,6 +181,6 @@ test('performance expires at 23:00 KST, stays gone on reload, and the next gener
   await expect(timedRow).toHaveCount(0)
   await expect(untimedRow).toBeVisible()
   // Expiry must not remove the shared source: the row policy owns hiding.
-  const retained = await page.evaluate(() => JSON.parse(localStorage.getItem('school.sharedTodos.v1.class-1') || '[]').some((todo) => todo.id === 'performance-e2e'))
+  const retained = await page.evaluate(() => JSON.parse(localStorage.getItem('school.sharedTodos.v1.class-15') || '[]').some((todo) => todo.id === 'performance-e2e'))
   expect(retained).toBe(true)
 })
