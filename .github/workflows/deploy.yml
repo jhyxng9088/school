@@ -40,6 +40,31 @@ jobs:
       - name: Test production app
         run: npm test
 
+      - name: Install production backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Diagnose final class-id tests
+        continue-on-error: true
+        working-directory: push-backend-v2
+        run: >-
+          node --test --test-concurrency=1
+          test/class-roster.test.js
+          test/preview-isolation.test.js
+          test/timetable-neis-policy.test.js
+
+      - name: Diagnose backend without class-id tests
+        continue-on-error: true
+        working-directory: push-backend-v2
+        shell: bash
+        run: |
+          mapfile -t files < <(find test -maxdepth 1 -name '*.test.js' -print | sort | grep -Ev '/(class-roster|preview-isolation|timetable-neis-policy)\.test\.js$')
+          node --test --test-concurrency=1 "${files[@]}"
+
+      - name: Test production backend
+        working-directory: push-backend-v2
+        run: npm test
+
       - name: Build board sheet E2E harness
         run: npm run build -- --config vite.e2e.config.js
 
@@ -66,14 +91,6 @@ jobs:
 
       - name: Build production app
         run: npm run build
-
-      - name: Install production backend dependencies
-        working-directory: push-backend-v2
-        run: npm ci
-
-      - name: Test production backend
-        working-directory: push-backend-v2
-        run: npm test
 
       - name: Configure Pages
         if: github.ref == 'refs/heads/main'
