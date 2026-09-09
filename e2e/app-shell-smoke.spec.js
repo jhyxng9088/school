@@ -111,7 +111,7 @@ test('installed app traverses every production station and class board without a
     const button = page.locator(`.bottom-nav .nav-button[data-tab="${tab}"]`)
     await expect(button).toBeVisible()
     await button.click()
-    await expect(page.locator('.app-content')).toHaveClass(new RegExp(`\btab-${tab}\b`))
+    await expect(page.locator('.app-content')).toHaveClass(new RegExp(`\\btab-${tab}\\b`))
     await expectAppShell(page)
   }
 
