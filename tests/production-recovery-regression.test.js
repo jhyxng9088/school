@@ -93,11 +93,12 @@ test('study ranking click owner is direct and keeps vertical scrolling available
   assert.match(pageStyle, /\.preview-study-page \{[\s\S]*?touch-action: pan-y;/)
 })
 
-test('student identity sync is source-owned and keeps transient fallback semantics', () => {
+test('student identity sync is source-owned, session-revalidated, and keeps transient fallback semantics', () => {
   const source = read('src/school-sync.js')
   assert.equal(fs.existsSync(recoveryPath), false)
   assert.match(source, /STUDENT_IDENTITY_SYNC_KEY = 'school\.studentIdentitySync\.v1'/)
-  assert.match(source, /identitySyncMarkerMatches\(cacheKey\)/)
+  assert.match(source, /identitySyncMarkerMatches\(cacheKey\) && identitySyncPromises\.has\(cacheKey\)/)
+  assert.doesNotMatch(source, /if \(identitySyncMarkerMatches\(cacheKey\)\) return user/)
   assert.match(source, /code === 'resource-exhausted' \|\| code === 'unavailable' \|\| code === 'deadline-exceeded'/)
   assert.match(source, /if \(transientIdentityReadError\(error\)\) \{[\s\S]*?return user/)
   assert.match(source, /rememberIdentitySync\(cacheKey\)/)
