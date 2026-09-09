@@ -1,8 +1,14 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
-import { prepareClientDataGeneration, readStudentProfile, saveStudentProfile } from './school-sync.js'
+import {
+  prepareClientDataGeneration,
+  profileSignature,
+  readStudentProfile,
+  saveStudentProfile,
+} from './school-sync.js'
 import { StudentSetup } from './student-setup.jsx'
+import { recoverStudentAuthForProfile } from './student-auth-migration.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -30,6 +36,16 @@ function hasExplicitSchoolSelection() {
   }
 }
 
+async function startConfiguredApp(configuredProfile) {
+  try {
+    const recovering = await recoverStudentAuthForProfile(profileSignature(configuredProfile))
+    if (recovering) return
+  } catch (error) {
+    console.warn('S-Hub student auth migration skipped:', error)
+  }
+  startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
+}
+
 prepareClientDataGeneration()
 
 const standalone = isStandalone()
@@ -55,16 +71,16 @@ if (standalone && (!profile || !schoolSelectionComplete)) {
     <React.StrictMode>
       <StudentSetup
         initialName={legacyName}
-        onSave={(nextProfile) => {
+        onSave={async (nextProfile) => {
           const saved = saveStudentProfile(nextProfile)
           if (!saved) return
           localStorage.setItem(USER_NAME_KEY, saved.name)
           root.unmount()
-          startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
+          await startConfiguredApp(saved)
         }}
       />
     </React.StrictMode>,
   )
 } else {
-  startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
+  void startConfiguredApp(profile)
 }
