@@ -3,6 +3,7 @@ import './academic-shared.css'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import { actorActionLabel } from './class-activity'
 import { HomeNavAction } from './home-nav-action.jsx'
+import { readStudentProfile } from './school-sync.js'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 function pad(value) {
@@ -172,6 +173,8 @@ export function SharedAcademicPreview({ now, schoolData, academicData }) {
 }
 
 export function SharedAcademicPage({ now, schoolData, academicData, requireOnline = () => true }) {
+  const profile = readStudentProfile()
+  const schoolLabel = `${profile?.grade ? `${profile.grade}학년 · ` : ''}${profile?.schoolName || '학교'}`
   const groups = useMemo(() => allGroups(schoolData, academicData), [schoolData?.academicEvents, academicData?.events])
   const [sheetOpen, setSheetOpen] = useState(false)
   const [draft, setDraft] = useState(() => emptyDraft(now))
@@ -305,7 +308,7 @@ export function SharedAcademicPage({ now, schoolData, academicData, requireOnlin
     <section ref={pageRef} className="stage3-page academic-page shared-academic-page">
       <header className="page-header stage3-page-header shared-academic-header">
         <div>
-          <p className="date-label">2학년 · 수지고등학교</p>
+          <p className="date-label">{schoolLabel}</p>
           <h1>학사일정</h1>
         </div>
         <button className="academic-add-button" type="button" onClick={openCreate}>추가</button>
