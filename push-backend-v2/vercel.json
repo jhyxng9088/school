@@ -28,6 +28,9 @@
     },
     "api/personal-timetable.js": {
       "maxDuration": 30
+    },
+    "api/timetable-neis-sync.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
