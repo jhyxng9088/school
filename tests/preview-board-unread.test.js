@@ -46,6 +46,15 @@ test('stale Board server state cannot roll local cursor or section seen cursor b
   assert.match(apply, /controller\.state\.seenCursor = nextSeenCursor/)
 })
 
+test('Board section acknowledgement is capped to the cursor that was actually rendered', () => {
+  const source = read('src/preview-board-unread.js')
+  const sectionSeen = source.slice(source.indexOf('function markSectionSeenFor'), source.indexOf('export function subscribePreviewBoardUnread'))
+
+  assert.match(sectionSeen, /requestedCursor = null/)
+  assert.match(sectionSeen, /const cursor = Math\.min\(currentCursor, requested\)/)
+  assert.match(source, /export function markPreviewBoardSectionSeen\(profile, seenCursor = null\)/)
+})
+
 test('board realtime supports global unread and visible-board refresh listeners at the same time', () => {
   const realtime = read('src/preview-board-realtime.js')
   assert.match(realtime, /const listeners = new Set\(\)/)
@@ -55,10 +64,11 @@ test('board realtime supports global unread and visible-board refresh listeners 
   assert.doesNotMatch(realtime, /if \(socketState\) stopSocketState\(socketState\)\n  const state/)
 })
 
-test('board post unread stays card-owned while unified unread alone owns Class nav and segment dots', () => {
+test('board post unread stays card-owned while unified store alone owns Class nav and segment unread state', () => {
   const patch = read('src/preview-board-patch.js')
   const boardCss = read('src/preview-board-unread.css')
-  const unified = read('src/unread-indicators-v2.js')
+  const store = read('src/unread-store.js')
+  const indicator = read('src/unread-indicators-v2.js')
   const unifiedCss = read('src/unread-indicators.css')
 
   assert.match(patch, /const boardUnread = usePreviewBoardUnread\(profile\)/)
@@ -70,13 +80,14 @@ test('board post unread stays card-owned while unified unread alone owns Class n
   assert.doesNotMatch(patch, /bottom nav unread class/)
   assert.doesNotMatch(patch, /boardUnreadImport/)
 
-  assert.match(unified, /if \(tab === 'board'\) return state\.boardUnread/)
-  assert.match(unified, /if \(tab === 'class'\) return navUnread\('timetable'\) \|\| navUnread\('board'\)/)
-  assert.match(unified, /const unread = Boolean\(next\?\.hasSectionUnread\)/)
-  assert.match(unified, /renderTopSegments\(\)/)
-  assert.match(unified, /renderNav\(\)/)
-  assert.match(unified, /addDot\(button, 'segment'\)/)
-  assert.match(unified, /addDot\(button, 'nav'\)/)
+  assert.match(store, /if \(tab === 'board'\) return store\.state\.boardUnread/)
+  assert.match(store, /if \(tab === 'class'\) return leafUnread\(store, 'timetable'\) \|\| leafUnread\(store, 'board'\)/)
+  assert.match(store, /const unread = Boolean\(next\?\.hasSectionUnread\)/)
+  assert.match(indicator, /renderTopSegments\(\)/)
+  assert.match(indicator, /renderNav\(\)/)
+  assert.match(indicator, /addDot\(button, 'segment'\)/)
+  assert.match(indicator, /addDot\(button, 'nav'\)/)
+  assert.doesNotMatch(indicator, /subscribePreviewBoardUnread/)
   assert.match(unifiedCss, /\.bottom-nav \.nav-button/)
   assert.match(unifiedCss, /\.class-top-segment-button\[data-unread-key\]/)
   assert.match(unifiedCss, /\.school-unread-dot\.is-nav/)
