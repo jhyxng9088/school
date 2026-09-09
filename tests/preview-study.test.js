@@ -186,13 +186,19 @@ test('optimistic Study transitions update locally before waiting for the server 
   assert.doesNotMatch(page, /일시정지 중…|계속하는 중…|종료 중…/)
 })
 
-test('Study unread is consumed before the nav dot renders while Study is already visible', () => {
-  const unread = read('src/unread-indicators-v2.js')
-  const subscriptionStart = unread.indexOf('subscriptions.push(subscribePreviewStudyUnread')
-  const subscription = unread.slice(subscriptionStart, unread.indexOf("subscriptions.push(subscribeClassLiveData('activity'", subscriptionStart))
+test('Study unread stays hidden on the active Study tab and is acknowledged after render', () => {
+  const indicator = read('src/unread-indicators-v2.js')
+  const store = read('src/unread-store.js')
+  const renderNav = indicator.slice(indicator.indexOf('function renderNav()'), indicator.indexOf('function render()'))
+  const visibleSeen = indicator.slice(indicator.indexOf('function scheduleVisibleSeen()'), indicator.indexOf('function renderReminderRows()'))
 
-  assert.match(subscription, /const unread = Boolean\(next\?\.hasUnread\)/)
-  assert.match(subscription, /unread && activeLeafTab\(\) === 'study'/)
-  assert.match(subscription, /markPreviewStudySeen\(profile\)/)
-  assert.ok(subscription.indexOf("activeLeafTab() === 'study'") < subscription.indexOf('state.studyUnread = unread'))
+  assert.match(indicator, /from '\.\/unread-store\.js'/)
+  assert.doesNotMatch(indicator, /subscribePreviewStudyUnread|markPreviewStudySeen/)
+  assert.match(store, /subscribePreviewStudyUnread\(store\.profile/)
+  assert.match(renderNav, /const activeTop = activeTopTab\(\)/)
+  assert.match(renderNav, /if \(tab === activeTop\)/)
+  assert.match(renderNav, /if \(tab === activeLeaf\) \{[\s\S]*removeDot\(button\)/)
+  assert.match(visibleSeen, /const tab = activeLeafTab\(\)/)
+  assert.match(visibleSeen, /const capturedTarget = cloneSeenTarget\(current\.targets\?\.\[tab\]\)/)
+  assert.match(visibleSeen, /markUnreadSeen\(profile, tab, capturedTarget\)/)
 })
