@@ -74,7 +74,8 @@ function startUnreadIndicators() {
   let visibleSeenToken = 0
 
   function activeTopTab() {
-    return tabForButton(document.querySelector('.bottom-nav .nav-button.active'))
+    const semanticActive = document.querySelector('.bottom-nav .nav-button[aria-current="page"]')
+    return tabForButton(semanticActive || document.querySelector('.bottom-nav .nav-button.active'))
   }
 
   function activeLeafTab() {
@@ -88,11 +89,16 @@ function startUnreadIndicators() {
     return tab
   }
 
+  function hasUnreadReminderRows() {
+    return Array.isArray(current.reminderUnreadIds) && current.reminderUnreadIds.length > 0
+  }
+
   function parentHasUnreadOutsideActiveLeaf(parent, leaf) {
     if (parent === 'class') {
       return ['timetable', 'board'].some((tab) => tab !== leaf && current.unread?.[tab])
     }
     if (parent === 'schedule') {
+      if (leaf === 'todo' && hasUnreadReminderRows()) return true
       return ['todo', 'academic', 'meal'].some((tab) => tab !== leaf && current.unread?.[tab])
     }
     return false
@@ -135,7 +141,8 @@ function startUnreadIndicators() {
     const activeLeaf = activeLeafTab()
     document.querySelectorAll('.class-top-segment-button[data-unread-key]').forEach((button) => {
       const tab = String(button.dataset.unreadKey || '')
-      if (tab === activeLeaf) {
+      const keepNestedReminderUnread = tab === 'todo' && tab === activeLeaf && hasUnreadReminderRows()
+      if (tab === activeLeaf && !keepNestedReminderUnread) {
         removeDot(button)
         return
       }
