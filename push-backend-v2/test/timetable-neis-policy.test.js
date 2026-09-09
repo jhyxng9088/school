@@ -90,8 +90,8 @@ test('legacy timetable without later edits accepts the new NEIS base', () => {
   assert.deepEqual(state.manualWeeklyOverrides, {})
 })
 
-test('API stores NEIS metadata outside the client timetable document', () => {
-  const source = fs.readFileSync(new URL('../api/timetable-neis-sync.js', import.meta.url), 'utf8')
+test('handler stores NEIS metadata outside the client timetable document', () => {
+  const source = fs.readFileSync(new URL('../lib/timetable-neis-sync-handler.js', import.meta.url), 'utf8')
   const timetableWrite = source.match(
     /transaction\.set\(timetableRef,\s*\{([\s\S]*?)\}\s*,\s*\{\s*merge:\s*true\s*\}\)/,
   )?.[1] || ''
@@ -105,4 +105,19 @@ test('API stores NEIS metadata outside the client timetable document', () => {
   assert.doesNotMatch(timetableWrite, /neisWeeklySchedule|manualWeeklyOverrides/)
   assert.match(metadataWrite, /neisWeeklySchedule: next\.neisWeeklySchedule/)
   assert.match(metadataWrite, /manualWeeklyOverrides: next\.manualWeeklyOverrides/)
+})
+
+test('public NEIS sync URL shares the existing timetable function', () => {
+  const entrypoint = fs.readFileSync(new URL('../api/personal-timetable.js', import.meta.url), 'utf8')
+  const vercel = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'))
+  const oldEntrypoint = new URL('../api/timetable-neis-sync.js', import.meta.url)
+  const rewrite = vercel.rewrites.find((item) => item.source === '/api/timetable-neis-sync')
+
+  assert.deepEqual(rewrite, {
+    source: '/api/timetable-neis-sync',
+    destination: '/api/personal-timetable?mode=neis-sync',
+  })
+  assert.match(entrypoint, /import handleTimetableNeisSync from '\.\.\/lib\/timetable-neis-sync-handler\.js'/)
+  assert.match(entrypoint, /if \(mode === 'neis-sync'\) return handleTimetableNeisSync\(req, res\)/)
+  assert.equal(fs.existsSync(oldEntrypoint), false)
 })

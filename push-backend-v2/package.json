@@ -8,6 +8,6 @@
     "web-push": "^3.6.7"
   },
   "scripts": {
-    "test": "for file in test/*.test.js; do node --test \"$file\" || exit 1; done"
+    "test": "node --test"
   }
 }

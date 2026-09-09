@@ -1,6 +1,6 @@
-import { adminAuth, adminDb } from '../lib/firebase-admin.js'
-import { classNumberFromId } from '../lib/class-roster.js'
-import { buildNeisTimetableSyncState } from '../lib/timetable-neis-policy.js'
+import { adminAuth, adminDb } from './firebase-admin.js'
+import { classNumberFromId } from './class-roster.js'
+import { buildNeisTimetableSyncState } from './timetable-neis-policy.js'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -42,7 +42,7 @@ function countManualOverrides(value) {
     .length
 }
 
-export default async function handler(req, res) {
+export default async function handleTimetableNeisSync(req, res) {
   setCors(res)
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' })

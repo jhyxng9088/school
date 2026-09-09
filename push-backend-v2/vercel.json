@@ -28,9 +28,6 @@
     },
     "api/personal-timetable.js": {
       "maxDuration": 30
-    },
-    "api/timetable-neis-sync.js": {
-      "maxDuration": 30
     }
   },
   "rewrites": [
@@ -45,6 +42,10 @@
     {
       "source": "/api/reminder-sections",
       "destination": "/api/class-roster?mode=reminder-sections"
+    },
+    {
+      "source": "/api/timetable-neis-sync",
+      "destination": "/api/personal-timetable?mode=neis-sync"
     }
   ]
 }

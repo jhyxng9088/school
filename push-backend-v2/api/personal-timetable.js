@@ -1,6 +1,7 @@
-// Moving-class personal timetable storage is isolated to the authenticated student.
+// Timetable transport shares one serverless function for authenticated personal data and NEIS base sync.
 import { adminAuth, adminDb } from '../lib/firebase-admin.js'
 import { classNumberFromId } from '../lib/class-roster.js'
+import handleTimetableNeisSync from '../lib/timetable-neis-sync-handler.js'
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -67,6 +68,9 @@ async function requireStudent(req) {
 }
 
 export default async function handler(req, res) {
+  const mode = String(req.query?.mode || '').trim()
+  if (mode === 'neis-sync') return handleTimetableNeisSync(req, res)
+
   setCors(res)
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' })
