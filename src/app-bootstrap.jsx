@@ -1,5 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import './styles.css'
 import { prepareClientDataGeneration, readStudentProfile, saveStudentProfile } from './school-sync.js'
 import { StudentSetup } from './student-setup.jsx'
 
