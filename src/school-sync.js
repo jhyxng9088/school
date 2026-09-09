@@ -241,7 +241,9 @@ async function ensureStoredProfileIdentity(user) {
   if (!classId || !studentKey || !signature) return user
 
   const cacheKey = `${user.uid}|${signature}`
-  if (identitySyncMarkerMatches(cacheKey)) return user
+  // The persisted marker is only a hint from an earlier app session. Always
+  // verify once in the current session so a missing server identity can heal.
+  if (identitySyncMarkerMatches(cacheKey) && identitySyncPromises.has(cacheKey)) return user
 
   if (!identitySyncPromises.has(cacheKey)) {
     const pending = (async () => {
