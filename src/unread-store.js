@@ -59,7 +59,7 @@ function normalizeVersionMap(value) {
     const cleanId = String(id || '')
     const cleanVersion = Math.max(0, Number(version || 0))
     if (!cleanId.startsWith(INTERNAL_PREFIX) || cleanVersion <= 0) return
-    next.set(cleanId, { updatedAt: cleanVersion })
+    next.set(cleanId, cleanVersion)
   })
   return next
 }
@@ -70,17 +70,13 @@ function loadReadCache(studentKey) {
   }
   try {
     const parsed = JSON.parse(localStorage.getItem(`${READ_CACHE_PREFIX}${studentKey}`) || '{}')
-    const seen = normalizeVersionMap(parsed?.seen)
-    const pendingRaw = normalizeVersionMap(parsed?.pendingWrites)
-    const pendingWrites = new Map([...pendingRaw].map(([id, value]) => [id, Number(value?.updatedAt || 0)]))
+    const seenVersions = normalizeVersionMap(parsed?.seen)
+    const pendingWrites = normalizeVersionMap(parsed?.pendingWrites)
     pendingWrites.forEach((version, id) => {
-      if (version > Number(seen.get(id)?.updatedAt || 0)) seen.set(id, { updatedAt: version })
+      if (version > Number(seenVersions.get(id) || 0)) seenVersions.set(id, version)
     })
-    return {
-      initialized: parsed?.initialized === true,
-      seen,
-      pendingWrites,
-    }
+    const seen = new Map([...seenVersions].map(([id, version]) => [id, { updatedAt: version }]))
+    return { initialized: parsed?.initialized === true, seen, pendingWrites }
   } catch {
     return { initialized: false, seen: new Map(), pendingWrites: new Map() }
   }
@@ -105,7 +101,7 @@ function persistReadCache(store) {
       pendingWrites,
     }))
   } catch {
-    // Server state stays authoritative when browser storage is unavailable.
+    // The live/server state remains usable when local storage is unavailable.
   }
 }
 
@@ -136,7 +132,6 @@ function createStore(profile) {
       studyUnread: false,
       studyLatestAt: 0,
       studyEventCursor: 0,
-      stopped: false,
     },
     pendingWrites: cached.pendingWrites,
     listeners: new Set(),
@@ -186,8 +181,7 @@ function otherActivityVersion(store, entityType) {
 
 function academicEventStillRelevant(value) {
   const endDate = String(value?.endDate || value?.startDate || '')
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return false
-  return endDate >= todayDateKey()
+  return /^\d{4}-\d{2}-\d{2}$/.test(endDate) && endDate >= todayDateKey()
 }
 
 function academicVersion(store) {
@@ -205,12 +199,10 @@ function reminderActivity(store, todo) {
   const personalState = store.state.todoState.get(String(todo.id)) || null
   if (!reminderActivityEligibleForStudent(todo, personalState, Date.now(), store.state.reminderTimetable)) return null
   const activity = store.state.activity.get(`reminder:${todo.id}`)
-  if (!activity) return null
-  if (!['added', 'edited'].includes(activity.action)) return null
+  if (!activity || !['added', 'edited'].includes(activity.action)) return null
   if (activity.actorStudentKey && activity.actorStudentKey === store.studentKey) return null
   const updatedAt = Number(activity.updatedAt || 0)
-  if (updatedAt <= 0) return null
-  return { ...activity, updatedAt }
+  return updatedAt > 0 ? { ...activity, updatedAt } : null
 }
 
 function reminderActivityVersion(store, todo) {
@@ -230,8 +222,7 @@ function reminderRowUnread(store, todo) {
   const baseline = seenVersion(store, REMINDER_ROW_BASELINE_ID)
   if (baseline <= 0) return false
   const version = reminderActivityVersion(store, todo)
-  if (version <= 0) return false
-  return version > Math.max(baseline, seenVersion(store, safeReminderStateId(todo.id)))
+  return version > 0 && version > Math.max(baseline, seenVersion(store, safeReminderStateId(todo.id)))
 }
 
 function hasUnreadReminderRow(store) {
@@ -257,9 +248,7 @@ function leafUnread(store, tab) {
     return academicVersion(store) > Math.max(seenVersion(store, NAV_STATE_IDS.academic), seenVersion(store, ACADEMIC_BASELINE_ID))
   }
   if (tab === 'meal') {
-    return store.state.seenReady
-      && store.state.mealAvailable
-      && todayVersion() > seenVersion(store, NAV_STATE_IDS.meal)
+    return store.state.seenReady && store.state.mealAvailable && todayVersion() > seenVersion(store, NAV_STATE_IDS.meal)
   }
   if (tab === 'board') return store.state.boardUnread
   if (tab === 'study') return store.state.studyUnread
@@ -288,14 +277,7 @@ function seenTarget(store, tab) {
 }
 
 function snapshot(store) {
-  if (!store) {
-    return {
-      revision: 0,
-      unread: {},
-      targets: {},
-      reminderUnreadIds: [],
-    }
-  }
+  if (!store) return { revision: 0, unread: {}, targets: {}, reminderUnreadIds: [] }
   const unread = {
     todo: navUnread(store, 'todo'),
     timetable: navUnread(store, 'timetable'),
@@ -389,12 +371,6 @@ function ensureBaselines(store) {
   if (changed) void flushPendingWrites(store)
 }
 
-function publish(store) {
-  ensureBaselines(store)
-  notify(store)
-  scheduleNextReminderExpiry(store)
-}
-
 function scheduleNextReminderExpiry(store) {
   if (store.reminderExpiryTimer) {
     window.clearTimeout(store.reminderExpiryTimer)
@@ -413,6 +389,12 @@ function scheduleNextReminderExpiry(store) {
   }, delay)
 }
 
+function publish(store) {
+  ensureBaselines(store)
+  notify(store)
+  scheduleNextReminderExpiry(store)
+}
+
 function installSubscriptions(store) {
   store.subscriptions.push(subscribePreviewBoardUnread(store.profile, (next) => {
     const unread = Boolean(next?.hasSectionUnread)
@@ -427,11 +409,7 @@ function installSubscriptions(store) {
     const unread = Boolean(next?.hasUnread)
     const latestAt = Math.max(0, Number(next?.latestAt || 0))
     const eventCursor = Math.max(0, Number(next?.eventCursor || 0))
-    if (
-      unread === store.state.studyUnread
-      && latestAt === store.state.studyLatestAt
-      && eventCursor === store.state.studyEventCursor
-    ) return
+    if (unread === store.state.studyUnread && latestAt === store.state.studyLatestAt && eventCursor === store.state.studyEventCursor) return
     store.state.studyUnread = unread
     store.state.studyLatestAt = latestAt
     store.state.studyEventCursor = eventCursor
@@ -528,16 +506,12 @@ function installSubscriptions(store) {
       })
     })
 
-    // Read cursors are monotonic. An older device/server snapshot can never
-    // roll a locally acknowledged cursor backward.
     store.state.seen.forEach((value, id) => {
       const localVersion = Number(value?.updatedAt || 0)
       if (localVersion > Number(nextSeen.get(id)?.updatedAt || 0)) nextSeen.set(id, { updatedAt: localVersion })
     })
     store.pendingWrites.forEach((version, id) => {
-      if (Number(version || 0) > Number(nextSeen.get(id)?.updatedAt || 0)) {
-        nextSeen.set(id, { updatedAt: Number(version || 0) })
-      }
+      if (Number(version || 0) > Number(nextSeen.get(id)?.updatedAt || 0)) nextSeen.set(id, { updatedAt: Number(version || 0) })
     })
 
     store.state.seen = nextSeen
@@ -578,7 +552,6 @@ async function connectStore(store) {
 function startStore(store) {
   if (!store || store.started) return
   store.started = true
-  store.state.stopped = false
   void connectStore(store)
 
   store.mealTimer = window.setInterval(() => {
@@ -606,7 +579,6 @@ function startStore(store) {
 function stopStore(store) {
   if (!store?.started) return
   store.started = false
-  store.state.stopped = true
   store.connected = false
   store.subscriptions.splice(0).forEach((unsubscribe) => {
     try { unsubscribe() } catch {}
@@ -626,8 +598,9 @@ function stopStore(store) {
 }
 
 function clampNumberTarget(target, current) {
-  const requested = Math.max(0, Number(target ?? current || 0))
-  return Math.min(Math.max(0, Number(current || 0)), requested)
+  const currentVersion = Math.max(0, Number(current || 0))
+  const requested = Math.max(0, Number((target ?? currentVersion) || 0))
+  return Math.min(currentVersion, requested)
 }
 
 export function subscribeUnreadState(profile, listener) {
@@ -676,8 +649,7 @@ export function markUnreadSeen(profile, tab, target = null) {
   const current = Number(seenTarget(store, source) || 0)
   const version = clampNumberTarget(target, current)
   const id = NAV_STATE_IDS[source]
-  if (!id || version <= 0) return false
-  if (!setSeenLocal(store, id, version)) return false
+  if (!id || version <= 0 || !setSeenLocal(store, id, version)) return false
   publish(store)
   void flushPendingWrites(store)
   return true
