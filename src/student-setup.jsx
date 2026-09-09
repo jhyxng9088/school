@@ -52,11 +52,11 @@ export function StudentSetup({ initialName = '', onSave }) {
         const results = await searchNeisSchools(term, controller.signal)
         if (controller.signal.aborted) return
         setSchoolResults(results)
-        if (!results.length) setSchoolError('검색 결과가 없어. 학교 이름을 조금 더 정확히 입력해줘.')
+        if (!results.length) setSchoolError('검색 결과가 없어요. 학교 이름을 조금 더 정확히 입력해 주세요.')
       } catch (error) {
         if (error?.name === 'AbortError') return
         setSchoolResults([])
-        setSchoolError('학교 검색에 실패했어. 인터넷 연결을 확인하고 다시 입력해줘.')
+        setSchoolError('학교 검색에 실패했어요. 인터넷 연결을 확인하고 다시 입력해 주세요.')
       } finally {
         if (requestRef.current === controller) requestRef.current = null
         if (!controller.signal.aborted) setSchoolSearching(false)
@@ -105,8 +105,8 @@ export function StudentSetup({ initialName = '', onSave }) {
     <main className="onboarding-page">
       <form className="onboarding-card name-card" onSubmit={submit}>
         <p className="eyebrow">마지막 설정</p>
-        <h1>학교, 학년, 반, 번호, 이름 알려줘</h1>
-        <p className="onboarding-copy">학교를 검색해 선택하면 NEIS 시간표·급식·학사일정을 그 학교 기준으로 연결해. 같은 학교·학년·반 친구끼리 S-Hub 공유 정보가 묶여.</p>
+        <h1>학교와 학생 정보를 알려 주세요</h1>
+        <p className="onboarding-copy">학교를 검색해 선택하면 NEIS 시간표·급식·학사일정을 선택한 학교 기준으로 연결해요. 같은 학교·학년·반 친구끼리 S-Hub 공유 정보가 연결돼요.</p>
 
         <label className="name-field school-search-field">
           <span>학교</span>
@@ -129,7 +129,7 @@ export function StudentSetup({ initialName = '', onSave }) {
           ) : schoolError ? (
             <div className="school-search-status"><span>{schoolError}</span></div>
           ) : schoolQuery.trim().length === 1 ? (
-            <div className="school-search-status"><span>두 글자 이상 입력하면 검색해.</span></div>
+            <div className="school-search-status"><span>두 글자 이상 입력하면 검색해요.</span></div>
           ) : null}
 
           {schoolResults.length ? (
