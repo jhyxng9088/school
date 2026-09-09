@@ -73,9 +73,12 @@ function startUnreadIndicators() {
   let visibleSeenCommitFrame = 0
   let visibleSeenToken = 0
 
+  function activeTopTab() {
+    return tabForButton(document.querySelector('.bottom-nav .nav-button.active'))
+  }
+
   function activeLeafTab() {
-    const active = document.querySelector('.bottom-nav .nav-button.active')
-    const tab = tabForButton(active)
+    const tab = activeTopTab()
     if (tab === 'class') {
       return String(document.querySelector('.class-station-page .class-top-segment-button.is-active[data-unread-key]')?.dataset?.unreadKey || '')
     }
@@ -83,6 +86,16 @@ function startUnreadIndicators() {
       return String(document.querySelector('.station-schedule-page .class-top-segment-button.is-active[data-unread-key]')?.dataset?.unreadKey || '')
     }
     return tab
+  }
+
+  function parentHasUnreadOutsideActiveLeaf(parent, leaf) {
+    if (parent === 'class') {
+      return ['timetable', 'board'].some((tab) => tab !== leaf && current.unread?.[tab])
+    }
+    if (parent === 'schedule') {
+      return ['todo', 'academic', 'meal'].some((tab) => tab !== leaf && current.unread?.[tab])
+    }
+    return false
   }
 
   function scheduleVisibleSeen() {
@@ -119,19 +132,37 @@ function startUnreadIndicators() {
   }
 
   function renderTopSegments() {
+    const activeLeaf = activeLeafTab()
     document.querySelectorAll('.class-top-segment-button[data-unread-key]').forEach((button) => {
       const tab = String(button.dataset.unreadKey || '')
+      if (tab === activeLeaf) {
+        removeDot(button)
+        return
+      }
       if (current.unread?.[tab]) addDot(button, 'segment')
       else removeDot(button)
     })
   }
 
   function renderNav() {
+    const activeTop = activeTopTab()
+    const activeLeaf = activeLeafTab()
     document.querySelectorAll('.bottom-nav .nav-button').forEach((button) => {
       const tab = tabForButton(button)
       if (!tab || tab === 'home' || tab === 'ai') {
         removeDot(button)
         return
+      }
+      if (tab === activeTop) {
+        if (tab === activeLeaf) {
+          removeDot(button)
+          return
+        }
+        if ((tab === 'class' || tab === 'schedule') && activeLeaf) {
+          if (parentHasUnreadOutsideActiveLeaf(tab, activeLeaf)) addDot(button, 'nav')
+          else removeDot(button)
+          return
+        }
       }
       if (current.unread?.[tab]) addDot(button, 'nav')
       else removeDot(button)
