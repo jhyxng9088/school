@@ -136,10 +136,10 @@ test('installed app traverses every production station and class board without a
   expect(pageErrors).toEqual([])
 })
 
-test('performance expires at school end, stays gone on reload, and the next generic expiry still runs', async ({ page }) => {
+test('performance expires at 23:00 KST, stays gone on reload, and the next generic expiry still runs', async ({ page }) => {
   await isolateProductionNetwork(page)
   await seedInstalledStudent(page)
-  await page.clock.install({ time: new Date('2026-09-09T16:49:00+09:00') })
+  await page.clock.install({ time: new Date('2026-09-09T22:58:00+09:00') })
   await page.addInitScript(() => {
     // Chromium's blocked-worker shim resolves register() with undefined.
     // Model an actual registration failure so fast-forwarded update timers
@@ -152,7 +152,7 @@ test('performance expires at school end, stays gone on reload, and the next gene
     localStorage.setItem('school.timetable.weekly.v2.class-1', JSON.stringify({ wed: { 7: '자율' } }))
     localStorage.setItem('school.sharedTodos.v1.class-1', JSON.stringify([
       { id: 'performance-e2e', type: 'performance', title: '영어 수행평가', dueDate: '2026-09-09', dueTime: '00:01', createdAt: 1 },
-      { id: 'timed-e2e', type: 'task', title: '일반 시간 지정', dueDate: '2026-09-09', dueTime: '17:00', createdAt: 2 },
+      { id: 'timed-e2e', type: 'task', title: '일반 시간 지정', dueDate: '2026-09-09', dueTime: '23:02', createdAt: 2 },
       { id: 'untimed-e2e', type: 'task', title: '일반 날짜 지정', dueDate: '2026-09-09', dueTime: '', createdAt: 3 },
     ]))
   })
@@ -165,11 +165,11 @@ test('performance expires at school end, stays gone on reload, and the next gene
   await expect(performanceRow).toBeVisible()
   await expect(timedRow).toBeVisible()
   await expect(untimedRow).toBeVisible()
-  await page.clock.fastForward(70_000)
+  await page.clock.fastForward(2 * 60_000 + 1_000)
   await expect(performanceRow).toHaveCount(0)
   await expect(timedRow).toBeVisible()
   await expect(untimedRow).toBeVisible()
-  await page.clock.fastForward(10 * 60_000)
+  await page.clock.fastForward(2 * 60_000)
   await expect(timedRow).toHaveCount(0)
   await expect(untimedRow).toBeVisible()
   await page.reload({ waitUntil: 'domcontentloaded' })

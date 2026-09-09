@@ -1,5 +1,6 @@
 
 import { ensureSignedIn } from './school-sync'
+import { applyUnifiedSchoolAiPolicy } from './school-ai-policy.js'
 
 const S_HUB_AI_API_URL = 'https://school-reminder-backend.vercel.app/api/s-hub-ai'
 const MAX_TOTAL_ATTACHMENT_BASE64_CHARS = 3_000_000
@@ -82,7 +83,12 @@ export async function generateSchoolStructured({
   if (!safePrompt || !responseSchema || typeof responseSchema !== 'object') {
     throw transportError('AI 요청 정보가 올바르지 않아.', 'school-ai/invalid-request', 400)
   }
-  const enrichedPrompt = enrichSchoolPromptWithMeals(safePrompt, purpose)
+
+  // One interpretation policy is injected here, at the shared transport boundary.
+  // AI tab and Reminder can keep different response schemas/UI flows, but they cannot
+  // silently drift into different classification/date/summary rules.
+  const unifiedPrompt = applyUnifiedSchoolAiPolicy(safePrompt)
+  const enrichedPrompt = enrichSchoolPromptWithMeals(unifiedPrompt, purpose)
 
   const safeAttachments = Array.isArray(attachments) ? attachments.slice(0, 4) : []
   const base64Chars = safeAttachments.reduce((sum, item) => sum + String(item?.dataBase64 || '').length, 0)
