@@ -155,7 +155,9 @@ export async function analyzeSchoolNotice(options = {}) {
   clearSchoolAIReminderSources()
   const rawResult = await engine.analyzeSchoolNotice(options)
   const groupedItems = groupSchoolAIImportItems(rawResult?.items)
-  const summarizedItems = attachPreviewSummaries(groupedItems)
+  const summarizedItems = options?.files?.length
+    ? groupedItems
+    : attachPreviewSummaries(groupedItems)
   const filtered = removeKnownExistingItems(
     summarizedItems,
     options?.conflictContext || options?.context || {},
@@ -173,7 +175,9 @@ export async function answerAndAnalyzeSchoolAttachments(options = {}) {
   clearSchoolAIReminderSources()
   const rawResult = await engine.answerAndAnalyzeSchoolAttachments(options)
   const groupedItems = groupSchoolAIImportItems(rawResult?.items)
-  const summarizedItems = attachPreviewSummaries(groupedItems)
+  const summarizedItems = options?.files?.length
+    ? groupedItems
+    : attachPreviewSummaries(groupedItems)
   const filtered = removeKnownExistingItems(
     summarizedItems,
     options?.conflictContext || options?.context || {},

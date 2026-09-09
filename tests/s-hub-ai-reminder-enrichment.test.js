@@ -39,3 +39,14 @@ test('S-Hub reminder saving reuses reminder AI summary and original attachment p
   assert.match(todo, /withAttachmentManifest\(parsed\.summary, files\)/)
   assert.match(todo, /todoData\.enrichTodo\(todoId/)
 })
+
+test('S-Hub attachment imports cannot short-circuit the detailed reminder analyzer', () => {
+  const facade = read('src/s-hub-ai.js')
+  const todo = read('src/todo.js')
+  const main = read('src/main.jsx')
+
+  const attachmentPreviewGuards = facade.match(/options\?\.files\?\.length\s*\?\s*groupedItems\s*:\s*attachPreviewSummaries\(groupedItems\)/g) || []
+  assert.equal(attachmentPreviewGuards.length, 2)
+  assert.match(todo, /schoolAIImportSheetOpen\(\) && !isReminderSummaryPending\(input\?\.summary\)/)
+  assert.match(main, /parseReminderWithAI\(targetHint, new Date\(\), files\)/)
+})

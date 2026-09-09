@@ -1,7 +1,7 @@
 import { TodoHomePreview, useTodos as useBaseTodos } from './todo.jsx'
 import { TodoPage } from './todo-stage5-ai.jsx'
 import { parseReminderWithAI } from './firebase-ai.js'
-import { createPendingReminderSummary, withAttachmentManifest } from './reminder-summary.jsx'
+import { createPendingReminderSummary, isReminderSummaryPending, withAttachmentManifest } from './reminder-summary.jsx'
 import {
   claimSchoolAIReminderSource,
   completeSchoolAIReminderSource,
@@ -92,7 +92,12 @@ export function useTodos(profile, reminderTimetable = null) {
   const todoData = useBaseTodos(profile, reminderTimetable)
 
   async function saveTodo(input) {
-    const source = schoolAIImportSheetOpen() ? claimSchoolAIReminderSource() : null
+    // The S-Hub AI importer claims its own attachment source before saving and
+    // marks the draft with the shared pending-summary contract. Do not consume
+    // another reminder source from the same batch in this generic save wrapper.
+    const source = schoolAIImportSheetOpen() && !isReminderSummaryPending(input?.summary)
+      ? claimSchoolAIReminderSource()
+      : null
     const sourceFiles = Array.from(source?.files || []).filter((file) => file instanceof Blob).slice(0, 4)
     const shouldShowPendingSummary = Boolean(sourceFiles.length && !input?.id && !input?.summary)
     const nextInput = shouldShowPendingSummary
