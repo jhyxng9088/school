@@ -40,70 +40,6 @@ jobs:
       - name: Test production app
         run: npm test
 
-      - name: Install production backend dependencies
-        working-directory: push-backend-v2
-        run: npm ci
-
-      - name: Diagnose backend tests group A
-        continue-on-error: true
-        working-directory: push-backend-v2
-        run: >-
-          node --test --test-concurrency=1
-          test/admin-overview-v3.test.js
-          test/class-roster-api.test.js
-          test/class-roster-repair-api.test.js
-          test/class-roster-v2-api.test.js
-          test/class-roster.test.js
-          test/preview-isolation.test.js
-          test/reminder-original-stream.test.js
-          test/reminder-section-production-access.test.js
-          test/reminder-section.test.js
-          test/s-hub-ai-cache.test.js
-          test/s-hub-ai-mode.test.js
-          test/s-hub-ai-subject.test.js
-
-      - name: Diagnose backend tests group B
-        continue-on-error: true
-        working-directory: push-backend-v2
-        run: >-
-          node --test --test-concurrency=1
-          test/scheduled-reminder-rules.test.js
-          test/scheduler-read-optimization.test.js
-          test/scheduler-timezone.test.js
-          test/service-class-schedules.test.js
-          test/service-class-tasks.test.js
-          test/service-class.test.js
-          test/service-classboard-cleanup.test.js
-          test/service-classboard.test.js
-          test/service-ranking-display.test.js
-          test/service-ranking-kst.test.js
-          test/service-reminder-image-ocr.test.js
-          test/service-reminder-image.test.js
-
-      - name: Diagnose backend tests group C
-        continue-on-error: true
-        working-directory: push-backend-v2
-        shell: bash
-        run: |
-          mapfile -t files < <(
-            find test -maxdepth 1 -name '*.test.js' -print | sort | grep -Ev '(^|/)(admin-overview-v3|class-roster-api|class-roster-repair-api|class-roster-v2-api|class-roster|preview-isolation|reminder-original-stream|reminder-section-production-access|reminder-section|s-hub-ai-cache|s-hub-ai-mode|s-hub-ai-subject|scheduled-reminder-rules|scheduler-read-optimization|scheduler-timezone|service-class-schedules|service-class-tasks|service-class|service-classboard-cleanup|service-classboard|service-ranking-display|service-ranking-kst|service-reminder-image-ocr|service-reminder-image|timetable-neis-policy)\.test\.js$'
-          )
-          node --test --test-concurrency=1 "${files[@]}"
-
-      - name: Diagnose new NEIS timetable tests
-        continue-on-error: true
-        working-directory: push-backend-v2
-        run: node --test --test-concurrency=1 test/timetable-neis-policy.test.js
-
-      - name: Diagnose all explicit backend tests
-        continue-on-error: true
-        working-directory: push-backend-v2
-        run: node --test --test-concurrency=1 test/*.test.js
-
-      - name: Test production backend
-        working-directory: push-backend-v2
-        run: npm test
-
       - name: Build board sheet E2E harness
         run: npm run build -- --config vite.e2e.config.js
 
@@ -130,6 +66,14 @@ jobs:
 
       - name: Build production app
         run: npm run build
+
+      - name: Install production backend dependencies
+        working-directory: push-backend-v2
+        run: npm ci
+
+      - name: Test production backend
+        working-directory: push-backend-v2
+        run: npm test
 
       - name: Configure Pages
         if: github.ref == 'refs/heads/main'
