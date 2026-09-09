@@ -92,8 +92,17 @@ test('legacy timetable without later edits accepts the new NEIS base', () => {
 
 test('API stores NEIS metadata outside the client timetable document', () => {
   const source = fs.readFileSync(new URL('../api/timetable-neis-sync.js', import.meta.url), 'utf8')
+  const timetableWrite = source.match(
+    /transaction\.set\(timetableRef,\s*\{([\s\S]*?)\}\s*,\s*\{\s*merge:\s*true\s*\}\)/,
+  )?.[1] || ''
+  const metadataWrite = source.match(
+    /transaction\.set\(metadataRef,\s*\{([\s\S]*?)\}\s*,\s*\{\s*merge:\s*true\s*\}\)/,
+  )?.[1] || ''
+
   assert.match(source, /doc\('timetableNeisState'\)/)
-  assert.match(source, /transaction\.set\(timetableRef, \{[\s\S]*weeklySchedule: next\.weeklySchedule[\s\S]*updatedAt: now/)
-  assert.doesNotMatch(source, /transaction\.set\(timetableRef, \{[\s\S]*neisWeeklySchedule/)
-  assert.match(source, /transaction\.set\(metadataRef, \{[\s\S]*neisWeeklySchedule: next\.neisWeeklySchedule[\s\S]*manualWeeklyOverrides/)
+  assert.match(timetableWrite, /weeklySchedule: next\.weeklySchedule/)
+  assert.match(timetableWrite, /updatedAt: now/)
+  assert.doesNotMatch(timetableWrite, /neisWeeklySchedule|manualWeeklyOverrides/)
+  assert.match(metadataWrite, /neisWeeklySchedule: next\.neisWeeklySchedule/)
+  assert.match(metadataWrite, /manualWeeklyOverrides: next\.manualWeeklyOverrides/)
 })
