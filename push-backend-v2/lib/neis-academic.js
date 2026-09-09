@@ -63,6 +63,7 @@ function asImportantEvent({ rawDate, title, content = '', id = '' }) {
     endDate: startDate,
     detail: `${IMPORTANT_PREFIX}${String(content || '').trim().slice(0, 420)}`,
     source: 'official',
+    legacySchoolOnly: true,
   }
 }
 

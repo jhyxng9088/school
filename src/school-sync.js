@@ -30,6 +30,7 @@ import { isReminderTypeId, normalizeReminderCategory, normalizeReminderCategorie
 import { publishClassLiveData } from './class-live-data.js'
 import { realtimePresenceConfigured, startRealtimePresence } from './presence-rtdb.js'
 import { startSupabasePresence } from './supabase-presence.js'
+import { LEGACY_SCHOOL_CONTEXT, isLegacySchoolScope, maxGradeForSchoolKind } from './school-directory.js'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0',
@@ -107,6 +108,14 @@ function normalizeName(value) {
     .slice(0, 20)
 }
 
+function normalizeSchoolText(value, max = 80) {
+  return String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, max)
+}
+
+function normalizeSchoolCode(value, max = 24) {
+  return String(value || '').trim().replace(/[^0-9A-Za-z_-]/g, '').slice(0, max)
+}
+
 export function normalizeStudentProfile(value) {
   if (!value || typeof value !== 'object') return null
   const name = normalizeName(value.name)
@@ -115,7 +124,41 @@ export function normalizeStudentProfile(value) {
   if (!name) return null
   if (!Number.isInteger(classNumber) || classNumber < 1 || classNumber > 30) return null
   if (!Number.isInteger(studentNumber) || studentNumber < 1 || studentNumber > 60) return null
-  return { name, classNumber, studentNumber }
+
+  const rawSchoolFields = [value.officeCode, value.schoolCode, value.schoolName, value.schoolKind, value.grade]
+  const hasSchoolFields = rawSchoolFields.some((item) => String(item ?? '').trim() !== '')
+  if (!hasSchoolFields) {
+    return {
+      name,
+      classNumber,
+      studentNumber,
+      ...LEGACY_SCHOOL_CONTEXT,
+    }
+  }
+
+  const officeCode = normalizeSchoolCode(value.officeCode, 12)
+  const schoolCode = normalizeSchoolCode(value.schoolCode, 20)
+  const schoolName = normalizeSchoolText(value.schoolName, 80)
+  const schoolKind = normalizeSchoolText(value.schoolKind, 30)
+  const regionName = normalizeSchoolText(value.regionName, 40)
+  const address = normalizeSchoolText(value.address, 160)
+  const grade = Number(value.grade)
+  const maxGrade = maxGradeForSchoolKind(schoolKind)
+  if (!officeCode || !schoolCode || !schoolName || !schoolKind) return null
+  if (!Number.isInteger(grade) || grade < 1 || grade > maxGrade) return null
+
+  return {
+    name,
+    classNumber,
+    studentNumber,
+    officeCode,
+    schoolCode,
+    schoolName,
+    schoolKind,
+    regionName,
+    address,
+    grade,
+  }
 }
 
 export function readStudentProfile() {
@@ -177,12 +220,19 @@ function profileIdentity(profile) {
   const normalized = normalizeStudentProfile(profile)
   if (!normalized) return ''
   const compactName = normalized.name.normalize('NFKC').toLowerCase().replace(/\s+/g, '')
-  return `${normalized.classNumber}|${normalized.studentNumber}|${compactName}`
+  if (isLegacySchoolScope(normalized)) {
+    return `${normalized.classNumber}|${normalized.studentNumber}|${compactName}`
+  }
+  return `${normalized.officeCode}|${normalized.schoolCode}|${normalized.grade}|${normalized.classNumber}|${normalized.studentNumber}|${compactName}`
 }
 
 export function classKeyFor(profile) {
   const normalized = normalizeStudentProfile(profile)
-  return normalized ? `class-${normalized.classNumber}` : ''
+  if (!normalized) return ''
+  if (isLegacySchoolScope(normalized)) return `class-${normalized.classNumber}`
+  const schoolScope = `${normalized.officeCode}|${normalized.schoolCode}|${normalized.grade}`
+  const schoolDigest = `${hash32(schoolScope, 2166136261)}${hash32(schoolScope, 2246822519).slice(0, 4)}`
+  return `s-${schoolDigest}-c${normalized.classNumber}`
 }
 
 export function studentKeyFor(profile) {
@@ -193,7 +243,9 @@ export function studentKeyFor(profile) {
 
 export function profileSignature(profile) {
   const normalized = normalizeStudentProfile(profile)
-  return normalized ? `${normalized.classNumber}:${normalized.studentNumber}:${normalized.name}` : ''
+  return normalized
+    ? `${normalized.officeCode}:${normalized.schoolCode}:${normalized.grade}:${normalized.classNumber}:${normalized.studentNumber}:${normalized.name}`
+    : ''
 }
 
 const syncApp = getApps().some((app) => app.name === 'school-sync')
@@ -241,8 +293,6 @@ async function ensureStoredProfileIdentity(user) {
   if (!classId || !studentKey || !signature) return user
 
   const cacheKey = `${user.uid}|${signature}`
-  // The persisted marker is only a hint from an earlier app session. Always
-  // verify once in the current session so a missing server identity can heal.
   if (identitySyncMarkerMatches(cacheKey) && identitySyncPromises.has(cacheKey)) return user
 
   if (!identitySyncPromises.has(cacheKey)) {
@@ -440,8 +490,6 @@ export async function writeReminderOriginal(profile, todoId, file) {
   }
   if (!chunks.length || chunks.length > 24) throw new Error('원본 파일을 저장 가능한 크기로 나눌 수 없어.')
 
-  // Keep each Firestore commit comfortably below the 10 MiB request limit.
-  // Metadata is written last so readers never see a partially uploaded original.
   const chunksPerBatch = 8
   for (let start = 0; start < chunks.length; start += chunksPerBatch) {
     const batch = writeBatch(db)
@@ -790,7 +838,6 @@ export function useClassPresence(profile) {
           await refreshMemberTotal()
         }
       } catch (error) {
-        // Firestore membership bookkeeping is independent from the live presence transport.
         console.error('Class member count refresh failed:', error)
       }
     }
@@ -902,8 +949,6 @@ export function useClassPresence(profile) {
       .then((user) => {
         if (stopped) return
 
-        // Registration/total are low-frequency Firestore bookkeeping. Live presence is
-        // Supabase-first so normal 30-45 second heartbeats do not spend Firestore reads.
         void ensureMemberBestEffort()
 
         supabasePresence = startSupabasePresence({
@@ -995,7 +1040,9 @@ export async function migrateLegacyTodos(profile, legacyTodos) {
 }
 
 function movingClassEnabled(profile) {
-  const classNumber = Number(profile?.classNumber)
+  const normalized = normalizeStudentProfile(profile)
+  if (!normalized || !isLegacySchoolScope(normalized)) return false
+  const classNumber = Number(normalized.classNumber)
   return Number.isInteger(classNumber) && classNumber >= 7 && classNumber <= 15
 }
 

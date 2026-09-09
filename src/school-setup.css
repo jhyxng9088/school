@@ -1,0 +1,114 @@
+.school-search-field {
+  position: relative;
+}
+
+.school-search-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary, rgba(20, 20, 24, .58));
+}
+
+.school-search-status strong {
+  color: var(--text-primary, #111114);
+  font-weight: 700;
+}
+
+.school-search-results {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px;
+  border: 1px solid rgba(0, 0, 0, .08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .08);
+}
+
+.school-search-result {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+
+.school-search-result:active,
+.school-search-result:focus-visible {
+  background: rgba(0, 0, 0, .055);
+  outline: none;
+}
+
+.school-search-result strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.school-search-result span {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-secondary, rgba(20, 20, 24, .58));
+}
+
+.student-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.student-setup-grid .name-field {
+  min-width: 0;
+}
+
+.student-setup-grid select {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+}
+
+@media (max-width: 430px) {
+  .student-setup-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .student-setup-grid .name-field:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .school-search-status {
+    color: rgba(245, 245, 247, .58);
+  }
+
+  .school-search-status strong {
+    color: #f5f5f7;
+  }
+
+  .school-search-results {
+    border-color: rgba(255, 255, 255, .1);
+    background: rgba(28, 28, 31, .96);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .3);
+  }
+
+  .school-search-result:active,
+  .school-search-result:focus-visible {
+    background: rgba(255, 255, 255, .07);
+  }
+
+  .school-search-result span {
+    color: rgba(245, 245, 247, .58);
+  }
+}
