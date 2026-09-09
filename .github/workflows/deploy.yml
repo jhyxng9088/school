@@ -71,6 +71,47 @@ jobs:
         working-directory: push-backend-v2
         run: npm ci
 
+      - name: Diagnose backend tests group A
+        continue-on-error: true
+        working-directory: push-backend-v2
+        run: >-
+          node --test --test-concurrency=1
+          test/admin-overview-v3.test.js
+          test/class-roster-api.test.js
+          test/class-roster-repair-api.test.js
+          test/class-roster-v2-api.test.js
+          test/class-roster.test.js
+          test/preview-isolation.test.js
+          test/reminder-original-stream.test.js
+          test/reminder-section-production-access.test.js
+          test/reminder-section.test.js
+          test/s-hub-ai-cache.test.js
+          test/s-hub-ai-mode.test.js
+          test/s-hub-ai-subject.test.js
+
+      - name: Diagnose backend tests group B
+        continue-on-error: true
+        working-directory: push-backend-v2
+        run: >-
+          node --test --test-concurrency=1
+          test/scheduled-reminder-rules.test.js
+          test/scheduler-read-optimization.test.js
+          test/scheduler-timezone.test.js
+          test/service-class-schedules.test.js
+          test/service-class-tasks.test.js
+          test/service-class.test.js
+          test/service-classboard-cleanup.test.js
+          test/service-classboard.test.js
+          test/service-ranking-display.test.js
+          test/service-ranking-kst.test.js
+          test/service-reminder-image-ocr.test.js
+          test/service-reminder-image.test.js
+
+      - name: Diagnose new NEIS timetable tests
+        continue-on-error: true
+        working-directory: push-backend-v2
+        run: node --test --test-concurrency=1 test/timetable-neis-policy.test.js
+
       - name: Test production backend
         working-directory: push-backend-v2
         run: npm test
