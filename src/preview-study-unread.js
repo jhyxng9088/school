@@ -175,18 +175,34 @@ async function flushPending(controller) {
   return controller.flushPromise
 }
 
-function markControllerSeen(controller) {
+function boundedSeenTarget(controller, target) {
+  const currentAt = Math.max(0, Number(controller.state.latestAt || 0))
+  const currentCursor = Math.max(0, Number(controller.state.eventCursor || 0))
+  if (!target || typeof target !== 'object') {
+    return { seenAt: currentAt, seenCursor: currentCursor }
+  }
+  return {
+    seenAt: Math.min(currentAt, Math.max(0, Number(target.seenAt || 0))),
+    seenCursor: Math.min(currentCursor, Math.max(0, Number(target.seenCursor || 0))),
+  }
+}
+
+function markControllerSeen(controller, target = null) {
   if (!controller.state.initialized || !controller.state.hasUnread) return false
-  const latestAt = Math.max(0, Number(controller.state.latestAt || 0))
-  const eventCursor = Math.max(0, Number(controller.state.eventCursor || 0))
-  controller.state.hasUnread = false
-  controller.state.seenAt = Math.max(Number(controller.state.seenAt || 0), latestAt)
-  controller.state.seenCursor = Math.max(Number(controller.state.seenCursor || 0), eventCursor)
-  controller.state.pendingSeenAt = Math.max(latestAt, Number(controller.state.pendingSeenAt || 0))
+  const next = boundedSeenTarget(controller, target)
+  if (
+    next.seenCursor <= Number(controller.state.seenCursor || 0)
+    && next.seenAt <= Number(controller.state.seenAt || 0)
+  ) return false
+
+  controller.state.seenAt = Math.max(Number(controller.state.seenAt || 0), next.seenAt)
+  controller.state.seenCursor = Math.max(Number(controller.state.seenCursor || 0), next.seenCursor)
+  controller.state.pendingSeenAt = Math.max(next.seenAt, Number(controller.state.pendingSeenAt || 0))
   controller.state.pendingSeenCursor = Math.max(
-    eventCursor,
+    next.seenCursor,
     Number(controller.state.pendingSeenCursor || 0),
   )
+  controller.state.hasUnread = Number(controller.state.eventCursor || 0) > Number(controller.state.seenCursor || 0)
   persist(controller)
   notify(controller)
   void flushPending(controller)
@@ -194,9 +210,10 @@ function markControllerSeen(controller) {
 }
 
 function consumeDeferredSeen(controller, syncToken) {
-  if (!syncToken || controller.deferredSeenSync !== syncToken) return
-  controller.deferredSeenSync = null
-  markControllerSeen(controller)
+  const deferred = controller.deferredSeen
+  if (!syncToken || deferred?.syncToken !== syncToken) return
+  controller.deferredSeen = null
+  markControllerSeen(controller, deferred.target)
 }
 
 async function syncController(controller) {
@@ -268,7 +285,7 @@ async function syncController(controller) {
       console.warn('S-Hub study unread sync unavailable:', error)
     }
   })().finally(() => {
-    if (controller.deferredSeenSync === syncToken) controller.deferredSeenSync = null
+    if (controller.deferredSeen?.syncToken === syncToken) controller.deferredSeen = null
     if (controller.syncToken === syncToken) controller.syncToken = null
     controller.syncPromise = null
   })
@@ -325,7 +342,7 @@ function controllerFor(profile) {
       onResume: null,
       syncPromise: null,
       syncToken: null,
-      deferredSeenSync: null,
+      deferredSeen: null,
       flushPromise: null,
     })
   }
@@ -344,18 +361,20 @@ export function subscribePreviewStudyUnread(profile, listener) {
   }
 }
 
-export function markPreviewStudySeen(profile) {
+export function markPreviewStudySeen(profile, target = null) {
   const controller = controllerFor(profile)
-  const activeSyncToken = controller.syncToken
-  markControllerSeen(controller)
-  if (activeSyncToken) {
-    controller.deferredSeenSync = activeSyncToken
+  if (markControllerSeen(controller, target)) return
+  if (controller.state.initialized) return
+
+  const queueDeferred = (syncToken) => {
+    if (syncToken) controller.deferredSeen = { syncToken, target }
+  }
+  if (controller.syncToken) {
+    queueDeferred(controller.syncToken)
     return
   }
-  if (!controller.state.initialized) {
-    void syncController(controller)
-    if (controller.syncToken) controller.deferredSeenSync = controller.syncToken
-  }
+  void syncController(controller)
+  queueDeferred(controller.syncToken)
 }
 
 export function previewStudyUnreadSnapshot(profile) {

@@ -54,18 +54,22 @@ test('server Study state cannot roll a locally advanced seen cursor backward or 
   assert.doesNotMatch(snap, /latestAt > seenAt/)
 })
 
-test('opening Study clears known unread locally before the shared seen write finishes', () => {
+test('opening Study clears only the rendered cursor before the shared seen write finishes', () => {
   const source = read('src/preview-study-unread.js')
+  const target = source.slice(source.indexOf('function boundedSeenTarget'), source.indexOf('function markControllerSeen'))
   const markSeen = source.slice(source.indexOf('function markControllerSeen'), source.indexOf('function consumeDeferredSeen'))
 
+  assert.match(target, /seenAt: Math\.min\(currentAt/)
+  assert.match(target, /seenCursor: Math\.min\(currentCursor/)
   assert.match(markSeen, /!controller\.state\.initialized \|\| !controller\.state\.hasUnread/)
-  assert.match(markSeen, /controller\.state\.hasUnread = false/)
-  assert.match(markSeen, /controller\.state\.seenCursor = Math\.max\(Number\(controller\.state\.seenCursor \|\| 0\), eventCursor\)/)
+  assert.match(markSeen, /const next = boundedSeenTarget\(controller, target\)/)
+  assert.match(markSeen, /controller\.state\.seenCursor = Math\.max\(Number\(controller\.state\.seenCursor \|\| 0\), next\.seenCursor\)/)
   assert.match(markSeen, /controller\.state\.pendingSeenCursor = Math\.max/)
-  assert.ok(markSeen.indexOf('controller.state.hasUnread = false') < markSeen.indexOf('void flushPending(controller)'))
+  assert.match(markSeen, /controller\.state\.hasUnread = Number\(controller\.state\.eventCursor \|\| 0\) > Number\(controller\.state\.seenCursor \|\| 0\)/)
+  assert.ok(markSeen.indexOf('controller.state.hasUnread = Number') < markSeen.indexOf('void flushPending(controller)'))
 })
 
-test('opening Study during an in-flight unread sync preserves seen intent for only that sync', () => {
+test('opening Study during an in-flight unread sync preserves the exact rendered seen target for only that sync', () => {
   const source = read('src/preview-study-unread.js')
   const sync = source.slice(source.indexOf('async function syncController'), source.indexOf('function startController'))
   const markSeen = source.slice(source.indexOf('export function markPreviewStudySeen'), source.indexOf('export function previewStudyUnreadSnapshot'))
@@ -74,18 +78,17 @@ test('opening Study during an in-flight unread sync preserves seen intent for on
   assert.match(sync, /const syncToken = \{\}/)
   assert.match(sync, /controller\.syncToken = syncToken/)
   assert.match(sync, /consumeDeferredSeen\(controller, syncToken\)/)
-  assert.match(sync, /if \(controller\.deferredSeenSync === syncToken\) controller\.deferredSeenSync = null/)
-  assert.match(sync, /if \(controller\.syncToken === syncToken\) controller\.syncToken = null/)
+  assert.match(sync, /controller\.deferredSeen\?\.syncToken === syncToken/)
+  assert.match(sync, /controller\.syncToken === syncToken/)
 
-  assert.match(markSeen, /const activeSyncToken = controller\.syncToken/)
-  assert.match(markSeen, /markControllerSeen\(controller\)/)
-  assert.match(markSeen, /controller\.deferredSeenSync = activeSyncToken/)
-  assert.match(markSeen, /if \(!controller\.state\.initialized\)/)
+  assert.match(markSeen, /markControllerSeen\(controller, target\)/)
+  assert.match(markSeen, /const queueDeferred = \(syncToken\) =>/)
+  assert.match(markSeen, /controller\.deferredSeen = \{ syncToken, target \}/)
+  assert.match(markSeen, /if \(controller\.syncToken\)/)
   assert.match(markSeen, /void syncController\(controller\)/)
-  assert.match(markSeen, /if \(controller\.syncToken\) controller\.deferredSeenSync = controller\.syncToken/)
   assert.doesNotMatch(markSeen, /addEventListener|setTimeout|setInterval/)
 
-  assert.match(consume, /controller\.deferredSeenSync !== syncToken/)
-  assert.match(consume, /controller\.deferredSeenSync = null/)
-  assert.match(consume, /markControllerSeen\(controller\)/)
+  assert.match(consume, /deferred\?\.syncToken !== syncToken/)
+  assert.match(consume, /controller\.deferredSeen = null/)
+  assert.match(consume, /markControllerSeen\(controller, deferred\.target\)/)
 })

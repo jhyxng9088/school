@@ -350,8 +350,12 @@ function markPostReadFor(controller, postId) {
   void flushPending(controller)
 }
 
-function markSectionSeenFor(controller) {
-  const cursor = Math.max(0, Number(controller.state.cursor || 0))
+function markSectionSeenFor(controller, requestedCursor = null) {
+  const currentCursor = Math.max(0, Number(controller.state.cursor || 0))
+  const requested = requestedCursor === null || requestedCursor === undefined
+    ? currentCursor
+    : Math.max(0, Number(requestedCursor || 0))
+  const cursor = Math.min(currentCursor, requested)
   if (!controller.state.initialized || cursor <= Number(controller.state.seenCursor || 0)) return
   controller.state.seenCursor = cursor
   controller.state.pendingSeenCursor = Math.max(cursor, Number(controller.state.pendingSeenCursor || 0))
@@ -365,8 +369,8 @@ export function subscribePreviewBoardUnread(profile, listener) {
   return subscribeController(controllerFor(safeIdentityKey(profile)), listener)
 }
 
-export function markPreviewBoardSectionSeen(profile) {
-  markSectionSeenFor(controllerFor(safeIdentityKey(profile)))
+export function markPreviewBoardSectionSeen(profile, seenCursor = null) {
+  markSectionSeenFor(controllerFor(safeIdentityKey(profile)), seenCursor)
 }
 
 export function previewBoardUnreadSnapshot(profile) {

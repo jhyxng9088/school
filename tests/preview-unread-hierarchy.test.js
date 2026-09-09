@@ -4,80 +4,108 @@ import assert from 'node:assert/strict'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('V2 unread parents aggregate their visible child sections', () => {
-  const source = read('src/unread-indicators-v2.js')
-  assert.match(source, /if \(tab === 'class'\) return navUnread\('timetable'\) \|\| navUnread\('board'\)/)
-  assert.match(source, /if \(tab === 'schedule'\) return navUnread\('todo'\) \|\| navUnread\('academic'\) \|\| navUnread\('meal'\)/)
-  assert.match(source, /if \(tab === 'study'\) return state\.studyUnread/)
-  assert.match(source, /renderTopSegments\(\)/)
+test('unread store is the single nav unread data owner', () => {
+  const indicator = read('src/unread-indicators-v2.js')
+  const store = read('src/unread-store.js')
+
+  assert.match(indicator, /from '\.\/unread-store\.js'/)
+  assert.match(indicator, /subscribeUnreadState\(profile/)
+  assert.doesNotMatch(indicator, /firebase\/|subscribeClassLiveData|preview-board-unread|preview-study-unread/)
+
+  assert.match(store, /subscribeClassLiveData\('activity', store\.classId/)
+  assert.match(store, /subscribeClassLiveData\('todoState', store\.studentKey/)
+  assert.match(store, /subscribePreviewBoardUnread\(store\.profile/)
+  assert.match(store, /subscribePreviewStudyUnread\(store\.profile/)
 })
 
-test('opening a parent station does not erase unread siblings', () => {
-  const source = read('src/unread-indicators-v2.js')
-  assert.match(source, /if \(tab && !\['class', 'schedule'\]\.includes\(tab\)\) markTabSeen\(tab\)/)
-  assert.ok(source.includes(".class-station-page .class-top-segment-button.is-active[data-unread-key]"))
-  assert.ok(source.includes(".station-schedule-page .class-top-segment-button.is-active[data-unread-key]"))
+test('V2 unread parents aggregate their visible child sections in the store', () => {
+  const store = read('src/unread-store.js')
+  const indicator = read('src/unread-indicators-v2.js')
+
+  assert.match(store, /if \(tab === 'class'\) return leafUnread\(store, 'timetable'\) \|\| leafUnread\(store, 'board'\)/)
+  assert.match(store, /if \(tab === 'schedule'\) return leafUnread\(store, 'todo'\) \|\| leafUnread\(store, 'academic'\) \|\| leafUnread\(store, 'meal'\)/)
+  assert.match(store, /if \(tab === 'study'\) return store\.state\.studyUnread/)
+  assert.doesNotMatch(store, /NAV_STATE_IDS\.(class|schedule)/)
+  assert.match(indicator, /renderTopSegments\(\)/)
 })
 
-test('board section visit and unopened post state are separate cursors', () => {
+test('opening a parent station acknowledges only the active leaf after React commits', () => {
+  const indicator = read('src/unread-indicators-v2.js')
+
+  assert.ok(indicator.includes(".class-station-page .class-top-segment-button.is-active[data-unread-key]"))
+  assert.ok(indicator.includes(".station-schedule-page .class-top-segment-button.is-active[data-unread-key]"))
+  assert.match(indicator, /const tab = activeLeafTab\(\)/)
+  assert.match(indicator, /const capturedTarget = cloneSeenTarget\(current\.targets\?\.\[tab\]\)/)
+  assert.match(indicator, /markUnreadSeen\(profile, tab, capturedTarget\)/)
+  assert.doesNotMatch(indicator, /markUnreadSeen\(profile, 'class'/)
+  assert.doesNotMatch(indicator, /markUnreadSeen\(profile, 'schedule'/)
+})
+
+test('board section visit and unopened post state are separate monotonic cursors', () => {
   const source = read('src/preview-board-unread.js')
   assert.match(source, /seenCursor/)
   assert.match(source, /hasSectionUnread/)
   assert.match(source, /export function markPreviewBoardSectionSeen/)
   const sectionSeen = source.slice(source.indexOf('function markSectionSeenFor'), source.indexOf('export function subscribePreviewBoardUnread'))
+  assert.match(sectionSeen, /const cursor = Math\.min\(currentCursor, requested\)/)
   assert.doesNotMatch(sectionSeen, /delete next\[/)
 })
 
-test('study unread reacts to new starts only and realtime supports parallel consumers', () => {
+test('study unread reacts to new starts only and supports a bounded rendered cursor', () => {
   const unread = read('src/preview-study-unread.js')
   const realtime = read('src/preview-study-realtime.js')
+
   assert.match(unread, /String\(payload\?\.kind \|\| ''\) === 'start'/)
+  assert.match(unread, /function boundedSeenTarget\(controller, target\)/)
+  assert.match(unread, /seenCursor: Math\.min\(currentCursor/)
+  assert.match(unread, /controller\.state\.hasUnread = Number\(controller\.state\.eventCursor \|\| 0\) > Number\(controller\.state\.seenCursor \|\| 0\)/)
   assert.match(realtime, /const localStates = \[/)
   assert.doesNotMatch(realtime, /let subscriptionStates = \[\]/)
   assert.doesNotMatch(realtime, /subscriptionStates\.forEach\(stopSocketState\)/)
 })
 
-test('segment unread keys are rendered semantically without a text-inference observer', () => {
+test('segment unread keys are rendered semantically without text inference or a DOM observer', () => {
   const html = read('index.html')
   const css = read('src/unread-indicators.css')
+  const indicator = read('src/unread-indicators-v2.js')
   const classOwner = read('src/preview-class-top-segment-patch.js')
   const scheduleOwner = read('src/preview-schedule-top-segment-patch.js')
+
   assert.doesNotMatch(html, /preview-unread-dom-keys\.js/)
   assert.match(html, /unread-indicators-v2\.js/)
+  assert.match(indicator, /button\?\.dataset\?\.tab/)
+  assert.doesNotMatch(indicator, /textContent|innerText|MutationObserver/)
   assert.match(classOwner, /data-unread-key=\{item\.id\}/)
   assert.match(scheduleOwner, /data-unread-key=\{item\.id\}/)
   assert.match(classOwner, /return useSHubSegmentSpring\(activeIndex, \{/)
   assert.match(css, /school-unread-dot\.is-segment/)
 })
 
-test('unread redraw follows semantic interactions without a DOM observer', () => {
-  const source = read('src/unread-indicators-v2.js')
-  const clickHandler = source.slice(source.indexOf('function handleClick(event)'), source.indexOf('subscriptions.push'))
-  assert.doesNotMatch(source, /MutationObserver/)
-  assert.doesNotMatch(source, /domObserver/)
-  assert.match(source, /document\.addEventListener\('click', handleClick, true\)/)
-  assert.match(clickHandler, /class-top-segment-button\[data-unread-key\][\s\S]*scheduleRender\(\)/)
-  assert.match(clickHandler, /bottom-nav \.nav-button[\s\S]*scheduleRender\(\)/)
-  assert.match(clickHandler, /todo-item-main[\s\S]*scheduleRender\(\)/)
-  assert.equal((clickHandler.match(/scheduleRender\(\)/g) || []).length, 3)
+test('visible unread is acknowledged after rendering, not during unread calculation', () => {
+  const indicator = read('src/unread-indicators-v2.js')
+  const store = read('src/unread-store.js')
+  const visibleSeen = indicator.slice(indicator.indexOf('function scheduleVisibleSeen()'), indicator.indexOf('function renderReminderRows()'))
+  const renderBody = indicator.slice(indicator.indexOf('function render()'), indicator.indexOf('function scheduleRender()'))
+
+  assert.equal((visibleSeen.match(/window\.requestAnimationFrame/g) || []).length, 2)
+  assert.ok(visibleSeen.indexOf('capturedTarget') < visibleSeen.indexOf('markUnreadSeen(profile, tab, capturedTarget)'))
+  assert.doesNotMatch(renderBody, /markUnreadSeen/)
+  assert.match(store, /function clampNumberTarget\(target, current\)/)
+  assert.match(store, /return Math\.min\(currentVersion, requested\)/)
 })
 
-test('active leaf is marked seen before parent and nav dots render', () => {
-  const source = read('src/unread-indicators-v2.js')
-  const renderBody = source.slice(source.indexOf('function render()'), source.indexOf('function markReminderSeen'))
-  const markIndex = renderBody.indexOf('markTabSeen(tab)')
-  assert.ok(markIndex >= 0)
-  assert.ok(markIndex < renderBody.indexOf('renderTopSegments()'))
-  assert.ok(markIndex < renderBody.indexOf('renderNav()'))
-})
-
-test('Firestore unread seen state never regresses behind a local read', () => {
-  const source = read('src/unread-indicators-v2.js')
-  const todoStateSubscription = source.slice(
-    source.indexOf("subscribeClassLiveData('todoState'"),
-    source.indexOf("document.addEventListener('click', handleClick, true)"),
+test('generic read state is cached, retryable, and never regresses behind local acknowledgement', () => {
+  const store = read('src/unread-store.js')
+  const todoStateSubscription = store.slice(
+    store.indexOf("subscribeClassLiveData('todoState'"),
+    store.indexOf('async function connectStore'),
   )
-  assert.match(todoStateSubscription, /state\.seen\.forEach\(\(value, id\) =>/)
+
+  assert.match(store, /READ_CACHE_PREFIX = 'school\.unreadState\.v3:'/)
+  assert.match(store, /pendingWrites/)
+  assert.match(store, /async function flushPendingWrites\(store\)/)
+  assert.match(store, /window\.addEventListener\('online', store\.onResume\)/)
+  assert.match(todoStateSubscription, /store\.state\.seen\.forEach\(\(value, id\) =>/)
   assert.match(todoStateSubscription, /localVersion > Number\(nextSeen\.get\(id\)\?\.updatedAt \|\| 0\)/)
-  assert.ok(todoStateSubscription.indexOf('state.seen.forEach') < todoStateSubscription.indexOf('pendingWrites.forEach'))
+  assert.ok(todoStateSubscription.indexOf('store.state.seen.forEach') < todoStateSubscription.indexOf('store.pendingWrites.forEach'))
 })
