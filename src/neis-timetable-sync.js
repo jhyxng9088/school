@@ -1,7 +1,8 @@
 import { getApp } from 'firebase/app'
-import { doc, getFirestore, setDoc } from 'firebase/firestore'
+import { doc, getFirestore, runTransaction } from 'firebase/firestore'
 import { classKeyFor, ensureSignedIn, readStudentProfile } from './school-sync'
 import { fetchGrade2ClassTimetable, neisTargetWeek } from './neis-timetable'
+import { buildNeisTimetableSyncState } from './timetable-neis-policy'
 
 const SYNC_MAX_AGE_MS = 6 * 60 * 60 * 1000
 const RETRY_GUARD_MS = 15 * 60 * 1000
@@ -74,14 +75,27 @@ export async function syncCurrentClassTimetableFromNeis({ force = false } = {}) 
 
   await ensureSignedIn()
   const db = getFirestore(getApp('school-sync'))
+  const ref = timetableRef(db, profile)
   const now = Date.now()
 
-  // Only the shared weekly base is replaced. Date-specific shared overrides and
-  // 7~15반 personal moving-class data remain independent and are not touched.
-  await setDoc(timetableRef(db, profile), {
-    weeklySchedule: result.weeklySchedule,
-    updatedAt: now,
-  }, { merge: true })
+  // NEIS owns only the raw base. Human edits remain as sparse manual overrides,
+  // and weeklySchedule stays the effective value consumed by existing UI clients.
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(ref)
+    const currentData = snapshot.exists() ? snapshot.data() : {}
+    const next = buildNeisTimetableSyncState({
+      documentData: currentData,
+      neisWeeklySchedule: result.weeklySchedule,
+      lastClientSyncAt: Number(cached?.syncedAt || 0),
+    })
+
+    transaction.set(ref, {
+      weeklySchedule: next.weeklySchedule,
+      neisWeeklySchedule: next.neisWeeklySchedule,
+      manualWeeklyOverrides: next.manualWeeklyOverrides,
+      updatedAt: now,
+    }, { merge: true })
+  })
 
   writeCache(classNumber, result.weekStart, {
     ok: true,
