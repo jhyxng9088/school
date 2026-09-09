@@ -107,6 +107,16 @@ jobs:
           test/service-reminder-image-ocr.test.js
           test/service-reminder-image.test.js
 
+      - name: Diagnose backend tests group C
+        continue-on-error: true
+        working-directory: push-backend-v2
+        shell: bash
+        run: |
+          mapfile -t files < <(
+            find test -maxdepth 1 -name '*.test.js' -print | sort | grep -Ev '(^|/)(admin-overview-v3|class-roster-api|class-roster-repair-api|class-roster-v2-api|class-roster|preview-isolation|reminder-original-stream|reminder-section-production-access|reminder-section|s-hub-ai-cache|s-hub-ai-mode|s-hub-ai-subject|scheduled-reminder-rules|scheduler-read-optimization|scheduler-timezone|service-class-schedules|service-class-tasks|service-class|service-classboard-cleanup|service-classboard|service-ranking-display|service-ranking-kst|service-reminder-image-ocr|service-reminder-image|timetable-neis-policy)\.test\.js$'
+          )
+          node --test --test-concurrency=1 "${files[@]}"
+
       - name: Diagnose new NEIS timetable tests
         continue-on-error: true
         working-directory: push-backend-v2
