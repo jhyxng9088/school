@@ -65,6 +65,34 @@ jobs:
         continue-on-error: true
         run: node --test tests/polite-copy.test.js tests/polite-copy-audit.test.js
 
+      - name: Diagnose app tests quarter 1
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' | sort)
+          node --test "${files[@]:0:25}"
+
+      - name: Diagnose app tests quarter 2
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' | sort)
+          node --test "${files[@]:25:25}"
+
+      - name: Diagnose app tests quarter 3
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' | sort)
+          node --test "${files[@]:50:25}"
+
+      - name: Diagnose app tests quarter 4
+        continue-on-error: true
+        shell: bash
+        run: |
+          mapfile -t files < <(find tests -maxdepth 1 -name '*.test.js' | sort)
+          node --test "${files[@]:75}"
+
       - name: Test production app
         run: npm test
 
