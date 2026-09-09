@@ -71,19 +71,6 @@ jobs:
         working-directory: push-backend-v2
         run: npm ci
 
-      - name: Diagnose new NEIS timetable backend tests
-        continue-on-error: true
-        working-directory: push-backend-v2
-        run: node --test test/timetable-neis-policy.test.js
-
-      - name: Diagnose existing backend regression tests
-        continue-on-error: true
-        working-directory: push-backend-v2
-        shell: bash
-        run: |
-          mapfile -t files < <(find test -type f -name '*.test.js' ! -name 'timetable-neis-policy.test.js' -print)
-          node --test "${files[@]}"
-
       - name: Test production backend
         working-directory: push-backend-v2
         run: npm test
