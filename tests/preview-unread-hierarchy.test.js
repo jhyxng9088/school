@@ -41,6 +41,28 @@ test('opening a parent station acknowledges only the active leaf after React com
   assert.doesNotMatch(indicator, /markUnreadSeen\(profile, 'schedule'/)
 })
 
+test('active reminder hierarchy keeps parent and segment dots while unread summary rows remain', () => {
+  const indicator = read('src/unread-indicators-v2.js')
+  const parentUnread = indicator.slice(indicator.indexOf('function parentHasUnreadOutsideActiveLeaf'), indicator.indexOf('function scheduleVisibleSeen'))
+  const topSegments = indicator.slice(indicator.indexOf('function renderTopSegments()'), indicator.indexOf('function renderNav()'))
+
+  assert.match(indicator, /function hasUnreadReminderRows\(\)/)
+  assert.match(indicator, /current\.reminderUnreadIds\.length > 0/)
+  assert.match(parentUnread, /leaf === 'todo' && hasUnreadReminderRows\(\)/)
+  assert.match(topSegments, /const keepNestedReminderUnread = tab === 'todo' && tab === activeLeaf && hasUnreadReminderRows\(\)/)
+  assert.match(topSegments, /if \(tab === activeLeaf && !keepNestedReminderUnread\)/)
+  assert.match(topSegments, /if \(current\.unread\?\.\[tab\]\) addDot\(button, 'segment'\)/)
+})
+
+test('active top tab uses semantic navigation state before the visual active class', () => {
+  const indicator = read('src/unread-indicators-v2.js')
+  const activeTop = indicator.slice(indicator.indexOf('function activeTopTab()'), indicator.indexOf('function activeLeafTab()'))
+
+  assert.match(activeTop, /nav-button\[aria-current="page"\]/)
+  assert.match(activeTop, /semanticActive \|\| document\.querySelector\('\.bottom-nav \.nav-button\.active'\)/)
+  assert.ok(activeTop.indexOf('aria-current="page"') < activeTop.indexOf('.nav-button.active'))
+})
+
 test('board section visit and unopened post state are separate monotonic cursors', () => {
   const source = read('src/preview-board-unread.js')
   assert.match(source, /seenCursor/)
