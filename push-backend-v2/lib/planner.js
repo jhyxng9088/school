@@ -29,6 +29,11 @@ function endOfKstDate(dateKey) {
   return Date.parse(`${nextDate}T00:00:00+09:00`) - 1
 }
 
+export function academicEventAllowedForClass(event, classId) {
+  if (event?.legacySchoolOnly !== true) return true
+  return /^class-(?:[1-9]|[12]\d|30)$/.test(String(classId || ''))
+}
+
 export function planClassNotifications({
   classId,
   subscriptions = [],
@@ -100,6 +105,7 @@ export function planClassNotifications({
   const importantTomorrow = (academicEvents || []).filter((event) => (
     String(event?.startDate || '') === tomorrow
     && isImportantAcademic(event)
+    && academicEventAllowedForClass(event, classId)
   ))
   if (importantTomorrow.length) {
     for (const [studentKey, studentSubscriptions] of subscriptionsByStudent) {
