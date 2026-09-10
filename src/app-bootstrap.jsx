@@ -53,6 +53,7 @@ prepareClientDataGeneration()
 
 const standalone = isStandalone()
 const profile = readStudentProfile()
+const previousProfileSignature = profileSignature(profile)
 const schoolSelectionComplete = hasExplicitSchoolSelection()
 
 // If this page is already running as an installed PWA, installation itself is
@@ -79,7 +80,11 @@ if (standalone && (!profile || !schoolSelectionComplete)) {
           if (!saved) return
           localStorage.setItem(USER_NAME_KEY, saved.name)
           root.unmount()
-          await startConfiguredApp(saved, true)
+          const savedSignature = profileSignature(saved)
+          const schoolIdentityChanged = Boolean(
+            previousProfileSignature && previousProfileSignature !== savedSignature,
+          )
+          await startConfiguredApp(saved, schoolIdentityChanged)
         }}
       />
     </React.StrictMode>,
