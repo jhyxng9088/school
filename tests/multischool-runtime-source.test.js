@@ -15,12 +15,15 @@ test('school pages render the stored school instead of hard-coded Suji labels', 
   assert.doesNotMatch(academic, /2학년 · 수지고등학교/)
 })
 
-test('bootstrap rotates anonymous auth after an explicit school selection', () => {
+test('bootstrap rotates anonymous auth only when the selected school identity changes', () => {
   const bootstrap = read('src/app-bootstrap.jsx')
   const migration = read('src/student-auth-migration.js')
+  assert.match(bootstrap, /const previousProfileSignature = profileSignature\(profile\)/)
+  assert.match(bootstrap, /const savedSignature = profileSignature\(saved\)/)
+  assert.match(bootstrap, /previousProfileSignature && previousProfileSignature !== savedSignature/)
+  assert.match(bootstrap, /await startConfiguredApp\(saved, schoolIdentityChanged\)/)
   assert.match(bootstrap, /recoverStudentAuthForProfile\(/)
   assert.match(bootstrap, /\{ force: forceAuthReset \}/)
-  assert.match(bootstrap, /await startConfiguredApp\(saved, true\)/)
   assert.match(migration, /\{ force = false \} = \{\}/)
   assert.match(migration, /if \(!force && \(!marker \|\| marker\.endsWith\(`\|\$\{signature\}`\)\)\) return false/)
   assert.match(migration, /user\.isAnonymous/)
