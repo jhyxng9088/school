@@ -78,6 +78,33 @@ test('legacy weekly edits made after the last client sync survive first migratio
   assert.deepEqual(state.manualWeeklyOverrides, manualOverridesFromDifference(nextNeis, legacyEffective))
 })
 
+test('recent legacy edit survives first sync when this device has no NEIS cache yet', () => {
+  const legacyEffective = schedule({ mon: { 2: '미적분' } })
+  const state = buildNeisTimetableSyncState({
+    timetableData: { weeklySchedule: legacyEffective, updatedAt: 10_000 },
+    metadata: {},
+    neisWeeklySchedule: schedule(),
+    lastClientSyncAt: 0,
+    now: 11_000,
+  })
+
+  assert.equal(state.weeklySchedule.mon[2], '미적분')
+  assert.deepEqual(state.manualWeeklyOverrides, { mon: { 2: '미적분' } })
+})
+
+test('stale legacy timetable without a client cache still accepts the NEIS base', () => {
+  const state = buildNeisTimetableSyncState({
+    timetableData: { weeklySchedule: schedule(), updatedAt: 1_000 },
+    metadata: {},
+    neisWeeklySchedule: schedule({ mon: { 1: '문학' } }),
+    lastClientSyncAt: 0,
+    now: 7 * 60 * 60 * 1000,
+  })
+
+  assert.equal(state.weeklySchedule.mon[1], '문학')
+  assert.deepEqual(state.manualWeeklyOverrides, {})
+})
+
 test('legacy timetable without later edits accepts the new NEIS base', () => {
   const state = buildNeisTimetableSyncState({
     timetableData: { weeklySchedule: schedule(), updatedAt: 3000 },
