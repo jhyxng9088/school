@@ -19,10 +19,11 @@ function clearIdentityMarker() {
   }
 }
 
-export async function recoverStudentAuthForProfile(profileSignature) {
+export async function recoverStudentAuthForProfile(profileSignature, { force = false } = {}) {
   const signature = String(profileSignature || '').trim()
   const marker = readIdentityMarker()
-  if (!signature || !marker || marker.endsWith(`|${signature}`)) return false
+  if (!signature) return false
+  if (!force && (!marker || marker.endsWith(`|${signature}`))) return false
 
   const auth = getAuth(getApp('school-sync'))
   if (typeof auth.authStateReady === 'function') {
