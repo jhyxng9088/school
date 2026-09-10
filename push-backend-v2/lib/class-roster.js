@@ -19,7 +19,7 @@ function hash32(value, seed) {
 }
 
 export function classNumberFromId(classId) {
-  const match = /^(?:preview-)?class-([1-9]|[12][0-9]|30)$/.exec(String(classId || '').trim())
+  const match = /^(?:(?:preview-)?class-|s-[0-9a-f]{12}-c)([1-9]|[12][0-9]|30)$/.exec(String(classId || '').trim())
   return match ? Number(match[1]) : 0
 }
 
