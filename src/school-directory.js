@@ -1,4 +1,5 @@
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
+const SCHOOL_MIRROR_URL = 'https://kschoolinfo.com/api/v1/schools'
 
 export const LEGACY_SCHOOL_CONTEXT = Object.freeze({
   officeCode: 'J10',
@@ -22,22 +23,71 @@ function resultCode(payload) {
   return result?.CODE ? String(result.CODE) : ''
 }
 
+function firstText(...values) {
+  for (const value of values) {
+    const candidate = value && typeof value === 'object'
+      ? (value.name ?? value.label ?? value.value ?? value.code)
+      : value
+    const text = String(candidate ?? '').trim()
+    if (text) return text
+  }
+  return ''
+}
+
 export function normalizeSchoolResult(row) {
   if (!row || typeof row !== 'object') return null
-  const officeCode = String(row.ATPT_OFCDC_SC_CODE || '').trim()
-  const schoolCode = String(row.SD_SCHUL_CODE || '').trim()
-  const schoolName = String(row.SCHUL_NM || '').trim()
-  const schoolKind = String(row.SCHUL_KND_SC_NM || '').trim()
+  const officeCode = firstText(row.ATPT_OFCDC_SC_CODE, row.eduCode, row.officeCode, row.educationOfficeCode)
+  const schoolCode = firstText(row.SD_SCHUL_CODE, row.schoolCode)
+  const schoolName = firstText(row.SCHUL_NM, row.name, row.schoolName)
+  const schoolKind = firstText(row.SCHUL_KND_SC_NM, row.kind, row.schoolKind)
   if (!officeCode || !schoolCode || !schoolName) return null
   return {
     officeCode,
     schoolCode,
     schoolName,
     schoolKind,
-    officeName: String(row.ATPT_OFCDC_SC_NM || '').trim(),
-    regionName: String(row.LCTN_SC_NM || '').trim(),
-    address: String(row.ORG_RDNMA || '').trim(),
+    officeName: firstText(row.ATPT_OFCDC_SC_NM, row.eduName, row.officeName, row.educationOfficeName),
+    regionName: firstText(row.LCTN_SC_NM, row.region, row.regionName),
+    address: firstText(row.ORG_RDNMA, row.address, row.roadAddress),
   }
+}
+
+function dedupeSchools(rows) {
+  const deduped = new Map()
+  rows.map(normalizeSchoolResult).filter(Boolean).forEach((school) => {
+    deduped.set(`${school.officeCode}:${school.schoolCode}`, school)
+  })
+  return [...deduped.values()]
+}
+
+async function searchSchoolMirror(term, signal, fetchImpl) {
+  const url = new URL(SCHOOL_MIRROR_URL)
+  url.searchParams.set('name', term)
+  url.searchParams.set('page', '1')
+  url.searchParams.set('size', '10')
+
+  const response = await fetchImpl(url.toString(), { cache: 'no-store', signal })
+  if (!response.ok) throw new Error(`학교 검색 미러 요청 실패 (${response.status})`)
+  const payload = await response.json()
+  if (payload?.ok !== true) throw new Error(payload?.error?.message || '학교 검색 미러 응답이 올바르지 않아.')
+  return dedupeSchools(Array.isArray(payload.data) ? payload.data : [])
+}
+
+async function searchSchoolOfficial(term, signal, fetchImpl) {
+  const url = new URL(`${NEIS_BASE}/schoolInfo`)
+  url.searchParams.set('KEY', 'sample')
+  url.searchParams.set('Type', 'json')
+  url.searchParams.set('pIndex', '1')
+  url.searchParams.set('pSize', '5')
+  url.searchParams.set('SCHUL_NM', term)
+
+  const response = await fetchImpl(url.toString(), { cache: 'no-store', signal })
+  if (!response.ok) throw new Error(`학교 검색 요청 실패 (${response.status})`)
+  const payload = await response.json()
+  const code = resultCode(payload)
+  if (code === 'INFO-200') return []
+  if (code && code !== 'INFO-000') throw new Error(payload?.RESULT?.MESSAGE || `학교 검색 오류 (${code})`)
+  return dedupeSchools(rowsFromPayload(payload))
 }
 
 export function maxGradeForSchoolKind(kind) {
@@ -74,23 +124,22 @@ export async function searchNeisSchools(query, signal, fetchImpl = globalThis.fe
   if (term.length < 2) return []
   if (typeof fetchImpl !== 'function') throw new Error('학교 검색을 사용할 수 없어.')
 
-  const url = new URL(`${NEIS_BASE}/schoolInfo`)
-  url.searchParams.set('KEY', 'sample')
-  url.searchParams.set('Type', 'json')
-  url.searchParams.set('pIndex', '1')
-  url.searchParams.set('pSize', '5')
-  url.searchParams.set('SCHUL_NM', term)
+  let mirrorError = null
+  let mirrorSucceeded = false
+  try {
+    const mirrored = await searchSchoolMirror(term, signal, fetchImpl)
+    mirrorSucceeded = true
+    if (mirrored.length) return mirrored
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    mirrorError = error
+  }
 
-  const response = await fetchImpl(url.toString(), { cache: 'no-store', signal })
-  if (!response.ok) throw new Error(`학교 검색 요청 실패 (${response.status})`)
-  const payload = await response.json()
-  const code = resultCode(payload)
-  if (code === 'INFO-200') return []
-  if (code && code !== 'INFO-000') throw new Error(payload?.RESULT?.MESSAGE || `학교 검색 오류 (${code})`)
-
-  const deduped = new Map()
-  rowsFromPayload(payload).map(normalizeSchoolResult).filter(Boolean).forEach((school) => {
-    deduped.set(`${school.officeCode}:${school.schoolCode}`, school)
-  })
-  return [...deduped.values()]
+  try {
+    return await searchSchoolOfficial(term, signal, fetchImpl)
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    if (mirrorSucceeded) return []
+    throw mirrorError || error
+  }
 }

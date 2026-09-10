@@ -72,6 +72,8 @@ function startUnreadIndicators() {
   let visibleSeenFrame = 0
   let visibleSeenCommitFrame = 0
   let visibleSeenToken = 0
+  let navigationSettleFrame = 0
+  let navigationSettlePasses = 0
 
   function activeTopTab() {
     const semanticActive = document.querySelector('.bottom-nav .nav-button[aria-current="page"]')
@@ -176,10 +178,14 @@ function startUnreadIndicators() {
     })
   }
 
-  function render() {
+  function renderMountedUnreadUi() {
     renderReminderRows()
     renderTopSegments()
     renderNav()
+  }
+
+  function render() {
+    renderMountedUnreadUi()
     scheduleVisibleSeen()
   }
 
@@ -191,6 +197,35 @@ function startUnreadIndicators() {
     })
   }
 
+  function scheduleNavigationSettle() {
+    if (stopped) return
+    navigationSettlePasses = Math.max(navigationSettlePasses, 6)
+    if (navigationSettleFrame) return
+
+    const settle = () => {
+      navigationSettleFrame = 0
+      if (stopped) return
+
+      // The station/page and its segmented controls can mount after the click
+      // that changed navigation. Repaint unread UI for a few frames so an
+      // already-known child unread (for example timetable) is attached to the
+      // newly mounted segment instead of remaining visible only on the parent.
+      renderMountedUnreadUi()
+      navigationSettlePasses -= 1
+      if (navigationSettlePasses > 0) {
+        navigationSettleFrame = window.requestAnimationFrame(settle)
+        return
+      }
+
+      // Acknowledge only after the destination has settled. This also makes
+      // entering Study itself sufficient to clear Study unread; opening a
+      // student's detail sheet is no longer needed to trigger a second click.
+      scheduleVisibleSeen()
+    }
+
+    navigationSettleFrame = window.requestAnimationFrame(settle)
+  }
+
   function handleClick(event) {
     const reminderMain = event.target.closest?.('.todo-stage5 .todo-item-main, .todo-page .todo-item-main')
     if (reminderMain) {
@@ -199,8 +234,16 @@ function startUnreadIndicators() {
       if (todoId) markReminderUnreadSeen(profile, todoId)
     }
 
-    // Navigation may be a bottom-nav click, a segment click, or a semantic
-    // Home action. Resolve the actual active leaf after React has committed.
+    const navigationControl = event.target.closest?.(
+      '.bottom-nav .nav-button, .class-top-segment-button[data-unread-key], .home-nav-action',
+    )
+    if (navigationControl) {
+      scheduleNavigationSettle()
+      return
+    }
+
+    // Keep the old generic acknowledgement path for clicks inside an already
+    // visible station, but navigation no longer depends on a second click.
     scheduleVisibleSeen()
   }
 
@@ -230,6 +273,7 @@ function startUnreadIndicators() {
     if (renderFrame) window.cancelAnimationFrame(renderFrame)
     if (visibleSeenFrame) window.cancelAnimationFrame(visibleSeenFrame)
     if (visibleSeenCommitFrame) window.cancelAnimationFrame(visibleSeenCommitFrame)
+    if (navigationSettleFrame) window.cancelAnimationFrame(navigationSettleFrame)
   }, { once: true })
 
   return true
