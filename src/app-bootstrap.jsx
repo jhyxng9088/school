@@ -36,9 +36,12 @@ function hasExplicitSchoolSelection() {
   }
 }
 
-async function startConfiguredApp(configuredProfile) {
+async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
   try {
-    const recovering = await recoverStudentAuthForProfile(profileSignature(configuredProfile))
+    const recovering = await recoverStudentAuthForProfile(
+      profileSignature(configuredProfile),
+      { force: forceAuthReset },
+    )
     if (recovering) return
   } catch (error) {
     console.warn('S-Hub student auth migration skipped:', error)
@@ -76,7 +79,7 @@ if (standalone && (!profile || !schoolSelectionComplete)) {
           if (!saved) return
           localStorage.setItem(USER_NAME_KEY, saved.name)
           root.unmount()
-          await startConfiguredApp(saved)
+          await startConfiguredApp(saved, true)
         }}
       />
     </React.StrictMode>,
