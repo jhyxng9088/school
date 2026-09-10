@@ -26,8 +26,8 @@ async function isolateProductionNetwork(page) {
   })
 }
 
-async function seedInstalledStudent(page) {
-  await page.addInitScript(() => {
+async function seedInstalledProfile(page, profile) {
+  await page.addInitScript((studentProfile) => {
     const nativeMatchMedia = window.matchMedia.bind(window)
     window.matchMedia = (query) => {
       if (query !== '(display-mode: standalone)') return nativeMatchMedia(query)
@@ -45,11 +45,21 @@ async function seedInstalledStudent(page) {
 
     localStorage.setItem('school.clientDataGeneration', '2')
     localStorage.setItem('school.installGuideDone', 'true')
-    localStorage.setItem('school.studentProfile.v1', JSON.stringify({
-      name: 'E2E Student',
-      classNumber: 15,
-      studentNumber: 1,
-    }))
+    localStorage.setItem('school.studentProfile.v1', JSON.stringify(studentProfile))
+  }, profile)
+}
+
+async function seedInstalledStudent(page) {
+  await seedInstalledProfile(page, {
+    name: 'E2E Student',
+    classNumber: 15,
+    studentNumber: 1,
+    officeCode: 'J10',
+    schoolCode: '7530093',
+    schoolName: '수지고등학교',
+    schoolKind: '고등학교',
+    regionName: '경기도',
+    grade: 2,
   })
 }
 
@@ -67,6 +77,24 @@ test('production cold start renders the install path without an uncaught boot er
   await expect(page.locator('.onboarding-page')).toBeVisible()
   await expect(page.locator('.onboarding-card')).toBeVisible()
   await expect(page.locator('#root')).not.toBeEmpty()
+  await page.waitForTimeout(500)
+
+  expect(pageErrors).toEqual([])
+})
+
+test('installed legacy profile without an explicit school opens school search setup', async ({ page }) => {
+  const pageErrors = collectPageErrors(page)
+  await isolateProductionNetwork(page)
+  await seedInstalledProfile(page, {
+    name: 'Legacy E2E Student',
+    classNumber: 1,
+    studentNumber: 1,
+  })
+
+  await page.goto('index.html')
+  await expect(page.getByRole('heading', { name: '학교와 학생 정보를 알려 주세요' })).toBeVisible()
+  await expect(page.locator('.school-search-field input')).toHaveAttribute('placeholder', '학교 이름 검색')
+  await expect(page.locator('.app-shell')).toHaveCount(0)
   await page.waitForTimeout(500)
 
   expect(pageErrors).toEqual([])
