@@ -6,6 +6,8 @@ const PERIOD_COUNTS = {
   fri: 7,
 }
 
+const LEGACY_MANUAL_EDIT_GRACE_MS = 6 * 60 * 60 * 1000
+
 function normalizeSubject(value) {
   return typeof value === 'string' ? value.slice(0, 20) : ''
 }
@@ -103,6 +105,7 @@ export function buildNeisTimetableSyncState({
   metadata,
   neisWeeklySchedule,
   lastClientSyncAt = 0,
+  now = Date.now(),
 }) {
   const timetable = timetableData && typeof timetableData === 'object' ? timetableData : {}
   const meta = metadata && typeof metadata === 'object' ? metadata : {}
@@ -123,8 +126,12 @@ export function buildNeisTimetableSyncState({
     const previousClientSyncAt = Number(lastClientSyncAt || 0)
     const legacyWasEditedAfterLastSync = previousClientSyncAt > 0
       && documentUpdatedAt > previousClientSyncAt + 1000
+    const legacyWasRecentlyEditedWithoutClientCache = previousClientSyncAt <= 0
+      && documentUpdatedAt > 0
+      && Number(now) - documentUpdatedAt >= 0
+      && Number(now) - documentUpdatedAt < LEGACY_MANUAL_EDIT_GRACE_MS
 
-    if (legacyWasEditedAfterLastSync) {
+    if (legacyWasEditedAfterLastSync || legacyWasRecentlyEditedWithoutClientCache) {
       manual = manualOverridesFromDifference(nextBase, timetable.weeklySchedule)
     }
   }
