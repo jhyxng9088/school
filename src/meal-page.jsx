@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { readStudentProfile } from './school-sync.js'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -41,6 +42,8 @@ function stableDishKey(dish, index, dishes) {
 }
 
 export default function MealPage({ schoolData }) {
+  const profile = readStudentProfile()
+  const schoolName = profile?.schoolName || '학교'
   const today = new Date()
   const todayDay = today.getDay()
   const weekend = todayDay === 0 || todayDay === 6
@@ -112,7 +115,7 @@ export default function MealPage({ schoolData }) {
   return (
     <section className="stage3-page meal-page">
       <header className="page-header stage3-page-header">
-        <p className="date-label">수지고등학교</p>
+        <p className="date-label">{schoolName}</p>
         <h1>급식</h1>
       </header>
 

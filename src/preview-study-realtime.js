@@ -1,11 +1,12 @@
-import { ensureSignedIn } from './school-sync.js'
+import { classKeyFor, ensureSignedIn, readStudentProfile } from './school-sync.js'
 
 const PROJECT_REF = 'elhlsqhzjmsfhmawrpqu'
 const PUBLISHABLE_KEY = 'sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0'
 const REALTIME_CONFIG_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/board-realtime`
 const REALTIME_SOCKET_URL = `wss://${PROJECT_REF}.supabase.co/realtime/v1/websocket?apikey=${encodeURIComponent(PUBLISHABLE_KEY)}&vsn=1.0.0`
 const REALTIME_BROADCAST_BASE = `https://${PROJECT_REF}.supabase.co/realtime/v1/api/broadcast`
-const SCHOOL_STUDY_TOPIC = 'preview-study-school-v1'
+const LEGACY_SCHOOL_STUDY_TOPIC = 'preview-study-school-v1'
+const PREVIEW_SCHOOL_STUDY_TOPIC = 'preview-study-school-preview-v1'
 const RECONNECT_MIN_MS = 1200
 const RECONNECT_MAX_MS = 12_000
 const HEARTBEAT_MS = 25_000
@@ -19,6 +20,19 @@ async function firebaseAuthorization() {
   const token = String(await user.getIdToken()).trim()
   if (!token) throw new Error('로그인 정보를 확인할 수 없습니다.')
   return `Bearer ${token}`
+}
+
+export function studySchoolTopicForClassId(classId) {
+  const value = String(classId || '').trim()
+  const scoped = /^s-([0-9a-f]{12})-c(?:[1-9]|[12][0-9]|30)$/i.exec(value)
+  if (scoped) return `preview-study-school-${scoped[1].toLowerCase()}-v1`
+  if (/^preview-class-(?:[1-9]|[12][0-9]|30)$/.test(value)) return PREVIEW_SCHOOL_STUDY_TOPIC
+  if (/^class-(?:[1-9]|[12][0-9]|30)$/.test(value)) return LEGACY_SCHOOL_STUDY_TOPIC
+  return ''
+}
+
+function currentSchoolStudyTopic() {
+  return studySchoolTopicForClassId(classKeyFor(readStudentProfile())) || LEGACY_SCHOOL_STUDY_TOPIC
 }
 
 async function loadRealtimeTopic() {
@@ -59,9 +73,10 @@ async function broadcastTopic(topic, kind) {
 export async function broadcastPreviewStudyRealtime(kind = 'study') {
   try {
     const classTopic = await loadRealtimeTopic()
+    const schoolTopic = currentSchoolStudyTopic()
     const results = await Promise.allSettled([
       broadcastTopic(classTopic, kind),
-      broadcastTopic(SCHOOL_STUDY_TOPIC, kind),
+      broadcastTopic(schoolTopic, kind),
     ])
     return results.some((result) => result.status === 'fulfilled')
   } catch (error) {
@@ -188,11 +203,12 @@ function startSubscription(topic, onChange) {
 export async function subscribePreviewStudyRealtime(onClassChange, onSchoolChange = () => {}) {
   if (typeof onClassChange !== 'function' || typeof window === 'undefined' || typeof WebSocket === 'undefined') return () => {}
   const classTopic = await loadRealtimeTopic()
+  const schoolTopic = currentSchoolStudyTopic()
   // Each caller owns its own sockets. The Study page and the global unread
   // controller therefore coexist instead of replacing one another.
   const localStates = [
     startSubscription(classTopic, onClassChange),
-    startSubscription(SCHOOL_STUDY_TOPIC, typeof onSchoolChange === 'function' ? onSchoolChange : () => {}),
+    startSubscription(schoolTopic, typeof onSchoolChange === 'function' ? onSchoolChange : () => {}),
   ]
   let stopped = false
   return () => {

@@ -1,8 +1,14 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
-import { prepareClientDataGeneration, readStudentProfile, saveStudentProfile } from './school-sync.js'
+import {
+  prepareClientDataGeneration,
+  profileSignature,
+  readStudentProfile,
+  saveStudentProfile,
+} from './school-sync.js'
 import { StudentSetup } from './student-setup.jsx'
+import { recoverStudentAuthForProfile } from './student-auth-migration.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -30,10 +36,24 @@ function hasExplicitSchoolSelection() {
   }
 }
 
+async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
+  try {
+    const recovering = await recoverStudentAuthForProfile(
+      profileSignature(configuredProfile),
+      { force: forceAuthReset },
+    )
+    if (recovering) return
+  } catch (error) {
+    console.warn('S-Hub student auth migration skipped:', error)
+  }
+  startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
+}
+
 prepareClientDataGeneration()
 
 const standalone = isStandalone()
 const profile = readStudentProfile()
+const previousProfileSignature = profileSignature(profile)
 const schoolSelectionComplete = hasExplicitSchoolSelection()
 
 // If this page is already running as an installed PWA, installation itself is
@@ -55,16 +75,20 @@ if (standalone && (!profile || !schoolSelectionComplete)) {
     <React.StrictMode>
       <StudentSetup
         initialName={legacyName}
-        onSave={(nextProfile) => {
+        onSave={async (nextProfile) => {
           const saved = saveStudentProfile(nextProfile)
           if (!saved) return
           localStorage.setItem(USER_NAME_KEY, saved.name)
           root.unmount()
-          startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
+          const savedSignature = profileSignature(saved)
+          const schoolIdentityChanged = Boolean(
+            previousProfileSignature && previousProfileSignature !== savedSignature,
+          )
+          await startConfiguredApp(saved, schoolIdentityChanged)
         }}
       />
     </React.StrictMode>,
   )
 } else {
-  startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
+  void startConfiguredApp(profile)
 }
