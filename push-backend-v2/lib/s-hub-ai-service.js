@@ -1,70 +1,120 @@
-
-const FIREBASE_AI_API_KEY = 'AIzaSyD4F5hQItDGTGItXJ2vnuu7ExM1LBLn9E0'
-
-const DEFAULT_MODELS = [
-  'gemini-3.8-flash',
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-]
+const MISTRAL_CHAT_ENDPOINT = 'https://api.mistral.ai/v1/chat/completions'
+const DEFAULT_MODEL = 'mistral-small-2603'
 const MAX_ATTACHMENT_BASE64_CHARS = 3_200_000
 const MAX_SCHEMA_CHARS = 14_000
+const MAX_TEXT_ATTACHMENT_CHARS = 180_000
+const MAX_ATTEMPTS = 2
+
+const TEXT_MIME_TYPES = new Set([
+  'application/json',
+  'text/plain',
+  'text/csv',
+  'text/rtf',
+  'text/html',
+  'text/xml',
+])
 
 function clamp(value, minimum, maximum, fallback) {
   const number = Number(value)
   return Number.isFinite(number) ? Math.max(minimum, Math.min(maximum, number)) : fallback
 }
 
-function aiEndpoint(projectId, modelName) {
-  return `https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelName)}:generateContent`
+function aiError(message, status, code) {
+  return Object.assign(new Error(message), { status, code })
+}
+
+function safeSchema(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw aiError('Invalid response schema', 400, 'invalid_schema')
+  }
+  const serialized = JSON.stringify(value)
+  if (!serialized || serialized.length > MAX_SCHEMA_CHARS) {
+    throw aiError('Response schema is too large', 400, 'invalid_schema')
+  }
+  return JSON.parse(serialized)
+}
+
+function decodeTextAttachment(dataBase64) {
+  let decoded = ''
+  try {
+    decoded = Buffer.from(dataBase64, 'base64').toString('utf8').replace(/\u0000/g, '')
+  } catch {
+    throw aiError('Invalid text attachment', 400, 'invalid_attachment')
+  }
+  if (!decoded.trim()) throw aiError('Empty text attachment', 400, 'invalid_attachment')
+  return decoded.slice(0, MAX_TEXT_ATTACHMENT_CHARS)
 }
 
 function safeAttachments(value) {
   const attachments = Array.isArray(value) ? value.slice(0, 4) : []
   let total = 0
-  return attachments.map((attachment) => {
+  return attachments.map((attachment, index) => {
+    const name = String(attachment?.name || `attachment-${index + 1}`).trim().slice(0, 120)
     const mimeType = String(attachment?.mimeType || '').trim().toLowerCase().slice(0, 120)
     const dataBase64 = String(attachment?.dataBase64 || '').trim()
-    if (!mimeType || !dataBase64) throw Object.assign(new Error('Invalid AI attachment'), { status: 400, code: 'invalid_attachment' })
+    if (!mimeType || !dataBase64) throw aiError('Invalid AI attachment', 400, 'invalid_attachment')
+
     total += dataBase64.length
     if (total > MAX_ATTACHMENT_BASE64_CHARS) {
-      throw Object.assign(new Error('AI attachment payload is too large'), { status: 413, code: 'attachment_too_large' })
+      throw aiError('AI attachment payload is too large', 413, 'attachment_too_large')
     }
-    return { inlineData: { mimeType, data: dataBase64 } }
+
+    if (mimeType.startsWith('image/')) {
+      return {
+        type: 'image_url',
+        image_url: `data:${mimeType};base64,${dataBase64}`,
+      }
+    }
+
+    if (mimeType === 'application/pdf') {
+      return {
+        type: 'document_url',
+        document_url: `data:application/pdf;base64,${dataBase64}`,
+      }
+    }
+
+    if (TEXT_MIME_TYPES.has(mimeType)) {
+      const text = decodeTextAttachment(dataBase64)
+      return {
+        type: 'text',
+        text: `\n--- ATTACHMENT_DATA ${name} (${mimeType}) ---\n${text}\n--- END_ATTACHMENT_DATA ---`,
+      }
+    }
+
+    throw aiError(`Unsupported AI attachment type: ${mimeType}`, 400, 'unsupported_attachment')
   })
 }
 
-function safeSchema(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw Object.assign(new Error('Invalid response schema'), { status: 400, code: 'invalid_schema' })
-  }
-  const serialized = JSON.stringify(value)
-  if (!serialized || serialized.length > MAX_SCHEMA_CHARS) {
-    throw Object.assign(new Error('Response schema is too large'), { status: 400, code: 'invalid_schema' })
-  }
-  return JSON.parse(serialized)
-}
-
-function shouldTryNextModel(error) {
+function shouldRetry(error) {
   const status = Number(error?.status || 0)
-  if ([401, 403].includes(status)) return false
-  if (status === 400 && !String(error?.code || '').toUpperCase().includes('INVALID_ARGUMENT')) return false
-  return true
+  return [408, 425, 500, 502, 503, 504].includes(status)
 }
 
 function responseText(payload) {
-  return String(
-    payload?.candidates?.[0]?.content?.parts
-      ?.map((part) => part?.text || '')
-      .join('') || '',
-  ).trim()
+  const content = payload?.choices?.[0]?.message?.content
+  if (typeof content === 'string') return content.trim()
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((chunk) => (typeof chunk === 'string' ? chunk : chunk?.text || chunk?.content || ''))
+    .join('')
+    .trim()
 }
 
-export async function requestFirebaseModel({
-  projectId,
-  accessToken,
-  appCheckToken,
+function usageInfo(payload) {
+  const usage = payload?.usage
+  if (!usage || typeof usage !== 'object') return null
+  const inputTokens = Number(usage.prompt_tokens ?? usage.input_tokens ?? 0)
+  const outputTokens = Number(usage.completion_tokens ?? usage.output_tokens ?? 0)
+  const totalTokens = Number(usage.total_tokens ?? inputTokens + outputTokens)
+  return {
+    inputTokens: Number.isFinite(inputTokens) ? Math.max(0, inputTokens) : 0,
+    outputTokens: Number.isFinite(outputTokens) ? Math.max(0, outputTokens) : 0,
+    totalTokens: Number.isFinite(totalTokens) ? Math.max(0, totalTokens) : 0,
+  }
+}
+
+export async function requestMistralModel({
+  apiKey,
   modelName,
   prompt,
   attachments,
@@ -76,23 +126,26 @@ export async function requestFirebaseModel({
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(aiEndpoint(projectId, modelName), {
+    const response = await fetch(MISTRAL_CHAT_ENDPOINT, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'X-Firebase-AppCheck': appCheckToken,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'x-goog-api-key': FIREBASE_AI_API_KEY,
-        'x-goog-api-client': 's-hub-server/1.1',
+        'User-Agent': 's-hub-server/2.0',
       },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }, ...attachments] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema,
-          temperature,
-          maxOutputTokens,
+        model: modelName,
+        messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, ...attachments] }],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 's_hub_result',
+            schema: responseSchema,
+            strict: true,
+          },
         },
+        temperature,
+        max_tokens: maxOutputTokens,
       }),
       signal: controller.signal,
     })
@@ -100,34 +153,27 @@ export async function requestFirebaseModel({
     const rawText = await response.text()
     let payload = null
     try { payload = rawText ? JSON.parse(rawText) : null } catch { payload = null }
+
     if (!response.ok) {
-      const error = new Error(String(payload?.error?.message || `Firebase AI HTTP ${response.status}`))
-      error.status = response.status
-      error.code = String(payload?.error?.status || `http-${response.status}`)
-      throw error
+      const message = String(payload?.message || payload?.error?.message || `Mistral AI HTTP ${response.status}`)
+      const code = String(payload?.code || payload?.error?.code || `http-${response.status}`)
+      throw aiError(message, response.status, code)
     }
 
     const generated = responseText(payload)
-    if (!generated) {
-      const error = new Error('Firebase AI returned an empty response')
-      error.status = 502
-      error.code = 'empty_response'
-      throw error
-    }
+    if (!generated) throw aiError('Mistral AI returned an empty response', 502, 'empty_response')
+
+    let value = null
     try {
-      return JSON.parse(generated)
+      value = JSON.parse(generated)
     } catch {
-      const error = new Error('Firebase AI returned invalid JSON')
-      error.status = 502
-      error.code = 'invalid_json'
-      throw error
+      throw aiError('Mistral AI returned invalid JSON', 502, 'invalid_json')
     }
+
+    return { value, usage: usageInfo(payload) }
   } catch (error) {
     if (error?.name === 'AbortError') {
-      const timeout = new Error(`Firebase AI ${modelName} timed out`)
-      timeout.status = 504
-      timeout.code = 'model_timeout'
-      throw timeout
+      throw aiError(`Mistral AI ${modelName} timed out`, 504, 'model_timeout')
     }
     throw error
   } finally {
@@ -135,67 +181,64 @@ export async function requestFirebaseModel({
   }
 }
 
-export async function generateStructuredWithFirebaseAI({
-  projectId,
-  accessToken,
-  appCheckToken,
+export async function generateStructuredAI({
   prompt,
   attachments = [],
   responseSchema,
   maxOutputTokens = 1600,
   timeoutMs = 26000,
   temperature = 0.05,
-  models = null,
-  purpose = 'school',
+  modelName = DEFAULT_MODEL,
 }) {
-  const safeProjectId = String(projectId || '').trim()
-  const safeAccessToken = String(accessToken || '').trim()
-  const safeAppCheckToken = String(appCheckToken || '').trim()
+  const apiKey = String(process.env.MISTRAL_API_KEY || '').trim()
   const safePrompt = String(prompt || '').trim().slice(0, 40_000)
-  if (!safeProjectId || !safeAccessToken || !safeAppCheckToken || !safePrompt) {
-    throw Object.assign(new Error('Missing Firebase AI server credentials or prompt'), { status: 400, code: 'invalid_request' })
-  }
+  const safeModelName = String(modelName || DEFAULT_MODEL).trim() || DEFAULT_MODEL
+  if (!apiKey) throw aiError('MISTRAL_API_KEY is not configured', 503, 'mistral_not_configured')
+  if (!safePrompt) throw aiError('Missing AI prompt', 400, 'invalid_request')
 
-  const parts = safeAttachments(attachments)
+  const contentParts = safeAttachments(attachments)
   const schema = safeSchema(responseSchema)
   const outputTokens = Math.round(clamp(maxOutputTokens, 200, 5000, 1600))
   const overallTimeout = Math.round(clamp(timeoutMs, 5000, 52_000, 26_000))
-  const safeTemperature = clamp(temperature, 0, 1, 0.05)
+  const safeTemperature = clamp(temperature, 0, 0.7, 0.05)
   const deadline = Date.now() + overallTimeout
   const attempts = []
   let lastError = null
-  const preferredModels = Array.isArray(models) && models.length ? models : DEFAULT_MODELS
-  const attachmentAttemptCap = purpose === 'reminder' ? 9000 : 20000
 
-  for (const modelName of preferredModels.slice(0, 5)) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     const remaining = deadline - Date.now()
     if (remaining < 2500) break
-    const attemptTimeout = Math.max(2000, Math.min(remaining, parts.length ? attachmentAttemptCap : 10_000))
+    const attemptCap = contentParts.length ? 30_000 : 12_000
+    const attemptTimeout = Math.max(2000, Math.min(remaining, attemptCap))
     const startedAt = Date.now()
+
     try {
-      const value = await requestFirebaseModel({
-        projectId: safeProjectId,
-        accessToken: safeAccessToken,
-        appCheckToken: safeAppCheckToken,
-        modelName,
+      const result = await requestMistralModel({
+        apiKey,
+        modelName: safeModelName,
         prompt: safePrompt,
-        attachments: parts,
+        attachments: contentParts,
         responseSchema: schema,
         maxOutputTokens: outputTokens,
         temperature: safeTemperature,
         timeoutMs: attemptTimeout,
       })
-      return { value, modelName, attempts }
+      return {
+        value: result.value,
+        modelName: safeModelName,
+        attempts,
+        usage: result.usage,
+      }
     } catch (error) {
       lastError = error
-      attempts.push(`${modelName}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
-      if (!shouldTryNextModel(error)) break
+      attempts.push(`${safeModelName}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
+      if (!shouldRetry(error)) break
     }
   }
 
-  const error = new Error(lastError?.message || 'All Firebase AI server models failed')
+  const error = new Error(lastError?.message || 'Mistral AI request failed')
   error.status = Number(lastError?.status || 502)
-  error.code = String(lastError?.code || 'all_models_failed')
+  error.code = String(lastError?.code || 'ai_request_failed')
   error.attempts = attempts
   throw error
 }
