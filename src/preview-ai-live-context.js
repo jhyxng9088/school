@@ -175,8 +175,8 @@ function questionPriorityKeys(question) {
   if (/리마인더|할\s*일|과제|제출|준비물|수행평가|시험|고사/i.test(text)) add('reminders')
   if (/학사|일정|행사|방학|개학|휴업|시험기간/i.test(text)) add('academic')
 
-  const genericOverview = /(?:오늘|내일|이번\s*주|다음\s*주).*(?:뭐|무엇|있|해야|학교생활)|(?:뭐|무엇).*(?:오늘|내일|이번\s*주|다음\s*주)/i.test(text)
-  if (!keys.length && genericOverview) {
+  const broadOverview = /(?:오늘|내일|이번\s*주|다음\s*주).*(?:일정|뭐|무엇|있|해야|학교생활)|(?:일정|뭐|무엇).*(?:오늘|내일|이번\s*주|다음\s*주)/i.test(text)
+  if (broadOverview && (keys.length === 0 || (keys.length === 1 && keys[0] === 'academic'))) {
     add('reminders')
     add('timetable')
     add('academic')
