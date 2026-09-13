@@ -1,5 +1,5 @@
-const MISTRAL_CHAT_ENDPOINT = 'https://api.mistral.ai/v1/chat/completions'
-const DEFAULT_MODEL = 'mistral-small-2603'
+const OPENROUTER_CHAT_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions'
+const DEFAULT_MODEL = 'google/gemma-4-31b-it:free'
 const MAX_ATTACHMENT_BASE64_CHARS = 3_200_000
 const MAX_SCHEMA_CHARS = 14_000
 const MAX_TEXT_ATTACHMENT_CHARS = 180_000
@@ -62,14 +62,17 @@ function safeAttachments(value) {
     if (mimeType.startsWith('image/')) {
       return {
         type: 'image_url',
-        image_url: `data:${mimeType};base64,${dataBase64}`,
+        image_url: { url: `data:${mimeType};base64,${dataBase64}` },
       }
     }
 
     if (mimeType === 'application/pdf') {
       return {
-        type: 'document_url',
-        document_url: `data:application/pdf;base64,${dataBase64}`,
+        type: 'file',
+        file: {
+          filename: name || `attachment-${index + 1}.pdf`,
+          file_data: `data:application/pdf;base64,${dataBase64}`,
+        },
       }
     }
 
@@ -141,7 +144,15 @@ function attachmentBase64Chars(value) {
     .reduce((total, attachment) => total + String(attachment?.dataBase64 || '').length, 0)
 }
 
-export async function requestMistralModel({
+function structuredPrompt(prompt, responseSchema) {
+  return `${prompt}\n\n--- RESPONSE CONTRACT ---\nReturn exactly one JSON object and nothing else. Do not use Markdown fences. The JSON must match this schema as closely as possible. If a value is not supported by the provided facts, use the schema-compatible empty/default value rather than inventing information.\nJSON_SCHEMA:\n${JSON.stringify(responseSchema)}\n--- END RESPONSE CONTRACT ---`
+}
+
+function hasPdfAttachment(attachments) {
+  return attachments.some((attachment) => attachment?.type === 'file')
+}
+
+export async function requestOpenRouterModel({
   apiKey,
   modelName,
   prompt,
@@ -154,27 +165,26 @@ export async function requestMistralModel({
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(MISTRAL_CHAT_ENDPOINT, {
+    const body = {
+      model: modelName,
+      messages: [{ role: 'user', content: [{ type: 'text', text: structuredPrompt(prompt, responseSchema) }, ...attachments] }],
+      response_format: { type: 'json_object' },
+      temperature,
+      max_tokens: maxOutputTokens,
+    }
+    if (hasPdfAttachment(attachments)) {
+      body.plugins = [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }]
+    }
+
+    const response = await fetch(OPENROUTER_CHAT_ENDPOINT, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'User-Agent': 's-hub-server/2.0',
+        'X-Title': 'S-Hub',
       },
-      body: JSON.stringify({
-        model: modelName,
-        messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, ...attachments] }],
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 's_hub_result',
-            schema: responseSchema,
-            strict: true,
-          },
-        },
-        temperature,
-        max_tokens: maxOutputTokens,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     })
 
@@ -183,27 +193,27 @@ export async function requestMistralModel({
     try { payload = rawText ? JSON.parse(rawText) : null } catch { payload = null }
 
     if (!response.ok) {
-      const message = String(payload?.message || payload?.error?.message || `Mistral AI HTTP ${response.status}`)
-      const code = String(payload?.code || payload?.error?.code || `http-${response.status}`)
+      const message = String(payload?.error?.message || payload?.message || `OpenRouter AI HTTP ${response.status}`)
+      const code = String(payload?.error?.code || payload?.code || `http-${response.status}`)
       const error = aiError(message, response.status, code)
       error.rateLimit = rateLimitMetadata(response)
       throw error
     }
 
     const generated = responseText(payload)
-    if (!generated) throw aiError('Mistral AI returned an empty response', 502, 'empty_response')
+    if (!generated) throw aiError('OpenRouter AI returned an empty response', 502, 'empty_response')
 
     let value = null
     try {
       value = JSON.parse(generated)
     } catch {
-      throw aiError('Mistral AI returned invalid JSON', 502, 'invalid_json')
+      throw aiError('OpenRouter AI returned invalid JSON', 502, 'invalid_json')
     }
 
     return { value, usage: usageInfo(payload) }
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw aiError(`Mistral AI ${modelName} timed out`, 504, 'model_timeout')
+      throw aiError(`OpenRouter AI ${modelName} timed out`, 504, 'model_timeout')
     }
     throw error
   } finally {
@@ -220,10 +230,10 @@ export async function generateStructuredAI({
   temperature = 0.05,
   modelName = DEFAULT_MODEL,
 }) {
-  const apiKey = String(process.env.MISTRAL_API_KEY || '').trim()
+  const apiKey = String(process.env.OPENROUTER_API_KEY || '').trim()
   const safePrompt = String(prompt || '').trim().slice(0, 40_000)
   const safeModelName = String(modelName || DEFAULT_MODEL).trim() || DEFAULT_MODEL
-  if (!apiKey) throw aiError('MISTRAL_API_KEY is not configured', 503, 'mistral_not_configured')
+  if (!apiKey) throw aiError('OPENROUTER_API_KEY is not configured', 503, 'openrouter_not_configured')
   if (!safePrompt) throw aiError('Missing AI prompt', 400, 'invalid_request')
 
   const rawAttachments = Array.isArray(attachments) ? attachments.slice(0, 4) : []
@@ -251,7 +261,7 @@ export async function generateStructuredAI({
     const startedAt = Date.now()
 
     try {
-      const result = await requestMistralModel({
+      const result = await requestOpenRouterModel({
         apiKey,
         modelName: safeModelName,
         prompt: safePrompt,
@@ -271,7 +281,7 @@ export async function generateStructuredAI({
       lastError = error
       attempts.push(`${safeModelName}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
       if (Number(error?.status) === 429) {
-        console.error('mistral rate-limit diagnostic', {
+        console.error('openrouter rate-limit diagnostic', {
           ...requestMeta,
           status: 429,
           code: String(error?.code || ''),
@@ -282,7 +292,7 @@ export async function generateStructuredAI({
     }
   }
 
-  const error = new Error(lastError?.message || 'Mistral AI request failed')
+  const error = new Error(lastError?.message || 'OpenRouter AI request failed')
   error.status = Number(lastError?.status || 502)
   error.code = String(lastError?.code || 'ai_request_failed')
   error.attempts = attempts
