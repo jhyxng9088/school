@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { generateStructuredAI, requestMistralModel } from '../lib/s-hub-ai-service.js'
+import { generateStructuredAI, requestOpenRouterModel } from '../lib/s-hub-ai-service.js'
 
 const schema = {
   type: 'object',
@@ -20,16 +20,16 @@ function response(status, payload, headers = {}) {
   }
 }
 
-function withApiKey(value = 'test-mistral-key') {
-  const previous = process.env.MISTRAL_API_KEY
-  process.env.MISTRAL_API_KEY = value
+function withApiKey(value = 'test-openrouter-key') {
+  const previous = process.env.OPENROUTER_API_KEY
+  process.env.OPENROUTER_API_KEY = value
   return () => {
-    if (previous === undefined) delete process.env.MISTRAL_API_KEY
-    else process.env.MISTRAL_API_KEY = previous
+    if (previous === undefined) delete process.env.OPENROUTER_API_KEY
+    else process.env.OPENROUTER_API_KEY = previous
   }
 }
 
-test('Mistral request uses bearer auth, pinned model and strict JSON schema', async () => {
+test('OpenRouter request uses bearer auth, pinned free Gemma model and JSON object mode', async () => {
   const originalFetch = globalThis.fetch
   let request = null
   globalThis.fetch = async (url, init) => {
@@ -40,9 +40,9 @@ test('Mistral request uses bearer auth, pinned model and strict JSON schema', as
     })
   }
   try {
-    const result = await requestMistralModel({
+    const result = await requestOpenRouterModel({
       apiKey: 'secret',
-      modelName: 'mistral-small-2603',
+      modelName: 'google/gemma-4-31b-it:free',
       prompt: 'hello',
       attachments: [],
       responseSchema: schema,
@@ -53,18 +53,18 @@ test('Mistral request uses bearer auth, pinned model and strict JSON schema', as
     const body = JSON.parse(request.init.body)
     assert.deepEqual(result.value, { answer: 'ok' })
     assert.equal(result.usage.totalTokens, 15)
-    assert.equal(request.url, 'https://api.mistral.ai/v1/chat/completions')
+    assert.equal(request.url, 'https://openrouter.ai/api/v1/chat/completions')
     assert.equal(request.init.headers.Authorization, 'Bearer secret')
-    assert.equal(body.model, 'mistral-small-2603')
-    assert.equal(body.response_format.type, 'json_schema')
-    assert.deepEqual(body.response_format.json_schema.schema, schema)
-    assert.equal(body.response_format.json_schema.strict, true)
+    assert.equal(body.model, 'google/gemma-4-31b-it:free')
+    assert.equal(body.response_format.type, 'json_object')
+    assert.match(body.messages[0].content[0].text, /JSON_SCHEMA:/)
+    assert.match(body.messages[0].content[0].text, /"answer"/)
   } finally {
     globalThis.fetch = originalFetch
   }
 })
 
-test('image, PDF and text attachments use Mistral multimodal content chunks', async () => {
+test('image, PDF and text attachments use OpenRouter multimodal chunks with free PDF parser', async () => {
   const restoreKey = withApiKey()
   const originalFetch = globalThis.fetch
   let body = null
@@ -86,21 +86,23 @@ test('image, PDF and text attachments use Mistral multimodal content chunks', as
       ],
     })
     const content = body.messages[0].content
-    assert.equal(result.modelName, 'mistral-small-2603')
+    assert.equal(result.modelName, 'google/gemma-4-31b-it:free')
     assert.equal(content[1].type, 'image_url')
-    assert.equal(content[1].image_url, 'data:image/jpeg;base64,AA==')
-    assert.equal(content[2].type, 'document_url')
-    assert.equal(content[2].document_url, 'data:application/pdf;base64,AQ==')
+    assert.equal(content[1].image_url.url, 'data:image/jpeg;base64,AA==')
+    assert.equal(content[2].type, 'file')
+    assert.equal(content[2].file.filename, 'notice.pdf')
+    assert.equal(content[2].file.file_data, 'data:application/pdf;base64,AQ==')
     assert.equal(content[3].type, 'text')
     assert.match(content[3].text, /학교 공지/)
     assert.match(content[3].text, /memo\.txt/)
+    assert.deepEqual(body.plugins, [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }])
   } finally {
     globalThis.fetch = originalFetch
     restoreKey()
   }
 })
 
-test('default provider retries the same pinned model only once on transient failure', async () => {
+test('default provider retries the same pinned OpenRouter model only once on transient failure', async () => {
   const restoreKey = withApiKey()
   const originalFetch = globalThis.fetch
   const models = []
@@ -108,7 +110,7 @@ test('default provider retries the same pinned model only once on transient fail
   globalThis.fetch = async (_url, init) => {
     calls += 1
     models.push(JSON.parse(init.body).model)
-    if (calls === 1) return response(503, { message: 'temporarily unavailable', code: 'service_unavailable' })
+    if (calls === 1) return response(503, { error: { message: 'temporarily unavailable', code: 'service_unavailable' } })
     return response(200, {
       choices: [{ message: { content: JSON.stringify({ answer: 'second' }) } }],
     })
@@ -120,7 +122,7 @@ test('default provider retries the same pinned model only once on transient fail
       timeoutMs: 8000,
     })
     assert.deepEqual(result.value, { answer: 'second' })
-    assert.deepEqual(models, ['mistral-small-2603', 'mistral-small-2603'])
+    assert.deepEqual(models, ['google/gemma-4-31b-it:free', 'google/gemma-4-31b-it:free'])
     assert.equal(result.attempts.length, 1)
   } finally {
     globalThis.fetch = originalFetch
@@ -136,7 +138,7 @@ test('authorization and rate-limit failures are not retried', async () => {
     let calls = 0
     globalThis.fetch = async () => {
       calls += 1
-      return response(status, { message: 'denied', code: `http-${status}` })
+      return response(status, { error: { message: 'denied', code: `http-${status}` } })
     }
     console.error = () => {}
     try {
@@ -159,13 +161,13 @@ test('429 preserves safe provider headers and request-size metadata for diagnost
   const originalConsoleError = console.error
   globalThis.fetch = async () => response(
     429,
-    { message: 'Rate limit exceeded', code: '1300' },
+    { error: { message: 'Rate limit exceeded', code: 429 } },
     {
       'x-request-id': 'req-test-123',
       'retry-after': '60',
       'x-ratelimit-remaining': '0',
-      'x-ratelimit-limit-tokens': '20000',
-      'x-ratelimit-remaining-tokens': '0',
+      'x-ratelimit-limit-requests': '50',
+      'x-ratelimit-remaining-requests': '0',
     },
   )
   console.error = () => {}
@@ -179,14 +181,14 @@ test('429 preserves safe provider headers and request-size metadata for diagnost
       }),
       (error) => {
         assert.equal(error.status, 429)
-        assert.equal(error.code, '1300')
+        assert.equal(error.code, '429')
         assert.equal(error.rateLimit.requestId, 'req-test-123')
         assert.equal(error.rateLimit.retryAfter, '60')
         assert.equal(error.rateLimit.remaining, '0')
-        assert.equal(error.rateLimit.limitTokens, '20000')
-        assert.equal(error.rateLimit.remainingTokens, '0')
+        assert.equal(error.rateLimit.limitRequests, '50')
+        assert.equal(error.rateLimit.remainingRequests, '0')
         assert.deepEqual(error.requestMeta, {
-          modelName: 'mistral-small-2603',
+          modelName: 'google/gemma-4-31b-it:free',
           promptChars: 5,
           attachmentCount: 1,
           attachmentBase64Chars: 4,
@@ -204,8 +206,8 @@ test('429 preserves safe provider headers and request-size metadata for diagnost
 
 test('missing server API key fails before any provider request', async () => {
   const originalFetch = globalThis.fetch
-  const previous = process.env.MISTRAL_API_KEY
-  delete process.env.MISTRAL_API_KEY
+  const previous = process.env.OPENROUTER_API_KEY
+  delete process.env.OPENROUTER_API_KEY
   let calls = 0
   globalThis.fetch = async () => {
     calls += 1
@@ -214,12 +216,12 @@ test('missing server API key fails before any provider request', async () => {
   try {
     await assert.rejects(
       generateStructuredAI({ prompt: 'hello', responseSchema: schema }),
-      (error) => error.status === 503 && error.code === 'mistral_not_configured',
+      (error) => error.status === 503 && error.code === 'openrouter_not_configured',
     )
     assert.equal(calls, 0)
   } finally {
     globalThis.fetch = originalFetch
-    if (previous === undefined) delete process.env.MISTRAL_API_KEY
-    else process.env.MISTRAL_API_KEY = previous
+    if (previous === undefined) delete process.env.OPENROUTER_API_KEY
+    else process.env.OPENROUTER_API_KEY = previous
   }
 })
