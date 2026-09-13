@@ -1,4 +1,3 @@
-
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -11,14 +10,18 @@ test('S-Hub no longer depends on iOS reCAPTCHA App Check attestation', () => {
   assert.match(transport, /getIdToken/)
   assert.doesNotMatch(transport, /firebase-ai-direct/)
   assert.doesNotMatch(transport, /AppCheck|App Check|X-Firebase-AppCheck/)
+  assert.doesNotMatch(transport, /MISTRAL_API_KEY/)
 })
 
-test('server uses Firebase Admin to mint App Check for Firebase AI', () => {
-  const admin = read('push-backend-v2/lib/firebase-admin.js')
+test('server verifies Firebase identity while Mistral provider auth stays server-side', () => {
   const endpoint = read('push-backend-v2/api/s-hub-ai.js')
-  assert.match(admin, /firebase-admin\/app-check/)
-  assert.match(admin, /createToken\(safeAppId/)
-  assert.match(endpoint, /adminAppCheckToken/)
+  const service = read('push-backend-v2/lib/s-hub-ai-service.js')
+
+  assert.match(endpoint, /adminAuth\(\)\.verifyIdToken\(token\)/)
+  assert.doesNotMatch(endpoint, /adminAppCheckToken|adminAccessToken/)
+  assert.match(service, /process\.env\.MISTRAL_API_KEY/)
+  assert.match(service, /Authorization: `Bearer \$\{apiKey\}`/)
+  assert.doesNotMatch(service, /FIREBASE_AI_API_KEY|firebasevertexai\.googleapis\.com/)
 })
 
 test('service worker cache advances for unified S-Hub AI UX', () => {
