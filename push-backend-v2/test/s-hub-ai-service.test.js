@@ -8,10 +8,14 @@ const schema = {
   required: ['answer'],
 }
 
-function response(status, payload) {
+function response(status, payload, headers = {}) {
+  const normalizedHeaders = new Map(
+    Object.entries(headers).map(([key, value]) => [String(key).toLowerCase(), String(value)]),
+  )
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: { get: (name) => normalizedHeaders.get(String(name).toLowerCase()) || null },
     text: async () => JSON.stringify(payload),
   }
 }
@@ -128,11 +132,13 @@ test('authorization and rate-limit failures are not retried', async () => {
   for (const status of [401, 403, 429]) {
     const restoreKey = withApiKey()
     const originalFetch = globalThis.fetch
+    const originalConsoleError = console.error
     let calls = 0
     globalThis.fetch = async () => {
       calls += 1
       return response(status, { message: 'denied', code: `http-${status}` })
     }
+    console.error = () => {}
     try {
       await assert.rejects(
         generateStructuredAI({ prompt: 'hello', responseSchema: schema, timeoutMs: 8000 }),
@@ -140,9 +146,59 @@ test('authorization and rate-limit failures are not retried', async () => {
       )
       assert.equal(calls, 1)
     } finally {
+      console.error = originalConsoleError
       globalThis.fetch = originalFetch
       restoreKey()
     }
+  }
+})
+
+test('429 preserves safe provider headers and request-size metadata for diagnostics', async () => {
+  const restoreKey = withApiKey()
+  const originalFetch = globalThis.fetch
+  const originalConsoleError = console.error
+  globalThis.fetch = async () => response(
+    429,
+    { message: 'Rate limit exceeded', code: '1300' },
+    {
+      'x-request-id': 'req-test-123',
+      'retry-after': '60',
+      'x-ratelimit-remaining': '0',
+      'x-ratelimit-limit-tokens': '20000',
+      'x-ratelimit-remaining-tokens': '0',
+    },
+  )
+  console.error = () => {}
+  try {
+    await assert.rejects(
+      generateStructuredAI({
+        prompt: 'hello',
+        responseSchema: schema,
+        maxOutputTokens: 300,
+        attachments: [{ name: 'notice.jpg', mimeType: 'image/jpeg', dataBase64: 'AA==' }],
+      }),
+      (error) => {
+        assert.equal(error.status, 429)
+        assert.equal(error.code, '1300')
+        assert.equal(error.rateLimit.requestId, 'req-test-123')
+        assert.equal(error.rateLimit.retryAfter, '60')
+        assert.equal(error.rateLimit.remaining, '0')
+        assert.equal(error.rateLimit.limitTokens, '20000')
+        assert.equal(error.rateLimit.remainingTokens, '0')
+        assert.deepEqual(error.requestMeta, {
+          modelName: 'mistral-small-2603',
+          promptChars: 5,
+          attachmentCount: 1,
+          attachmentBase64Chars: 4,
+          maxOutputTokens: 300,
+        })
+        return true
+      },
+    )
+  } finally {
+    console.error = originalConsoleError
+    globalThis.fetch = originalFetch
+    restoreKey()
   }
 })
 
