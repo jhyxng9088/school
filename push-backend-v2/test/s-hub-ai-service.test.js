@@ -8,6 +8,12 @@ const schema = {
   required: ['answer'],
 }
 
+const defaultFallbackChain = [
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it-20260403:free',
+  'openrouter/free',
+]
+
 function response(status, payload, headers = {}) {
   const normalizedHeaders = new Map(
     Object.entries(headers).map(([key, value]) => [String(key).toLowerCase(), String(value)]),
@@ -29,12 +35,13 @@ function withApiKey(value = 'test-openrouter-key') {
   }
 }
 
-test('OpenRouter request uses bearer auth, pinned free Gemma model and JSON object mode', async () => {
+test('OpenRouter request uses bearer auth, explicit single model and JSON object mode', async () => {
   const originalFetch = globalThis.fetch
   let request = null
   globalThis.fetch = async (url, init) => {
     request = { url: String(url), init }
     return response(200, {
+      model: 'google/gemma-4-31b-it:free',
       choices: [{ message: { content: JSON.stringify({ answer: 'ok' }) } }],
       usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 },
     })
@@ -53,14 +60,40 @@ test('OpenRouter request uses bearer auth, pinned free Gemma model and JSON obje
     const body = JSON.parse(request.init.body)
     assert.deepEqual(result.value, { answer: 'ok' })
     assert.equal(result.usage.totalTokens, 15)
+    assert.equal(result.modelName, 'google/gemma-4-31b-it:free')
     assert.equal(request.url, 'https://openrouter.ai/api/v1/chat/completions')
     assert.equal(request.init.headers.Authorization, 'Bearer secret')
     assert.equal(body.model, 'google/gemma-4-31b-it:free')
+    assert.equal(body.models, undefined)
     assert.equal(body.response_format.type, 'json_object')
     assert.match(body.messages[0].content[0].text, /JSON_SCHEMA:/)
     assert.match(body.messages[0].content[0].text, /"answer"/)
   } finally {
     globalThis.fetch = originalFetch
+  }
+})
+
+test('default requests send ordered free model fallbacks and report the model that served the response', async () => {
+  const restoreKey = withApiKey()
+  const originalFetch = globalThis.fetch
+  let body = null
+  globalThis.fetch = async (_url, init) => {
+    body = JSON.parse(init.body)
+    return response(200, {
+      model: 'google/gemma-4-26b-a4b-it-20260403:free',
+      choices: [{ message: { content: JSON.stringify({ answer: 'fallback-ok' }) } }],
+      usage: { prompt_tokens: 20, completion_tokens: 4, total_tokens: 24 },
+    })
+  }
+  try {
+    const result = await generateStructuredAI({ prompt: 'hello', responseSchema: schema })
+    assert.deepEqual(body.models, defaultFallbackChain)
+    assert.equal(body.model, undefined)
+    assert.equal(result.modelName, 'google/gemma-4-26b-a4b-it-20260403:free')
+    assert.deepEqual(result.value, { answer: 'fallback-ok' })
+  } finally {
+    globalThis.fetch = originalFetch
+    restoreKey()
   }
 })
 
@@ -71,6 +104,7 @@ test('image, PDF and text attachments use OpenRouter multimodal chunks with free
   globalThis.fetch = async (_url, init) => {
     body = JSON.parse(init.body)
     return response(200, {
+      model: 'google/gemma-4-31b-it:free',
       choices: [{ message: { content: JSON.stringify({ answer: 'attachments-ok' }) } }],
       usage: { prompt_tokens: 100, completion_tokens: 5, total_tokens: 105 },
     })
@@ -87,6 +121,7 @@ test('image, PDF and text attachments use OpenRouter multimodal chunks with free
     })
     const content = body.messages[0].content
     assert.equal(result.modelName, 'google/gemma-4-31b-it:free')
+    assert.deepEqual(body.models, defaultFallbackChain)
     assert.equal(content[1].type, 'image_url')
     assert.equal(content[1].image_url.url, 'data:image/jpeg;base64,AA==')
     assert.equal(content[2].type, 'file')
@@ -102,16 +137,17 @@ test('image, PDF and text attachments use OpenRouter multimodal chunks with free
   }
 })
 
-test('default provider retries the same pinned OpenRouter model only once on transient failure', async () => {
+test('default provider retries the whole OpenRouter fallback chain only once on transient failure', async () => {
   const restoreKey = withApiKey()
   const originalFetch = globalThis.fetch
-  const models = []
+  const modelChains = []
   let calls = 0
   globalThis.fetch = async (_url, init) => {
     calls += 1
-    models.push(JSON.parse(init.body).model)
+    modelChains.push(JSON.parse(init.body).models)
     if (calls === 1) return response(503, { error: { message: 'temporarily unavailable', code: 'service_unavailable' } })
     return response(200, {
+      model: 'openrouter/free',
       choices: [{ message: { content: JSON.stringify({ answer: 'second' }) } }],
     })
   }
@@ -122,7 +158,8 @@ test('default provider retries the same pinned OpenRouter model only once on tra
       timeoutMs: 8000,
     })
     assert.deepEqual(result.value, { answer: 'second' })
-    assert.deepEqual(models, ['google/gemma-4-31b-it:free', 'google/gemma-4-31b-it:free'])
+    assert.deepEqual(modelChains, [defaultFallbackChain, defaultFallbackChain])
+    assert.equal(result.modelName, 'openrouter/free')
     assert.equal(result.attempts.length, 1)
   } finally {
     globalThis.fetch = originalFetch
@@ -130,7 +167,7 @@ test('default provider retries the same pinned OpenRouter model only once on tra
   }
 })
 
-test('authorization and rate-limit failures are not retried', async () => {
+test('authorization and rate-limit failures are not retried after OpenRouter exhausts its fallback chain', async () => {
   for (const status of [401, 403, 429]) {
     const restoreKey = withApiKey()
     const originalFetch = globalThis.fetch
