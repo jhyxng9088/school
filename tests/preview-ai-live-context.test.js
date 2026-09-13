@@ -45,10 +45,11 @@ test('preview AI sends only relevant school-data domains and enforces a context 
 
 test('preview AI preserves broad today and week overview questions without restoring every source', () => {
   const runtime = read('src/preview-ai-live-context.js')
-  assert.match(runtime, /genericOverview/)
+  assert.match(runtime, /broadOverview/)
+  assert.match(runtime, /keys\.length === 0 \|\| \(keys\.length === 1 && keys\[0\] === 'academic'\)/)
   assert.match(runtime, /add\('reminders'\)[\s\S]*add\('timetable'\)[\s\S]*add\('academic'\)/)
-  assert.doesNotMatch(runtime, /genericOverview[\s\S]*add\('study'\)/)
-  assert.doesNotMatch(runtime, /genericOverview[\s\S]*add\('board'\)/)
+  assert.doesNotMatch(runtime, /broadOverview[\s\S]*add\('study'\)/)
+  assert.doesNotMatch(runtime, /broadOverview[\s\S]*add\('board'\)/)
 })
 
 test('preview AI prompt understands live study ranks, board posts, and unavailable-source semantics', () => {
