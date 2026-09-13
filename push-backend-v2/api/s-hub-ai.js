@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto'
-import { adminAccessToken, adminAppCheckToken, adminAuth, adminDb, adminProjectId } from '../lib/firebase-admin.js'
-import { generateStructuredWithFirebaseAI } from '../lib/s-hub-ai-service.js'
+import { adminAuth, adminDb } from '../lib/firebase-admin.js'
+import { generateStructuredAI } from '../lib/s-hub-ai-service.js'
 
-const FIREBASE_APP_ID = '1:321702677113:web:390c5d63e3d93ec17f22a8'
 const AI_CACHE_COLLECTION = 'sHubAiResponseCache'
 const AI_CACHE_TTL_MS = 10 * 60 * 1000
 const AI_CACHE_PRUNE_LIMIT = 20
@@ -23,7 +22,7 @@ export function schoolQuestionCacheKey(body, prompt, purpose, classId = '') {
   const safeClassId = String(classId || '').trim()
   if (body?.cacheScope !== 'school-question' || purpose !== 'school' || !safeClassId) return ''
   const digest = createHash('sha256')
-  digest.update('s-hub-school-question-v2\n')
+  digest.update('s-hub-school-question-v3\n')
   digest.update(`CLASS\n${safeClassId}\n`)
   digest.update(normalizedPromptForCache(prompt))
   digest.update('\nSCHEMA\n')
@@ -94,9 +93,18 @@ function clientMessage(error) {
   const status = Number(error?.status || 0)
   if (status === 413) return '첨부 용량이 너무 커요. 사진 수나 파일 용량을 줄여 주세요.'
   if (status === 429) return 'AI 사용량이 잠시 많아요. 잠시 후 다시 시도해 주세요.'
+  if (status === 503) return 'AI 서버가 잠시 준비되지 않았어요. 잠시 후 다시 시도해 주세요.'
   if (status === 504) return 'AI 응답 시간이 초과됐어요. 다시 시도해 주세요.'
   if (status === 400) return 'AI 요청 내용을 처리하지 못했어요. 입력이나 첨부를 확인해 주세요.'
   return 'AI 서버에 연결하지 못했어요. 다시 시도해 주세요.'
+}
+
+function publicResult(result) {
+  return {
+    value: result?.value,
+    modelName: String(result?.modelName || ''),
+    attempts: Array.isArray(result?.attempts) ? result.attempts : [],
+  }
 }
 
 export default async function handler(req, res) {
@@ -127,22 +135,26 @@ export default async function handler(req, res) {
       if (cached) return res.status(200).json({ ok: true, result: cached })
     }
 
-    const [accessToken, appCheckToken] = await Promise.all([
-      adminAccessToken(),
-      adminAppCheckToken(FIREBASE_APP_ID),
-    ])
-    const result = await generateStructuredWithFirebaseAI({
-      projectId: adminProjectId(),
-      accessToken,
-      appCheckToken,
+    const generated = await generateStructuredAI({
       prompt,
       attachments: body.attachments,
       responseSchema: body.responseSchema,
       maxOutputTokens: body.maxOutputTokens,
       timeoutMs: body.timeoutMs,
       temperature: body.temperature,
-      purpose,
     })
+    const result = publicResult(generated)
+
+    if (generated?.usage) {
+      console.info('s-hub-ai usage', {
+        modelName: generated.modelName,
+        purpose,
+        inputTokens: generated.usage.inputTokens,
+        outputTokens: generated.usage.outputTokens,
+        totalTokens: generated.usage.totalTokens,
+      })
+    }
+
     if (cacheKey) {
       try {
         await writeSchoolQuestionCache(db, cacheKey, result)
@@ -161,7 +173,7 @@ export default async function handler(req, res) {
       attempts: error?.attempts,
       message: error?.message,
     })
-    const status = [400, 413, 429, 504].includes(Number(error?.status)) ? Number(error.status) : 502
+    const status = [400, 413, 429, 503, 504].includes(Number(error?.status)) ? Number(error.status) : 502
     return res.status(status).json({
       ok: false,
       error: String(error?.code || 's_hub_ai_failed'),
