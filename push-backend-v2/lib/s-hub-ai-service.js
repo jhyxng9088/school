@@ -113,6 +113,34 @@ function usageInfo(payload) {
   }
 }
 
+function responseHeader(response, name) {
+  try {
+    const value = response?.headers?.get?.(name)
+    return value == null || value === '' ? null : String(value).slice(0, 160)
+  } catch {
+    return null
+  }
+}
+
+function rateLimitMetadata(response) {
+  return {
+    requestId: responseHeader(response, 'x-request-id'),
+    retryAfter: responseHeader(response, 'retry-after'),
+    limit: responseHeader(response, 'x-ratelimit-limit'),
+    remaining: responseHeader(response, 'x-ratelimit-remaining'),
+    reset: responseHeader(response, 'x-ratelimit-reset'),
+    limitRequests: responseHeader(response, 'x-ratelimit-limit-requests'),
+    remainingRequests: responseHeader(response, 'x-ratelimit-remaining-requests'),
+    limitTokens: responseHeader(response, 'x-ratelimit-limit-tokens'),
+    remainingTokens: responseHeader(response, 'x-ratelimit-remaining-tokens'),
+  }
+}
+
+function attachmentBase64Chars(value) {
+  return (Array.isArray(value) ? value.slice(0, 4) : [])
+    .reduce((total, attachment) => total + String(attachment?.dataBase64 || '').length, 0)
+}
+
 export async function requestMistralModel({
   apiKey,
   modelName,
@@ -157,7 +185,9 @@ export async function requestMistralModel({
     if (!response.ok) {
       const message = String(payload?.message || payload?.error?.message || `Mistral AI HTTP ${response.status}`)
       const code = String(payload?.code || payload?.error?.code || `http-${response.status}`)
-      throw aiError(message, response.status, code)
+      const error = aiError(message, response.status, code)
+      error.rateLimit = rateLimitMetadata(response)
+      throw error
     }
 
     const generated = responseText(payload)
@@ -196,11 +226,19 @@ export async function generateStructuredAI({
   if (!apiKey) throw aiError('MISTRAL_API_KEY is not configured', 503, 'mistral_not_configured')
   if (!safePrompt) throw aiError('Missing AI prompt', 400, 'invalid_request')
 
-  const contentParts = safeAttachments(attachments)
+  const rawAttachments = Array.isArray(attachments) ? attachments.slice(0, 4) : []
+  const contentParts = safeAttachments(rawAttachments)
   const schema = safeSchema(responseSchema)
   const outputTokens = Math.round(clamp(maxOutputTokens, 200, 5000, 1600))
   const overallTimeout = Math.round(clamp(timeoutMs, 5000, 52_000, 26_000))
   const safeTemperature = clamp(temperature, 0, 0.7, 0.05)
+  const requestMeta = {
+    modelName: safeModelName,
+    promptChars: safePrompt.length,
+    attachmentCount: rawAttachments.length,
+    attachmentBase64Chars: attachmentBase64Chars(rawAttachments),
+    maxOutputTokens: outputTokens,
+  }
   const deadline = Date.now() + overallTimeout
   const attempts = []
   let lastError = null
@@ -232,6 +270,14 @@ export async function generateStructuredAI({
     } catch (error) {
       lastError = error
       attempts.push(`${safeModelName}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
+      if (Number(error?.status) === 429) {
+        console.error('mistral rate-limit diagnostic', {
+          ...requestMeta,
+          status: 429,
+          code: String(error?.code || ''),
+          rateLimit: error?.rateLimit || null,
+        })
+      }
       if (!shouldRetry(error)) break
     }
   }
@@ -240,5 +286,7 @@ export async function generateStructuredAI({
   error.status = Number(lastError?.status || 502)
   error.code = String(lastError?.code || 'ai_request_failed')
   error.attempts = attempts
+  error.rateLimit = lastError?.rateLimit || null
+  error.requestMeta = requestMeta
   throw error
 }
