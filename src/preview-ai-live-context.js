@@ -7,6 +7,7 @@ const MAX_CLASS_STUDENTS = 60
 const MAX_SCHOOL_STUDENTS = 120
 const MAX_BOARD_POSTS = 24
 const MAX_BOARD_COMMENTS_PER_POST = 3
+const MAX_CONTEXT_JSON_CHARS = 9000
 const CONTEXT_DATA_KEYS = ['study', 'board', 'reminders', 'timetable', 'academic', 'meals']
 
 function cleanText(value, maxLength) {
@@ -173,7 +174,73 @@ function questionPriorityKeys(question) {
   if (/시간표|교시|수업|과목/i.test(text)) add('timetable')
   if (/리마인더|할\s*일|과제|제출|준비물|수행평가|시험|고사/i.test(text)) add('reminders')
   if (/학사|일정|행사|방학|개학|휴업|시험기간/i.test(text)) add('academic')
+
+  const genericOverview = /(?:오늘|내일|이번\s*주|다음\s*주).*(?:뭐|무엇|있|해야|학교생활)|(?:뭐|무엇).*(?:오늘|내일|이번\s*주|다음\s*주)/i.test(text)
+  if (!keys.length && genericOverview) {
+    add('reminders')
+    add('timetable')
+    add('academic')
+  }
   return keys
+}
+
+function serializedChars(value) {
+  try {
+    return JSON.stringify(value).length
+  } catch {
+    return Number.POSITIVE_INFINITY
+  }
+}
+
+function shrinkArray(value, maxItems, charBudget) {
+  const rows = (Array.isArray(value) ? value : []).slice(0, maxItems)
+  while (rows.length > 1 && serializedChars(rows) > charBudget) rows.pop()
+  return rows
+}
+
+function shrinkBoard(value, charBudget) {
+  if (!value || typeof value !== 'object') return null
+  const board = {
+    ...value,
+    sections: Array.isArray(value.sections) ? value.sections.slice(0, 12) : [],
+    posts: Array.isArray(value.posts) ? value.posts.slice(0, 12) : [],
+  }
+  while (board.posts.length > 1 && serializedChars(board) > charBudget) board.posts.pop()
+  return board
+}
+
+function cloneStudySnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null
+  return {
+    ...snapshot,
+    students: Array.isArray(snapshot.students) ? snapshot.students.slice() : [],
+  }
+}
+
+function shrinkStudy(value, charBudget) {
+  if (!value || typeof value !== 'object') return null
+  const study = {
+    class: cloneStudySnapshot(value.class),
+    school: cloneStudySnapshot(value.school),
+  }
+  while (serializedChars(study) > charBudget) {
+    const classStudents = study.class?.students || []
+    const schoolStudents = study.school?.students || []
+    if (!classStudents.length && !schoolStudents.length) break
+    if (schoolStudents.length >= classStudents.length && schoolStudents.length) schoolStudents.pop()
+    else if (classStudents.length) classStudents.pop()
+  }
+  return study
+}
+
+function compactDomain(key, value, charBudget) {
+  if (key === 'study') return shrinkStudy(value, charBudget)
+  if (key === 'board') return shrinkBoard(value, charBudget)
+  if (key === 'reminders') return shrinkArray(value, 20, charBudget)
+  if (key === 'timetable') return shrinkArray(value, 7, charBudget)
+  if (key === 'academic') return shrinkArray(value, 20, charBudget)
+  if (key === 'meals') return shrinkArray(value, 7, charBudget)
+  return value
 }
 
 export function prioritizePreviewAIContext(question, context = {}, live = {}) {
@@ -191,13 +258,14 @@ export function prioritizePreviewAIContext(question, context = {}, live = {}) {
     academic: base.academic || [],
     meals: base.meals || [],
   }
+  const keys = questionPriorityKeys(question)
+  if (!keys.length) return ordered
 
-  for (const key of questionPriorityKeys(question)) ordered[key] = merged[key]
-  for (const key of CONTEXT_DATA_KEYS) {
-    if (!(key in ordered)) ordered[key] = merged[key]
-  }
-  for (const [key, value] of Object.entries(base)) {
-    if (!(key in ordered)) ordered[key] = value
+  const metadataChars = serializedChars(ordered)
+  const perDomainBudget = Math.max(1200, Math.floor((MAX_CONTEXT_JSON_CHARS - metadataChars - 256) / keys.length))
+  for (const key of keys) {
+    if (!CONTEXT_DATA_KEYS.includes(key)) continue
+    ordered[key] = compactDomain(key, merged[key], perDomainBudget)
   }
   return ordered
 }
@@ -214,19 +282,21 @@ async function settleSource(loader, signal) {
 
 export async function loadPreviewAIContext({ question = '', context = {}, signal = null } = {}) {
   const nowMs = Date.now()
-  const includeSchoolStudy = wantsSchoolStudy(question)
+  const priorityKeys = questionPriorityKeys(question)
+  const includeClassStudy = priorityKeys.includes('study')
+  const includeBoard = priorityKeys.includes('board')
+  const includeSchoolStudy = includeClassStudy && wantsSchoolStudy(question)
+  const notRequested = { status: 'not-requested', value: null }
 
-  const classStudyPromise = settleSource(
-    () => loadPreviewStudy({ signal, scope: 'class' }),
-    signal,
-  )
-  const boardPromise = settleSource(
-    () => loadPreviewBoard({ signal, sectionId: 'all', forceSections: true }),
-    signal,
-  )
+  const classStudyPromise = includeClassStudy
+    ? settleSource(() => loadPreviewStudy({ signal, scope: 'class' }), signal)
+    : Promise.resolve(notRequested)
+  const boardPromise = includeBoard
+    ? settleSource(() => loadPreviewBoard({ signal, sectionId: 'all', forceSections: true }), signal)
+    : Promise.resolve(notRequested)
   const schoolStudyPromise = includeSchoolStudy
     ? settleSource(() => loadPreviewStudy({ signal, scope: 'school' }), signal)
-    : Promise.resolve({ status: 'not-requested', value: null })
+    : Promise.resolve(notRequested)
 
   const [classStudySource, boardSource, schoolStudySource] = await Promise.all([
     classStudyPromise,
@@ -236,10 +306,10 @@ export async function loadPreviewAIContext({ question = '', context = {}, signal
 
   const live = {
     profile: normalizeProfile(),
-    study: {
+    study: includeClassStudy ? {
       class: classStudySource.value ? normalizeStudySnapshot(classStudySource.value, 'class', nowMs) : null,
       school: schoolStudySource.value ? normalizeStudySnapshot(schoolStudySource.value, 'school', nowMs) : null,
-    },
+    } : null,
     board: boardSource.value ? normalizeBoardSnapshot(boardSource.value, nowMs) : null,
     liveSources: {
       studyClass: classStudySource.status,
