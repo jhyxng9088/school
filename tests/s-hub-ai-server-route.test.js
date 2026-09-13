@@ -11,7 +11,7 @@ test('S-Hub client keeps Firebase Auth while provider credentials stay server-on
 
   assert.match(transport, /await ensureSignedIn\(\)/)
   assert.match(transport, /Authorization: `Bearer \$\{idToken\}`/)
-  assert.doesNotMatch(transport, /MISTRAL_API_KEY/)
+  assert.doesNotMatch(transport, /OPENROUTER_API_KEY|MISTRAL_API_KEY/)
   assert.doesNotMatch(transport, /X-Firebase-AppCheck/)
   assert.doesNotMatch(transport, /getDirectFirebaseSecurityHeaders/)
 
@@ -19,8 +19,9 @@ test('S-Hub client keeps Firebase Auth while provider credentials stay server-on
   assert.doesNotMatch(endpoint, /adminAppCheckToken/)
   assert.doesNotMatch(endpoint, /adminAccessToken/)
 
-  assert.match(service, /process\.env\.MISTRAL_API_KEY/)
-  assert.match(service, /https:\/\/api\.mistral\.ai\/v1\/chat\/completions/)
+  assert.match(service, /process\.env\.OPENROUTER_API_KEY/)
+  assert.match(service, /https:\/\/openrouter\.ai\/api\/v1\/chat\/completions/)
+  assert.match(service, /google\/gemma-4-31b-it:free/)
   assert.match(service, /Authorization: `Bearer \$\{apiKey\}`/)
   assert.doesNotMatch(service, /AIza[0-9A-Za-z_-]+/)
 })
