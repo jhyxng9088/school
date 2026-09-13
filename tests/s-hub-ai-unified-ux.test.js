@@ -39,13 +39,14 @@ test('S-Hub editor uses iOS-safe native date and time shells', () => {
   assert.match(css, /-webkit-text-fill-color: transparent/)
 })
 
-test('reminder analysis declares reminder purpose while model fallback stays shared', () => {
+test('reminder analysis declares reminder purpose while Mistral retry stays shared', () => {
   const reminderAI = read('src/firebase-ai.js')
   const api = read('push-backend-v2/api/s-hub-ai.js')
   const service = read('push-backend-v2/lib/s-hub-ai-service.js')
   assert.match(reminderAI, /purpose: 'reminder'/)
   assert.match(api, /body\.purpose === 'reminder'/)
-  assert.match(service, /const DEFAULT_MODELS = \[/)
-  assert.match(service, /preferredModels = Array\.isArray\(models\) && models\.length \? models : DEFAULT_MODELS/)
-  assert.doesNotMatch(service, /REMINDER_ATTACHMENT_MODELS|ATTACHMENT_MODELS|TEXT_MODELS/)
+  assert.match(service, /const DEFAULT_MODEL = 'mistral-small-2603'/)
+  assert.match(service, /const MAX_ATTEMPTS = 2/)
+  assert.match(service, /for \(let attempt = 0; attempt < MAX_ATTEMPTS; attempt \+= 1\)/)
+  assert.doesNotMatch(service, /DEFAULT_MODELS|REMINDER_ATTACHMENT_MODELS|ATTACHMENT_MODELS|TEXT_MODELS/)
 })

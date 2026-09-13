@@ -1,7 +1,6 @@
-
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { generateStructuredWithFirebaseAI, requestFirebaseModel } from '../lib/s-hub-ai-service.js'
+import { generateStructuredAI, requestMistralModel } from '../lib/s-hub-ai-service.js'
 
 const schema = {
   type: 'object',
@@ -17,21 +16,29 @@ function response(status, payload) {
   }
 }
 
-test('server Firebase AI request uses Admin OAuth, App Check and API key', async () => {
+function withApiKey(value = 'test-mistral-key') {
+  const previous = process.env.MISTRAL_API_KEY
+  process.env.MISTRAL_API_KEY = value
+  return () => {
+    if (previous === undefined) delete process.env.MISTRAL_API_KEY
+    else process.env.MISTRAL_API_KEY = previous
+  }
+}
+
+test('Mistral request uses bearer auth, pinned model and strict JSON schema', async () => {
   const originalFetch = globalThis.fetch
   let request = null
   globalThis.fetch = async (url, init) => {
-    request = { url, init }
+    request = { url: String(url), init }
     return response(200, {
-      candidates: [{ content: { parts: [{ text: JSON.stringify({ answer: 'ok' }) }] } }],
+      choices: [{ message: { content: JSON.stringify({ answer: 'ok' }) } }],
+      usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 },
     })
   }
   try {
-    const value = await requestFirebaseModel({
-      projectId: 'school-test',
-      accessToken: 'admin-oauth-token',
-      appCheckToken: 'server-app-check-token',
-      modelName: 'gemini-test',
+    const result = await requestMistralModel({
+      apiKey: 'secret',
+      modelName: 'mistral-small-2603',
       prompt: 'hello',
       attachments: [],
       responseSchema: schema,
@@ -39,139 +46,124 @@ test('server Firebase AI request uses Admin OAuth, App Check and API key', async
       temperature: 0,
       timeoutMs: 2000,
     })
-    assert.deepEqual(value, { answer: 'ok' })
-    assert.equal(request.init.headers.Authorization, 'Bearer admin-oauth-token')
-    assert.equal(request.init.headers['X-Firebase-AppCheck'], 'server-app-check-token')
-    assert.ok(request.init.headers['x-goog-api-key'])
-    assert.match(request.url, /firebasevertexai\.googleapis\.com/)
+    const body = JSON.parse(request.init.body)
+    assert.deepEqual(result.value, { answer: 'ok' })
+    assert.equal(result.usage.totalTokens, 15)
+    assert.equal(request.url, 'https://api.mistral.ai/v1/chat/completions')
+    assert.equal(request.init.headers.Authorization, 'Bearer secret')
+    assert.equal(body.model, 'mistral-small-2603')
+    assert.equal(body.response_format.type, 'json_schema')
+    assert.deepEqual(body.response_format.json_schema.schema, schema)
+    assert.equal(body.response_format.json_schema.strict, true)
   } finally {
     globalThis.fetch = originalFetch
   }
 })
 
-test('text, school attachments and reminder attachments share the same Flash-first model profile', async () => {
+test('image, PDF and text attachments use Mistral multimodal content chunks', async () => {
+  const restoreKey = withApiKey()
   const originalFetch = globalThis.fetch
-  const urls = []
-  globalThis.fetch = async (url) => {
-    urls.push(String(url))
+  let body = null
+  globalThis.fetch = async (_url, init) => {
+    body = JSON.parse(init.body)
     return response(200, {
-      candidates: [{ content: { parts: [{ text: JSON.stringify({ answer: 'ok' }) }] } }],
+      choices: [{ message: { content: JSON.stringify({ answer: 'attachments-ok' }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 5, total_tokens: 105 },
     })
   }
   try {
-    await generateStructuredWithFirebaseAI({
-      projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'text', responseSchema: schema,
+    const result = await generateStructuredAI({
+      prompt: 'analyze',
+      responseSchema: schema,
+      attachments: [
+        { name: 'notice.jpg', mimeType: 'image/jpeg', dataBase64: 'AA==' },
+        { name: 'notice.pdf', mimeType: 'application/pdf', dataBase64: 'AQ==' },
+        { name: 'memo.txt', mimeType: 'text/plain', dataBase64: Buffer.from('학교 공지').toString('base64') },
+      ],
     })
-    await generateStructuredWithFirebaseAI({
-      projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'image', responseSchema: schema,
-      attachments: [{ mimeType: 'image/jpeg', dataBase64: 'AA==' }],
-    })
-    await generateStructuredWithFirebaseAI({
-      projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'reminder image', responseSchema: schema,
-      attachments: [{ mimeType: 'image/jpeg', dataBase64: 'AA==' }], purpose: 'reminder',
-    })
-    assert.match(urls[0], /gemini-3\.8-flash/)
-    assert.match(urls[1], /gemini-3\.8-flash/)
-    assert.match(urls[2], /gemini-3\.8-flash/)
+    const content = body.messages[0].content
+    assert.equal(result.modelName, 'mistral-small-2603')
+    assert.equal(content[1].type, 'image_url')
+    assert.equal(content[1].image_url, 'data:image/jpeg;base64,AA==')
+    assert.equal(content[2].type, 'document_url')
+    assert.equal(content[2].document_url, 'data:application/pdf;base64,AQ==')
+    assert.equal(content[3].type, 'text')
+    assert.match(content[3].text, /학교 공지/)
+    assert.match(content[3].text, /memo\.txt/)
   } finally {
     globalThis.fetch = originalFetch
+    restoreKey()
   }
 })
 
-test('default model fallback reaches Flash Lite after all Flash models fail', async () => {
+test('default provider retries the same pinned model only once on transient failure', async () => {
+  const restoreKey = withApiKey()
   const originalFetch = globalThis.fetch
-  const urls = []
-  globalThis.fetch = async (url) => {
-    urls.push(String(url))
-    if (urls.length < 5) return response(503, { error: { status: 'UNAVAILABLE', message: 'try next model' } })
+  const models = []
+  let calls = 0
+  globalThis.fetch = async (_url, init) => {
+    calls += 1
+    models.push(JSON.parse(init.body).model)
+    if (calls === 1) return response(503, { message: 'temporarily unavailable', code: 'service_unavailable' })
     return response(200, {
-      candidates: [{ content: { parts: [{ text: JSON.stringify({ answer: 'lite-ok' }) }] } }],
+      choices: [{ message: { content: JSON.stringify({ answer: 'second' }) } }],
     })
   }
   try {
-    const result = await generateStructuredWithFirebaseAI({
-      projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'hello', responseSchema: schema,
+    const result = await generateStructuredAI({
+      prompt: 'hello',
+      responseSchema: schema,
       timeoutMs: 8000,
     })
-    assert.deepEqual(
-      urls.map((url) => url.match(/models\/([^:]+):generateContent/)?.[1]),
-      [
-        'gemini-3.8-flash',
-        'gemini-3.7-flash',
-        'gemini-3.6-flash',
-        'gemini-3.5-flash-lite',
-        'gemini-3.1-flash-lite',
-      ],
-    )
-    assert.equal(result.value.answer, 'lite-ok')
-    assert.equal(result.modelName, 'gemini-3.1-flash-lite')
-    assert.equal(result.attempts.length, 4)
-  } finally {
-    globalThis.fetch = originalFetch
-  }
-})
-
-test('server structured AI falls back to the next model on a retryable failure', async () => {
-  const originalFetch = globalThis.fetch
-  let calls = 0
-  globalThis.fetch = async () => {
-    calls += 1
-    if (calls === 1) return response(503, { error: { status: 'UNAVAILABLE', message: 'try later' } })
-    return response(200, { candidates: [{ content: { parts: [{ text: JSON.stringify({ answer: 'second' }) }] } }] })
-  }
-  try {
-    const result = await generateStructuredWithFirebaseAI({
-      projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'hello', responseSchema: schema,
-      timeoutMs: 8000, models: ['model-one', 'model-two'],
-    })
-    assert.equal(result.value.answer, 'second')
-    assert.equal(result.modelName, 'model-two')
+    assert.deepEqual(result.value, { answer: 'second' })
+    assert.deepEqual(models, ['mistral-small-2603', 'mistral-small-2603'])
     assert.equal(result.attempts.length, 1)
   } finally {
     globalThis.fetch = originalFetch
+    restoreKey()
   }
 })
 
-test('server structured AI does not fan out an authorization failure across models', async () => {
+test('authorization and rate-limit failures are not retried', async () => {
+  for (const status of [401, 403, 429]) {
+    const restoreKey = withApiKey()
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = async () => {
+      calls += 1
+      return response(status, { message: 'denied', code: `http-${status}` })
+    }
+    try {
+      await assert.rejects(
+        generateStructuredAI({ prompt: 'hello', responseSchema: schema, timeoutMs: 8000 }),
+        (error) => error.status === status && error.attempts.length === 1,
+      )
+      assert.equal(calls, 1)
+    } finally {
+      globalThis.fetch = originalFetch
+      restoreKey()
+    }
+  }
+})
+
+test('missing server API key fails before any provider request', async () => {
   const originalFetch = globalThis.fetch
+  const previous = process.env.MISTRAL_API_KEY
+  delete process.env.MISTRAL_API_KEY
   let calls = 0
   globalThis.fetch = async () => {
     calls += 1
-    return response(403, { error: { status: 'PERMISSION_DENIED', message: 'denied' } })
+    return response(500, {})
   }
   try {
     await assert.rejects(
-      generateStructuredWithFirebaseAI({
-        projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'hello', responseSchema: schema,
-        timeoutMs: 8000, models: ['model-one', 'model-two'],
-      }),
-      (error) => error.status === 403 && error.attempts.length === 1,
+      generateStructuredAI({ prompt: 'hello', responseSchema: schema }),
+      (error) => error.status === 503 && error.code === 'mistral_not_configured',
     )
-    assert.equal(calls, 1)
+    assert.equal(calls, 0)
   } finally {
     globalThis.fetch = originalFetch
-  }
-})
-
-
-test('quota exhaustion falls back to another model', async () => {
-  const originalFetch = globalThis.fetch
-  let calls = 0
-  globalThis.fetch = async () => {
-    calls += 1
-    if (calls === 1) return response(429, { error: { status: 'RESOURCE_EXHAUSTED', message: 'quota exhausted' } })
-    return response(200, { candidates: [{ content: { parts: [{ text: JSON.stringify({ answer: 'fallback-ok' }) }] } }] })
-  }
-  try {
-    const result = await generateStructuredWithFirebaseAI({
-      projectId: 'school-test', accessToken: 'oauth', appCheckToken: 'appcheck', prompt: 'hello', responseSchema: schema,
-      timeoutMs: 8000, models: ['quota-model', 'fallback-model'],
-    })
-    assert.equal(result.value.answer, 'fallback-ok')
-    assert.equal(result.modelName, 'fallback-model')
-    assert.match(result.attempts[0], /RESOURCE_EXHAUSTED/)
-    assert.equal(calls, 2)
-  } finally {
-    globalThis.fetch = originalFetch
+    if (previous === undefined) delete process.env.MISTRAL_API_KEY
+    else process.env.MISTRAL_API_KEY = previous
   }
 })
