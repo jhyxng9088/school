@@ -20,27 +20,35 @@ test('preview AI question path resolves live context before asking the model', (
   assert.match(sheet, /answerAndAnalyzeSchoolAttachments\(\{ question, files, context: questionContext/)
 })
 
-test('preview AI live loader fetches current class study and aggregate board without opening those tabs first', () => {
+test('preview AI loads expensive live sources only when the question asks for them', () => {
   const runtime = read('src/preview-ai-live-context.js')
-  assert.match(runtime, /loadPreviewStudy\(\{ signal, scope: 'class' \}\)/)
-  assert.match(runtime, /loadPreviewBoard\(\{ signal, sectionId: 'all', forceSections: true \}\)/)
-  assert.match(runtime, /scope: 'school'/)
-  assert.match(runtime, /wantsSchoolStudy\(question\)/)
-  assert.match(runtime, /recorded \+ runningTodaySeconds\(active\.segmentStartedAt \|\| active\.startedAt, nowMs\)/)
-  assert.match(runtime, /sort\(\(a, b\) => b\.displaySeconds - a\.displaySeconds/)
-  assert.match(runtime, /const studentRow = \(student, rank\) => \(\{[\s\S]*?rank,/)
-  assert.match(runtime, /students: ranked\.map\(\(student, index\) => studentRow\(student, index \+ 1\)\)/)
-  assert.match(runtime, /prioritizePreviewAIContext\(question, context, live\)/)
+  assert.match(runtime, /const includeClassStudy = priorityKeys\.includes\('study'\)/)
+  assert.match(runtime, /const includeBoard = priorityKeys\.includes\('board'\)/)
+  assert.match(runtime, /includeClassStudy\s*\?\s*settleSource\(\(\) => loadPreviewStudy\(\{ signal, scope: 'class' \}\)/)
+  assert.match(runtime, /includeBoard\s*\?\s*settleSource\(\(\) => loadPreviewBoard\(\{ signal, sectionId: 'all', forceSections: true \}\)/)
+  assert.match(runtime, /includeSchoolStudy = includeClassStudy && wantsSchoolStudy\(question\)/)
+  assert.match(runtime, /status: 'not-requested'/)
 })
 
-test('preview AI prioritizes relevant sources before the context size cap can trim later data', () => {
+test('preview AI sends only relevant school-data domains and enforces a context character budget', () => {
   const runtime = read('src/preview-ai-live-context.js')
   assert.match(runtime, /questionPriorityKeys\(question\)/)
   assert.match(runtime, /스터디\|공부\|학습\|랭킹\|순위/)
   assert.match(runtime, /게시판\|게시글/)
   assert.match(runtime, /급식\|점심\|중식/)
   assert.match(runtime, /시간표\|교시\|수업/)
-  assert.match(runtime, /for \(const key of questionPriorityKeys\(question\)\) ordered\[key\] = merged\[key\]/)
+  assert.match(runtime, /if \(!keys\.length\) return ordered/)
+  assert.match(runtime, /MAX_CONTEXT_JSON_CHARS = 9000/)
+  assert.match(runtime, /ordered\[key\] = compactDomain\(key, merged\[key\], perDomainBudget\)/)
+  assert.doesNotMatch(runtime, /for \(const key of CONTEXT_DATA_KEYS\) \{\s*if \(!\(key in ordered\)\) ordered\[key\] = merged\[key\]/)
+})
+
+test('preview AI preserves broad today and week overview questions without restoring every source', () => {
+  const runtime = read('src/preview-ai-live-context.js')
+  assert.match(runtime, /genericOverview/)
+  assert.match(runtime, /add\('reminders'\)[\s\S]*add\('timetable'\)[\s\S]*add\('academic'\)/)
+  assert.doesNotMatch(runtime, /genericOverview[\s\S]*add\('study'\)/)
+  assert.doesNotMatch(runtime, /genericOverview[\s\S]*add\('board'\)/)
 })
 
 test('preview AI prompt understands live study ranks, board posts, and unavailable-source semantics', () => {
@@ -72,7 +80,7 @@ test('AI reference panel truthfully shows study and board as live sources', () =
 })
 
 test('live context main patch keeps loadContext declared after background continuity adds onWorkingChange', () => {
-  const source = `import { buildSchoolAIContext } from './s-hub-ai-core.js'\n\nfunction PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline, onWorkingChange }) {\n  return (\n    <SchoolAISheet\n      context={context}\n      conflictContext={conflictContext}\n      onImportItems={onImportItems}\n      requireOnline={requireOnline}\n      onWorkingChange={onWorkingChange}\n    />\n  )\n}\n\nconst content = {\n  ai: <PreviewAIPage\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={importAIItems}\n        requireOnline={requireOnline}\n      />,\n}\n\n<SchoolAISheet\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={importAIItems}\n        requireOnline={requireOnline}\n      />\n`
+  const source = `import { buildSchoolAIContext } from './s-hub-ai-core.js'\n\nfunction PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline, onWorkingChange }) {\n  return (\n    <SchoolAISheet\n      context={context}\n      conflictContext={conflictContext}\n      onImportItems={onImportItems}\n      requireOnline={requireOnline}\n      onWorkingChange={onWorkingChange}\n    />\n  )\n}\n\nconst content = {\n  ai: <PreviewAIPage\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={importAIItems}\n        requireOnline={requireOnline}\n      />,\n}\n\n<SchoolAISheet\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={onImportItems}\n        requireOnline={requireOnline}\n      />\n`
 
   const patched = patchPreviewAILiveContextSource(source, '/virtual/src/main.jsx')
   assert.match(patched, /function PreviewAIPage\(\{ now, context, conflictContext, onImportItems, requireOnline, loadContext, onWorkingChange \}\)/)
