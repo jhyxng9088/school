@@ -42,6 +42,15 @@ test('shared AI transport and attachment preparation are explicitly exported', (
   assert.doesNotMatch(transport, /firebase-ai-direct/)
 })
 
+test('Mistral vision images are normalized by dimensions instead of file bytes alone', () => {
+  const firebaseAI = read('src/firebase-ai.js')
+
+  assert.match(firebaseAI, /if \(isImage\) \{/)
+  assert.match(firebaseAI, /resizeImage\(file, 1440, 0\.82\)/)
+  assert.match(firebaseAI, /mimeType = 'image\/jpeg'/)
+  assert.doesNotMatch(firebaseAI, /needsImageCompression = isImage && file\.size > MAX_IMAGE_BYTES/)
+})
+
 test('duplicate checks use class-shared reminders instead of personal completion state', () => {
   const main = read('src/main.jsx')
   const todo = read('src/todo.jsx')

@@ -286,16 +286,16 @@ export async function prepareAttachment(file) {
   let name = originalName
   let mimeType = originalType
   const isImage = originalType.startsWith('image/')
-  const needsJpegNormalization = originalType === 'image/heic' || originalType === 'image/heif'
-  const needsImageCompression = isImage && file.size > MAX_IMAGE_BYTES
 
-  if (needsJpegNormalization || needsImageCompression) {
+  if (isImage) {
     if (file.size > MAX_ORIGINAL_IMAGE_BYTES) {
       throw reminderError('사진 용량이 너무 커. 20MB 이하 사진을 사용해줘.', 'school-ai/file-too-large', 413)
     }
-    blob = await resizeImage(file, 1440, 0.72)
-    if (blob.size > MAX_IMAGE_BYTES) blob = await resizeImage(file, 1200, 0.62)
-    if (blob.size > MAX_IMAGE_BYTES) blob = await resizeImage(file, 1024, 0.56)
+    // Vision cost/rate limits depend on image tokenization, not compressed file bytes alone.
+    // Normalize every image so a highly-compressed 3K/4K JPEG cannot bypass the token budget.
+    blob = await resizeImage(file, 1440, 0.82)
+    if (blob.size > MAX_IMAGE_BYTES) blob = await resizeImage(file, 1200, 0.72)
+    if (blob.size > MAX_IMAGE_BYTES) blob = await resizeImage(file, 1024, 0.64)
     name = originalName.replace(/\.[^.]+$/, '') + '.jpg'
     mimeType = 'image/jpeg'
   }
