@@ -1,5 +1,10 @@
 const OPENROUTER_CHAT_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions'
-const DEFAULT_MODEL = 'google/gemma-4-31b-it:free'
+const OPENROUTER_MODEL_CHAIN = Object.freeze([
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it-20260403:free',
+  'openrouter/free',
+])
+const DEFAULT_MODEL = OPENROUTER_MODEL_CHAIN[0]
 const MAX_ATTACHMENT_BASE64_CHARS = 3_200_000
 const MAX_SCHEMA_CHARS = 14_000
 const MAX_TEXT_ATTACHMENT_CHARS = 180_000
@@ -152,9 +157,20 @@ function hasPdfAttachment(attachments) {
   return attachments.some((attachment) => attachment?.type === 'file')
 }
 
+function safeRoutingModels(modelName, modelNames) {
+  const requested = (Array.isArray(modelNames) ? modelNames : [])
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .slice(0, 6)
+  if (requested.length) return [...new Set(requested)]
+  const single = String(modelName || DEFAULT_MODEL).trim() || DEFAULT_MODEL
+  return [single]
+}
+
 export async function requestOpenRouterModel({
   apiKey,
   modelName,
+  modelNames,
   prompt,
   attachments,
   responseSchema,
@@ -164,14 +180,16 @@ export async function requestOpenRouterModel({
 }) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const routingModels = safeRoutingModels(modelName, modelNames)
   try {
     const body = {
-      model: modelName,
       messages: [{ role: 'user', content: [{ type: 'text', text: structuredPrompt(prompt, responseSchema) }, ...attachments] }],
       response_format: { type: 'json_object' },
       temperature,
       max_tokens: maxOutputTokens,
     }
+    if (routingModels.length > 1) body.models = routingModels
+    else body.model = routingModels[0]
     if (hasPdfAttachment(attachments)) {
       body.plugins = [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }]
     }
@@ -210,10 +228,11 @@ export async function requestOpenRouterModel({
       throw aiError('OpenRouter AI returned invalid JSON', 502, 'invalid_json')
     }
 
-    return { value, usage: usageInfo(payload) }
+    const servedModelName = String(payload?.model || routingModels[0] || DEFAULT_MODEL).trim() || routingModels[0]
+    return { value, usage: usageInfo(payload), modelName: servedModelName }
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw aiError(`OpenRouter AI ${modelName} timed out`, 504, 'model_timeout')
+      throw aiError(`OpenRouter AI ${routingModels[0]} timed out`, 504, 'model_timeout')
     }
     throw error
   } finally {
@@ -233,6 +252,7 @@ export async function generateStructuredAI({
   const apiKey = String(process.env.OPENROUTER_API_KEY || '').trim()
   const safePrompt = String(prompt || '').trim().slice(0, 40_000)
   const safeModelName = String(modelName || DEFAULT_MODEL).trim() || DEFAULT_MODEL
+  const routingModels = safeModelName === DEFAULT_MODEL ? [...OPENROUTER_MODEL_CHAIN] : [safeModelName]
   if (!apiKey) throw aiError('OPENROUTER_API_KEY is not configured', 503, 'openrouter_not_configured')
   if (!safePrompt) throw aiError('Missing AI prompt', 400, 'invalid_request')
 
@@ -264,6 +284,7 @@ export async function generateStructuredAI({
       const result = await requestOpenRouterModel({
         apiKey,
         modelName: safeModelName,
+        modelNames: routingModels,
         prompt: safePrompt,
         attachments: contentParts,
         responseSchema: schema,
@@ -273,13 +294,13 @@ export async function generateStructuredAI({
       })
       return {
         value: result.value,
-        modelName: safeModelName,
+        modelName: result.modelName || safeModelName,
         attempts,
         usage: result.usage,
       }
     } catch (error) {
       lastError = error
-      attempts.push(`${safeModelName}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
+      attempts.push(`${routingModels.join(' -> ')}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
       if (Number(error?.status) === 429) {
         console.error('openrouter rate-limit diagnostic', {
           ...requestMeta,
