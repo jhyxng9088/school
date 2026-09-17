@@ -57,3 +57,14 @@ test('reminder analysis keeps shared text routing while image requests use a vis
   assert.match(service, /const MAX_ATTEMPTS = 2/)
   assert.doesNotMatch(service, /REMINDER_ATTACHMENT_MODELS|ATTACHMENT_MODELS|TEXT_MODELS/)
 })
+
+test('image analysis reserves enough runtime and tolerates free-model JSON wrappers', () => {
+  const transport = read('src/s-hub-ai-transport.js')
+  const service = read('push-backend-v2/lib/s-hub-ai-service.js')
+  assert.match(transport, /const MIN_IMAGE_TIMEOUT_MS = 46_000/)
+  assert.match(transport, /timeoutMs: effectiveTimeoutMs/)
+  assert.match(service, /const IMAGE_MODEL_TIMEOUT_MS = 14_000/)
+  assert.match(service, /const MIN_IMAGE_REQUEST_TIMEOUT_MS = 46_000/)
+  assert.match(service, /function parseGeneratedJson\(generated\)/)
+  assert.match(service, /```\(\?:json\)\?/) 
+})
