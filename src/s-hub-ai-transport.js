@@ -5,6 +5,7 @@ import { applyUnifiedSchoolAiPolicy } from './school-ai-policy.js'
 const S_HUB_AI_API_URL = 'https://school-reminder-backend.vercel.app/api/s-hub-ai'
 const MAX_TOTAL_ATTACHMENT_BASE64_CHARS = 3_000_000
 const MAX_CLIENT_TIMEOUT_MS = 58_000
+const MIN_IMAGE_TIMEOUT_MS = 46_000
 const MEAL_CACHE_KEY = 'school.stage3.meals.v1'
 
 function transportError(message, code, status = null, attempts = []) {
@@ -49,7 +50,7 @@ function cachedMealContext() {
           dishes,
           calories: String(meal?.calories || '').trim().slice(0, 40),
         })
-      })
+      }
     })
 
     return meals
@@ -100,6 +101,12 @@ export async function generateSchoolStructured({
     )
   }
 
+  const hasImageAttachment = safeAttachments.some((item) =>
+    String(item?.mimeType || '').trim().toLowerCase().startsWith('image/'))
+  const effectiveTimeoutMs = hasImageAttachment
+    ? Math.max(Number(timeoutMs) || 26000, MIN_IMAGE_TIMEOUT_MS)
+    : timeoutMs
+
   let idToken = ''
   try {
     const user = await ensureSignedIn()
@@ -122,7 +129,7 @@ export async function generateSchoolStructured({
 
   const clientTimeout = Math.min(
     MAX_CLIENT_TIMEOUT_MS,
-    Math.max(12_000, Number(timeoutMs || 26000) + 10_000),
+    Math.max(12_000, Number(effectiveTimeoutMs || 26000) + 10_000),
   )
   const timeoutId = window.setTimeout(() => {
     timedOut = true
@@ -142,7 +149,7 @@ export async function generateSchoolStructured({
         attachments: safeAttachments,
         responseSchema,
         maxOutputTokens,
-        timeoutMs,
+        timeoutMs: effectiveTimeoutMs,
         temperature,
         cacheScope: cacheScope === 'school-question' ? 'school-question' : '',
       }),
