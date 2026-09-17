@@ -14,6 +14,12 @@ const defaultFallbackChain = [
   'openrouter/free',
 ]
 
+const imageFallbackChain = [
+  'inclusionai/ling-3.0-flash-vl:free',
+  'dots-studio/dots-3-note-preview:free',
+  'openrouter/free',
+]
+
 function response(status, payload, headers = {}) {
   const normalizedHeaders = new Map(
     Object.entries(headers).map(([key, value]) => [String(key).toLowerCase(), String(value)]),
@@ -73,7 +79,7 @@ test('OpenRouter request uses bearer auth, explicit single model and JSON object
   }
 })
 
-test('default requests send ordered free model fallbacks and report the model that served the response', async () => {
+test('default text requests keep the ordered free model fallback chain', async () => {
   const restoreKey = withApiKey()
   const originalFetch = globalThis.fetch
   let body = null
@@ -97,7 +103,72 @@ test('default requests send ordered free model fallbacks and report the model th
   }
 })
 
-test('image, PDF and text attachments use OpenRouter multimodal chunks with free PDF parser', async () => {
+test('image requests use Ling VL first and omit unsupported response_format', async () => {
+  const restoreKey = withApiKey()
+  const originalFetch = globalThis.fetch
+  let body = null
+  globalThis.fetch = async (_url, init) => {
+    body = JSON.parse(init.body)
+    return response(200, {
+      model: imageFallbackChain[0],
+      choices: [{ message: { content: JSON.stringify({ answer: 'vision-ok' }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 5, total_tokens: 105 },
+    })
+  }
+  try {
+    const result = await generateStructuredAI({
+      prompt: 'analyze',
+      responseSchema: schema,
+      attachments: [{ name: 'notice.jpg', mimeType: 'image/jpeg', dataBase64: 'AA==' }],
+    })
+    const content = body.messages[0].content
+    assert.equal(result.modelName, imageFallbackChain[0])
+    assert.equal(body.model, imageFallbackChain[0])
+    assert.equal(body.models, undefined)
+    assert.equal(body.response_format, undefined)
+    assert.equal(content[1].type, 'image_url')
+    assert.equal(content[1].image_url.url, 'data:image/jpeg;base64,AA==')
+  } finally {
+    globalThis.fetch = originalFetch
+    restoreKey()
+  }
+})
+
+test('image requests fall back model-by-model and restore response_format when supported', async () => {
+  const restoreKey = withApiKey()
+  const originalFetch = globalThis.fetch
+  const requests = []
+  const originalConsoleError = console.error
+  console.error = () => {}
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(init.body)
+    requests.push(body)
+    if (requests.length === 1) return response(429, { error: { message: 'busy', code: 429 } })
+    return response(200, {
+      model: imageFallbackChain[1],
+      choices: [{ message: { content: JSON.stringify({ answer: 'dots-ok' }) } }],
+    })
+  }
+  try {
+    const result = await generateStructuredAI({
+      prompt: 'analyze',
+      responseSchema: schema,
+      attachments: [{ name: 'notice.png', mimeType: 'image/png', dataBase64: 'AA==' }],
+      timeoutMs: 26000,
+    })
+    assert.deepEqual(requests.map((body) => body.model), imageFallbackChain.slice(0, 2))
+    assert.equal(requests[0].response_format, undefined)
+    assert.equal(requests[1].response_format.type, 'json_object')
+    assert.equal(result.modelName, imageFallbackChain[1])
+    assert.equal(result.attempts.length, 1)
+  } finally {
+    console.error = originalConsoleError
+    globalThis.fetch = originalFetch
+    restoreKey()
+  }
+})
+
+test('PDF and text attachments keep the default route and free PDF parser', async () => {
   const restoreKey = withApiKey()
   const originalFetch = globalThis.fetch
   let body = null
@@ -114,7 +185,6 @@ test('image, PDF and text attachments use OpenRouter multimodal chunks with free
       prompt: 'analyze',
       responseSchema: schema,
       attachments: [
-        { name: 'notice.jpg', mimeType: 'image/jpeg', dataBase64: 'AA==' },
         { name: 'notice.pdf', mimeType: 'application/pdf', dataBase64: 'AQ==' },
         { name: 'memo.txt', mimeType: 'text/plain', dataBase64: Buffer.from('학교 공지').toString('base64') },
       ],
@@ -122,14 +192,12 @@ test('image, PDF and text attachments use OpenRouter multimodal chunks with free
     const content = body.messages[0].content
     assert.equal(result.modelName, 'google/gemma-4-31b-it:free')
     assert.deepEqual(body.models, defaultFallbackChain)
-    assert.equal(content[1].type, 'image_url')
-    assert.equal(content[1].image_url.url, 'data:image/jpeg;base64,AA==')
-    assert.equal(content[2].type, 'file')
-    assert.equal(content[2].file.filename, 'notice.pdf')
-    assert.equal(content[2].file.file_data, 'data:application/pdf;base64,AQ==')
-    assert.equal(content[3].type, 'text')
-    assert.match(content[3].text, /학교 공지/)
-    assert.match(content[3].text, /memo\.txt/)
+    assert.equal(content[1].type, 'file')
+    assert.equal(content[1].file.filename, 'notice.pdf')
+    assert.equal(content[1].file.file_data, 'data:application/pdf;base64,AQ==')
+    assert.equal(content[2].type, 'text')
+    assert.match(content[2].text, /학교 공지/)
+    assert.match(content[2].text, /memo\.txt/)
     assert.deepEqual(body.plugins, [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }])
   } finally {
     globalThis.fetch = originalFetch
@@ -167,7 +235,7 @@ test('default provider retries the whole OpenRouter fallback chain only once on 
   }
 })
 
-test('authorization and rate-limit failures are not retried after OpenRouter exhausts its fallback chain', async () => {
+test('authorization and rate-limit failures are not retried after the default text fallback chain', async () => {
   for (const status of [401, 403, 429]) {
     const restoreKey = withApiKey()
     const originalFetch = globalThis.fetch
@@ -214,7 +282,7 @@ test('429 preserves safe provider headers and request-size metadata for diagnost
         prompt: 'hello',
         responseSchema: schema,
         maxOutputTokens: 300,
-        attachments: [{ name: 'notice.jpg', mimeType: 'image/jpeg', dataBase64: 'AA==' }],
+        attachments: [{ name: 'memo.txt', mimeType: 'text/plain', dataBase64: Buffer.from('x').toString('base64') }],
       }),
       (error) => {
         assert.equal(error.status, 429)
