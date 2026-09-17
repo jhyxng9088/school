@@ -10,7 +10,8 @@ const IMAGE_MODEL_CHAIN = Object.freeze([
   'openrouter/free',
 ])
 const DEFAULT_MODEL = OPENROUTER_MODEL_CHAIN[0]
-const IMAGE_MODEL_TIMEOUT_MS = 9_000
+const IMAGE_MODEL_TIMEOUT_MS = 14_000
+const MIN_IMAGE_REQUEST_TIMEOUT_MS = 46_000
 const MAX_ATTACHMENT_BASE64_CHARS = 3_200_000
 const MAX_SCHEMA_CHARS = 14_000
 const MAX_TEXT_ATTACHMENT_CHARS = 180_000
@@ -117,6 +118,27 @@ function responseText(payload) {
     .map((chunk) => (typeof chunk === 'string' ? chunk : chunk?.text || chunk?.content || ''))
     .join('')
     .trim()
+}
+
+function parseGeneratedJson(generated) {
+  const text = String(generated || '').trim()
+  const candidates = [text]
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  if (fenced?.[1]) candidates.push(fenced[1].trim())
+  const firstBrace = text.indexOf('{')
+  const lastBrace = text.lastIndexOf('}')
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    candidates.push(text.slice(firstBrace, lastBrace + 1).trim())
+  }
+
+  for (const candidate of [...new Set(candidates)]) {
+    if (!candidate) continue
+    try {
+      const value = JSON.parse(candidate)
+      if (value && typeof value === 'object' && !Array.isArray(value)) return value
+    } catch {}
+  }
+  throw aiError('OpenRouter AI returned invalid JSON', 502, 'invalid_json')
 }
 
 function usageInfo(payload) {
@@ -250,13 +272,7 @@ export async function requestOpenRouterModel({
 
     const generated = responseText(payload)
     if (!generated) throw aiError('OpenRouter AI returned an empty response', 502, 'empty_response')
-
-    let value = null
-    try {
-      value = JSON.parse(generated)
-    } catch {
-      throw aiError('OpenRouter AI returned invalid JSON', 502, 'invalid_json')
-    }
+    const value = parseGeneratedJson(generated)
 
     const servedModelName = String(payload?.model || routingModels[0] || DEFAULT_MODEL).trim() || routingModels[0]
     return { value, usage: usageInfo(payload), modelName: servedModelName }
@@ -290,7 +306,12 @@ export async function generateStructuredAI({
   const contentParts = safeAttachments(rawAttachments)
   const schema = safeSchema(responseSchema)
   const outputTokens = Math.round(clamp(maxOutputTokens, 200, 5000, 1600))
-  const overallTimeout = Math.round(clamp(timeoutMs, 5000, 52_000, 26_000))
+  const imageRequest = safeModelName === DEFAULT_MODEL && hasImageAttachment(contentParts)
+  const overallTimeout = Math.round(
+    imageRequest
+      ? clamp(Math.max(Number(timeoutMs) || 0, MIN_IMAGE_REQUEST_TIMEOUT_MS), 5000, 52_000, MIN_IMAGE_REQUEST_TIMEOUT_MS)
+      : clamp(timeoutMs, 5000, 52_000, 26_000),
+  )
   const safeTemperature = clamp(temperature, 0, 0.7, 0.05)
   const requestMeta = {
     modelName: safeModelName,
@@ -303,7 +324,7 @@ export async function generateStructuredAI({
   const attempts = []
   let lastError = null
 
-  if (safeModelName === DEFAULT_MODEL && hasImageAttachment(contentParts)) {
+  if (imageRequest) {
     for (const imageModelName of IMAGE_MODEL_CHAIN) {
       const remaining = deadline - Date.now()
       if (remaining < 2500) break
