@@ -39,7 +39,7 @@ test('S-Hub editor uses iOS-safe native date and time shells', () => {
   assert.match(css, /-webkit-text-fill-color: transparent/)
 })
 
-test('reminder analysis shares one OpenRouter fallback chain and retry policy', () => {
+test('reminder analysis keeps shared text routing while image requests use a vision-only fallback chain', () => {
   const reminderAI = read('src/firebase-ai.js')
   const api = read('push-backend-v2/api/s-hub-ai.js')
   const service = read('push-backend-v2/lib/s-hub-ai-service.js')
@@ -48,8 +48,12 @@ test('reminder analysis shares one OpenRouter fallback chain and retry policy', 
   assert.match(service, /const OPENROUTER_MODEL_CHAIN = Object\.freeze\(\[/)
   assert.match(service, /google\/gemma-4-31b-it:free/)
   assert.match(service, /google\/gemma-4-26b-a4b-it-20260403:free/)
+  assert.match(service, /const IMAGE_MODEL_CHAIN = Object\.freeze\(\[/)
+  assert.match(service, /inclusionai\/ling-3\.0-flash-vl:free/)
+  assert.match(service, /dots-studio\/dots-3-note-preview:free/)
   assert.match(service, /openrouter\/free/)
+  assert.match(service, /hasImageAttachment\(contentParts\)/)
+  assert.match(service, /useResponseFormat: supportsResponseFormat\(imageModelName\)/)
   assert.match(service, /const MAX_ATTEMPTS = 2/)
-  assert.match(service, /for \(let attempt = 0; attempt < MAX_ATTEMPTS; attempt \+= 1\)/)
   assert.doesNotMatch(service, /REMINDER_ATTACHMENT_MODELS|ATTACHMENT_MODELS|TEXT_MODELS/)
 })

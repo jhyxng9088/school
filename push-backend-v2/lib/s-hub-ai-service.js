@@ -4,7 +4,13 @@ const OPENROUTER_MODEL_CHAIN = Object.freeze([
   'google/gemma-4-26b-a4b-it-20260403:free',
   'openrouter/free',
 ])
+const IMAGE_MODEL_CHAIN = Object.freeze([
+  'inclusionai/ling-3.0-flash-vl:free',
+  'dots-studio/dots-3-note-preview:free',
+  'openrouter/free',
+])
 const DEFAULT_MODEL = OPENROUTER_MODEL_CHAIN[0]
+const IMAGE_MODEL_TIMEOUT_MS = 9_000
 const MAX_ATTACHMENT_BASE64_CHARS = 3_200_000
 const MAX_SCHEMA_CHARS = 14_000
 const MAX_TEXT_ATTACHMENT_CHARS = 180_000
@@ -98,6 +104,11 @@ function shouldRetry(error) {
   return [408, 425, 500, 502, 503, 504].includes(status)
 }
 
+function shouldTryNextImageModel(error) {
+  const status = Number(error?.status || 0)
+  return status === 404 || status === 429 || shouldRetry(error)
+}
+
 function responseText(payload) {
   const content = payload?.choices?.[0]?.message?.content
   if (typeof content === 'string') return content.trim()
@@ -157,6 +168,10 @@ function hasPdfAttachment(attachments) {
   return attachments.some((attachment) => attachment?.type === 'file')
 }
 
+function hasImageAttachment(attachments) {
+  return attachments.some((attachment) => attachment?.type === 'image_url')
+}
+
 function safeRoutingModels(modelName, modelNames) {
   const requested = (Array.isArray(modelNames) ? modelNames : [])
     .map((value) => String(value || '').trim())
@@ -165,6 +180,20 @@ function safeRoutingModels(modelName, modelNames) {
   if (requested.length) return [...new Set(requested)]
   const single = String(modelName || DEFAULT_MODEL).trim() || DEFAULT_MODEL
   return [single]
+}
+
+function supportsResponseFormat(modelName) {
+  return String(modelName || '').trim() !== 'inclusionai/ling-3.0-flash-vl:free'
+}
+
+function logRateLimitDiagnostic(label, requestMeta, error, modelName) {
+  console.error(label, {
+    ...requestMeta,
+    modelName: String(modelName || requestMeta.modelName || ''),
+    status: 429,
+    code: String(error?.code || ''),
+    rateLimit: error?.rateLimit || null,
+  })
 }
 
 export async function requestOpenRouterModel({
@@ -177,6 +206,7 @@ export async function requestOpenRouterModel({
   maxOutputTokens,
   temperature,
   timeoutMs,
+  useResponseFormat = true,
 }) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -184,10 +214,10 @@ export async function requestOpenRouterModel({
   try {
     const body = {
       messages: [{ role: 'user', content: [{ type: 'text', text: structuredPrompt(prompt, responseSchema) }, ...attachments] }],
-      response_format: { type: 'json_object' },
       temperature,
       max_tokens: maxOutputTokens,
     }
+    if (useResponseFormat) body.response_format = { type: 'json_object' }
     if (routingModels.length > 1) body.models = routingModels
     else body.model = routingModels[0]
     if (hasPdfAttachment(attachments)) {
@@ -273,43 +303,74 @@ export async function generateStructuredAI({
   const attempts = []
   let lastError = null
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const remaining = deadline - Date.now()
-    if (remaining < 2500) break
-    const attemptCap = contentParts.length ? 30_000 : 12_000
-    const attemptTimeout = Math.max(2000, Math.min(remaining, attemptCap))
-    const startedAt = Date.now()
+  if (safeModelName === DEFAULT_MODEL && hasImageAttachment(contentParts)) {
+    for (const imageModelName of IMAGE_MODEL_CHAIN) {
+      const remaining = deadline - Date.now()
+      if (remaining < 2500) break
+      const attemptTimeout = Math.max(2000, Math.min(remaining, IMAGE_MODEL_TIMEOUT_MS))
+      const startedAt = Date.now()
 
-    try {
-      const result = await requestOpenRouterModel({
-        apiKey,
-        modelName: safeModelName,
-        modelNames: routingModels,
-        prompt: safePrompt,
-        attachments: contentParts,
-        responseSchema: schema,
-        maxOutputTokens: outputTokens,
-        temperature: safeTemperature,
-        timeoutMs: attemptTimeout,
-      })
-      return {
-        value: result.value,
-        modelName: result.modelName || safeModelName,
-        attempts,
-        usage: result.usage,
-      }
-    } catch (error) {
-      lastError = error
-      attempts.push(`${routingModels.join(' -> ')}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
-      if (Number(error?.status) === 429) {
-        console.error('openrouter rate-limit diagnostic', {
-          ...requestMeta,
-          status: 429,
-          code: String(error?.code || ''),
-          rateLimit: error?.rateLimit || null,
+      try {
+        const result = await requestOpenRouterModel({
+          apiKey,
+          modelName: imageModelName,
+          prompt: safePrompt,
+          attachments: contentParts,
+          responseSchema: schema,
+          maxOutputTokens: outputTokens,
+          temperature: safeTemperature,
+          timeoutMs: attemptTimeout,
+          useResponseFormat: supportsResponseFormat(imageModelName),
         })
+        return {
+          value: result.value,
+          modelName: result.modelName || imageModelName,
+          attempts,
+          usage: result.usage,
+        }
+      } catch (error) {
+        lastError = error
+        attempts.push(`${imageModelName}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
+        if (Number(error?.status) === 429) {
+          logRateLimitDiagnostic('openrouter image-route rate-limit diagnostic', requestMeta, error, imageModelName)
+        }
+        if (!shouldTryNextImageModel(error)) break
       }
-      if (!shouldRetry(error)) break
+    }
+  } else {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+      const remaining = deadline - Date.now()
+      if (remaining < 2500) break
+      const attemptCap = contentParts.length ? 30_000 : 12_000
+      const attemptTimeout = Math.max(2000, Math.min(remaining, attemptCap))
+      const startedAt = Date.now()
+
+      try {
+        const result = await requestOpenRouterModel({
+          apiKey,
+          modelName: safeModelName,
+          modelNames: routingModels,
+          prompt: safePrompt,
+          attachments: contentParts,
+          responseSchema: schema,
+          maxOutputTokens: outputTokens,
+          temperature: safeTemperature,
+          timeoutMs: attemptTimeout,
+        })
+        return {
+          value: result.value,
+          modelName: result.modelName || safeModelName,
+          attempts,
+          usage: result.usage,
+        }
+      } catch (error) {
+        lastError = error
+        attempts.push(`${routingModels.join(' -> ')}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
+        if (Number(error?.status) === 429) {
+          logRateLimitDiagnostic('openrouter rate-limit diagnostic', requestMeta, error, routingModels.join(' -> '))
+        }
+        if (!shouldRetry(error)) break
+      }
     }
   }
 
