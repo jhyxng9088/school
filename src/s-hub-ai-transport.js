@@ -50,7 +50,7 @@ function cachedMealContext() {
           dishes,
           calories: String(meal?.calories || '').trim().slice(0, 40),
         })
-      }
+      })
     })
 
     return meals
