@@ -1,6 +1,6 @@
 const MISTRAL_CHAT_ENDPOINT = 'https://api.mistral.ai/v1/chat/completions'
-const MISTRAL_PRIMARY_MODEL = 'mistral-small-2603'
-const MISTRAL_FALLBACK_MODEL = 'ministral-14b-2512'
+const MISTRAL_PRIMARY_MODEL = 'ministral-14b-2512'
+const MISTRAL_FALLBACK_MODEL = 'mistral-small-2603'
 const MISTRAL_MODEL_CHAIN = Object.freeze([MISTRAL_PRIMARY_MODEL, MISTRAL_FALLBACK_MODEL])
 const MISTRAL_TEXT_TIMEOUT_MS = 18_000
 const MISTRAL_ATTACHMENT_TIMEOUT_MS = 26_000
