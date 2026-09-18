@@ -51,17 +51,27 @@ test('feature tour next button starts centered and makes room for a fixed-width 
   assert.match(css, /width 620ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/)
 })
 
-test('timetable unread dot ignores historical and stale override activity', () => {
+test('timetable unread keeps current and future change events even after an override is removed', () => {
   const source = read('src/unread-store.js')
+  const main = read('src/main.jsx')
 
-  assert.match(source, /timetableOverrides: \{\}/)
   assert.match(source, /timetableReady: false/)
   assert.match(source, /function timetableActivityStillRelevant\(store, activity\)/)
-  assert.match(source, /date < todayDateKey\(\)/)
-  assert.match(source, /store\.state\.timetableOverrides\?\.\[date\]/)
+  assert.match(source, /return date >= todayDateKey\(\)/)
+  assert.doesNotMatch(source, /timetableActivityStillRelevant[\s\S]{0,500}timetableOverrides\?\.\[date\]/)
   assert.match(source, /seenVersion\(store, NAV_STATE_IDS\.timetable\) <= 0/)
   assert.match(source, /!store\.state\.activityReady \|\| !store\.state\.seenReady \|\| !store\.state\.timetableReady/)
   assert.match(source, /subscribeClassLiveData\('timetable', store\.classId/)
+
+  const removeChange = main.slice(main.indexOf('async function removeChange'), main.indexOf('useEffect(() => {', main.indexOf('async function removeChange')))
+  assert.match(removeChange, /recordClassActivities\(profile, \[\{/)
+  assert.match(removeChange, /entityId: `\$\{key\}-\$\{period\}`/)
+  assert.ok(removeChange.indexOf('await onSaveOverrides(next)') < removeChange.indexOf('recordClassActivities'))
+
+  const clearAll = main.slice(main.indexOf('async function clearAllChanges'), main.indexOf('\n\n  return (', main.indexOf('async function clearAllChanges')))
+  assert.match(clearAll, /removedEntries/)
+  assert.match(clearAll, /recordClassActivities\(profile, removedEntries\)/)
+  assert.ok(clearAll.indexOf('await onSaveOverrides({})') < clearAll.indexOf('recordClassActivities'))
 })
 
 test('reminder unread baseline waits for the real reminder snapshot and repairs the old baseline generation', () => {
