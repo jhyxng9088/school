@@ -108,10 +108,10 @@ const BOARD_PAGE_COMPONENT = String.raw`function PreviewBoardPage({ profile }) {
 
 `
 
-const CLASS_STATION_PAGE_MARKER = String.raw`function ClassStationPage({ section, onSectionChange, timetablePage, boardPage }) {
+const CLASS_STATION_PAGE_MARKER = String.raw`function ClassStationPage({ profile, section, onSectionChange, timetablePage, boardPage }) {
   return (
     <section className="class-station-page">
-      <ClassTopSegment section={section} onSectionChange={onSectionChange} />
+      <ClassTopSegment profile={profile} section={section} onSectionChange={onSectionChange} />
       <div className="class-station-content">
         {section === 'board' ? boardPage : timetablePage}
       </div>
@@ -120,10 +120,10 @@ const CLASS_STATION_PAGE_MARKER = String.raw`function ClassStationPage({ section
 }
 `
 
-const CLASS_STATION_PAGE_WITH_MOTION = String.raw`function ClassStationPage({ section, onSectionChange, timetablePage, boardPage }) {
+const CLASS_STATION_PAGE_WITH_MOTION = String.raw`function ClassStationPage({ profile, section, onSectionChange, timetablePage, boardPage }) {
   return (
     <section className="class-station-page">
-      <ClassTopSegment section={section} onSectionChange={onSectionChange} />
+      <ClassTopSegment profile={profile} section={section} onSectionChange={onSectionChange} />
       <div className="class-station-content">
         <div
           key={section}
