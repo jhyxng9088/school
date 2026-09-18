@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
 import {
   loadPreviewStudy,
+  peekPreviewStudyCache,
   pausePreviewStudy,
   resumePreviewStudy,
   startPreviewStudy,
@@ -11,6 +12,7 @@ import {
   broadcastPreviewStudyRealtime,
   subscribePreviewStudyRealtime,
 } from './preview-study-realtime.js'
+import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import './preview-study.css'
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000
@@ -49,11 +51,28 @@ export function activeSessionSeconds(active, nowMs = Date.now()) {
   return saved + Math.max(0, Math.floor((nowMs - segmentStartedAt) / 1000))
 }
 
-function studentTodaySeconds(student, nowMs) {
+function runningSegmentSeconds(startedAt, nowMs = Date.now()) {
+  const start = Number(startedAt || 0)
+  const now = Number(nowMs || 0)
+  if (!Number.isFinite(start) || !Number.isFinite(now) || start <= 0 || now <= start) return 0
+  return Math.max(0, Math.floor((now - start) / 1000))
+}
+
+function studentPeriodLiveSeconds(active, nowMs, period = 'today') {
+  if (!active || active.isPaused) return 0
+  const startedAt = active.segmentStartedAt || active.startedAt
+  return period === 'all'
+    ? runningSegmentSeconds(startedAt, nowMs)
+    : runningTodaySeconds(startedAt, nowMs)
+}
+
+function studentPeriodSeconds(student, nowMs, period = 'today') {
   const recorded = Math.max(0, Number(student?.totalSeconds || 0))
-  const active = student?.active
-  if (!active || active.isPaused) return recorded
-  return recorded + runningTodaySeconds(active.segmentStartedAt || active.startedAt, nowMs)
+  return recorded + studentPeriodLiveSeconds(student?.active, nowMs, period)
+}
+
+function studentTodaySeconds(student, nowMs) {
+  return studentPeriodSeconds(student, nowMs, 'today')
 }
 
 function studentIdentity(student) {
@@ -66,7 +85,7 @@ function classLabel(classId) {
   return match ? `${Number(match[1])}반` : '반 정보 없음'
 }
 
-function studentSubjectTotals(student, nowMs) {
+function studentSubjectTotals(student, nowMs, period = 'today') {
   const totals = new Map()
   for (const row of Array.isArray(student?.subjectTotals) ? student.subjectTotals : []) {
     const subject = String(row?.subject || '').trim()
@@ -76,9 +95,9 @@ function studentSubjectTotals(student, nowMs) {
   }
 
   const active = student?.active
-  if (active && !active.isPaused) {
-    const liveSeconds = runningTodaySeconds(active.segmentStartedAt || active.startedAt, nowMs)
-    if (liveSeconds > 0) totals.set(active.subject, (totals.get(active.subject) || 0) + liveSeconds)
+  const liveSeconds = studentPeriodLiveSeconds(active, nowMs, period)
+  if (active && liveSeconds > 0) {
+    totals.set(active.subject, (totals.get(active.subject) || 0) + liveSeconds)
   }
 
   return [...totals.entries()]
@@ -86,9 +105,9 @@ function studentSubjectTotals(student, nowMs) {
     .sort((a, b) => b.totalSeconds - a.totalSeconds || a.subject.localeCompare(b.subject, 'ko'))
 }
 
-function rankedStudents(students, nowMs) {
+function rankedStudents(students, nowMs, period = 'today') {
   return [...(Array.isArray(students) ? students : [])]
-    .map((student) => ({ ...student, displaySeconds: studentTodaySeconds(student, nowMs) }))
+    .map((student) => ({ ...student, displaySeconds: studentPeriodSeconds(student, nowMs, period) }))
     .filter((student) => student.displaySeconds > 0 || student.active)
     .sort((a, b) => b.displaySeconds - a.displaySeconds || a.name.localeCompare(b.name, 'ko'))
 }
@@ -273,17 +292,32 @@ function StudyRanking({
   schoolSnapshot,
   schoolLoading,
   schoolError,
+  allSnapshot,
+  allSnapshotScope,
+  allLoading,
+  allError,
   scope,
   onScope,
+  period,
+  onPeriod,
   onRetrySchool,
+  onRetryAll,
   meId,
   nowMs,
   onStudent,
 }) {
-  const source = scope === 'school' ? schoolSnapshot : classSnapshot
-  const ranked = rankedStudents(source?.students, nowMs)
-  const waitingForSchool = scope === 'school' && schoolLoading && !schoolSnapshot
+  const allMatchesScope = period === 'all' && allSnapshotScope === scope
+  const source = period === 'all'
+    ? (allMatchesScope ? allSnapshot : null)
+    : (scope === 'school' ? schoolSnapshot : classSnapshot)
+  const ranked = rankedStudents(source?.students, nowMs, period)
+  const rankingError = period === 'all' ? allError : (scope === 'school' ? schoolError : '')
+  const waitingForRanking = period === 'all'
+    ? (allLoading || (!allMatchesScope && !rankingError))
+    : (scope === 'school' && schoolLoading && !schoolSnapshot)
+  const rankingLabel = (scope === 'school' ? '전교' : '우리반') + ' ' + (period === 'all' ? '전체' : '오늘')
   const scopeSpring = useStudyRankingScopeSpring(scope === 'school' ? 1 : 0)
+  const periodSpring = useStudyRankingScopeSpring(period === 'all' ? 1 : 0)
   const [stageDirection, setStageDirection] = useState('forward')
 
   function selectScope(nextScope) {
@@ -295,11 +329,36 @@ function StudyRanking({
   return (
     <section className="preview-study-section preview-study-ranking-section">
       <div className="preview-study-section-heading">
-        <h2>오늘 공부 랭킹</h2>
-        <span>{waitingForSchool ? '불러오는 중' : `${ranked.length}명 기록`}</span>
+        <h2>{period === 'all' ? '전체 공부 랭킹' : '오늘 공부 랭킹'}</h2>
+        <span>{waitingForRanking ? '불러오는 중' : `${ranked.length}명 기록`}</span>
       </div>
 
-      <div ref={scopeSpring.containerRef} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">
+      <div className="preview-study-ranking-filters">
+        <div ref={periodSpring.containerRef} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 기간">
+          <span ref={periodSpring.indicatorRef} className="preview-study-ranking-pill" aria-hidden="true" />
+          <button
+
+            ref={(node) => { periodSpring.buttonRefs.current[0] = node }}
+            type="button"
+            className={period === 'today' ? 'is-selected' : ''}
+            aria-pressed={period === 'today'}
+            onClick={() => onPeriod('today')}
+          >
+            오늘
+          </button>
+          <button
+
+            ref={(node) => { periodSpring.buttonRefs.current[1] = node }}
+            type="button"
+            className={period === 'all' ? 'is-selected' : ''}
+            aria-pressed={period === 'all'}
+            onClick={() => onPeriod('all')}
+          >
+            전체
+          </button>
+        </div>
+
+        <div ref={scopeSpring.containerRef} className="preview-study-ranking-tabs" role="group" aria-label="공부 랭킹 범위">
         <span ref={scopeSpring.indicatorRef} className="preview-study-ranking-pill" aria-hidden="true" />
         <button
           ref={(node) => { scopeSpring.buttonRefs.current[0] = node }}
@@ -319,15 +378,16 @@ function StudyRanking({
         >
           전교
         </button>
+        </div>
       </div>
 
-      <div className="preview-study-ranking-stage" data-direction={stageDirection} key={scope}>
-        {waitingForSchool ? (
-          <div className="preview-study-empty preview-study-ranking-loading">전교 랭킹을 불러오는 중…</div>
-        ) : schoolError && scope === 'school' && !schoolSnapshot ? (
+      <div className="preview-study-ranking-stage" data-direction={stageDirection} key={[scope, period].join(':')}>
+        {waitingForRanking ? (
+          <div className="preview-study-empty preview-study-ranking-loading">{rankingLabel} 랭킹을 불러오는 중…</div>
+        ) : rankingError && !source ? (
           <div className="preview-study-load-error preview-study-ranking-error">
-            <p>{schoolError}</p>
-            <button type="button" onClick={onRetrySchool}>다시 불러오기</button>
+            <p>{rankingError}</p>
+            <button type="button" onClick={period === 'all' ? onRetryAll : onRetrySchool}>다시 불러오기</button>
           </div>
         ) : ranked.length ? (
           <div className="preview-study-today-list">
@@ -335,7 +395,7 @@ function StudyRanking({
               const id = studentIdentity(student)
               const detail = student.active
                 ? `${student.active.subject}${student.active.isPaused ? ' · 일시정지' : ' · 공부 중'}`
-                : '오늘 기록'
+                : (period === 'all' ? '전체 기록' : '오늘 기록')
               const subtitle = scope === 'school' ? `${classLabel(student.classId)} · ${detail}` : detail
               return (
                 <button
@@ -355,104 +415,93 @@ function StudyRanking({
             })}
           </div>
         ) : (
-          <div className="preview-study-empty">오늘 기록된 공부 시간이 없습니다.</div>
+          <div className="preview-study-empty">{period === 'all' ? '전체 누적 공부 기록이 없습니다.' : '오늘 기록된 공부 시간이 없습니다.'}</div>
         )}
       </div>
 
-      {scope === 'school' && schoolError && schoolSnapshot ? (
-        <p className="preview-study-inline-warning">전교 랭킹 실시간 갱신이 일시적으로 중단되었습니다. 마지막 기록을 표시합니다.</p>
+      {rankingError && source ? (
+        <p className="preview-study-inline-warning">랭킹 실시간 갱신이 일시적으로 중단되었습니다. 마지막 기록을 표시합니다.</p>
       ) : null}
     </section>
   )
 }
 
-function StudyStudentSheet({ student, meId, nowMs, onClose }) {
+function StudyStudentSheet({ student, meId, nowMs, period = 'today', onClose }) {
   const id = studentIdentity(student)
-  const totalSeconds = studentTodaySeconds(student, nowMs)
-  const subjects = studentSubjectTotals(student, nowMs)
+  const totalSeconds = studentPeriodSeconds(student, nowMs, period)
+  const subjects = studentSubjectTotals(student, nowMs, period)
   const knownSubjectSeconds = subjects.reduce((sum, item) => sum + item.totalSeconds, 0)
   const missingBreakdown = Math.max(0, totalSeconds - knownSubjectSeconds)
+  const [sheetOpen, setSheetOpen] = useState(true)
+  const closeTimerRef = useRef(0)
 
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [onClose])
+  useEffect(() => () => {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
+  }, [])
+
+  function requestClose() {
+    if (!sheetOpen || closeTimerRef.current) return
+    setSheetOpen(false)
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = 0
+      onClose()
+    }, 340)
+  }
 
   return (
-    <div
-      className="preview-study-sheet-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
+    <UnifiedBottomSheet
+      open={sheetOpen}
+      onClose={requestClose}
+      title={student.name + (id === meId ? ' · 본인' : '')}
+      subtitle={classLabel(student.classId)}
+      ariaLabel={student.name + ' 공부 기록'}
+      className="preview-study-record-sheet"
     >
-      <section
-        className="preview-study-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${student.name} 공부 기록`}
-      >
-        <div className="preview-study-sheet-handle" aria-hidden="true" />
-        <header className="preview-study-sheet-header">
-          <div>
-            <span>{classLabel(student.classId)}</span>
-            <h2>{student.name}{id === meId ? ' · 본인' : ''}</h2>
-          </div>
-          <button type="button" onClick={onClose} aria-label="닫기">×</button>
-        </header>
+      <div className="preview-study-sheet-total">
+        <span>{period === 'all' ? '전체 누적 공부' : '오늘 총 공부'}</span>
+        <strong>{formatStudyDuration(totalSeconds)}</strong>
+      </div>
 
-        <div className="preview-study-sheet-total">
-          <span>오늘 총 공부</span>
-          <strong>{formatStudyDuration(totalSeconds)}</strong>
+      {student.active ? (
+        <div className="preview-study-sheet-live">
+          <span className={`preview-study-live-dot${student.active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
+          <span>{student.active.subject} · {student.active.isPaused ? '일시정지' : '공부 중'}</span>
         </div>
+      ) : null}
 
-        {student.active ? (
-          <div className="preview-study-sheet-live">
-            <span className={`preview-study-live-dot${student.active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
-            <span>{student.active.subject} · {student.active.isPaused ? '일시정지' : '공부 중'}</span>
-          </div>
-        ) : null}
+      <div className="preview-study-sheet-subject-heading">
+        <h3>과목별 공부 시간</h3>
+        <span>{subjects.length}개 과목</span>
+      </div>
 
-        <div className="preview-study-sheet-subject-heading">
-          <h3>과목별 공부 시간</h3>
-          <span>{subjects.length}개 과목</span>
+      {subjects.length ? (
+        <div className="preview-study-subject-breakdown">
+          {subjects.map((item) => (
+            <div key={item.subject}>
+              <span>{item.subject}</span>
+              <strong>{formatStudyDuration(item.totalSeconds)}</strong>
+            </div>
+          ))}
         </div>
+      ) : (
+        <div className="preview-study-sheet-empty">아직 과목별 공부 기록이 없습니다.</div>
+      )}
 
-        {subjects.length ? (
-          <div className="preview-study-subject-breakdown">
-            {subjects.map((item) => (
-              <div key={item.subject}>
-                <span>{item.subject}</span>
-                <strong>{formatStudyDuration(item.totalSeconds)}</strong>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="preview-study-sheet-empty">아직 과목별 공부 기록이 없습니다.</div>
-        )}
-
-        {missingBreakdown > 2 ? (
-          <p className="preview-study-sheet-note">
-            업데이트 이전에 기록된 {formatStudyDuration(missingBreakdown)}은 과목별로 분리되지 않습니다.
-          </p>
-        ) : null}
-      </section>
-    </div>
+      {missingBreakdown > 2 ? (
+        <p className="preview-study-sheet-note">
+          업데이트 이전에 기록된 {formatStudyDuration(missingBreakdown)}은 과목별로 분리되지 않습니다.
+        </p>
+      ) : null}
+    </UnifiedBottomSheet>
   )
 }
 
 export function PreviewStudyPage({ requireOnline = () => true }) {
-  const [snapshot, setSnapshot] = useState(null)
-  const [schoolSnapshot, setSchoolSnapshot] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const initialClassSnapshot = useMemo(() => peekPreviewStudyCache({ scope: 'class' }), [])
+  const initialSchoolSnapshot = useMemo(() => peekPreviewStudyCache({ scope: 'school' }), [])
+  const [snapshot, setSnapshot] = useState(initialClassSnapshot)
+  const [schoolSnapshot, setSchoolSnapshot] = useState(initialSchoolSnapshot)
+  const [loading, setLoading] = useState(() => !initialClassSnapshot)
   const [schoolLoading, setSchoolLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [schoolError, setSchoolError] = useState('')
@@ -464,14 +513,23 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   const [selectedSubject, setSelectedSubject] = useState('')
   const [customSubject, setCustomSubject] = useState('')
   const [rankingScope, setRankingScope] = useState('class')
+  const [rankingPeriod, setRankingPeriod] = useState('today')
+  const [allSnapshot, setAllSnapshot] = useState(null)
+  const [allSnapshotScope, setAllSnapshotScope] = useState('')
+  const [allLoading, setAllLoading] = useState(false)
+  const [allError, setAllError] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
+  const [selectedStudentPeriod, setSelectedStudentPeriod] = useState('today')
   const [nowMs, setNowMs] = useState(() => Date.now())
   const requestIdRef = useRef(0)
   const schoolRequestIdRef = useRef(0)
+  const allRequestIdRef = useRef(0)
   const realtimeRefreshRef = useRef(0)
   const schoolRealtimeRefreshRef = useRef(0)
   const schoolSnapshotRef = useRef(null)
   const rankingScopeRef = useRef('class')
+  const rankingPeriodRef = useRef('today')
+  const schoolCacheValidatedRef = useRef(false)
   const startRequestRef = useRef(null)
 
   useEffect(() => {
@@ -481,6 +539,10 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
   useEffect(() => {
     rankingScopeRef.current = rankingScope
   }, [rankingScope])
+
+  useEffect(() => {
+    rankingPeriodRef.current = rankingPeriod
+  }, [rankingPeriod])
 
   const load = useCallback(async ({ silent = false } = {}) => {
     const requestId = ++requestIdRef.current
@@ -514,14 +576,39 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     }
   }, [])
 
+  const loadAll = useCallback(async (scope = rankingScopeRef.current, { silent = false } = {}) => {
+    const targetScope = scope === 'school' ? 'school' : 'class'
+    const requestId = ++allRequestIdRef.current
+    if (!silent) setAllLoading(true)
+    try {
+      const loaded = await loadPreviewStudy({ scope: targetScope, period: 'all' })
+      if (requestId !== allRequestIdRef.current) return
+      setAllSnapshot(loaded)
+      setAllSnapshotScope(targetScope)
+      setAllError('')
+    } catch (error) {
+      if (requestId !== allRequestIdRef.current) return
+      setAllError(error?.message || '전체 누적 랭킹을 불러오지 못했습니다.')
+    } finally {
+      if (requestId === allRequestIdRef.current && !silent) setAllLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     load()
   }, [load])
 
   useEffect(() => {
-    if (rankingScope !== 'school' || schoolSnapshot || schoolLoading) return
-    loadSchool()
-  }, [rankingScope, schoolSnapshot, schoolLoading, loadSchool])
+    if (rankingPeriod !== 'today' || rankingScope !== 'school' || schoolLoading || schoolCacheValidatedRef.current) return
+    schoolCacheValidatedRef.current = true
+    loadSchool({ silent: Boolean(schoolSnapshot) })
+  }, [rankingPeriod, rankingScope, schoolSnapshot, schoolLoading, loadSchool])
+
+  useEffect(() => {
+    if (rankingPeriod !== 'all' || allLoading) return
+    if (allSnapshot && allSnapshotScope === rankingScope) return
+    loadAll(rankingScope)
+  }, [rankingPeriod, rankingScope, allSnapshot, allSnapshotScope, allLoading, loadAll])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
@@ -538,14 +625,22 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
         realtimeRefreshRef.current = window.setTimeout(() => {
           realtimeRefreshRef.current = 0
           load({ silent: true })
+          if (rankingPeriodRef.current === 'all' && rankingScopeRef.current === 'class') {
+            loadAll('class', { silent: true })
+          }
         }, 160)
       },
       () => {
-        if (stopped || (!schoolSnapshotRef.current && rankingScopeRef.current !== 'school')) return
+        if (stopped) return
+        const refreshTodaySchool = Boolean(schoolSnapshotRef.current)
+          || (rankingPeriodRef.current === 'today' && rankingScopeRef.current === 'school')
+        const refreshAllSchool = rankingPeriodRef.current === 'all' && rankingScopeRef.current === 'school'
+        if (!refreshTodaySchool && !refreshAllSchool) return
         if (schoolRealtimeRefreshRef.current) window.clearTimeout(schoolRealtimeRefreshRef.current)
         schoolRealtimeRefreshRef.current = window.setTimeout(() => {
           schoolRealtimeRefreshRef.current = 0
-          loadSchool({ silent: true })
+          if (refreshTodaySchool) loadSchool({ silent: true })
+          if (refreshAllSchool) loadAll('school', { silent: true })
         }, 220)
       },
     ).then((cleanup) => {
@@ -562,14 +657,17 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       schoolRealtimeRefreshRef.current = 0
       unsubscribe()
     }
-  }, [load, loadSchool])
+  }, [load, loadSchool, loadAll])
 
   useEffect(() => {
     const refresh = () => {
       if (document.hidden || navigator.onLine === false) return
       setNowMs(Date.now())
       load({ silent: true })
-      if (schoolSnapshotRef.current || rankingScopeRef.current === 'school') loadSchool({ silent: true })
+      if (schoolSnapshotRef.current || (rankingPeriodRef.current === 'today' && rankingScopeRef.current === 'school')) {
+        loadSchool({ silent: true })
+      }
+      if (rankingPeriodRef.current === 'all') loadAll(rankingScopeRef.current, { silent: true })
     }
     document.addEventListener('visibilitychange', refresh)
     window.addEventListener('focus', refresh)
@@ -579,7 +677,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       window.removeEventListener('focus', refresh)
       window.removeEventListener('online', refresh)
     }
-  }, [load, loadSchool])
+  }, [load, loadSchool, loadAll])
 
   const me = snapshot?.me || null
   const meId = studentIdentity(me)
@@ -610,10 +708,13 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
 
   const selectedStudent = useMemo(() => {
     if (!selectedStudentId) return null
+    if (selectedStudentPeriod === 'all') {
+      return allSnapshot?.students?.find((student) => studentIdentity(student) === selectedStudentId) || null
+    }
     const schoolMatch = schoolSnapshot?.students?.find((student) => studentIdentity(student) === selectedStudentId)
     if (schoolMatch) return schoolMatch
     return snapshot?.students?.find((student) => studentIdentity(student) === selectedStudentId) || null
-  }, [selectedStudentId, schoolSnapshot, snapshot])
+  }, [selectedStudentId, selectedStudentPeriod, allSnapshot, schoolSnapshot, snapshot])
 
   const closeStudentSheet = useCallback(() => setSelectedStudentId(''), [])
 
@@ -638,7 +739,12 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       await action()
       await broadcastPreviewStudyRealtime(broadcastAction)
       await load({ silent: true })
-      if (schoolSnapshotRef.current || rankingScopeRef.current === 'school') await loadSchool({ silent: true })
+      if (schoolSnapshotRef.current || (rankingPeriodRef.current === 'today' && rankingScopeRef.current === 'school')) {
+        await loadSchool({ silent: true })
+      }
+      if (rankingPeriodRef.current === 'all') {
+        await loadAll(rankingScopeRef.current, { silent: true })
+      }
       setNowMs(Date.now())
       return true
     } catch (error) {
@@ -788,7 +894,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     <section className="preview-study-page">
       <header className="page-header preview-study-header">
         <div>
-          <p className="eyebrow">S-Hub V2</p>
+          <p className="eyebrow">공부 기록</p>
           <h1>스터디</h1>
         </div>
         <span className="preview-study-date">오늘</span>
@@ -836,19 +942,32 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
             students={snapshot.students}
             meId={meId}
             nowMs={nowMs}
-            onStudent={(student) => setSelectedStudentId(studentIdentity(student))}
+            onStudent={(student) => {
+              setSelectedStudentPeriod('today')
+              setSelectedStudentId(studentIdentity(student))
+            }}
           />
           <StudyRanking
             classSnapshot={snapshot}
             schoolSnapshot={schoolSnapshot}
             schoolLoading={schoolLoading}
             schoolError={schoolError}
+            allSnapshot={allSnapshot}
+            allSnapshotScope={allSnapshotScope}
+            allLoading={allLoading}
+            allError={allError}
             scope={rankingScope}
             onScope={setRankingScope}
+            period={rankingPeriod}
+            onPeriod={setRankingPeriod}
             onRetrySchool={() => loadSchool()}
+            onRetryAll={() => loadAll(rankingScope)}
             meId={meId}
             nowMs={nowMs}
-            onStudent={(student) => setSelectedStudentId(studentIdentity(student))}
+            onStudent={(student) => {
+              setSelectedStudentPeriod(rankingPeriod)
+              setSelectedStudentId(studentIdentity(student))
+            }}
           />
         </div>
       ) : null}
@@ -858,6 +977,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
           student={selectedStudent}
           meId={meId}
           nowMs={nowMs}
+          period={selectedStudentPeriod}
           onClose={closeStudentSheet}
         />
       ) : null}
