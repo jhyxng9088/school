@@ -123,7 +123,7 @@ test('Mistral image input is converted to direct base64 image_url format', async
       responseSchema: schema,
       attachments: [{ name: 'notice.jpg', mimeType: 'image/jpeg', dataBase64: 'AA==' }],
     })
-    assert.equal(body.model, 'mistral-small-2603')
+    assert.equal(body.model, 'ministral-14b-2512')
     assert.equal(body.messages[0].content[1].type, 'image_url')
     assert.equal(body.messages[0].content[1].image_url, 'data:image/jpeg;base64,AA==')
     assert.deepEqual(result.value, { answer: 'vision-ok' })
