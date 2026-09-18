@@ -82,3 +82,31 @@ test('vite applies fast cache before board runtime rewrites while preserving boa
   assert.ok(fallbackBoardAt > boardAt && fallbackStudyAt > fallbackBoardAt)
   assert.match(config, /cleanId\.endsWith\('\/preview-fast-cache-patch\.js'\)/)
 })
+
+
+test('home live signals hydrate cached presence and keep unknown states neutral', () => {
+  const sync = read('src/school-sync.js')
+  const unread = read('src/preview-study-unread.js')
+  const signals = read('src/preview-home-signals.jsx')
+  const signalStyle = read('src/preview-home-signals.css')
+  const main = read('src/main.jsx')
+
+  assert.match(sync, /PRESENCE_SNAPSHOT_CACHE_MS = 60 \* 1000/)
+  assert.match(sync, /useState\(\(\) => readPresenceInitialCounts\(profile\)\)/)
+  assert.match(sync, /school\.presenceSnapshot\.v1/)
+  assert.match(sync, /const next = \{ \.\.\.current, online, ready: true \}/)
+  assert.match(sync, /writePresenceSnapshotCache\(profile, next\)/)
+
+  assert.match(unread, /initialized: Boolean\(controller\.state\.initialized\)/)
+  assert.match(signals, /presence\?\.ready !== false/)
+  assert.match(signals, /studyUnread\?\.initialized !== false/)
+  assert.match(signals, /pending: !presenceReady/)
+  assert.match(signals, /pending: !studyReady/)
+  assert.match(signals, /접속 상태 확인 중/)
+  assert.match(signals, /스터디 상태 확인 중/)
+
+  assert.match(main, /const showPresenceCount = presenceReady && \(presence\.online > 0 \|\| presence\.total > 0\)/)
+  assert.match(main, /aria-hidden=\{!showPresenceCount\}/)
+  assert.match(signalStyle, /\.preview-home-signal\.is-pending strong/)
+  assert.match(signalStyle, /transition: opacity 220ms var\(--motion-soft\)/)
+})

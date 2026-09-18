@@ -413,6 +413,8 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
   const timetablePreviewSchedule = showTomorrowTimetable
     ? getScheduleForDate(timetablePreviewDate, weeklySchedule, overrides)
     : schoolState.schedule
+  const presenceReady = presence?.ready !== false
+  const showPresenceCount = presenceReady && (presence.online > 0 || presence.total > 0)
 
   return (
     <>
@@ -423,18 +425,16 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
             <h1>홈</h1>
             <button
               type="button"
-              className={`class-presence-count is-roster-button ${(presence.online > 0 || presence.total > 0) ? 'is-ready' : ''}`}
-              aria-hidden={presence.online <= 0 && presence.total <= 0}
-              aria-label={
-                presence.total > 0
-                  ? `현재 접속 ${presence.online}명, 반 인원 ${presence.total}명`
-                  : presence.online > 0
-                    ? `현재 접속 ${presence.online}명`
-                    : undefined
-              }
+              className={`class-presence-count is-roster-button ${showPresenceCount ? 'is-ready' : ''}`}
+              aria-hidden={!showPresenceCount}
+              aria-label={showPresenceCount
+                ? (presence.total > 0
+                    ? `현재 접속 ${presence.online}명, 반 인원 ${presence.total}명`
+                    : `현재 접속 ${presence.online}명`)
+                : undefined}
               onClick={(event) => openClassRoster({ keyboard: event.detail === 0 })}
             >
-              {presence.total > 0 ? `${presence.online}/${presence.total}` : presence.online > 0 ? `${presence.online}명` : ''}
+              {showPresenceCount ? (presence.total > 0 ? `${presence.online}/${presence.total}` : presence.online > 0 ? `${presence.online}명` : '') : ''}
             </button>
           </div>
         </div>

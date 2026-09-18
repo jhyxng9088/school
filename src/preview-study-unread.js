@@ -76,6 +76,7 @@ function persist(controller) {
 
 function snapshot(controller) {
   return {
+    initialized: Boolean(controller.state.initialized),
     hasUnread: controller.state.initialized && Boolean(controller.state.hasUnread),
     latestAt: Math.max(0, Number(controller.state.latestAt || 0)),
     seenAt: Math.max(0, Number(controller.state.seenAt || 0)),

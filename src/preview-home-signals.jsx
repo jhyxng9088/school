@@ -15,6 +15,8 @@ function activeReminderCount(todos) {
 function signalCopy({ boardUnread, studyUnread, presence, todos }) {
   const online = safeCount(presence?.online)
   const total = safeCount(presence?.total)
+  const presenceReady = presence?.ready !== false
+  const studyReady = studyUnread?.initialized !== false
   const boardCount = safeCount(boardUnread?.sectionUnreadCount)
   const reminderCount = activeReminderCount(todos)
 
@@ -22,9 +24,10 @@ function signalCopy({ boardUnread, studyUnread, presence, todos }) {
     {
       id: 'class',
       label: '우리 반',
-      value: total > 0 ? `${online}/${total}명` : `${online}명`,
-      detail: online > 0 ? '현재 접속 중' : '현재 접속 없음',
-      active: online > 0,
+      value: presenceReady ? (total > 0 ? `${online}/${total}명` : `${online}명`) : (total > 0 ? `—/${total}명` : '—'),
+      detail: presenceReady ? (online > 0 ? '현재 접속 중' : '현재 접속 없음') : '접속 상태 확인 중',
+      active: presenceReady && online > 0,
+      pending: !presenceReady,
     },
     {
       id: 'board',
@@ -32,13 +35,15 @@ function signalCopy({ boardUnread, studyUnread, presence, todos }) {
       value: boardCount > 0 ? `${boardCount}개` : '0개',
       detail: boardCount > 0 ? '새 게시글·업데이트' : '새 소식 없음',
       active: boardCount > 0,
+      pending: false,
     },
     {
       id: 'study',
       label: '스터디',
-      value: studyUnread?.hasUnread ? '새 활동' : '확인 완료',
-      detail: studyUnread?.hasUnread ? '친구가 공부를 시작했어요' : '새 공부 시작 알림 없음',
-      active: Boolean(studyUnread?.hasUnread),
+      value: studyReady ? (studyUnread?.hasUnread ? '새 활동' : '확인 완료') : '—',
+      detail: studyReady ? (studyUnread?.hasUnread ? '친구가 공부를 시작했어요' : '새 공부 시작 알림 없음') : '스터디 상태 확인 중',
+      active: studyReady && Boolean(studyUnread?.hasUnread),
+      pending: !studyReady,
     },
     {
       id: 'reminder',
@@ -46,6 +51,7 @@ function signalCopy({ boardUnread, studyUnread, presence, todos }) {
       value: `${reminderCount}개`,
       detail: reminderCount > 0 ? '아직 남아 있어요' : '남은 리마인더 없음',
       active: reminderCount > 0,
+      pending: false,
     },
   ]
 }
@@ -75,7 +81,7 @@ export function PreviewHomeSignals({ profile, presence, todos, onNavigate }) {
         {signals.map((signal) => (
           <button
             type="button"
-            className={`preview-home-signal ${signal.active ? 'is-active' : ''}`}
+            className={`preview-home-signal ${signal.active ? 'is-active' : ''} ${signal.pending ? 'is-pending' : ''}`}
             key={signal.id}
             aria-label={`${signal.label} 열기`}
             onClick={() => onNavigate?.(signal.id)}

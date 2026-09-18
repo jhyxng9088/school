@@ -99,6 +99,7 @@ function safeAttachment(value) {
 }
 
 const PRESENCE_ACTIVE_MS = 45 * 1000
+const PRESENCE_SNAPSHOT_CACHE_MS = 60 * 1000
 
 function normalizeName(value) {
   return String(value || '')
@@ -771,9 +772,63 @@ export function listenStudentTodoState(profile, onValue, onError = () => {}) {
   }
 }
 
+function presenceSnapshotCacheKey(profile) {
+  const classId = classKeyFor(profile)
+  return classId ? `school.presenceSnapshot.v1.${classId}` : ''
+}
+
+function readPresenceInitialCounts(profile) {
+  const classId = classKeyFor(profile)
+  if (!classId || typeof localStorage === 'undefined') return { online: 0, total: 0, ready: false }
+
+  let total = 0
+  try {
+    const member = JSON.parse(localStorage.getItem(`school.presenceMemberCount.v1.${classId}`) || 'null')
+    const memberTotal = Number(member?.total)
+    if (Number.isInteger(memberTotal) && memberTotal >= 0) total = memberTotal
+  } catch {
+    // A missing member cache should not delay first paint.
+  }
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(presenceSnapshotCacheKey(profile)) || 'null')
+    const online = Number(cached?.online)
+    const cachedTotal = Number(cached?.total)
+    const savedAt = Number(cached?.savedAt || 0)
+    const fresh = Number.isFinite(savedAt)
+      && savedAt > 0
+      && Date.now() - savedAt <= PRESENCE_SNAPSHOT_CACHE_MS
+
+    if (Number.isInteger(cachedTotal) && cachedTotal >= 0) total = cachedTotal
+    if (fresh && Number.isInteger(online) && online >= 0) {
+      return { online, total, ready: true }
+    }
+  } catch {
+    // Fall through to the neutral unknown state.
+  }
+
+  return { online: 0, total, ready: false }
+}
+
+function writePresenceSnapshotCache(profile, counts) {
+  if (typeof localStorage === 'undefined' || counts?.ready !== true) return
+  const key = presenceSnapshotCacheKey(profile)
+  if (!key) return
+
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      online: Math.max(0, Number(counts.online || 0)),
+      total: Math.max(0, Number(counts.total || 0)),
+      savedAt: Date.now(),
+    }))
+  } catch {
+    // Presence remains live even when local storage is unavailable.
+  }
+}
+
 export function useClassPresence(profile) {
   const signature = profileSignature(profile)
-  const [counts, setCounts] = useState({ online: 0, total: 0 })
+  const [counts, setCounts] = useState(() => readPresenceInitialCounts(profile))
 
   useEffect(() => {
     if (!signature) return undefined
@@ -811,18 +866,36 @@ export function useClassPresence(profile) {
     }
 
     const cachedTotal = readCachedMemberCount({ allowStale: true })
-    if (cachedTotal !== null) setCounts((current) => ({ ...current, total: cachedTotal }))
+    if (cachedTotal !== null) {
+      setCounts((current) => {
+        const next = { ...current, total: cachedTotal }
+        writePresenceSnapshotCache(profile, next)
+        return next
+      })
+    }
 
     const refreshMemberTotal = async ({ force = false } = {}) => {
       const cached = force ? null : readCachedMemberCount()
       if (cached !== null) {
-        if (!stopped) setCounts((current) => ({ ...current, total: cached }))
+        if (!stopped) {
+          setCounts((current) => {
+            const next = { ...current, total: cached }
+            writePresenceSnapshotCache(profile, next)
+            return next
+          })
+        }
         return cached
       }
       const snapshot = await getCountFromServer(classMembersCollection(profile))
       const total = Number(snapshot.data().count || 0)
       cacheMemberCount(total)
-      if (!stopped) setCounts((current) => ({ ...current, total }))
+      if (!stopped) {
+        setCounts((current) => {
+          const next = { ...current, total }
+          writePresenceSnapshotCache(profile, next)
+          return next
+        })
+      }
       return total
     }
 
@@ -862,7 +935,14 @@ export function useClassPresence(profile) {
           classPresenceCollection(profile),
           where('lastSeenMs', '>=', threshold),
         ))
-        if (!stopped) setCounts((current) => ({ ...current, online: Number(onlineSnapshot.data().count || 0) }))
+        if (!stopped) {
+          const online = Number(onlineSnapshot.data().count || 0)
+          setCounts((current) => {
+            const next = { ...current, online, ready: true }
+            writePresenceSnapshotCache(profile, next)
+            return next
+          })
+        }
       }
 
       const refreshPresence = async () => {
@@ -921,7 +1001,13 @@ export function useClassPresence(profile) {
           classId,
           uid: auth.currentUser?.uid,
           onOnlineCount: (online) => {
-            if (!stopped && fallbackLevel === 'rtdb') setCounts((current) => ({ ...current, online }))
+            if (!stopped && fallbackLevel === 'rtdb') {
+              setCounts((current) => {
+                const next = { ...current, online, ready: true }
+                writePresenceSnapshotCache(profile, next)
+                return next
+              })
+            }
           },
           onError: (error) => console.error('Realtime Database presence failed:', error),
           onUnavailable: activateFirestoreFallback,
@@ -955,7 +1041,13 @@ export function useClassPresence(profile) {
           user,
           classId,
           onOnlineCount: (online) => {
-            if (!stopped && fallbackLevel === 'supabase') setCounts((current) => ({ ...current, online }))
+            if (!stopped && fallbackLevel === 'supabase') {
+              setCounts((current) => {
+                const next = { ...current, online, ready: true }
+                writePresenceSnapshotCache(profile, next)
+                return next
+              })
+            }
           },
           onError: (error) => console.error('Supabase presence failed:', error),
           onUnavailable: activateRealtimeFallback,
