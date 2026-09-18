@@ -82,7 +82,6 @@ test('all client push dispatch paths use the canonical reminder backend', () => 
   const pushClient = read('src/push-client.js')
   const direct = read('src/push-dispatch-direct.js')
   const backend = read('push-backend-v2/api/activity-dispatch.js')
-  const publicKey = read('push-backend-v2/api/push-public-key.js')
 
   assert.match(pushClient, /school-reminder-backend\.vercel\.app\/api/)
   assert.match(pushClient, /\$\{PUSH_API_BASE\}\/activity-dispatch/)
@@ -101,6 +100,6 @@ test('all client push dispatch paths use the canonical reminder backend', () => 
   assert.match(backend, /url: '\.\/\?tab=timetable'/)
   assert.match(backend, /url: '\.\/\?tab=academic'/)
 
-  assert.match(publicKey, /CURRENT_VAPID_PUBLIC_KEY/)
-  assert.match(publicKey, /publicKey: CURRENT_VAPID_PUBLIC_KEY/)
+  assert.match(backend, /CURRENT_VAPID_PUBLIC_KEY/)
+  assert.match(backend, /req\.method === 'GET'.*publicKey: CURRENT_VAPID_PUBLIC_KEY/)
 })
