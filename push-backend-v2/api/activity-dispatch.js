@@ -1,6 +1,6 @@
 import { adminAuth, adminDb } from '../lib/firebase-admin.js'
 import { classActivityBody, reminderActivityBody, reminderActivityRecipientEligible } from '../lib/activity-logic.js'
-import { sendPlan } from '../lib/push.js'
+import { CURRENT_VAPID_PUBLIC_KEY, sendPlan } from '../lib/push.js'
 
 const BOARD_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-board'
 const STUDY_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-study'
@@ -8,7 +8,7 @@ const VERIFY_WINDOW_MS = 10 * 60 * 1000
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type')
   res.setHeader('Cache-Control', 'no-store')
 }
@@ -164,6 +164,7 @@ async function dispatchSocial({ db, token, identity, body, res }) {
 export default async function handler(req, res) {
   setCors(res)
   if (req.method === 'OPTIONS') return res.status(204).end()
+  if (req.method === 'GET') return res.status(200).json({ publicKey: CURRENT_VAPID_PUBLIC_KEY })
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' })
 
   const token = bearerToken(req)
