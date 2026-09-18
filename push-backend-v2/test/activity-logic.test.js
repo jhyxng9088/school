@@ -62,4 +62,8 @@ test('timetable and academic activity push copy stays concise and semantic', () 
     classActivityBody({ actorName: '홍길동', action: 'edited', entityType: 'academic', title: '체육대회' }),
     '홍길동님이 체육대회 학사일정을 수정했어요.',
   )
+  assert.equal(
+    classActivityBody({ actorName: '홍길동', action: 'edited', entityType: 'academic', title: '' }),
+    '홍길동님이 학사일정을 수정했어요.',
+  )
 })
