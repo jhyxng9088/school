@@ -70,6 +70,7 @@
   font-weight: 760;
   letter-spacing: -.045em;
   line-height: 1.12;
+  transition: opacity 220ms var(--motion-soft);
 }
 
 .preview-home-signal p {
@@ -81,6 +82,12 @@
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: opacity 220ms var(--motion-soft);
+}
+
+.preview-home-signal.is-pending strong,
+.preview-home-signal.is-pending p {
+  opacity: .56;
 }
 
 html.school-samsung .preview-home-signal {
@@ -104,7 +111,9 @@ html.school-samsung .preview-home-signal {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .preview-home-signal-head i {
+  .preview-home-signal-head i,
+  .preview-home-signal strong,
+  .preview-home-signal p {
     transition-duration: .01ms !important;
   }
 }
