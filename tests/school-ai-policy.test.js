@@ -42,6 +42,13 @@ test('unified policy locks performance notification and expiry semantics', () =>
   assert.match(UNIFIED_SCHOOL_AI_POLICY, /notifyAt, expiresAt, schoolEnd/)
 })
 
+test('screen-specific AI prompts cannot reintroduce the old school-end performance expiry rule', () => {
+  assert.match(reminderAiSource, /전날 23:00 알림과 당일 23:00 만료/)
+  assert.match(schoolAiSource, /전날 23:00 알림과 당일 23:00 만료/)
+  assert.doesNotMatch(reminderAiSource, /당일 수업 종료 후 만료/)
+  assert.doesNotMatch(schoolAiSource, /당일 수업 종료 후 만료/)
+})
+
 test('unified policy is prepended as the higher-priority interpretation contract', () => {
   const prompt = applyUnifiedSchoolAiPolicy('화면별 작업 지시')
   assert.ok(prompt.startsWith('[S-Hub 통합 학교생활 AI 공통 정책 — 최우선]'))
