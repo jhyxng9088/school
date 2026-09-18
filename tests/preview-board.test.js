@@ -79,6 +79,15 @@ test('board sections share reminder colors and filter real Supabase posts', () =
   assert.match(ui, /createPreviewBoardSection\(label\.trim\(\), color\)/)
 })
 
+test('board ownership is keyed to the stable student identity across devices', () => {
+  const source = boardUi()
+
+  assert.match(source, /const meKey = useMemo\(\(\) => studentKeyFor\(profile \|\| readStudentProfile\(\)\), \[profile\]\)/)
+  assert.match(source, /const isMine = Boolean\(meKey && post\.authorStudentKey === meKey\)/)
+  assert.match(source, /const mine = Boolean\(meKey && item\.authorStudentKey === meKey\)/)
+  assert.doesNotMatch(source, /authorUid\s*===\s*meKey|meKey\s*===\s*.*authorUid/)
+})
+
 test('complete board UI covers CRUD pagination and Supabase realtime refresh', () => {
   const source = boardUi()
   for (const marker of [
