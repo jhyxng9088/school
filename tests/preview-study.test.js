@@ -50,7 +50,8 @@ test('study transitions reconcile stale server state before the page reloads its
 test('preview study client supports class and school snapshots with subject totals', () => {
   const client = read('src/preview-study-client.js')
   assert.match(client, /scope === 'school'/)
-  assert.match(client, /scope=\$\{encodeURIComponent\(normalizedScope\)\}/)
+  assert.match(client, /'\\?scope=' \+ encodeURIComponent\(normalizedScope\) \+ '&period=' \+ encodeURIComponent\(normalizedPeriod\)/)
+  assert.match(client, /normalizedPeriod = period === 'all' \? 'all' : 'today'/)
   assert.match(client, /classId/)
   assert.match(client, /subjectTotals/)
   assert.match(client, /preview-study-ranking\.css/)
