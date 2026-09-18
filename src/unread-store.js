@@ -163,9 +163,8 @@ function timetableActivityStillRelevant(store, activity) {
   if (!activity || activity.entityType !== 'timetable') return true
   const match = /^(\d{4}-\d{2}-\d{2})-(\d+)$/.exec(String(activity.entityId || ''))
   if (!match) return true
-  const [, date, period] = match
-  if (date < todayDateKey()) return false
-  return Boolean(String(store.state.timetableOverrides?.[date]?.[String(Number(period))] || '').trim())
+  const [, date] = match
+  return date >= todayDateKey()
 }
 
 function otherActivityVersion(store, entityType) {
