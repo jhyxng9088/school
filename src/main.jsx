@@ -670,8 +670,17 @@ function TimetablePage({
     delete dateOverrides[period]
     if (Object.keys(dateOverrides).length) next[key] = dateOverrides
     else delete next[key]
-    if (movingClass && scope === 'personal') await onSavePersonalOverrides(next)
-    else await onSaveOverrides(next)
+    if (movingClass && scope === 'personal') {
+      await onSavePersonalOverrides(next)
+      return
+    }
+    const saved = await onSaveOverrides(next)
+    if (!saved) return
+    recordClassActivities(profile, [{
+      entityType: 'timetable',
+      entityId: `${key}-${period}`,
+      action: 'edited',
+    }]).catch((error) => console.error('Timetable removal attribution save failed:', error))
   }
 
   useEffect(() => {
@@ -688,9 +697,22 @@ function TimetablePage({
     personalOverrides,
   ])
   async function clearAllChanges() {
-    if (!Object.keys(overrides || {}).length) return
+    const currentOverrides = overrides || {}
+    if (!Object.keys(currentOverrides).length) return
     if (!requireOnline('시간표를 수정')) return
-    await onSaveOverrides({})
+    const removedEntries = Object.entries(currentOverrides).flatMap(([date, periods]) =>
+      Object.keys(periods || {}).map((period) => ({
+        entityType: 'timetable',
+        entityId: `${date}-${period}`,
+        action: 'edited',
+      })),
+    )
+    const saved = await onSaveOverrides({})
+    if (!saved) return
+    if (removedEntries.length) {
+      recordClassActivities(profile, removedEntries)
+        .catch((error) => console.error('Timetable clear attribution save failed:', error))
+    }
   }
 
   return (

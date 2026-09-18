@@ -10,6 +10,7 @@ test('study student record uses the shared UnifiedBottomSheet instead of a priva
   const studySource = patchPreviewStudySource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
   const page = patchPreviewStudyUnifiedUISource(studySource, '/workspace/src/preview-study.jsx')
 
+  assert.equal(page, studySource)
   assert.match(page, /import \{ UnifiedBottomSheet \} from '\.\/unified-sheet\.jsx'/)
   assert.match(page, /<UnifiedBottomSheet[\s\S]*className="preview-study-record-sheet"/)
   assert.match(page, /open=\{sheetOpen\}/)

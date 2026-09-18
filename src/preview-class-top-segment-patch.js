@@ -168,10 +168,15 @@ function useClassTopSegmentSpring(activeIndex) {
   })
 }
 
-function ClassTopSegment({ section, onSectionChange }) {
+function ClassTopSegment({ profile, section, onSectionChange }) {
   const activeIndex = section === 'timetable' ? 1 : 0
   const spring = useClassTopSegmentSpring(activeIndex)
   const touchIntentRef = useRef({ key: '', at: 0 })
+  const [unread, setUnread] = useState({})
+
+  useEffect(() => subscribeUnreadState(profile, (next) => {
+    setUnread(next?.unread || {})
+  }), [profile])
   const items = [
     { id: 'board', label: '게시판' },
     { id: 'timetable', label: '시간표' },
@@ -194,6 +199,7 @@ function ClassTopSegment({ section, onSectionChange }) {
           key={item.id}
           type="button"
           data-unread-key={item.id}
+          data-react-unread-owner="true"
           className={'class-top-segment-button ' + (section === item.id ? 'is-active' : '')}
           aria-pressed={section === item.id}
           onPointerDown={(event) => {
@@ -209,17 +215,20 @@ function ClassTopSegment({ section, onSectionChange }) {
             selectSection(item.id)
           }}
         >
-          {item.label}
+          <span>{item.label}</span>
+          {unread[item.id] && section !== item.id ? (
+            <i className="school-unread-dot is-segment" aria-hidden="true" />
+          ) : null}
         </button>
       ))}
     </div>
   )
 }
 
-function ClassStationPage({ section, onSectionChange, timetablePage, boardPage }) {
+function ClassStationPage({ profile, section, onSectionChange, timetablePage, boardPage }) {
   return (
     <section className="class-station-page">
-      <ClassTopSegment section={section} onSectionChange={onSectionChange} />
+      <ClassTopSegment profile={profile} section={section} onSectionChange={onSectionChange} />
       <div className="class-station-content">
         {section === 'board' ? boardPage : timetablePage}
       </div>
@@ -237,11 +246,17 @@ function patchMainSource(source) {
     'class default section',
   )
   const sharedSpringImport = "import { useSHubSegmentSpring } from './s-hub-segment-spring.js'\n"
+  const unreadStoreImport = "import { subscribeUnreadState } from './unread-store.js'\n"
   if (!next.includes(sharedSpringImport)) {
     if (!next.startsWith('import React')) throw new Error('Preview class top segment marker missing: React import')
     const lineEnd = next.indexOf('\n')
     if (lineEnd < 0) throw new Error('Preview class top segment marker missing: React import line')
     next = `${next.slice(0, lineEnd + 1)}${sharedSpringImport}${next.slice(lineEnd + 1)}`
+  }
+  if (!next.includes(unreadStoreImport)) {
+    const springImportAt = next.indexOf(sharedSpringImport)
+    if (springImportAt < 0) throw new Error('Preview class top segment marker missing: shared spring import')
+    next = `${next.slice(0, springImportAt + sharedSpringImport.length)}${unreadStoreImport}${next.slice(springImportAt + sharedSpringImport.length)}`
   }
 
   next = replaceRequired(
@@ -258,7 +273,7 @@ function patchMainSource(source) {
     'disconnect nested class physics',
   )
 
-  const classContent = `    class: (\n      <ClassStationPage\n        section={classSection}\n        onSectionChange={setClassSection}\n        boardPage={<PreviewBoardPage />}\n        timetablePage={(\n          <TimetablePage\n            now={now}\n            weeklySchedule={weeklySchedule}\n            overrides={overrides}\n            sharedWeeklySchedule={sharedWeeklySchedule}\n            sharedOverrides={sharedOverrides}\n            personalWeeklySchedule={personalWeeklySchedule}\n            personalOverrides={personalOverrides}\n            onSaveWeekly={commitWeeklySchedule}\n            onSaveOverrides={commitOverrides}\n            onSavePersonalWeekly={commitPersonalWeeklySchedule}\n            onSavePersonalOverrides={commitPersonalOverrides}\n            activity={activity}\n            profile={profile}\n            requireOnline={requireOnline}\n          />\n        )}\n      />\n    ),\n`
+  const classContent = `    class: (\n      <ClassStationPage\n        profile={profile}\n        section={classSection}\n        onSectionChange={setClassSection}\n        boardPage={<PreviewBoardPage />}\n        timetablePage={(\n          <TimetablePage\n            now={now}\n            weeklySchedule={weeklySchedule}\n            overrides={overrides}\n            sharedWeeklySchedule={sharedWeeklySchedule}\n            sharedOverrides={sharedOverrides}\n            personalWeeklySchedule={personalWeeklySchedule}\n            personalOverrides={personalOverrides}\n            onSaveWeekly={commitWeeklySchedule}\n            onSaveOverrides={commitOverrides}\n            onSavePersonalWeekly={commitPersonalWeeklySchedule}\n            onSavePersonalOverrides={commitPersonalOverrides}\n            activity={activity}\n            profile={profile}\n            requireOnline={requireOnline}\n          />\n        )}\n      />\n    ),\n`
   next = spliceRequired(
     next,
     `    class: classSection === 'board' ? (`,

@@ -30,7 +30,7 @@ function buildFinalMain() {
 
 test('class navigation is moved out of the bottom bar into a top segmented control', () => {
   const source = buildFinalMain()
-  assert.match(source, /function ClassTopSegment\(\{ section, onSectionChange \}\)/)
+  assert.match(source, /function ClassTopSegment\(\{ profile, section, onSectionChange \}\)/)
   assert.match(source, /className="class-top-segment"/)
   assert.match(source, /aria-label="우리 반 메뉴"/)
   assert.doesNotMatch(source, /className=\{`class-nav-capsule/)
@@ -74,6 +74,9 @@ test('top segment emits the canonical shared spring wrapper directly', () => {
   assert.match(source, /function useClassTopSegmentSpring\(activeIndex\) \{\n  return useSHubSegmentSpring/)
   assert.match(source, /paddingProperty: '--segment-padding'/)
   assert.match(source, /data-unread-key=\{item\.id\}/)
+  assert.match(source, /data-react-unread-owner="true"/)
+  assert.match(source, /subscribeUnreadState\(profile/)
+  assert.match(source, /<ClassTopSegment profile=\{profile\}/)
   const springStart = source.indexOf('function useClassTopSegmentSpring(activeIndex) {')
   const springEnd = source.indexOf('function ClassTopSegment', springStart)
   assert.ok(springStart >= 0 && springEnd > springStart)

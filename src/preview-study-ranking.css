@@ -446,3 +446,41 @@ html.school-samsung .preview-study-ranking-tabs::before {
     animation: none !important;
   }
 }
+
+
+/* Final V2 study UI alignment. This intentionally comes after the older study
+   polish layer so the visible ranking pill is exactly the shared nav pill. */
+.preview-study-ranking-pill,
+html.school-samsung .preview-study-ranking-pill {
+  background: var(--s-hub-active-pill-surface) !important;
+  box-shadow: var(--s-hub-active-pill-shadow) !important;
+}
+
+body .unified-school-sheet.preview-study-record-sheet .preview-study-sheet-total {
+  margin-top: 2px;
+}
+
+body .unified-school-sheet.preview-study-record-sheet .preview-study-sheet-subject-heading {
+  margin-top: 22px;
+}
+
+body .unified-school-sheet.preview-study-record-sheet .preview-study-sheet-note {
+  margin-bottom: 4px;
+}
+
+/* S-Hub study ranking period filters: independent time and population ranges. */
+.preview-study-ranking-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.preview-study-ranking-filters .preview-study-ranking-tabs {
+  min-width: 0;
+}
+
+@media (max-width: 340px) {
+  .preview-study-ranking-filters {
+    grid-template-columns: 1fr;
+  }
+}

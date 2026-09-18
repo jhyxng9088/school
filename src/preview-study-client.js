@@ -1,8 +1,15 @@
 import { ensureSignedIn } from './school-sync.js'
+import { readPreviewPersistentCache, writePreviewPersistentCache } from './preview-fast-cache.js'
 import { dispatchPreviewStudyStartPush } from './preview-social-push.js'
 import './preview-study-ranking.css'
 
 const STUDY_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-study'
+const STUDY_CACHE_KST_OFFSET_MS = 9 * 60 * 60 * 1000
+
+function studyCacheToday() {
+  return new Date(Date.now() + STUDY_CACHE_KST_OFFSET_MS).toISOString().slice(0, 10)
+}
+
 const STUDY_EVENTS_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/study-events'
 
 function studyError(code, message) {
@@ -32,10 +39,11 @@ async function parseStudyResponse(response) {
   return body
 }
 
-async function requestStudy({ method = 'GET', payload = null, signal, scope = 'class' } = {}) {
+async function requestStudy({ method = 'GET', payload = null, signal, scope = 'class', period = 'today' } = {}) {
   const normalizedScope = scope === 'school' ? 'school' : 'class'
+  const normalizedPeriod = period === 'all' ? 'all' : 'today'
   const url = method === 'GET'
-    ? `${STUDY_API_URL}?scope=${encodeURIComponent(normalizedScope)}`
+    ? STUDY_API_URL + '?scope=' + encodeURIComponent(normalizedScope) + '&period=' + encodeURIComponent(normalizedPeriod)
     : STUDY_API_URL
 
   let response
@@ -146,6 +154,7 @@ export function normalizePreviewStudySnapshot(body) {
   const me = normalizeStudent(source.me) || null
   return {
     scope: source.scope === 'school' ? 'school' : 'class',
+    period: source.period === 'all' ? 'all' : 'today',
     date: String(source.date || ''),
     students,
     me,
@@ -153,8 +162,23 @@ export function normalizePreviewStudySnapshot(body) {
   }
 }
 
-export async function loadPreviewStudy({ signal, scope = 'class' } = {}) {
-  return normalizePreviewStudySnapshot(await requestStudy({ signal, scope }))
+export function peekPreviewStudyCache({ scope = 'class' } = {}) {
+  const normalizedScope = scope === 'school' ? 'school' : 'class'
+  const stored = readPreviewPersistentCache('study', normalizedScope)
+  if (!stored || !Array.isArray(stored.students)) return null
+  const normalized = normalizePreviewStudySnapshot(stored)
+  if (normalized.date !== studyCacheToday()) return null
+  return normalized
+}
+
+export async function loadPreviewStudy({ signal, scope = 'class', period = 'today' } = {}) {
+  const normalizedScope = scope === 'school' ? 'school' : 'class'
+  const normalizedPeriod = period === 'all' ? 'all' : 'today'
+  const snapshot = normalizePreviewStudySnapshot(
+    await requestStudy({ signal, scope: normalizedScope, period: normalizedPeriod }),
+  )
+  if (normalizedPeriod === 'today') writePreviewPersistentCache('study', normalizedScope, snapshot)
+  return snapshot
 }
 
 export async function loadPreviewStudyEvents({ since = 0, signal } = {}) {

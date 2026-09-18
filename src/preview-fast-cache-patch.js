@@ -3,50 +3,6 @@ function replaceOnce(source, marker, replacement, label) {
   return source.replace(marker, replacement)
 }
 
-function patchStudyClient(source) {
-  let next = source
-  next = replaceOnce(
-    next,
-    "import { ensureSignedIn } from './school-sync.js'",
-    "import { classKeyFor, ensureSignedIn, readStudentProfile, studentKeyFor } from './school-sync.js'\nimport { readPreviewPersistentCache, writePreviewPersistentCache } from './preview-fast-cache.js'",
-    'study client identity import',
-  )
-
-  const apiMarker = "const STUDY_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-study'"
-  const cacheHelpers = `${apiMarker}\nconst STUDY_CACHE_KST_OFFSET_MS = 9 * 60 * 60 * 1000\n\nfunction studyCacheToday() {\n  return new Date(Date.now() + STUDY_CACHE_KST_OFFSET_MS).toISOString().slice(0, 10)\n}\n\nfunction emptyStudySnapshot(scope = 'class') {\n  const profile = readStudentProfile()\n  const studentKey = studentKeyFor(profile)\n  const classId = classKeyFor(profile)\n  if (!profile || !studentKey || !classId) return null\n  const me = {\n    classId,\n    studentKey,\n    name: profile.name,\n    totalSeconds: 0,\n    subjectTotals: [],\n    active: null,\n  }\n  return {\n    scope: scope === 'school' ? 'school' : 'class',\n    date: studyCacheToday(),\n    students: [me],\n    me,\n    generatedAt: 0,\n  }\n}\n\nfunction resetCachedStudyDay(snapshot) {\n  const today = studyCacheToday()\n  if (snapshot.date === today) return snapshot\n  const resetStudent = (student) => student ? { ...student, totalSeconds: 0, subjectTotals: [] } : null\n  return {\n    ...snapshot,\n    date: today,\n    students: snapshot.students.map(resetStudent).filter(Boolean),\n    me: resetStudent(snapshot.me),\n  }\n}\n`
-  next = replaceOnce(next, apiMarker, cacheHelpers, 'study cache helpers')
-
-  const loadMarker = `export async function loadPreviewStudy({ signal, scope = 'class' } = {}) {\n  return normalizePreviewStudySnapshot(await requestStudy({ signal, scope }))\n}`
-  const loadReplacement = `export function peekPreviewStudyCache({ scope = 'class' } = {}) {\n  const normalizedScope = scope === 'school' ? 'school' : 'class'\n  const stored = readPreviewPersistentCache('study', normalizedScope)\n  if (!stored || !Array.isArray(stored.students)) return emptyStudySnapshot(normalizedScope)\n  const normalized = normalizePreviewStudySnapshot(stored)\n  return resetCachedStudyDay(normalized)\n}\n\nexport async function loadPreviewStudy({ signal, scope = 'class' } = {}) {\n  const normalizedScope = scope === 'school' ? 'school' : 'class'\n  const snapshot = normalizePreviewStudySnapshot(await requestStudy({ signal, scope: normalizedScope }))\n  writePreviewPersistentCache('study', normalizedScope, snapshot)\n  return snapshot\n}`
-  next = replaceOnce(next, loadMarker, loadReplacement, 'study cached loader')
-  return next
-}
-
-function patchStudyPage(source) {
-  let next = replaceOnce(
-    source,
-    '  loadPreviewStudy,\n',
-    '  loadPreviewStudy,\n  peekPreviewStudyCache,\n',
-    'study page cache import',
-  )
-
-  const stateMarker = `export function PreviewStudyPage({ requireOnline = () => true }) {\n  const [snapshot, setSnapshot] = useState(null)\n  const [schoolSnapshot, setSchoolSnapshot] = useState(null)\n  const [loading, setLoading] = useState(true)`
-  const stateReplacement = `export function PreviewStudyPage({ requireOnline = () => true }) {\n  const initialClassSnapshot = useMemo(() => peekPreviewStudyCache({ scope: 'class' }), [])\n  const initialSchoolSnapshot = useMemo(() => peekPreviewStudyCache({ scope: 'school' }), [])\n  const [snapshot, setSnapshot] = useState(initialClassSnapshot)\n  const [schoolSnapshot, setSchoolSnapshot] = useState(initialSchoolSnapshot)\n  const [loading, setLoading] = useState(() => !initialClassSnapshot)`
-  next = replaceOnce(next, stateMarker, stateReplacement, 'study page initial cache')
-
-  next = replaceOnce(
-    next,
-    "  const rankingScopeRef = useRef('class')",
-    "  const rankingScopeRef = useRef('class')\n  const schoolCacheValidatedRef = useRef(false)",
-    'study school cache validation ref',
-  )
-
-  const schoolEffectMarker = `  useEffect(() => {\n    if (rankingScope !== 'school' || schoolSnapshot || schoolLoading) return\n    loadSchool()\n  }, [rankingScope, schoolSnapshot, schoolLoading, loadSchool])`
-  const schoolEffectReplacement = `  useEffect(() => {\n    if (rankingScope !== 'school' || schoolLoading || schoolCacheValidatedRef.current) return\n    schoolCacheValidatedRef.current = true\n    loadSchool({ silent: Boolean(schoolSnapshot) })\n  }, [rankingScope, schoolSnapshot, schoolLoading, loadSchool])`
-  next = replaceOnce(next, schoolEffectMarker, schoolEffectReplacement, 'study school cache revalidation')
-  return next
-}
-
 function patchBoardClient(source) {
   let next = replaceOnce(
     source,
@@ -147,8 +103,6 @@ function patchBoardPage(source) {
 
 export function patchPreviewFastCacheSource(source, id = '') {
   const cleanId = String(id || '').split('?')[0]
-  if (cleanId.endsWith('/preview-study-client.js')) return patchStudyClient(source)
-  if (cleanId.endsWith('/preview-study.jsx')) return patchStudyPage(source)
   if (cleanId.endsWith('/preview-board-client.js')) return patchBoardClient(source)
   if (cleanId.endsWith('/preview-board-complete.jsx')) return patchBoardPage(source)
   return String(source || '')

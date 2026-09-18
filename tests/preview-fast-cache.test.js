@@ -16,16 +16,21 @@ test('persistent preview cache is student-scoped and bounded', () => {
   assert.doesNotMatch(cache, /SERVICE_ROLE|SUPABASE_SECRET|authorization/)
 })
 
-test('study paints cached or safe local state immediately and revalidates in background', () => {
-  const client = patchPreviewFastCacheSource(read('src/preview-study-client.js'), '/workspace/src/preview-study-client.js')
-  const page = patchPreviewFastCacheSource(read('src/preview-study.jsx'), '/workspace/src/preview-study.jsx')
+test('study uses only real current-day cache data and revalidates in background', () => {
+  const rawClient = read('src/preview-study-client.js')
+  const rawPage = read('src/preview-study.jsx')
+  const client = patchPreviewFastCacheSource(rawClient, '/workspace/src/preview-study-client.js')
+  const page = patchPreviewFastCacheSource(rawPage, '/workspace/src/preview-study.jsx')
 
+  assert.equal(client, rawClient)
+  assert.equal(page, rawPage)
   assert.match(client, /export function peekPreviewStudyCache/)
   assert.match(client, /readPreviewPersistentCache\('study', normalizedScope\)/)
   assert.match(client, /writePreviewPersistentCache\('study', normalizedScope, snapshot\)/)
-  assert.match(client, /resetCachedStudyDay/)
-  assert.match(client, /totalSeconds: 0/)
-  assert.match(client, /subjectTotals: \[\]/)
+  assert.match(client, /if \(!stored \|\| !Array\.isArray\(stored\.students\)\) return null/)
+  assert.match(client, /if \(normalized\.date !== studyCacheToday\(\)\) return null/)
+  assert.doesNotMatch(client, /emptyStudySnapshot|resetCachedStudyDay/)
+  assert.doesNotMatch(client, /generatedAt:\s*0/)
 
   assert.match(page, /initialClassSnapshot = useMemo\(\(\) => peekPreviewStudyCache/)
   assert.match(page, /useState\(initialClassSnapshot\)/)
