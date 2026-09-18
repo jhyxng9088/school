@@ -141,7 +141,7 @@ function startUnreadIndicators() {
 
   function renderTopSegments() {
     const activeLeaf = activeLeafTab()
-    document.querySelectorAll('.class-top-segment-button[data-unread-key]').forEach((button) => {
+    document.querySelectorAll('.class-top-segment-button[data-unread-key]:not([data-react-unread-owner="true"])').forEach((button) => {
       const tab = String(button.dataset.unreadKey || '')
       const keepNestedReminderUnread = tab === 'todo' && tab === activeLeaf && hasUnreadReminderRows()
       if (tab === activeLeaf && !keepNestedReminderUnread) {
