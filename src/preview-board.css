@@ -582,6 +582,7 @@ html.school-samsung .preview-board-kind-row {
 @media (prefers-reduced-motion: reduce) {
   .class-station-panel,
   .preview-board-page,
+  .preview-board-list,
   .preview-board-card,
   .preview-board-refresh.is-spinning svg {
     animation-duration: .01ms !important;
