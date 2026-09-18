@@ -28,7 +28,7 @@ test('study ranking client sends today/all period without changing the existing 
   assert.match(source, /normalizedPeriod = period === 'all' \? 'all' : 'today'/)
   assert.match(source, /'&period=' \+ encodeURIComponent\(normalizedPeriod\)/)
   assert.match(source, /period: source\.period === 'all' \? 'all' : 'today'/)
-  assert.match(source, /requestStudy\(\{ signal, scope, period \}\)/)
+  assert.match(source, /requestStudy\(\{ signal, scope: normalizedScope, period: normalizedPeriod \}\)/)
   assert.match(source, /functions\/v1\/class-study/)
 })
 
