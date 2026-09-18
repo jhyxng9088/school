@@ -118,7 +118,7 @@ async function serviceWorkerRegistration() {
 }
 
 async function fetchPublicKey() {
-  const response = await fetch(`${PUSH_API_BASE}/push-public-key`, { cache: 'no-store' })
+  const response = await fetch(`${PUSH_API_BASE}/activity-dispatch`, { cache: 'no-store' })
   if (!response.ok) throw new Error(`Push public key request failed: ${response.status}`)
   const payload = await response.json()
   const key = String(payload?.publicKey || '')
