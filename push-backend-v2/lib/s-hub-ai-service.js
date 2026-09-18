@@ -1,3 +1,7 @@
+const MISTRAL_CHAT_ENDPOINT = 'https://api.mistral.ai/v1/chat/completions'
+const MISTRAL_PRIMARY_MODEL = 'mistral-small-2603'
+const MISTRAL_TEXT_TIMEOUT_MS = 18_000
+const MISTRAL_ATTACHMENT_TIMEOUT_MS = 26_000
 const OPENROUTER_CHAT_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_MODEL_CHAIN = Object.freeze([
   'google/gemma-4-31b-it:free',
@@ -107,6 +111,46 @@ function safeAttachments(value) {
   })
 }
 
+function safeMistralAttachments(value) {
+  const attachments = Array.isArray(value) ? value.slice(0, 4) : []
+  let total = 0
+  return attachments.map((attachment, index) => {
+    const name = String(attachment?.name || `attachment-${index + 1}`).trim().slice(0, 120)
+    const mimeType = String(attachment?.mimeType || '').trim().toLowerCase().slice(0, 120)
+    const dataBase64 = String(attachment?.dataBase64 || '').trim()
+    if (!mimeType || !dataBase64) throw aiError('Invalid AI attachment', 400, 'invalid_attachment')
+
+    total += dataBase64.length
+    if (total > MAX_ATTACHMENT_BASE64_CHARS) {
+      throw aiError('AI attachment payload is too large', 413, 'attachment_too_large')
+    }
+
+    if (mimeType.startsWith('image/')) {
+      return {
+        type: 'image_url',
+        image_url: `data:${mimeType};base64,${dataBase64}`,
+      }
+    }
+
+    if (mimeType === 'application/pdf') {
+      return {
+        type: 'document_url',
+        document_url: `data:application/pdf;base64,${dataBase64}`,
+      }
+    }
+
+    if (TEXT_MIME_TYPES.has(mimeType)) {
+      const text = decodeTextAttachment(dataBase64)
+      return {
+        type: 'text',
+        text: `\n--- ATTACHMENT_DATA ${name} (${mimeType}) ---\n${text}\n--- END_ATTACHMENT_DATA ---`,
+      }
+    }
+
+    throw aiError(`Unsupported AI attachment type: ${mimeType}`, 400, 'unsupported_attachment')
+  })
+}
+
 function shouldRetry(error) {
   const status = Number(error?.status || 0)
   return [408, 425, 500, 502, 503, 504].includes(status)
@@ -115,6 +159,15 @@ function shouldRetry(error) {
 function shouldTryNextImageModel(error) {
   const status = Number(error?.status || 0)
   return status === 404 || status === 429 || shouldRetry(error)
+}
+
+function shouldFallbackFromMistral(error) {
+  const status = Number(error?.status || 0)
+  const code = String(error?.code || '')
+  return [400, 401, 403, 404, 408, 425, 429, 500, 502, 503, 504].includes(status)
+    || code === 'empty_response'
+    || code === 'invalid_json'
+    || code === 'model_timeout'
 }
 
 function shouldTryTextRecovery(error) {
@@ -236,6 +289,77 @@ function logRateLimitDiagnostic(label, requestMeta, error, modelName) {
   })
 }
 
+export async function requestMistralModel({
+  apiKey,
+  modelName = MISTRAL_PRIMARY_MODEL,
+  prompt,
+  attachments,
+  responseSchema,
+  maxOutputTokens,
+  temperature,
+  timeoutMs,
+}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetch(MISTRAL_CHAT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 's-hub-server/2.0',
+      },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [{ role: 'user', content: [{ type: 'text', text: structuredPrompt(prompt, responseSchema) }, ...attachments] }],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 's_hub_result',
+            schema: responseSchema,
+            strict: true,
+          },
+        },
+        temperature,
+        max_tokens: maxOutputTokens,
+      }),
+      signal: controller.signal,
+    })
+
+    const rawText = await response.text()
+    let payload = null
+    try { payload = rawText ? JSON.parse(rawText) : null } catch { payload = null }
+
+    if (!response.ok) {
+      const message = String(payload?.message || payload?.error?.message || `Mistral AI HTTP ${response.status}`)
+      const code = String(payload?.code || payload?.error?.code || `http-${response.status}`)
+      const error = aiError(message, response.status, code)
+      error.rateLimit = rateLimitMetadata(response)
+      throw error
+    }
+
+    const generated = responseText(payload)
+    if (!generated) throw aiError('Mistral AI returned an empty response', 502, 'empty_response')
+
+    let value = null
+    try {
+      value = JSON.parse(generated)
+    } catch {
+      throw aiError('Mistral AI returned invalid JSON', 502, 'invalid_json')
+    }
+
+    const servedModelName = String(payload?.model || modelName || MISTRAL_PRIMARY_MODEL).trim() || MISTRAL_PRIMARY_MODEL
+    return { value, usage: usageInfo(payload), modelName: servedModelName }
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw aiError(`Mistral AI ${modelName} timed out`, 504, 'model_timeout')
+    }
+    throw error
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export async function requestOpenRouterModel({
   apiKey,
   modelName,
@@ -313,15 +437,17 @@ export async function generateStructuredAI({
   temperature = 0.05,
   modelName = DEFAULT_MODEL,
 }) {
-  const apiKey = String(process.env.OPENROUTER_API_KEY || '').trim()
+  const mistralApiKey = String(process.env.MISTRAL_API_KEY || '').trim()
+  const openRouterApiKey = String(process.env.OPENROUTER_API_KEY || '').trim()
   const safePrompt = String(prompt || '').trim().slice(0, 40_000)
   const safeModelName = String(modelName || DEFAULT_MODEL).trim() || DEFAULT_MODEL
   const routingModels = safeModelName === DEFAULT_MODEL ? [...OPENROUTER_MODEL_CHAIN] : [safeModelName]
-  if (!apiKey) throw aiError('OPENROUTER_API_KEY is not configured', 503, 'openrouter_not_configured')
+  if (!mistralApiKey && !openRouterApiKey) throw aiError('No AI provider API key is configured', 503, 'ai_not_configured')
   if (!safePrompt) throw aiError('Missing AI prompt', 400, 'invalid_request')
 
   const rawAttachments = Array.isArray(attachments) ? attachments.slice(0, 4) : []
   const contentParts = safeAttachments(rawAttachments)
+  const mistralContentParts = safeMistralAttachments(rawAttachments)
   const schema = safeSchema(responseSchema)
   const outputTokens = Math.round(clamp(maxOutputTokens, 200, 5000, 1600))
   const imageRequest = safeModelName === DEFAULT_MODEL && hasImageAttachment(contentParts)
@@ -344,6 +470,58 @@ export async function generateStructuredAI({
   const attempts = []
   let lastError = null
 
+  if (mistralApiKey && safeModelName === DEFAULT_MODEL) {
+    const remaining = deadline - Date.now()
+    if (remaining >= 2500) {
+      const attemptCap = mistralContentParts.length ? MISTRAL_ATTACHMENT_TIMEOUT_MS : MISTRAL_TEXT_TIMEOUT_MS
+      const attemptTimeout = Math.max(2000, Math.min(remaining, attemptCap))
+      const startedAt = Date.now()
+      try {
+        const result = await requestMistralModel({
+          apiKey: mistralApiKey,
+          modelName: MISTRAL_PRIMARY_MODEL,
+          prompt: safePrompt,
+          attachments: mistralContentParts,
+          responseSchema: schema,
+          maxOutputTokens: outputTokens,
+          temperature: safeTemperature,
+          timeoutMs: attemptTimeout,
+        })
+        return {
+          value: result.value,
+          modelName: result.modelName || MISTRAL_PRIMARY_MODEL,
+          attempts,
+          usage: result.usage,
+        }
+      } catch (error) {
+        lastError = error
+        attempts.push(`mistral ${MISTRAL_PRIMARY_MODEL}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
+        if (Number(error?.status) === 429) {
+          logRateLimitDiagnostic('mistral rate-limit diagnostic', requestMeta, error, MISTRAL_PRIMARY_MODEL)
+        }
+        if (!openRouterApiKey || !shouldFallbackFromMistral(error)) {
+          const finalError = new Error(error?.message || 'Mistral AI request failed')
+          finalError.status = Number(error?.status || 502)
+          finalError.code = String(error?.code || 'ai_request_failed')
+          finalError.attempts = attempts
+          finalError.rateLimit = error?.rateLimit || null
+          finalError.requestMeta = requestMeta
+          throw finalError
+        }
+      }
+    }
+  }
+
+  if (!openRouterApiKey) {
+    const error = new Error(lastError?.message || 'OpenRouter fallback is not configured')
+    error.status = Number(lastError?.status || 503)
+    error.code = String(lastError?.code || 'openrouter_not_configured')
+    error.attempts = attempts
+    error.rateLimit = lastError?.rateLimit || null
+    error.requestMeta = requestMeta
+    throw error
+  }
+
   if (imageRequest) {
     for (const imageModelName of IMAGE_MODEL_CHAIN) {
       const remaining = deadline - Date.now()
@@ -353,7 +531,7 @@ export async function generateStructuredAI({
 
       try {
         const result = await requestOpenRouterModel({
-          apiKey,
+          apiKey: openRouterApiKey,
           modelName: imageModelName,
           prompt: safePrompt,
           attachments: contentParts,
@@ -388,7 +566,7 @@ export async function generateStructuredAI({
 
       try {
         const result = await requestOpenRouterModel({
-          apiKey,
+          apiKey: openRouterApiKey,
           modelName: safeModelName,
           modelNames: routingModels,
           prompt: safePrompt,
@@ -424,7 +602,7 @@ export async function generateStructuredAI({
 
         try {
           const result = await requestOpenRouterModel({
-            apiKey,
+            apiKey: openRouterApiKey,
             modelName: recoveryModelName,
             prompt: safePrompt,
             attachments: contentParts,
