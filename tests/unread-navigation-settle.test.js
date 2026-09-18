@@ -45,3 +45,15 @@ test('shared base timetable and dated timetable changes both feed timetable unre
   assert.match(classSegment, /\{ id: 'timetable', label: '시간표' \}/)
   assert.match(classSegment, /data-unread-key=\{item\.id\}/)
 })
+
+
+test('class top segment owns its unread dots in React so spring rerenders cannot erase them', () => {
+  const indicator = read('src/unread-indicators-v2.js')
+  const classSegment = read('src/preview-class-top-segment-patch.js')
+
+  assert.match(classSegment, /import \{ subscribeUnreadState \} from '\.\/unread-store\.js'/)
+  assert.match(classSegment, /data-react-unread-owner="true"/)
+  assert.match(classSegment, /unread\[item\.id\] && section !== item\.id/)
+  assert.match(classSegment, /school-unread-dot is-segment/)
+  assert.match(indicator, /class-top-segment-button\[data-unread-key\]:not\(\[data-react-unread-owner="true"\]\)/)
+})
