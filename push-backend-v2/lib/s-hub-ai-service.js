@@ -1,5 +1,7 @@
 const MISTRAL_CHAT_ENDPOINT = 'https://api.mistral.ai/v1/chat/completions'
 const MISTRAL_PRIMARY_MODEL = 'mistral-small-2603'
+const MISTRAL_FALLBACK_MODEL = 'ministral-14b-2512'
+const MISTRAL_MODEL_CHAIN = Object.freeze([MISTRAL_PRIMARY_MODEL, MISTRAL_FALLBACK_MODEL])
 const MISTRAL_TEXT_TIMEOUT_MS = 18_000
 const MISTRAL_ATTACHMENT_TIMEOUT_MS = 26_000
 const OPENROUTER_CHAT_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions'
@@ -471,15 +473,18 @@ export async function generateStructuredAI({
   let lastError = null
 
   if (mistralApiKey && safeModelName === DEFAULT_MODEL) {
-    const remaining = deadline - Date.now()
-    if (remaining >= 2500) {
+    for (const mistralModelName of MISTRAL_MODEL_CHAIN) {
+      const remaining = deadline - Date.now()
+      if (remaining < 2500) break
+
       const attemptCap = mistralContentParts.length ? MISTRAL_ATTACHMENT_TIMEOUT_MS : MISTRAL_TEXT_TIMEOUT_MS
       const attemptTimeout = Math.max(2000, Math.min(remaining, attemptCap))
       const startedAt = Date.now()
+
       try {
         const result = await requestMistralModel({
           apiKey: mistralApiKey,
-          modelName: MISTRAL_PRIMARY_MODEL,
+          modelName: mistralModelName,
           prompt: safePrompt,
           attachments: mistralContentParts,
           responseSchema: schema,
@@ -489,17 +494,17 @@ export async function generateStructuredAI({
         })
         return {
           value: result.value,
-          modelName: result.modelName || MISTRAL_PRIMARY_MODEL,
+          modelName: result.modelName || mistralModelName,
           attempts,
           usage: result.usage,
         }
       } catch (error) {
         lastError = error
-        attempts.push(`mistral ${MISTRAL_PRIMARY_MODEL}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
+        attempts.push(`mistral ${mistralModelName}: ${String(error?.code || error?.status || 'error')} (${Date.now() - startedAt}ms)`)
         if (Number(error?.status) === 429) {
-          logRateLimitDiagnostic('mistral rate-limit diagnostic', requestMeta, error, MISTRAL_PRIMARY_MODEL)
+          logRateLimitDiagnostic('mistral rate-limit diagnostic', requestMeta, error, mistralModelName)
         }
-        if (!openRouterApiKey || !shouldFallbackFromMistral(error)) {
+        if (!shouldFallbackFromMistral(error)) {
           const finalError = new Error(error?.message || 'Mistral AI request failed')
           finalError.status = Number(error?.status || 502)
           finalError.code = String(error?.code || 'ai_request_failed')

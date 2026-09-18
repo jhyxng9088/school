@@ -133,7 +133,53 @@ test('Mistral image input is converted to direct base64 image_url format', async
   }
 })
 
-test('Mistral 429 falls back to existing OpenRouter route instead of failing the user request', async () => {
+test('Mistral Small 4 429 falls back to Ministral 14B before OpenRouter', async () => {
+  const restoreKeys = withProviderKeys()
+  const originalFetch = globalThis.fetch
+  const calls = []
+  const originalConsoleError = console.error
+  console.error = () => {}
+
+  globalThis.fetch = async (url, init) => {
+    const parsed = new URL(String(url))
+    const body = JSON.parse(init.body)
+    calls.push({ host: parsed.host, body })
+
+    if (parsed.host !== 'api.mistral.ai') {
+      throw new Error('OpenRouter should not be reached when Ministral succeeds')
+    }
+    if (body.model === 'mistral-small-2603') {
+      return response(429, { message: 'capacity busy', code: '1300' })
+    }
+    assert.equal(body.model, 'ministral-14b-2512')
+    return response(200, {
+      model: 'ministral-14b-2512',
+      choices: [{ message: { content: JSON.stringify({ answer: 'ministral-ok' }) } }],
+    })
+  }
+
+  try {
+    const result = await generateStructuredAI({
+      prompt: 'hello',
+      responseSchema: schema,
+      timeoutMs: 33000,
+    })
+    assert.deepEqual(calls.map(({ host, body }) => [host, body.model]), [
+      ['api.mistral.ai', 'mistral-small-2603'],
+      ['api.mistral.ai', 'ministral-14b-2512'],
+    ])
+    assert.deepEqual(result.value, { answer: 'ministral-ok' })
+    assert.equal(result.modelName, 'ministral-14b-2512')
+    assert.equal(result.attempts.length, 1)
+    assert.match(result.attempts[0], /^mistral mistral-small-2603: 1300 /)
+  } finally {
+    console.error = originalConsoleError
+    globalThis.fetch = originalFetch
+    restoreKeys()
+  }
+})
+
+test('OpenRouter remains final fallback after both Mistral models are unavailable', async () => {
   const restoreKeys = withProviderKeys()
   const originalFetch = globalThis.fetch
   const calls = []
@@ -145,11 +191,11 @@ test('Mistral 429 falls back to existing OpenRouter route instead of failing the
     const body = JSON.parse(init.body)
     calls.push({ host: parsed.host, body })
     if (parsed.host === 'api.mistral.ai') {
-      return response(429, { message: 'capacity busy', code: 'rate_limit_exceeded' }, { 'retry-after': '5' })
+      return response(429, { message: 'capacity busy', code: '1300' })
     }
     return response(200, {
       model: 'google/gemma-4-31b-it:free',
-      choices: [{ message: { content: JSON.stringify({ answer: 'fallback-ok' }) } }],
+      choices: [{ message: { content: JSON.stringify({ answer: 'openrouter-fallback-ok' }) } }],
     })
   }
 
@@ -159,11 +205,49 @@ test('Mistral 429 falls back to existing OpenRouter route instead of failing the
       responseSchema: schema,
       timeoutMs: 33000,
     })
-    assert.equal(calls[0].host, 'api.mistral.ai')
-    assert.equal(calls[1].host, 'openrouter.ai')
-    assert.deepEqual(result.value, { answer: 'fallback-ok' })
-    assert.equal(result.attempts.length, 1)
-    assert.match(result.attempts[0], /^mistral mistral-small-2603: /)
+    assert.equal(calls[0].body.model, 'mistral-small-2603')
+    assert.equal(calls[1].body.model, 'ministral-14b-2512')
+    assert.equal(calls[2].host, 'openrouter.ai')
+    assert.deepEqual(result.value, { answer: 'openrouter-fallback-ok' })
+    assert.equal(result.attempts.length, 2)
+    assert.match(result.attempts[0], /^mistral mistral-small-2603: 1300 /)
+    assert.match(result.attempts[1], /^mistral ministral-14b-2512: 1300 /)
+  } finally {
+    console.error = originalConsoleError
+    globalThis.fetch = originalFetch
+    restoreKeys()
+  }
+})
+
+test('image requests keep the same Mistral-native image chunk when Ministral 14B recovers', async () => {
+  const restoreKeys = withProviderKeys()
+  const originalFetch = globalThis.fetch
+  const calls = []
+  const originalConsoleError = console.error
+  console.error = () => {}
+
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(init.body)
+    calls.push(body)
+    if (body.model === 'mistral-small-2603') {
+      return response(429, { message: 'capacity busy', code: '1300' })
+    }
+    return response(200, {
+      model: 'ministral-14b-2512',
+      choices: [{ message: { content: JSON.stringify({ answer: 'vision-fallback-ok' }) } }],
+    })
+  }
+
+  try {
+    const result = await generateStructuredAI({
+      prompt: 'read this notice',
+      responseSchema: schema,
+      attachments: [{ name: 'notice.jpg', mimeType: 'image/jpeg', dataBase64: 'AA==' }],
+    })
+    assert.equal(calls[1].model, 'ministral-14b-2512')
+    assert.equal(calls[1].messages[0].content[1].type, 'image_url')
+    assert.equal(calls[1].messages[0].content[1].image_url, 'data:image/jpeg;base64,AA==')
+    assert.deepEqual(result.value, { answer: 'vision-fallback-ok' })
   } finally {
     console.error = originalConsoleError
     globalThis.fetch = originalFetch
