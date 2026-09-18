@@ -76,3 +76,31 @@ test('Vercel config keeps social push inside the existing activity function', ()
   assert.equal(config.functions['api/social-dispatch.js'], undefined)
   assert.equal(fs.existsSync(new URL('../push-backend-v2/api/social-dispatch.js', import.meta.url)), false)
 })
+
+
+test('all client push dispatch paths use the canonical reminder backend', () => {
+  const pushClient = read('src/push-client.js')
+  const direct = read('src/push-dispatch-direct.js')
+  const backend = read('push-backend-v2/api/activity-dispatch.js')
+  const publicKey = read('push-backend-v2/api/push-public-key.js')
+
+  assert.match(pushClient, /school-reminder-backend\.vercel\.app\/api/)
+  assert.match(pushClient, /\$\{PUSH_API_BASE\}\/activity-dispatch/)
+  assert.doesNotMatch(pushClient, /school-push-backend\.vercel\.app/)
+  assert.doesNotMatch(pushClient, /\/push-dispatch/)
+
+  assert.match(direct, /school-reminder-backend\.vercel\.app\/api/)
+  assert.match(direct, /\$\{PUSH_API_BASE\}\/activity-dispatch/)
+  assert.doesNotMatch(direct, /school-push-backend\.vercel\.app/)
+  assert.doesNotMatch(direct, /\/push-dispatch/)
+
+  assert.match(backend, /\['reminder', 'timetable', 'academic'\]\.includes\(entityType\)/)
+  assert.match(backend, /collection\('academicEvents'\)\.doc\(entityId\)/)
+  assert.match(backend, /tag: `timetable-activity-\$\{entityId\}`/)
+  assert.match(backend, /tag: `academic-activity-\$\{entityId\}`/)
+  assert.match(backend, /url: '\.\/\?tab=timetable'/)
+  assert.match(backend, /url: '\.\/\?tab=academic'/)
+
+  assert.match(publicKey, /CURRENT_VAPID_PUBLIC_KEY/)
+  assert.match(publicKey, /publicKey: CURRENT_VAPID_PUBLIC_KEY/)
+})
