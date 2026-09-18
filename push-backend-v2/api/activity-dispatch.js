@@ -1,5 +1,5 @@
 import { adminAuth, adminDb } from '../lib/firebase-admin.js'
-import { reminderActivityBody, reminderActivityRecipientEligible } from '../lib/activity-logic.js'
+import { classActivityBody, reminderActivityBody, reminderActivityRecipientEligible } from '../lib/activity-logic.js'
 import { sendPlan } from '../lib/push.js'
 
 const BOARD_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-board'
@@ -194,21 +194,70 @@ export default async function handler(req, res) {
     const sourceId = safeText(body.sourceId, 150)
     const action = body.action === 'added' ? 'added' : 'edited'
     const updatedAt = Number(body.updatedAt || 0)
-    if (entityType !== 'reminder' || !entityId || !sourceId || !Number.isFinite(updatedAt) || updatedAt <= 0) {
+    if (!['reminder', 'timetable', 'academic'].includes(entityType) || !entityId || !sourceId || !Number.isFinite(updatedAt) || updatedAt <= 0) {
       return res.status(400).json({ ok: false, error: 'invalid_event' })
+    }
+
+    if (entityType === 'academic') {
+      if (sourceId !== entityId) return res.status(409).json({ ok: false, error: 'activity_mismatch' })
+
+      const eventSnapshot = await db.collection('classes').doc(classId).collection('academicEvents').doc(entityId).get()
+      if (!eventSnapshot.exists) return res.status(409).json({ ok: false, error: 'activity_missing' })
+      const event = eventSnapshot.data() || {}
+      if (
+        String(event.lastEditedByStudentKey || '') !== actorStudentKey
+        || String(event.lastAction || '') !== action
+        || Number(event.updatedAt || 0) !== updatedAt
+      ) {
+        return res.status(409).json({ ok: false, error: 'activity_mismatch' })
+      }
+
+      const subscriptionsSnapshot = await db.collection('classes').doc(classId).collection('pushSubscriptions').get()
+      const recipients = subscriptionsSnapshot.docs
+        .map(subscriptionFromSnapshot)
+        .filter(Boolean)
+        .filter((subscription) => subscription.studentKey !== actorStudentKey)
+      const summary = await sendPlan(db, {
+        recipients,
+        payload: {
+          title: 'S-Hub',
+          body: classActivityBody({ actorName, action, entityType, title: event.title }),
+          tag: `academic-activity-${entityId}`,
+          url: './?tab=academic',
+        },
+      })
+      return res.status(200).json({ ok: true, ...summary })
     }
 
     const activitySnapshot = await db.collection('classes').doc(classId).collection('activity').doc(sourceId).get()
     if (!activitySnapshot.exists) return res.status(409).json({ ok: false, error: 'activity_missing' })
     const activity = activitySnapshot.data() || {}
     if (
-      String(activity.entityType || '') !== 'reminder'
+      String(activity.entityType || '') !== entityType
       || String(activity.entityId || '') !== entityId
       || String(activity.actorStudentKey || '') !== actorStudentKey
       || String(activity.action || '') !== action
       || Number(activity.updatedAt || 0) !== updatedAt
     ) {
       return res.status(409).json({ ok: false, error: 'activity_mismatch' })
+    }
+
+    if (entityType === 'timetable') {
+      const subscriptionsSnapshot = await db.collection('classes').doc(classId).collection('pushSubscriptions').get()
+      const recipients = subscriptionsSnapshot.docs
+        .map(subscriptionFromSnapshot)
+        .filter(Boolean)
+        .filter((subscription) => subscription.studentKey !== actorStudentKey)
+      const summary = await sendPlan(db, {
+        recipients,
+        payload: {
+          title: 'S-Hub',
+          body: classActivityBody({ actorName, action, entityType }),
+          tag: `timetable-activity-${entityId}`,
+          url: './?tab=timetable',
+        },
+      })
+      return res.status(200).json({ ok: true, ...summary })
     }
 
     const todoSnapshot = await db.collection('classes').doc(classId).collection('todos').doc(entityId).get()
