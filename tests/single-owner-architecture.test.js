@@ -17,28 +17,18 @@ const GRANDFATHERED_MUTATION_OBSERVER_COUNTS = new Map([
 
 const GRANDFATHERED_BUILD_PATCHES = new Set([
   'e2e-board-fixture-patch.js',
-  'preview-ai-background-patch.js',
-  'preview-ai-context-layout-patch.js',
-  'preview-ai-density-patch.js',
   'preview-ai-live-context-patch.js',
   'preview-ai-page-patch.js',
-  'preview-ai-reminder-summary-patch.js',
-  'preview-ai-spacing-polish-patch.js',
   'preview-ai-stage-motion-patch.js',
   'preview-board-all-patch.js',
   'preview-board-patch.js',
   'preview-board-section-management-patch.js',
   'preview-class-top-segment-patch.js',
-  'preview-class-top-segment-style-patch.js',
   'preview-fast-cache-patch.js',
-  'preview-home-info-patch.js',
   'preview-nav-responsiveness-patch.js',
-  'preview-nav-spring-patch.js',
   'preview-nested-geometry-coupling-patch.js',
   'preview-nested-station-reaction-patch.js',
   'preview-physical-class-coupling-patch.js',
-  'preview-reminder-polish-patch.js',
-  'preview-s-hub-v2-patch.js',
   'preview-schedule-top-segment-patch.js',
   'preview-station-jelly-motion-patch.js',
   'preview-station-nav-patch.js',
@@ -46,7 +36,6 @@ const GRANDFATHERED_BUILD_PATCHES = new Set([
   'preview-study-patch.js',
   'preview-study-unified-ui-patch.js',
   'preview-unified-station-physics-patch.js',
-  'shared-segment-spring-owner-patch.js',
   'study-visual-polish-patch.js',
 ])
 
@@ -67,4 +56,11 @@ test('new build-time source patch owners are not added', () => {
     .filter((name) => /-patch\.js$/.test(name))
     .filter((name) => !GRANDFATHERED_BUILD_PATCHES.has(name))
   assert.deepEqual(unexpected, [])
+})
+
+
+test('grandfathered build patch allowlist contains only files that still exist', () => {
+  const existing = new Set(sourceFiles.filter((name) => /-patch\.js$/.test(name)))
+  const stale = [...GRANDFATHERED_BUILD_PATCHES].filter((name) => !existing.has(name)).sort()
+  assert.deepEqual(stale, [])
 })

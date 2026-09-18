@@ -13,3 +13,15 @@ export function reminderActivityBody({ actorName, action, title } = {}) {
   const verb = action === 'added' ? '추가했어요' : '수정했어요'
   return `${actor}님이 ${cleanTitle} 리마인더를 ${verb}.`
 }
+
+
+export function classActivityBody({ actorName, action, entityType, title } = {}) {
+  const actor = String(actorName || '').trim().slice(0, 20) || '친구'
+  if (entityType === 'timetable') return `${actor}님이 시간표를 변경했어요.`
+
+  const cleanTitle = cleanNotificationLabel(title)
+  const verb = action === 'added' ? '추가했어요' : '수정했어요'
+  return cleanTitle
+    ? `${actor}님이 ${cleanTitle} 학사일정을 ${verb}.`
+    : `${actor}님이 학사일정을 ${verb}.`
+}

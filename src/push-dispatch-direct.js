@@ -2,7 +2,7 @@ import { getApp, getApps } from 'firebase/app'
 import { deleteDoc, doc, getFirestore, runTransaction } from 'firebase/firestore'
 import { ensureSignedIn, readStudentProfile, studentKeyFor, classKeyFor } from './school-sync'
 
-const PUSH_API_BASE = 'https://school-push-backend.vercel.app/api'
+const PUSH_API_BASE = 'https://school-reminder-backend.vercel.app/api'
 const PUSH_ACTIVITY_EVENT = 'school:activity-committed'
 const syncApp = getApps().some((app) => app.name === 'school-sync') ? getApp('school-sync') : null
 const db = syncApp ? getFirestore(syncApp) : null
@@ -62,7 +62,7 @@ async function dispatchCommittedActivity(event) {
 
   try {
     const idToken = await user.getIdToken()
-    const response = await fetch(`${PUSH_API_BASE}/push-dispatch`, {
+    const response = await fetch(`${PUSH_API_BASE}/activity-dispatch`, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${idToken}`,
