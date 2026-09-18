@@ -434,7 +434,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
                 : undefined}
               onClick={(event) => openClassRoster({ keyboard: event.detail === 0 })}
             >
-              {showPresenceCount ? (presence.total > 0 ? `${presence.online}/${presence.total}` : `${presence.online}명`) : ''}
+              {showPresenceCount ? (presence.total > 0 ? `${presence.online}/${presence.total}` : presence.online > 0 ? `${presence.online}명` : '') : ''}
             </button>
           </div>
         </div>
