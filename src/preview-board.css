@@ -21,12 +21,6 @@
 .preview-board-page {
   min-width: 0;
   padding: 0 0 12px;
-  animation: preview-board-page-enter 520ms cubic-bezier(.22,.8,.24,1) both;
-}
-
-@keyframes preview-board-page-enter {
-  from { opacity: 0; transform: translate3d(8px, 4px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 .preview-board-header {
@@ -140,6 +134,12 @@
 .preview-board-list {
   display: grid;
   gap: 9px;
+  animation: preview-board-list-ready 180ms var(--motion-soft) both;
+}
+
+@keyframes preview-board-list-ready {
+  from { opacity: .72; }
+  to { opacity: 1; }
 }
 
 .preview-board-card {
@@ -158,8 +158,6 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--border) 35%, transparent);
-  animation: preview-board-card-enter 480ms cubic-bezier(.22,.8,.24,1) both;
-  animation-delay: var(--board-delay, 0ms);
   transition: transform 160ms var(--motion-ease), border-color 180ms ease, background 180ms ease;
 }
 
@@ -167,10 +165,6 @@
   transform: scale(.985);
 }
 
-@keyframes preview-board-card-enter {
-  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.995); }
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-}
 
 .preview-board-card-top,
 .preview-board-card-meta,
@@ -588,6 +582,7 @@ html.school-samsung .preview-board-kind-row {
 @media (prefers-reduced-motion: reduce) {
   .class-station-panel,
   .preview-board-page,
+  .preview-board-list,
   .preview-board-card,
   .preview-board-refresh.is-spinning svg {
     animation-duration: .01ms !important;

@@ -90,13 +90,19 @@ function patchBoardClient(source) {
 
 function patchBoardPage(source) {
   const stateMarker = `export function PreviewBoard({ profile = null, activitySignal = null }) {\n  const [posts, setPosts] = useState([])\n  const [sections, setSections] = useState(FALLBACK_SECTIONS)\n  const [activeSectionId, setActiveSectionId] = useState('general')\n  const [sectionDirection, setSectionDirection] = useState(1)\n  const [loading, setLoading] = useState(true)\n  const [refreshing, setRefreshing] = useState(false)\n  const [loadingMore, setLoadingMore] = useState(false)\n  const [hasMore, setHasMore] = useState(false)\n  const [nextCursor, setNextCursor] = useState('')`
-  const stateReplacement = `export function PreviewBoard({ profile = null, activitySignal = null }) {\n  const initialCache = useMemo(() => peekPreviewBoardCache('general'), [])\n  const [posts, setPosts] = useState(() => initialCache?.posts || [])\n  const [sections, setSections] = useState(() => initialCache?.sections?.length ? initialCache.sections : FALLBACK_SECTIONS)\n  const [activeSectionId, setActiveSectionId] = useState('general')\n  const [sectionDirection, setSectionDirection] = useState(1)\n  const [loading, setLoading] = useState(() => !initialCache)\n  const [refreshing, setRefreshing] = useState(false)\n  const [loadingMore, setLoadingMore] = useState(false)\n  const [hasMore, setHasMore] = useState(() => Boolean(initialCache?.hasMore))\n  const [nextCursor, setNextCursor] = useState(() => String(initialCache?.nextCursor || ''))`
+  const stateReplacement = `export function PreviewBoard({ profile = null, activitySignal = null }) {\n  const initialCache = useMemo(() => peekPreviewBoardCache('general'), [])\n  const [posts, setPosts] = useState(() => initialCache?.posts || [])\n  const [sections, setSections] = useState(() => initialCache?.sections?.length ? initialCache.sections : FALLBACK_SECTIONS)\n  const [activeSectionId, setActiveSectionId] = useState('general')\n  const [sectionDirection, setSectionDirection] = useState(1)\n  const [loading, setLoading] = useState(() => !initialCache || Boolean(initialCache.isPlaceholder))\n  const [refreshing, setRefreshing] = useState(false)\n  const [loadingMore, setLoadingMore] = useState(false)\n  const [hasMore, setHasMore] = useState(() => Boolean(initialCache?.hasMore))\n  const [nextCursor, setNextCursor] = useState(() => String(initialCache?.nextCursor || ''))`
   let next = replaceOnce(source, stateMarker, stateReplacement, 'board initial cache state')
   next = replaceOnce(
     next,
     `      if (!cached.isFresh) refresh({ quiet: true, signal: controller.signal })`,
     `      if (cached.needsRevalidate) refresh({ quiet: true, signal: controller.signal })`,
     'board initial stale while revalidate',
+  )
+  next = replaceOnce(
+    next,
+    `      setLoading(false)\n      if (cached.needsRevalidate) refresh({ quiet: true, signal: controller.signal })`,
+    `      setLoading(Boolean(cached.isPlaceholder))\n      if (cached.needsRevalidate) refresh({ quiet: true, signal: controller.signal })`,
+    'board placeholder loading state',
   )
   return next
 }

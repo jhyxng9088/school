@@ -54,7 +54,8 @@ test('board hydrates persistent cache before first visible state and quietly ref
 
   assert.match(page, /initialCache = useMemo\(\(\) => peekPreviewBoardCache\('general'\), \[\]\)/)
   assert.match(page, /useState\(\(\) => initialCache\?\.posts \|\| \[\]\)/)
-  assert.match(page, /useState\(\(\) => !initialCache\)/)
+  assert.match(page, /useState\(\(\) => !initialCache \|\| Boolean\(initialCache\.isPlaceholder\)\)/)
+  assert.match(page, /setLoading\(Boolean\(cached\.isPlaceholder\)\)/)
   assert.match(page, /if \(cached\.needsRevalidate\) refresh\(\{ quiet: true/)
 })
 
