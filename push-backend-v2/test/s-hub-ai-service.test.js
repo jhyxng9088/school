@@ -311,8 +311,10 @@ test('429 preserves safe provider headers and request-size metadata for diagnost
 
 test('missing server API key fails before any provider request', async () => {
   const originalFetch = globalThis.fetch
-  const previous = process.env.OPENROUTER_API_KEY
+  const previousOpenRouter = process.env.OPENROUTER_API_KEY
+  const previousMistral = process.env.MISTRAL_API_KEY
   delete process.env.OPENROUTER_API_KEY
+  delete process.env.MISTRAL_API_KEY
   let calls = 0
   globalThis.fetch = async () => {
     calls += 1
@@ -321,12 +323,14 @@ test('missing server API key fails before any provider request', async () => {
   try {
     await assert.rejects(
       generateStructuredAI({ prompt: 'hello', responseSchema: schema }),
-      (error) => error.status === 503 && error.code === 'openrouter_not_configured',
+      (error) => error.status === 503 && error.code === 'ai_not_configured',
     )
     assert.equal(calls, 0)
   } finally {
     globalThis.fetch = originalFetch
-    if (previous === undefined) delete process.env.OPENROUTER_API_KEY
-    else process.env.OPENROUTER_API_KEY = previous
+    if (previousOpenRouter === undefined) delete process.env.OPENROUTER_API_KEY
+    else process.env.OPENROUTER_API_KEY = previousOpenRouter
+    if (previousMistral === undefined) delete process.env.MISTRAL_API_KEY
+    else process.env.MISTRAL_API_KEY = previousMistral
   }
 })
