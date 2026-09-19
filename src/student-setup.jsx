@@ -264,4 +264,5 @@ export function StudentSetup({ initialName = '', onSave }) {
         </section>
       </form>
     </main>
-  )}
+  )
+}
