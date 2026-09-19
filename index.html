@@ -15,6 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=10" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
+    <link rel="preload" href="./icon.svg?v=9" as="image" type="image/svg+xml" />
     <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://school-reminder-backend.vercel.app" crossorigin />
@@ -88,7 +89,7 @@
         animation: shub-launch-logo-in 440ms cubic-bezier(.22, 1, .36, 1) both;
       }
 
-      .shub-launch-logo svg {
+      .shub-launch-logo img {
         display: block;
         width: 100%;
         height: 100%;
@@ -252,18 +253,7 @@
     <div id="shub-launch-splash" role="status" aria-label="S-Hub 여는 중">
       <div class="shub-launch-center">
         <div class="shub-launch-logo" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-            <defs>
-              <linearGradient id="shub-launch-silver" x1=".2" y1=".08" x2=".76" y2=".92">
-                <stop offset="0" stop-color="#fff" />
-                <stop offset=".48" stop-color="#f4f4f4" />
-                <stop offset=".72" stop-color="#bdbdbd" />
-                <stop offset="1" stop-color="#fff" />
-              </linearGradient>
-            </defs>
-            <rect width="512" height="512" fill="#000" />
-            <path d="M319 126C280 151 237 181 213 207C194 228 198 246 220 258C235 267 259 271 275 281C300 297 300 318 286 340C269 365 232 390 191 408C228 378 257 349 266 328C274 310 268 299 250 291C230 281 205 277 190 260C169 237 181 209 210 184C238 160 277 139 319 126Z" fill="url(#shub-launch-silver)" />
-          </svg>
+          <img src="./icon.svg?v=9" alt="" decoding="sync" fetchpriority="high" />
         </div>
         <div class="shub-launch-progress" aria-hidden="true">
           <span id="shub-launch-progress-fill"></span>
