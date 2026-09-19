@@ -22,6 +22,13 @@ function launchProgress(value) {
   window.__shubLaunch?.progress?.(value)
 }
 
+function refreshExistingServiceWorker() {
+  if (!('serviceWorker' in navigator)) return
+  navigator.serviceWorker.getRegistration()
+    .then((registration) => registration?.update())
+    .catch(() => {})
+}
+
 function LaunchReady() {
   useEffect(() => {
     launchProgress(.9)
@@ -85,6 +92,7 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
   startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
 }
 
+refreshExistingServiceWorker()
 prepareClientDataGeneration()
 launchProgress(.32)
 
