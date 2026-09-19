@@ -4,15 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <meta id="shub-theme-color" name="theme-color" content="#f5f5f7" />
     <meta name="application-name" content="S-Hub" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="S-Hub" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="manifest" href="./manifest.webmanifest?v=10" />
+    <link rel="manifest" href="./manifest.webmanifest?v=11" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
     <link rel="preload" href="./icon.svg?v=9" as="image" type="image/svg+xml" />
@@ -26,22 +25,6 @@
         --shub-launch-fg: #161617;
         --shub-launch-track: rgba(22, 22, 23, .09);
         --shub-launch-shadow: rgba(0, 0, 0, .14);
-      }
-
-      html[data-theme-mode="dark"] {
-        --shub-launch-bg: #000000;
-        --shub-launch-fg: #f5f5f7;
-        --shub-launch-track: rgba(255, 255, 255, .14);
-        --shub-launch-shadow: rgba(0, 0, 0, .44);
-      }
-
-      @media (prefers-color-scheme: dark) {
-        html:not([data-theme-mode]) {
-          --shub-launch-bg: #000000;
-          --shub-launch-fg: #f5f5f7;
-          --shub-launch-track: rgba(255, 255, 255, .14);
-          --shub-launch-shadow: rgba(0, 0, 0, .44);
-        }
       }
 
       #shub-launch-splash {
@@ -201,6 +184,13 @@
           launchState.removeTimer = window.setTimeout(() => {
             const splash = document.getElementById('shub-launch-splash')
             if (!splash || launchState.leaving) return
+
+            const explicitMode = root.dataset.themeMode
+            const darkAfterLaunch = explicitMode === 'dark'
+              || (!explicitMode && window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+            const themeColor = document.getElementById('shub-theme-color')
+            if (themeColor) themeColor.setAttribute('content', darkAfterLaunch ? '#000000' : '#f5f5f7')
+
             launchState.leaving = true
             splash.classList.add('is-leaving')
             window.setTimeout(() => splash.remove(), 340)

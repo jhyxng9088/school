@@ -625,6 +625,7 @@ export function useTodos(profile, reminderTimetable = null) {
   }
 
   return {
+    ready: remoteReady || navigator.onLine === false,
     todos,
     sharedTodos,
     categories,
