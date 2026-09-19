@@ -115,6 +115,21 @@ const CLASS_TOP_SEGMENT_CSS = `
   transform: scale(.965);
 }
 
+.class-top-segment.class-own-segment::before {
+  transform: none !important;
+}
+
+.class-top-segment.class-own-segment .class-top-segment-pill {
+  left: var(--segment-padding) !important;
+  width: calc((100% - (var(--segment-padding) * 2)) / 2) !important;
+  transform: translate3d(0, 0, 0) !important;
+  transition: transform 440ms cubic-bezier(.16, 1, .3, 1) !important;
+}
+
+.class-top-segment.class-own-segment .class-top-segment-pill.is-timetable {
+  transform: translate3d(100%, 0, 0) !important;
+}
+
 .class-station-content {
   min-width: 0;
 }
@@ -171,8 +186,6 @@ function useClassTopSegmentSpring(activeIndex) {
 }
 
 function ClassTopSegment({ profile, section, onSectionChange }) {
-  const activeIndex = section === 'timetable' ? 1 : 0
-  const spring = useClassTopSegmentSpring(activeIndex)
   const touchIntentRef = useRef({ key: '', at: 0 })
   const [unread, setUnread] = useState({})
 
@@ -193,11 +206,13 @@ function ClassTopSegment({ profile, section, onSectionChange }) {
   }
 
   return (
-    <div ref={spring.containerRef} className="class-top-segment" role="group" aria-label="우리 반 메뉴">
-      <span ref={spring.indicatorRef} className="class-top-segment-pill" aria-hidden="true" />
-      {items.map((item, index) => (
+    <div className="class-top-segment class-own-segment" role="group" aria-label="우리 반 메뉴">
+      <span
+        className={'class-top-segment-pill ' + (section === 'timetable' ? 'is-timetable' : '')}
+        aria-hidden="true"
+      />
+      {items.map((item) => (
         <button
-          ref={(node) => { spring.buttonRefs.current[index] = node }}
           key={item.id}
           type="button"
           data-unread-key={item.id}
