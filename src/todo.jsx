@@ -6,6 +6,7 @@ import {
   listenClassReminderCategories,
   listenClassTodos,
   listenStudentTodoState,
+  preloadReminderSnapshot,
   profileSignature,
   studentKeyFor,
   writeClassReminderCategory,
@@ -249,6 +250,27 @@ function writePersonalTodoStateCache(profile, state) {
     localStorage.setItem(key, JSON.stringify(normalizePersonalTodoState(state)))
   } catch {
     // Firestore remains authoritative; this cache only prevents stale first paint.
+  }
+}
+
+export async function preloadTodos(profile) {
+  const snapshot = await preloadReminderSnapshot(profile)
+  const nextShared = (snapshot.todos || []).map(sharedTodoShape)
+  const nextPersonal = normalizePersonalTodoState(snapshot.personalState)
+  const nextCategories = normalizeReminderCategories(snapshot.categories)
+
+  writeSharedTodosCache(profile, nextShared)
+  writePersonalTodoStateCache(profile, nextPersonal)
+  writeReminderCategoriesCache(profile, nextCategories)
+
+  const nextVisible = visibleUnexpiredTodos(mergeSharedTodos(nextShared, nextPersonal))
+  writeVisibleTodosCache(profile, nextVisible)
+
+  return {
+    todos: nextVisible,
+    sharedTodos: nextShared,
+    personalState: nextPersonal,
+    categories: nextCategories,
   }
 }
 
