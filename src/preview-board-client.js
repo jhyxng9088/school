@@ -179,6 +179,23 @@ export async function loadPreviewBoard({ signal, sectionId = 'general', forceSec
 }
 
 export async function preloadPreviewBoard({ signal } = {}) {
+  const cached = peekPreviewBoardCache('general')
+  const cachedSectionIds = (cached?.sections || [])
+    .map((section) => String(section?.id || '').trim())
+    .filter((sectionId) => sectionId && sectionId !== 'general')
+
+  const warmBySection = new Map(cachedSectionIds.map((sectionId) => [
+    sectionId,
+    loadPreviewBoard({
+      signal,
+      sectionId,
+      forceSections: false,
+    }).then(
+      (value) => ({ ok: true, value }),
+      (error) => ({ ok: false, error }),
+    ),
+  ]))
+
   const first = await loadPreviewBoard({
     signal,
     sectionId: 'general',
@@ -189,11 +206,15 @@ export async function preloadPreviewBoard({ signal } = {}) {
     .map((section) => String(section?.id || '').trim())
     .filter((sectionId) => sectionId && sectionId !== first.activeSectionId)
 
-  await Promise.all(sectionIds.map((sectionId) => loadPreviewBoard({
-    signal,
-    sectionId,
-    forceSections: false,
-  })))
+  await Promise.all(sectionIds.map(async (sectionId) => {
+    const warmed = warmBySection.get(sectionId)
+    if (!warmed) {
+      return loadPreviewBoard({ signal, sectionId, forceSections: false })
+    }
+    const result = await warmed
+    if (result.ok) return result.value
+    return loadPreviewBoard({ signal, sectionId, forceSections: false })
+  }))
 
   return first
 }

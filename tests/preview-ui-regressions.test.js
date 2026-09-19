@@ -53,7 +53,7 @@ test('the seven question examples remain deliberately informal', () => {
 
 test('production service worker cache is bumped so installed PWAs receive the fresh UI shell', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v162-launch-motion'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v163-safe-area'/)
   assert.doesNotMatch(sw, /school-preview-shell-/)
   assert.match(sw, /self\.skipWaiting\(\)/)
   assert.match(sw, /self\.clients\.claim\(\)/)
@@ -87,4 +87,41 @@ test('launch preload overlaps independent roster, board, and timetable work', ()
   assert.match(launch, /Promise\.all\(\[[\s\S]*preloadClassPresence[\s\S]*preloadClassRoster/)
   assert.match(boardClient, /Promise\.all\(sectionIds\.map/)
   assert.match(schoolSync, /Promise\.all\(\[[\s\S]*getDocFromServer\(timetableRef\(profile\)\)[\s\S]*requestPersonalTimetable/)
+})
+
+
+test('Board and Study entrance timing stays near the canonical tab pace', () => {
+  const board = read('src/preview-board-finish.css')
+  const study = read('src/preview-study.css')
+  const index = read('index.html')
+  assert.match(index, /app-content:has\(> \.todo-page\)[\s\S]*980ms/)
+  assert.match(index, /school-mobile-compat[\s\S]*animation-duration: 760ms/)
+  assert.match(board, /preview-board-entry-item 820ms/)
+  assert.match(study, /preview-study-entry-item 820ms/)
+  assert.match(study, /preview-study-entry-item 840ms 255ms/)
+})
+
+
+test('launch reuses cached board topology and avoids duplicate critical-path work', () => {
+  const launch = read('src/launch-data-preload.js')
+  const board = read('src/preview-board-client.js')
+  const academic = read('src/class-activity.js')
+  const preloadAcademic = academic.slice(
+    academic.indexOf('export async function preloadSharedAcademic'),
+    academic.indexOf('export function useSharedAcademic'),
+  )
+  assert.match(launch, /label: 'board', retry: false/)
+  assert.match(board, /const cached = peekPreviewBoardCache\('general'\)/)
+  assert.match(board, /const warmBySection = new Map/)
+  assert.match(preloadAcademic, /await ensureSignedIn\(\)/)
+  assert.doesNotMatch(preloadAcademic, /ensureIdentity/)
+})
+
+test('our-class top segment keeps symmetric spring travel without directional deformation', () => {
+  const segment = read('src/preview-class-top-segment-patch.js')
+  const spring = read('src/s-hub-segment-spring.js')
+  assert.match(segment, /deform: false/)
+  assert.match(segment, /shellElastic: false/)
+  assert.match(spring, /deform = true/)
+  assert.match(spring, /shellElastic = true/)
 })

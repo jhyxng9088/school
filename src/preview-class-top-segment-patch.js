@@ -165,6 +165,8 @@ function useClassTopSegmentSpring(activeIndex) {
     shellScaleProperty: '--segment-shell-scale-x',
     shellShiftProperty: '--segment-shell-shift-x',
     fallbackPadding: 5,
+    deform: false,
+    shellElastic: false,
   })
 }
 
