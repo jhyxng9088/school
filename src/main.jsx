@@ -49,6 +49,7 @@ import { PreviewHomeSignals } from './preview-home-signals.jsx'
 import { HomeNavAction } from './home-nav-action.jsx'
 import { useHomeMealPriority } from './home-meal-priority.js'
 import { ThemeSettingsIsland } from './theme-settings-entry.jsx'
+import { IOSReinstallNotice } from './ios-reinstall-notice.jsx'
 import { StudentSetup } from './student-setup.jsx'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
@@ -383,6 +384,8 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
           </button>
         </div>
       </header>
+
+      <IOSReinstallNotice />
 
       <div ref={homeStackRef} className={`home-stack ${mealPriority ? 'is-meal-priority' : ''}`} data-home-lunch-ready="true">
         <CurrentClassPreview schoolState={schoolState} now={now} />
