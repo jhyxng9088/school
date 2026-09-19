@@ -7,6 +7,7 @@ import { ensureSignedIn } from './school-sync.js'
 
 const THEME_SYNC_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/student-theme-preferences'
 const THEME_SYNC_META_KEY = 'school.themePreferencesSync.v1'
+let localThemeRevision = 0
 
 function readSyncMeta() {
   try {
@@ -69,7 +70,7 @@ async function requestTheme({ method = 'GET', payload = null, signal } = {}) {
   return body
 }
 
-async function pushLocalTheme(local, { signal } = {}) {
+async function pushLocalTheme(local, { signal, revision = localThemeRevision } = {}) {
   const body = await requestTheme({
     method: 'POST',
     payload: {
@@ -80,7 +81,10 @@ async function pushLocalTheme(local, { signal } = {}) {
     signal,
   })
   const updatedAt = Math.max(0, Number(body?.preference?.updatedAt || Date.now()))
-  writeSyncMeta({ updatedAt, dirty: false })
+  writeSyncMeta({
+    updatedAt,
+    dirty: localThemeRevision !== revision,
+  })
   return local
 }
 
@@ -88,16 +92,23 @@ export async function syncThemePreferences({ signal } = {}) {
   const local = readThemePreferences()
   if (navigator.onLine === false) return local
 
+  const revisionAtStart = localThemeRevision
   const meta = readSyncMeta()
   try {
     if (meta.dirty) {
-      return await pushLocalTheme(local, { signal })
+      return await pushLocalTheme(local, { signal, revision: revisionAtStart })
     }
 
     const body = await requestTheme({ signal })
     const remote = body?.preference
+    if (readSyncMeta().dirty || localThemeRevision !== revisionAtStart) {
+      return await pushLocalTheme(readThemePreferences(), {
+        signal,
+        revision: localThemeRevision,
+      })
+    }
     if (!remote) {
-      return await pushLocalTheme(local, { signal })
+      return await pushLocalTheme(local, { signal, revision: revisionAtStart })
     }
 
     const next = saveThemePreferences(remote)
@@ -116,6 +127,7 @@ export async function syncThemePreferences({ signal } = {}) {
 }
 
 export function saveThemePreferencesSynced(preferences) {
+  localThemeRevision += 1
   const next = saveThemePreferences(preferences)
   writeSyncMeta({ updatedAt: Date.now(), dirty: true })
   publishTheme(next)
@@ -138,6 +150,7 @@ export function installThemePreferenceSync() {
   window.addEventListener('focus', refresh)
   window.addEventListener('online', refresh)
   document.addEventListener('visibilitychange', refresh)
+  window.setTimeout(refresh, 900)
 }
 
 export async function preloadThemePreferences({ signal } = {}) {
