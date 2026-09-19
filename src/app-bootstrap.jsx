@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import {
@@ -18,7 +18,31 @@ function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
 }
 
+function launchProgress(value) {
+  window.__shubLaunch?.progress?.(value)
+}
+
+function LaunchReady() {
+  useEffect(() => {
+    launchProgress(.9)
+    let secondFrame = null
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        window.__shubLaunch?.ready?.({ settleMs: 140 })
+      })
+    })
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [])
+
+  return null
+}
+
 function startMainApp() {
+  launchProgress(.7)
   return import('./main.jsx')
 }
 
@@ -37,6 +61,7 @@ function hasExplicitSchoolSelection() {
 }
 
 async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
+  launchProgress(.44)
   try {
     const recovering = await recoverStudentAuthForProfile(
       profileSignature(configuredProfile),
@@ -46,13 +71,16 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
   } catch (error) {
     console.warn('S-Hub student auth migration skipped:', error)
   }
+  launchProgress(.58)
   startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
 }
 
 prepareClientDataGeneration()
+launchProgress(.32)
 
 const standalone = isStandalone()
 const profile = readStudentProfile()
+launchProgress(.38)
 const previousProfileSignature = profileSignature(profile)
 const schoolSelectionComplete = hasExplicitSchoolSelection()
 
@@ -73,6 +101,7 @@ if (standalone && (!profile || !schoolSelectionComplete)) {
 
   root.render(
     <React.StrictMode>
+      <LaunchReady />
       <StudentSetup
         initialName={legacyName}
         onSave={async (nextProfile) => {
