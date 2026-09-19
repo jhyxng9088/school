@@ -42,20 +42,20 @@ html body .app-content:has(.preview-board-page),
 }
 
 .preview-board-header {
-  animation: preview-board-entry-item 500ms 30ms cubic-bezier(.16, 1, .3, 1) both;
+  animation: preview-board-entry-item 820ms 40ms cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .preview-board-sections-shell {
-  animation: preview-board-entry-item 500ms 85ms cubic-bezier(.16, 1, .3, 1) both;
+  animation: preview-board-entry-item 820ms 110ms cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .preview-board-toolbar {
-  animation: preview-board-entry-item 480ms 125ms cubic-bezier(.16, 1, .3, 1) both;
+  animation: preview-board-entry-item 800ms 165ms cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .preview-board-list > .preview-board-card:nth-child(-n + 6) {
-  animation: preview-board-entry-item 500ms cubic-bezier(.16, 1, .3, 1) both;
-  animation-delay: calc(150ms + var(--board-delay, 0ms));
+  animation: preview-board-entry-item 820ms cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: calc(210ms + var(--board-delay, 0ms));
 }
 
 .preview-board-state.is-cached-loading {
