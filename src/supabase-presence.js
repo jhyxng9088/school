@@ -63,6 +63,13 @@ async function requestPresence(user, classId, action, signal) {
   return body
 }
 
+export async function refreshSupabasePresenceSnapshot({ user, classId, signal } = {}) {
+  const body = await requestPresence(user, classId, 'heartbeat', signal)
+  const online = Math.max(0, Number(body?.online || 0))
+  const activeStudentKeys = safeStudentKeys(body?.activeStudentKeys)
+  return dispatchPresenceSnapshot(classId, online, activeStudentKeys)
+}
+
 export function startSupabasePresence({
   user,
   classId,
@@ -99,14 +106,11 @@ export function startSupabasePresence({
     requestController?.abort()
     requestController = new AbortController()
     const controller = requestController
-    refreshPromise = requestPresence(user, classId, 'heartbeat', controller.signal)
-      .then((body) => {
+    refreshPromise = refreshSupabasePresenceSnapshot({ user, classId, signal: controller.signal })
+      .then((snapshot) => {
         if (stopped || controller.signal.aborted) return false
         unavailableReported = false
-        const online = Math.max(0, Number(body?.online || 0))
-        const activeStudentKeys = safeStudentKeys(body?.activeStudentKeys)
-        onOnlineCount(online)
-        dispatchPresenceSnapshot(classId, online, activeStudentKeys)
+        onOnlineCount(snapshot.online)
         return true
       })
       .catch((error) => {
