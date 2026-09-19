@@ -8,25 +8,25 @@ const SETUP_FEATURES = [
     id: 'class',
     icon: 'class',
     title: '우리 반',
-    description: '게시판·시간표 변경과 반 소식을 함께 확인해.',
+    description: '게시판·시간표 변경과 반 소식을 함께 확인해요.',
   },
   {
     id: 'study',
     icon: 'study',
     title: 'Study',
-    description: '공부 기록과 우리 반·전교 랭킹을 이어서 봐.',
+    description: '공부 기록과 우리 반·전교 랭킹을 이어서 봐요.',
   },
   {
     id: 'schedule',
     icon: 'schedule',
     title: '일정',
-    description: '리마인더·학사일정·급식을 한곳에서 챙겨.',
+    description: '리마인더·학사일정·급식을 한곳에서 챙겨요.',
   },
   {
     id: 'ai',
     icon: 'ai',
     title: 'S-Hub AI',
-    description: '사진과 문서에서 필요한 일정과 할 일을 정리해.',
+    description: '사진과 문서에서 필요한 일정과 할 일을 정리해요.',
   },
 ]
 
@@ -139,8 +139,8 @@ export function StudentSetup({ initialName = '', onSave }) {
           </div>
           <div className="setup-hero-copy">
             <p className="eyebrow">S-Hub 시작하기</p>
-            <h1>학교생활, 한곳에서 시작해</h1>
-            <p className="onboarding-copy">우리 반 소식부터 공부 기록, 일정, 급식, AI 정리까지 학교생활에 필요한 흐름을 한곳에 모았어.</p>
+            <h1>학교생활, 한곳에서 시작해요</h1>
+            <p className="onboarding-copy">우리 반 소식부터 공부 기록, 일정, 급식, AI 정리까지 학교생활에 필요한 흐름을 한곳에 모았어요.</p>
           </div>
         </header>
 
@@ -165,8 +165,8 @@ export function StudentSetup({ initialName = '', onSave }) {
         <section className="setup-profile-section">
           <div className="setup-profile-heading">
             <p className="eyebrow">내 정보 연결</p>
-            <h2>학교와 내 정보를 연결해</h2>
-            <p>선택한 학교·학년·반을 기준으로 NEIS 정보와 S-Hub 공유 데이터를 맞춰 보여줘.</p>
+            <h2>학교와 내 정보를 연결해요</h2>
+            <p>선택한 학교·학년·반을 기준으로 NEIS 정보와 S-Hub 공유 데이터를 맞춰 보여줘요.</p>
           </div>
 
           <label className="name-field school-search-field">
@@ -190,7 +190,7 @@ export function StudentSetup({ initialName = '', onSave }) {
             ) : schoolError ? (
               <div className="school-search-status"><span>{schoolError}</span></div>
             ) : schoolQuery.trim().length === 1 ? (
-              <div className="school-search-status"><span>두 글자 이상 입력하면 검색해.</span></div>
+              <div className="school-search-status"><span>두 글자 이상 입력하면 검색해요.</span></div>
             ) : null}
 
             {schoolResults.length ? (
