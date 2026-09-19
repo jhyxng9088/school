@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta id="shub-theme-color" name="theme-color" content="#f5f5f7" />
+    <meta id="shub-theme-color" name="theme-color" content="#000000" />
     <meta name="application-name" content="S-Hub" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="S-Hub" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="manifest" href="./manifest.webmanifest?v=11" />
+    <link rel="manifest" href="./manifest.webmanifest?v=12" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
     <link rel="preload" href="./icon.svg?v=9" as="image" type="image/svg+xml" />
@@ -21,10 +21,10 @@
     <link rel="modulepreload" href="/src/main.jsx" />
     <style>
       :root {
-        --shub-launch-bg: #f5f5f7;
-        --shub-launch-fg: #161617;
-        --shub-launch-track: rgba(22, 22, 23, .09);
-        --shub-launch-shadow: rgba(0, 0, 0, .14);
+        --shub-launch-bg: #000000;
+        --shub-launch-fg: #f5f5f7;
+        --shub-launch-track: rgba(255, 255, 255, .14);
+        --shub-launch-shadow: rgba(0, 0, 0, .34);
       }
 
       #shub-launch-splash {
@@ -43,8 +43,10 @@
         opacity: 1;
         visibility: visible;
         transition:
-          opacity 300ms cubic-bezier(.22, 1, .36, 1),
-          visibility 0s linear 300ms;
+          background-color 720ms cubic-bezier(.22, 1, .36, 1),
+          color 520ms cubic-bezier(.22, 1, .36, 1),
+          opacity 360ms cubic-bezier(.22, 1, .36, 1),
+          visibility 0s linear 360ms;
         -webkit-tap-highlight-color: transparent;
       }
 
@@ -168,6 +170,31 @@
           progress: 0.12,
           leaving: false,
           removeTimer: null,
+          themed: false,
+        }
+
+        function resolveLaunchTheme() {
+          if (launchState.themed) return
+          const splash = document.getElementById('shub-launch-splash')
+          if (!splash) return
+
+          const styles = getComputedStyle(root)
+          const targetBg = styles.getPropertyValue('--bg').trim() || '#f5f5f7'
+          const explicitMode = root.dataset.themeMode
+          const dark = explicitMode === 'dark'
+            || (!explicitMode && window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+
+          launchState.themed = true
+          root.style.setProperty('--shub-launch-bg', targetBg)
+          root.style.setProperty('--shub-launch-fg', dark ? '#f5f5f7' : '#161617')
+          root.style.setProperty(
+            '--shub-launch-track',
+            dark ? 'rgba(255, 255, 255, .14)' : 'rgba(22, 22, 23, .09)',
+          )
+          root.style.setProperty('--shub-launch-shadow', dark ? 'rgba(0, 0, 0, .44)' : 'rgba(0, 0, 0, .14)')
+
+          const themeColor = document.getElementById('shub-theme-color')
+          if (themeColor) themeColor.setAttribute('content', targetBg)
         }
 
         function paintLaunchProgress(value) {
@@ -185,12 +212,7 @@
             const splash = document.getElementById('shub-launch-splash')
             if (!splash || launchState.leaving) return
 
-            const explicitMode = root.dataset.themeMode
-            const darkAfterLaunch = explicitMode === 'dark'
-              || (!explicitMode && window.matchMedia?.('(prefers-color-scheme: dark)').matches)
-            const themeColor = document.getElementById('shub-theme-color')
-            if (themeColor) themeColor.setAttribute('content', darkAfterLaunch ? '#000000' : '#f5f5f7')
-
+            resolveLaunchTheme()
             launchState.leaving = true
             splash.classList.add('is-leaving')
             window.setTimeout(() => splash.remove(), 340)
@@ -202,7 +224,10 @@
           ready: finishLaunch,
         }
 
-        document.addEventListener('DOMContentLoaded', () => paintLaunchProgress(.22), { once: true })
+        document.addEventListener('DOMContentLoaded', () => {
+          paintLaunchProgress(.22)
+          requestAnimationFrame(() => requestAnimationFrame(resolveLaunchTheme))
+        }, { once: true })
         window.setTimeout(() => paintLaunchProgress(.3), 140)
         window.setTimeout(() => paintLaunchProgress(.5), 320)
         window.setTimeout(() => paintLaunchProgress(.68), 620)
