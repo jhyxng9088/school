@@ -71,7 +71,17 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
   } catch (error) {
     console.warn('S-Hub student auth migration skipped:', error)
   }
-  launchProgress(.58)
+
+  launchProgress(.54)
+  try {
+    const { preloadConfiguredAppData } = await import('./launch-data-preload.js')
+    window.__shubLaunchPreload = await preloadConfiguredAppData(configuredProfile)
+  } catch (error) {
+    console.warn('S-Hub launch data preload failed; continuing with available caches.', error)
+    window.__shubLaunchPreload = { failed: true }
+  }
+
+  launchProgress(.97)
   startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
 }
 
