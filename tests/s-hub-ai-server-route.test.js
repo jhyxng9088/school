@@ -35,5 +35,5 @@ test('S-Hub input hints rotate with a soft 2.5 second cadence', () => {
 })
 
 test('service worker advances after unified S-Hub AI repair', () => {
-  assert.match(read('public/sw.js'), /const CACHE_NAME = 'school-shell-v160-class-board-stability'/)
+  assert.match(read('public/sw.js'), /const CACHE_NAME = 'school-shell-v161-launch-refresh'/)
 })

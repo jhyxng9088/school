@@ -24,6 +24,10 @@ function sameEntries(current, latest) {
   return current.every((entry, index) => entry === latest[index])
 }
 
+function shellVersion(documentLike) {
+  return String(documentLike.querySelector('meta[name="shub-shell-version"]')?.getAttribute('content') || '')
+}
+
 async function checkForDeploymentUpdate({ force = false } = {}) {
   if (deploymentCheckPending || deploymentReloading) return
   if (document.hidden || navigator.onLine === false) return
@@ -49,7 +53,15 @@ async function checkForDeploymentUpdate({ force = false } = {}) {
     const html = await response.text()
     const latestDocument = new DOMParser().parseFromString(html, 'text/html')
     const latestEntries = normalizedModuleEntries(latestDocument, shellUrl.href)
-    if (!latestEntries.length || sameEntries(currentEntries, latestEntries)) return
+    const currentShellVersion = shellVersion(document)
+    const latestShellVersion = shellVersion(latestDocument)
+    const shellChanged = Boolean(
+      latestShellVersion
+      && currentShellVersion
+      && latestShellVersion !== currentShellVersion,
+    )
+    const modulesChanged = latestEntries.length > 0 && !sameEntries(currentEntries, latestEntries)
+    if (!shellChanged && !modulesChanged) return
 
     deploymentReloading = true
     window.location.reload()

@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta id="shub-theme-color" name="theme-color" content="#000000" />
+    <meta name="shub-shell-version" content="13" />
     <meta name="application-name" content="S-Hub" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="S-Hub" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="manifest" href="./manifest.webmanifest?v=12" />
+    <link rel="manifest" href="./manifest.webmanifest?v=13" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
     <link rel="preload" href="./icon.svg?v=9" as="image" type="image/svg+xml" />
@@ -86,6 +87,7 @@
         overflow: hidden;
         border-radius: 999px;
         background: var(--shub-launch-track);
+        transition: background-color 520ms cubic-bezier(.22, 1, .36, 1);
       }
 
       .shub-launch-progress > span {
@@ -94,10 +96,12 @@
         height: 100%;
         border-radius: inherit;
         background: var(--shub-launch-fg);
-        transform: scaleX(.12);
+        transform: translateZ(0) scaleX(.08);
         transform-origin: 0 50%;
-        transition: transform 360ms cubic-bezier(.22, 1, .36, 1);
+        transition: background-color 520ms cubic-bezier(.22, 1, .36, 1);
         will-change: transform;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
       }
 
       @keyframes shub-launch-logo-in {
@@ -167,7 +171,10 @@
         }
 
         const launchState = {
-          progress: 0.12,
+          progressTarget: 0.08,
+          progressPainted: 0.08,
+          progressFrame: 0,
+          progressFrameAt: 0,
           leaving: false,
           removeTimer: null,
           themed: false,
@@ -185,23 +192,59 @@
             || (!explicitMode && window.matchMedia?.('(prefers-color-scheme: dark)').matches)
 
           launchState.themed = true
+          const targetFg = dark ? '#f5f5f7' : '#161617'
           root.style.setProperty('--shub-launch-bg', targetBg)
-          root.style.setProperty('--shub-launch-fg', dark ? '#f5f5f7' : '#161617')
+          root.style.setProperty('--shub-launch-fg', targetFg)
           root.style.setProperty(
             '--shub-launch-track',
             dark ? 'rgba(255, 255, 255, .14)' : 'rgba(22, 22, 23, .09)',
           )
           root.style.setProperty('--shub-launch-shadow', dark ? 'rgba(0, 0, 0, .44)' : 'rgba(0, 0, 0, .14)')
 
+          // Set the actual painted longhands as well as the variables. This avoids
+          // WebKit keeping the launch shorthand on the original black frame.
+          splash.style.backgroundColor = targetBg
+          splash.style.color = targetFg
+
           const themeColor = document.getElementById('shub-theme-color')
           if (themeColor) themeColor.setAttribute('content', targetBg)
         }
 
-        function paintLaunchProgress(value) {
-          const next = Math.max(launchState.progress, Math.min(1, Number(value) || 0))
-          launchState.progress = next
+        function animateLaunchProgress(frameAt) {
+          launchState.progressFrame = 0
           const fill = document.getElementById('shub-launch-progress-fill')
-          if (fill) fill.style.transform = `scaleX(${next})`
+          if (!fill) {
+            launchState.progressFrame = requestAnimationFrame(animateLaunchProgress)
+            return
+          }
+
+          const previousAt = launchState.progressFrameAt || frameAt
+          const delta = Math.min(48, Math.max(0, frameAt - previousAt))
+          launchState.progressFrameAt = frameAt
+          const distance = launchState.progressTarget - launchState.progressPainted
+          const blend = 1 - Math.exp(-delta / 135)
+
+          if (Math.abs(distance) <= .0006) {
+            launchState.progressPainted = launchState.progressTarget
+          } else {
+            launchState.progressPainted += distance * blend
+          }
+
+          fill.style.transform = `translateZ(0) scaleX(${launchState.progressPainted})`
+
+          if (Math.abs(launchState.progressTarget - launchState.progressPainted) > .0006) {
+            launchState.progressFrame = requestAnimationFrame(animateLaunchProgress)
+          } else {
+            launchState.progressFrameAt = 0
+          }
+        }
+
+        function paintLaunchProgress(value) {
+          const next = Math.max(launchState.progressTarget, Math.min(1, Number(value) || 0))
+          launchState.progressTarget = next
+          if (!launchState.progressFrame) {
+            launchState.progressFrame = requestAnimationFrame(animateLaunchProgress)
+          }
         }
 
         function finishLaunch({ settleMs = 120 } = {}) {
@@ -220,19 +263,15 @@
         }
 
         window.__shubLaunch = {
+          version: 13,
           progress: paintLaunchProgress,
           ready: finishLaunch,
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-          paintLaunchProgress(.22)
+          paintLaunchProgress(.5)
           requestAnimationFrame(() => requestAnimationFrame(resolveLaunchTheme))
         }, { once: true })
-        window.setTimeout(() => paintLaunchProgress(.3), 140)
-        window.setTimeout(() => paintLaunchProgress(.5), 320)
-        window.setTimeout(() => paintLaunchProgress(.68), 620)
-        window.setTimeout(() => paintLaunchProgress(.78), 980)
-        window.setTimeout(() => paintLaunchProgress(.84), 1480)
 
         requestAnimationFrame(() => {
           requestAnimationFrame(() => root.style.removeProperty('transition'))
