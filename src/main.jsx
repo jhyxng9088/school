@@ -165,6 +165,33 @@ function InstallGuide({ onDone, standalone }) {
   )
 }
 
+const SETUP_FEATURES = [
+  {
+    id: 'class',
+    icon: 'class',
+    title: '우리 반',
+    description: '시간표 변경과 게시판 소식을 같은 반끼리 바로 공유해.',
+  },
+  {
+    id: 'study',
+    icon: 'study',
+    title: 'Study',
+    description: '공부 기록부터 우리 반·전교 랭킹까지 한 흐름으로 봐.',
+  },
+  {
+    id: 'schedule',
+    icon: 'schedule',
+    title: '일정',
+    description: '리마인더·학사일정·급식 정보를 놓치지 않게 모아줘.',
+  },
+  {
+    id: 'ai',
+    icon: 'ai',
+    title: 'S-Hub AI',
+    description: '사진과 문서를 읽고 필요한 일정과 할 일을 정리해.',
+  },
+]
+
 function StudentSetup({ initialName = '', onSave }) {
   const [classNumber, setClassNumber] = useState('')
   const [studentNumber, setStudentNumber] = useState('')
@@ -187,43 +214,82 @@ function StudentSetup({ initialName = '', onSave }) {
   }
 
   return (
-    <main className="onboarding-page">
-      <form className="onboarding-card name-card" onSubmit={submit}>
-        <p className="eyebrow">마지막 설정</p>
-        <h1>반, 번호, 이름 알려줘</h1>
-        <p className="onboarding-copy">같은 반끼리 시간표·리마인더·학사일정을 공유해. 리마인더 완료와 삭제는 같은 학생의 기기끼리만 동기화돼.</p>
-        <label className="name-field">
-          <span>반</span>
-          <input
-            value={classNumber}
-            onChange={(event) => setClassNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
-            placeholder="예: 7"
-            inputMode="numeric"
-            autoComplete="off"
-            autoFocus
-          />
-        </label>
-        <label className="name-field">
-          <span>번호</span>
-          <input
-            value={studentNumber}
-            onChange={(event) => setStudentNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
-            placeholder="예: 18"
-            inputMode="numeric"
-            autoComplete="off"
-          />
-        </label>
-        <label className="name-field">
-          <span>이름</span>
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="이름 입력"
-            autoComplete="name"
-            maxLength={20}
-          />
-        </label>
-        <button className="primary-button" disabled={!canSubmit}>시작하기</button>
+    <main className="onboarding-page setup-onboarding-page">
+      <form className="onboarding-card name-card setup-card" onSubmit={submit}>
+        <header className="setup-hero">
+          <div className="setup-app-mark" aria-hidden="true">
+            <span>S</span>
+            <i><SHubIcon name="ai" size={14} /></i>
+          </div>
+          <div className="setup-hero-copy">
+            <p className="eyebrow">S-Hub 시작하기</p>
+            <h1>학교생활, 한곳에서 시작해</h1>
+            <p className="onboarding-copy">시간표와 급식만 보는 앱이 아니야. 우리 반 소식부터 공부 기록, 일정, AI 정리까지 학교생활에 필요한 흐름을 한곳에 모았어.</p>
+          </div>
+        </header>
+
+        <section className="setup-feature-grid" aria-label="S-Hub 주요 기능">
+          {SETUP_FEATURES.map((feature, index) => (
+            <article
+              className={'setup-feature-card is-' + feature.id}
+              style={{ '--setup-order': index }}
+              key={feature.id}
+            >
+              <span className="setup-feature-icon" aria-hidden="true">
+                <SHubIcon name={feature.icon} size={18} />
+              </span>
+              <div>
+                <strong>{feature.title}</strong>
+                <span>{feature.description}</span>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <section className="setup-profile-section">
+          <div className="setup-profile-heading">
+            <p className="eyebrow">내 정보 연결</p>
+            <h2>반·번호·이름만 알려줘</h2>
+            <p>같은 반 데이터와 내 활동을 기기마다 이어서 보여주는 데 사용해.</p>
+          </div>
+          <div className="setup-fields">
+            <label className="name-field" style={{ '--setup-field-order': 0 }}>
+              <span>반</span>
+              <input
+                value={classNumber}
+                onChange={(event) => setClassNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
+                placeholder="예: 7"
+                inputMode="numeric"
+                autoComplete="off"
+                autoFocus
+              />
+            </label>
+            <label className="name-field" style={{ '--setup-field-order': 1 }}>
+              <span>번호</span>
+              <input
+                value={studentNumber}
+                onChange={(event) => setStudentNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
+                placeholder="예: 18"
+                inputMode="numeric"
+                autoComplete="off"
+              />
+            </label>
+            <label className="name-field" style={{ '--setup-field-order': 2 }}>
+              <span>이름</span>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="이름 입력"
+                autoComplete="name"
+                maxLength={20}
+              />
+            </label>
+          </div>
+          <button className="primary-button setup-start-button" disabled={!canSubmit}>
+            <span>시작하기</span>
+            <span className="setup-start-arrow" aria-hidden="true">→</span>
+          </button>
+        </section>
       </form>
     </main>
   )
