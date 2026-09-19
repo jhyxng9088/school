@@ -7,8 +7,8 @@ import {
   THEME_MODES,
   initializeThemePreferences,
   readThemePreferences,
+  saveThemePreferences,
 } from './theme-preferences.js'
-import { saveThemePreferencesSynced } from './theme-sync.js'
 
 initializeThemePreferences()
 
@@ -89,7 +89,13 @@ export function ThemeSettingsIsland() {
   }, [])
 
   function updatePreferences(patch) {
-    setPreferences((current) => saveThemePreferencesSynced({ ...current, ...patch }))
+    setPreferences((current) => {
+      const next = saveThemePreferences({ ...current, ...patch })
+      void import('./theme-sync.js')
+        .then(({ queueThemePreferenceSync }) => queueThemePreferenceSync(next))
+        .catch((error) => console.warn('S-Hub theme sync module deferred:', error))
+      return next
+    })
   }
 
   return (
