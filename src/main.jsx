@@ -50,6 +50,7 @@ import { HomeNavAction } from './home-nav-action.jsx'
 import { useHomeMealPriority } from './home-meal-priority.js'
 import { ThemeSettingsIsland } from './theme-settings-entry.jsx'
 import { IOSReinstallNotice } from './ios-reinstall-notice.jsx'
+import { installThemePreferenceSync } from './theme-sync.js'
 import { StudentSetup } from './student-setup.jsx'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
@@ -1504,14 +1505,14 @@ function App() {
   return <AppShell profile={profile} />
 }
 
-createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-)
+let mainRoot = null
+let serviceWorkerRegistrationStarted = false
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
+function registerMainServiceWorker() {
+  if (serviceWorkerRegistrationStarted || !('serviceWorker' in navigator)) return
+  serviceWorkerRegistrationStarted = true
+
+  const register = () => {
     navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, {
       updateViaCache: 'none',
     }).then((registration) => {
@@ -1521,5 +1522,23 @@ if ('serviceWorker' in navigator) {
     }).catch(() => {
       // The app still works online even if service worker registration fails.
     })
-  })
+  }
+
+  if (document.readyState === 'complete') register()
+  else window.addEventListener('load', register, { once: true })
+}
+
+export function mountMainApp() {
+  if (mainRoot) return mainRoot
+
+  installThemePreferenceSync()
+  registerMainServiceWorker()
+
+  mainRoot = createRoot(document.getElementById('root'))
+  mainRoot.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  )
+  return mainRoot
 }
