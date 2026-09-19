@@ -40,21 +40,24 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.equal(parsed.background_color, '#000000')
   assert.equal(parsed.theme_color, '#000000')
   assert.match(indexHtml, /id="shub-theme-color" name="theme-color" content="#000000"/)
-  assert.match(indexHtml, /manifest\.webmanifest\?v=15/)
+  assert.match(indexHtml, /manifest\.webmanifest\?v=16/)
   assert.match(indexHtml, /--shub-launch-bg:\s*#000000/)
   assert.match(indexHtml, /function resolveLaunchTheme\(\)/)
   assert.match(indexHtml, /getPropertyValue\('--bg'\)/)
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
   assert.match(indexHtml, /splash\.style\.backgroundColor = mixedBg/)
   assert.match(indexHtml, /requestAnimationFrame\(animateLaunchProgress\)/)
-  assert.match(indexHtml, /version: 15/)
+  assert.match(indexHtml, /version: 16/)
   assert.doesNotMatch(indexHtml, /setTimeout\(\(\) => paintLaunchProgress\(\.3\)/)
-  assert.match(indexHtml, /name="shub-shell-version" content="15"/)
+  assert.match(indexHtml, /name="shub-shell-version" content="16"/)
 })
 
-test('configured launch preloads fresh data before main app import', () => {
-  assert.match(bootstrap, /preloadConfiguredAppData/)
+test('configured launch evaluates main code in parallel but mounts only after fresh hydration', () => {
+  assert.match(bootstrap, /const mainModulePromise = preloadMainAppModule\(\)/)
   assert.match(bootstrap, /window\.__shubLaunchPreload = await preloadConfiguredAppData/)
+  assert.match(bootstrap, /const mainModule = await mainModulePromise/)
+  assert.match(bootstrap, /mainModule\.mountMainApp\(\)/)
+  assert.match(main, /export function mountMainApp\(\)/)
   assert.match(preload, /preloadClassPresence/)
   assert.match(preload, /preloadClassRoster/)
   assert.match(preload, /preloadTimetable/)
@@ -63,6 +66,7 @@ test('configured launch preloads fresh data before main app import', () => {
   assert.match(preload, /preloadSchoolData/)
   assert.match(preload, /preloadPreviewBoard/)
   assert.match(preload, /preloadPreviewStudy/)
+  assert.match(preload, /preloadThemePreferences/)
   assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 6500/)
   assert.doesNotMatch(main, /window\.setTimeout\(finish, 1800\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
@@ -72,7 +76,7 @@ test('configured launch preloads fresh data before main app import', () => {
 test('launch shell cache advances so installed PWAs receive the new boot surface', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
   const deploymentRefresh = fs.readFileSync(new URL('../src/deployment-refresh.js', import.meta.url), 'utf8')
-  assert.match(sw, /school-shell-v163-safe-area/)
+  assert.match(sw, /school-shell-v164-ios-layout/)
   assert.match(bootstrap, /registration\?\.update\(\)/)
   assert.match(deploymentRefresh, /meta\[name="shub-shell-version"\]/)
   assert.match(deploymentRefresh, /shellChanged/)
@@ -94,12 +98,17 @@ test('failed launch sources do not hold the app behind long retry backoff', () =
 })
 
 
-test('iOS standalone launch uses the full status-area canvas and warms launch origins', () => {
-  assert.match(indexHtml, /apple-mobile-web-app-status-bar-style" content="black-translucent"/)
-  assert.match(indexHtml, /school-ios-standalone/)
+test('fresh iOS installs keep the stable status-bar layout while launch origins stay warm', () => {
+  assert.match(indexHtml, /apple-mobile-web-app-status-bar-style" content="default"/)
+  assert.doesNotMatch(indexHtml, /school-ios-standalone/)
   assert.match(indexHtml, /elhlsqhzjmsfhmawrpqu\.supabase\.co/)
   assert.match(indexHtml, /open\.neis\.go\.kr/)
   const styles = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
-  assert.match(styles, /school-ios-standalone \.app-shell::before/)
-  assert.match(styles, /env\(safe-area-inset-top/)
+  assert.doesNotMatch(styles, /school-ios-standalone \.app-shell::before/)
+})
+
+
+test('synced theme can retarget the active launch surface', () => {
+  assert.match(indexHtml, /function refreshLaunchTheme\(\)/)
+  assert.match(indexHtml, /refreshTheme: refreshLaunchTheme/)
 })
