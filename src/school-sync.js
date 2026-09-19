@@ -29,7 +29,8 @@ import {
 import { isReminderTypeId, normalizeReminderCategory, normalizeReminderCategories } from './reminder-categories.js'
 import { publishClassLiveData } from './class-live-data.js'
 import { realtimePresenceConfigured, startRealtimePresence } from './presence-rtdb.js'
-import { refreshSupabasePresenceSnapshot, startSupabasePresence } from './supabase-presence.js'
+import { startSupabasePresence } from './supabase-presence.js'
+import { refreshSupabasePresenceSnapshot } from './supabase-presence.js'
 import { LEGACY_SCHOOL_CONTEXT, isLegacySchoolScope, maxGradeForSchoolKind } from './school-directory.js'
 
 const firebaseConfig = {
@@ -1304,8 +1305,6 @@ export async function preloadTimetable(profile) {
   const next = timetableStateFromSnapshot(snapshot, new Date())
   saveWeeklySchedule(next.weeklySchedule)
   saveOverrides(next.overrides)
-  publishClassLiveData('timetable', classKeyFor(profile), next)
-
   if (movingClassEnabled(profile)) {
     const personal = await requestPersonalTimetable(profile, { action: 'load' })
     const nextWeekly = normalizeWeeklySchedule(personal?.weeklySchedule)
