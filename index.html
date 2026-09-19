@@ -51,8 +51,6 @@
         opacity: 1;
         visibility: visible;
         transition:
-          background-color 720ms cubic-bezier(.22, 1, .36, 1),
-          color 520ms cubic-bezier(.22, 1, .36, 1),
           opacity 360ms cubic-bezier(.22, 1, .36, 1),
           visibility 0s linear 360ms;
         -webkit-tap-highlight-color: transparent;
@@ -94,7 +92,6 @@
         overflow: hidden;
         border-radius: 999px;
         background: var(--shub-launch-track);
-        transition: background-color 520ms cubic-bezier(.22, 1, .36, 1);
       }
 
       .shub-launch-progress > span {
@@ -105,7 +102,6 @@
         background: var(--shub-launch-fg);
         transform: translateZ(0) scaleX(.08);
         transform-origin: 0 50%;
-        transition: background-color 520ms cubic-bezier(.22, 1, .36, 1);
         will-change: transform;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
@@ -234,7 +230,8 @@
           if (force || Math.abs(mix - launchState.lastThemeColorMix) >= .08) {
             launchState.lastThemeColorMix = mix
             const themeColor = document.getElementById('shub-theme-color')
-            if (themeColor) themeColor.setAttribute('content', force ? launchState.targetBg : mixedBg)
+            const resolvedMixedBg = getComputedStyle(splash).backgroundColor || mixedBg
+            if (themeColor) themeColor.setAttribute('content', force ? launchState.targetBg : resolvedMixedBg)
           }
         }
 
