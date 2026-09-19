@@ -213,7 +213,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => paintLaunchProgress(.22), { once: true })
-        window.setTimeout(() => paintLaunchProgress(.3), 160)
+        window.setTimeout(() => paintLaunchProgress(.3), 140)
+        window.setTimeout(() => paintLaunchProgress(.5), 320)
+        window.setTimeout(() => paintLaunchProgress(.68), 620)
+        window.setTimeout(() => paintLaunchProgress(.78), 980)
+        window.setTimeout(() => paintLaunchProgress(.84), 1480)
 
         requestAnimationFrame(() => {
           requestAnimationFrame(() => root.style.removeProperty('transition'))
