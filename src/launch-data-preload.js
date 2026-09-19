@@ -12,14 +12,19 @@ function launchProgress(value) {
   window.__shubLaunch?.progress?.(value)
 }
 
-async function retryOnce(task) {
-  try {
-    return await task()
-  } catch (firstError) {
-    if (navigator.onLine === false) throw firstError
-    await new Promise((resolve) => window.setTimeout(resolve, 260))
-    return task()
+async function retryFresh(task) {
+  const delays = [0, 260, 720]
+  let lastError = null
+  for (const delay of delays) {
+    if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay))
+    try {
+      return await task()
+    } catch (error) {
+      lastError = error
+      if (navigator.onLine === false || error?.name === 'AbortError') throw error
+    }
   }
+  throw lastError
 }
 
 export async function preloadConfiguredAppData(profile) {
@@ -46,7 +51,7 @@ export async function preloadConfiguredAppData(profile) {
   ]
 
   let completed = 0
-  const wrapped = tasks.map(({ label, run }) => retryOnce(run)
+  const wrapped = tasks.map(({ label, run }) => retryFresh(run)
     .then((value) => ({ label, status: 'fulfilled', value }))
     .catch((error) => ({ label, status: 'rejected', error }))
     .finally(() => {
