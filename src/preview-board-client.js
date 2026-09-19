@@ -178,6 +178,29 @@ export async function loadPreviewBoard({ signal, sectionId = 'general', forceSec
   return { posts, sections: [...sections], activeSectionId, hasMore, nextCursor }
 }
 
+export async function preloadPreviewBoard({ signal } = {}) {
+  const first = await loadPreviewBoard({
+    signal,
+    sectionId: 'general',
+    forceSections: true,
+  })
+
+  const sectionIds = (first.sections || [])
+    .map((section) => String(section?.id || '').trim())
+    .filter((sectionId) => sectionId && sectionId !== first.activeSectionId)
+
+  for (let start = 0; start < sectionIds.length; start += 4) {
+    const batch = sectionIds.slice(start, start + 4)
+    await Promise.all(batch.map((sectionId) => loadPreviewBoard({
+      signal,
+      sectionId,
+      forceSections: false,
+    })))
+  }
+
+  return first
+}
+
 export function newPreviewBoardAttachmentDraftId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {

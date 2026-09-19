@@ -181,6 +181,14 @@ export async function loadPreviewStudy({ signal, scope = 'class', period = 'toda
   return snapshot
 }
 
+export async function preloadPreviewStudy({ signal } = {}) {
+  const [classToday, schoolToday] = await Promise.all([
+    loadPreviewStudy({ signal, scope: 'class', period: 'today' }),
+    loadPreviewStudy({ signal, scope: 'school', period: 'today' }),
+  ])
+  return { classToday, schoolToday }
+}
+
 export async function loadPreviewStudyEvents({ since = 0, signal } = {}) {
   const body = await requestStudyEvents({ since, signal })
   return {

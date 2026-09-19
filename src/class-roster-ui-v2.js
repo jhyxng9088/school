@@ -499,6 +499,13 @@ function scheduleModalWarmup() {
   }
 }
 
+export async function preloadClassRoster() {
+  hydrateRosterCache()
+  const roster = await fetchRoster({ force: true })
+  applyLatestPresenceSnapshot()
+  return roster
+}
+
 export function openClassRoster({ keyboard = false } = {}) {
   hydrateRosterCache()
   const modal = ensureModal()

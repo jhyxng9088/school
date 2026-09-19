@@ -30,6 +30,7 @@ import { isReminderTypeId, normalizeReminderCategory, normalizeReminderCategorie
 import { publishClassLiveData } from './class-live-data.js'
 import { realtimePresenceConfigured, startRealtimePresence } from './presence-rtdb.js'
 import { startSupabasePresence } from './supabase-presence.js'
+import { refreshSupabasePresenceSnapshot } from './supabase-presence.js'
 import { LEGACY_SCHOOL_CONTEXT, isLegacySchoolScope, maxGradeForSchoolKind } from './school-directory.js'
 
 const firebaseConfig = {
@@ -732,6 +733,23 @@ function personalTodoStateFromSnapshot(snapshot) {
   return state
 }
 
+export async function preloadReminderSnapshot(profile) {
+  await ensureSignedIn()
+  const [todosSnapshot, stateSnapshot, categoriesSnapshot] = await Promise.all([
+    getDocsFromServer(classTodosCollection(profile)),
+    getDocsFromServer(personalTodoStateCollection(profile)),
+    getDocsFromServer(classReminderCategoriesCollection(profile)),
+  ])
+
+  return {
+    todos: sharedTodosFromSnapshot(todosSnapshot),
+    personalState: personalTodoStateFromSnapshot(stateSnapshot),
+    categories: normalizeReminderCategories(
+      categoriesSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })),
+    ),
+  }
+}
+
 export function listenStudentTodoState(profile, onValue, onError = () => {}) {
   let stopped = false
   let unsubscribe = () => {}
@@ -824,6 +842,28 @@ function writePresenceSnapshotCache(profile, counts) {
   } catch {
     // Presence remains live even when local storage is unavailable.
   }
+}
+
+export async function preloadClassPresence(profile, { signal } = {}) {
+  const classId = classKeyFor(profile)
+  if (!classId) return null
+  const user = await ensureSignedIn()
+  const [snapshot, memberCount] = await Promise.all([
+    refreshSupabasePresenceSnapshot({ user, classId, signal }),
+    getCountFromServer(classMembersCollection(profile)),
+  ])
+  const total = Math.max(0, Number(memberCount.data().count || 0))
+  try {
+    localStorage.setItem(
+      `school.presenceMemberCount.v1.${classId}`,
+      JSON.stringify({ total, checkedAt: Date.now() }),
+    )
+  } catch {
+    // The live snapshot is still authoritative for this launch.
+  }
+  const counts = { online: snapshot.online, total, ready: true }
+  writePresenceSnapshotCache(profile, counts)
+  return { ...snapshot, total }
 }
 
 export function useClassPresence(profile) {
@@ -1254,6 +1294,26 @@ function timetableStateFromSnapshot(snapshot, now = new Date()) {
     weeklySchedule: normalizeWeeklySchedule(data.weeklySchedule),
     overrides: pruneExpiredOverrides(normalizeOverrides(data.overrides), now),
   }
+}
+
+export async function preloadTimetable(profile) {
+  const signature = profileSignature(profile)
+  if (!signature) return false
+  await ensureSignedIn()
+
+  const snapshot = await getDocFromServer(timetableRef(profile))
+  const next = timetableStateFromSnapshot(snapshot, new Date())
+  saveWeeklySchedule(next.weeklySchedule)
+  saveOverrides(next.overrides)
+  if (movingClassEnabled(profile)) {
+    const personal = await requestPersonalTimetable(profile, { action: 'load' })
+    const nextWeekly = normalizeWeeklySchedule(personal?.weeklySchedule)
+    const nextOverrides = pruneExpiredOverrides(normalizeOverrides(personal?.overrides), new Date())
+    savePersonalWeeklyScheduleCache(profile, nextWeekly)
+    savePersonalOverridesCache(profile, nextOverrides)
+  }
+
+  return true
 }
 
 export function useSharedTimetable(profile, now) {

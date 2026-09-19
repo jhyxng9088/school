@@ -355,6 +355,17 @@ function writeAcademicCache(profile, events) {
   }
 }
 
+export async function preloadSharedAcademic(profile) {
+  const normalized = currentProfile(profile)
+  if (!normalized) return []
+  await ensureIdentity(normalized)
+  const snapshot = await getDocsFromServer(academicCollection(normalized))
+  const next = academicEventsFromSnapshot(snapshot)
+  writeAcademicCache(normalized, next)
+  publishClassLiveData('academic', classKeyFor(normalized), next)
+  return next
+}
+
 export function useSharedAcademic(profile) {
   const normalized = currentProfile(profile)
   const signature = profileSignature(normalized)

@@ -252,6 +252,44 @@ function hydrateAcademic(now, profile) {
   }
 }
 
+export async function preloadSchoolData(profile, now = new Date(), { signal } = {}) {
+  const dates = getWeekDates(now)
+  const mealKey = rangeKey(dates[0], dates[4])
+  const mealStoreKey = mealCacheKey(profile)
+  const academicRange = academicWindow(now)
+  const academicKey = rangeKey(academicRange.from, academicRange.to)
+  const academicStoreKey = academicCacheKey(profile)
+
+  const [meals, academicEvents] = await Promise.all([
+    fetchMealRange(profile, dates[0], dates[4], signal),
+    fetchAcademicRange(profile, academicRange.from, academicRange.to, signal),
+  ])
+
+  const savedAt = Date.now()
+  const mealStore = readStore(mealStoreKey)
+  const mealRanges = {
+    ...(mealStore.ranges || {}),
+    [mealKey]: { meals, savedAt },
+  }
+  const mealKeys = Object.keys(mealRanges).sort().slice(-12)
+  writeStore(mealStoreKey, {
+    ranges: Object.fromEntries(mealKeys.map((item) => [item, mealRanges[item]])),
+  })
+
+  const academicStore = readStore(academicStoreKey)
+  writeStore(academicStoreKey, {
+    ranges: {
+      ...(academicStore.ranges || {}),
+      [academicKey]: {
+        savedAt,
+        events: academicEvents.map(({ date, ...event }) => event),
+      },
+    },
+  })
+
+  return { meals, academicEvents }
+}
+
 export function useSchoolData(now, profile) {
   const scope = schoolScopeKey(schoolContext(profile)) || 'legacy'
   const [mealRanges, setMealRanges] = useState(() => hydrateMealRanges(profile))
