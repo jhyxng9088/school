@@ -48,7 +48,7 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.match(indexHtml, /splash\.style\.backgroundColor = targetBg/)
   assert.match(indexHtml, /requestAnimationFrame\(animateLaunchProgress\)/)
   assert.doesNotMatch(indexHtml, /setTimeout\(\(\) => paintLaunchProgress\(\.3\)/)
-  assert.match(indexHtml, /name="shub-shell-version" content="13"/)
+  assert.match(indexHtml, /name="shub-shell-version" content="14"/)
 })
 
 test('configured launch preloads fresh data before main app import', () => {
@@ -71,8 +71,17 @@ test('configured launch preloads fresh data before main app import', () => {
 test('launch shell cache advances so installed PWAs receive the new boot surface', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
   const deploymentRefresh = fs.readFileSync(new URL('../src/deployment-refresh.js', import.meta.url), 'utf8')
-  assert.match(sw, /school-shell-v161-launch-refresh/)
+  assert.match(sw, /school-shell-v162-launch-motion/)
   assert.match(bootstrap, /registration\?\.update\(\)/)
   assert.match(deploymentRefresh, /meta\[name="shub-shell-version"\]/)
   assert.match(deploymentRefresh, /shellChanged/)
+})
+
+
+test('launch color follows the interpolated loading progress instead of switching immediately', () => {
+  assert.match(indexHtml, /function launchThemeMix\(progress\)/)
+  assert.match(indexHtml, /paintLaunchTheme\(launchState\.progressPainted\)/)
+  assert.match(indexHtml, /paintLaunchProgress\(\.14\)/)
+  assert.match(indexHtml, /getComputedStyle\(splash\)\.backgroundColor/)
+  assert.doesNotMatch(indexHtml, /paintLaunchProgress\(\.5\)/)
 })
