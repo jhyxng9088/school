@@ -48,8 +48,8 @@ function LaunchReady() {
   return null
 }
 
-function startMainApp() {
-  launchProgress(.7)
+function preloadMainAppModule() {
+  launchProgress(.62)
   return import('./main.jsx')
 }
 
@@ -80,6 +80,7 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
   }
 
   launchProgress(.54)
+  const mainModulePromise = preloadMainAppModule()
   try {
     const { preloadConfiguredAppData } = await import('./launch-data-preload.js')
     window.__shubLaunchPreload = await preloadConfiguredAppData(configuredProfile)
@@ -88,8 +89,13 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
     window.__shubLaunchPreload = { failed: true }
   }
 
-  launchProgress(.97)
-  startMainApp().catch((error) => console.error('S-Hub startup failed:', error))
+  try {
+    const mainModule = await mainModulePromise
+    launchProgress(.97)
+    mainModule.mountMainApp()
+  } catch (error) {
+    console.error('S-Hub startup failed:', error)
+  }
 }
 
 refreshExistingServiceWorker()

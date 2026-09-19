@@ -31,7 +31,13 @@ test('class segment parent keeps the home current-class description readable', (
 
 test('class segment parent owns board-first order and board default directly', () => {
   const source = read('src/preview-class-top-segment-patch.js')
-  assert.match(source, /const activeIndex = section === 'timetable' \? 1 : 0/)
+  const component = source.slice(
+    source.indexOf('function ClassTopSegment'),
+    source.indexOf('function ClassStationPage'),
+  )
+  assert.match(component, /className="class-top-segment class-own-segment"/)
+  assert.match(component, /section === 'timetable' \? 'is-timetable' : ''/)
+  assert.doesNotMatch(component, /activeIndex|useClassTopSegmentSpring|spring\./)
   assert.ok(source.indexOf("{ id: 'board', label: '게시판' }") < source.indexOf("{ id: 'timetable', label: '시간표' }"))
   assert.match(source, /setClassSection\] = useState\('timetable'\)[\s\S]*setClassSection\] = useState\('board'\)/)
 })

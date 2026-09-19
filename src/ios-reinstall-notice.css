@@ -1,0 +1,80 @@
+.ios-reinstall-notice {
+  display: grid;
+  gap: 16px;
+  margin: -2px 0 24px;
+  padding: 19px;
+  border: 1px solid var(--border);
+  border-radius: 23px;
+  background: var(--surface);
+  box-shadow: 0 14px 38px color-mix(in srgb, var(--text) 5%, transparent);
+  animation: ios-reinstall-notice-in 760ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.ios-reinstall-notice > div {
+  display: grid;
+  gap: 7px;
+}
+
+.ios-reinstall-notice-kicker {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 720;
+  letter-spacing: .025em;
+}
+
+.ios-reinstall-notice h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -.035em;
+}
+
+.ios-reinstall-notice p:not(.ios-reinstall-notice-kicker) {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  letter-spacing: -.018em;
+}
+
+.ios-reinstall-notice .ios-reinstall-notice-note {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.ios-reinstall-notice button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 15px;
+  background: var(--text);
+  color: var(--bg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 720;
+  cursor: pointer;
+  transition: transform 140ms var(--motion-ease), opacity 220ms var(--motion-soft);
+}
+
+.ios-reinstall-notice button:active {
+  transform: scale(.98);
+}
+
+@keyframes ios-reinstall-notice-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ios-reinstall-notice {
+    animation-duration: .01ms;
+  }
+}

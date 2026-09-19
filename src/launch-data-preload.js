@@ -5,6 +5,7 @@ import { preloadSchoolData } from './stage3-core.js'
 import { preloadPreviewBoard } from './preview-board-client.js'
 import { preloadPreviewStudy } from './preview-study-client.js'
 import { preloadClassRoster } from './class-roster-ui-v2.js'
+import { preloadThemePreferences } from './theme-sync.js'
 
 const LAUNCH_PRELOAD_TIMEOUT_MS = 6500
 
@@ -48,6 +49,7 @@ export async function preloadConfiguredAppData(profile) {
     { label: 'school-neis', run: () => preloadSchoolData(profile, new Date(), { signal: controller.signal }) },
     { label: 'board', retry: false, run: () => preloadPreviewBoard({ signal: controller.signal }) },
     { label: 'study', run: () => preloadPreviewStudy({ signal: controller.signal }) },
+    { label: 'theme', retry: false, run: () => preloadThemePreferences({ signal: controller.signal }) },
   ]
 
   let completed = 0

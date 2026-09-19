@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { SHubIcon } from './s-hub-icon.jsx'
 import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
@@ -79,8 +79,23 @@ export function ThemeSettingsIsland() {
   const [open, setOpen] = useState(false)
   const [preferences, setPreferences] = useState(() => readThemePreferences())
 
+  useEffect(() => {
+    const handleSyncedTheme = (event) => {
+      if (!event?.detail) return
+      setPreferences(event.detail)
+    }
+    window.addEventListener('school:theme-preferences-synced', handleSyncedTheme)
+    return () => window.removeEventListener('school:theme-preferences-synced', handleSyncedTheme)
+  }, [])
+
   function updatePreferences(patch) {
-    setPreferences((current) => saveThemePreferences({ ...current, ...patch }))
+    setPreferences((current) => {
+      const next = saveThemePreferences({ ...current, ...patch })
+      void import('./theme-sync.js')
+        .then(({ queueThemePreferenceSync }) => queueThemePreferenceSync(next))
+        .catch((error) => console.warn('S-Hub theme sync module deferred:', error))
+      return next
+    })
   }
 
   return (

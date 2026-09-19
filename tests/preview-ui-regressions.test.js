@@ -53,7 +53,7 @@ test('the seven question examples remain deliberately informal', () => {
 
 test('production service worker cache is bumped so installed PWAs receive the fresh UI shell', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v163-safe-area'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v164-ios-layout'/)
   assert.doesNotMatch(sw, /school-preview-shell-/)
   assert.match(sw, /self\.skipWaiting\(\)/)
   assert.match(sw, /self\.clients\.claim\(\)/)
@@ -117,11 +117,25 @@ test('launch reuses cached board topology and avoids duplicate critical-path wor
   assert.doesNotMatch(preloadAcademic, /ensureIdentity/)
 })
 
-test('our-class top segment keeps symmetric spring travel without directional deformation', () => {
+test('our-class top segment uses one deterministic transition in both directions', () => {
   const segment = read('src/preview-class-top-segment-patch.js')
-  const spring = read('src/s-hub-segment-spring.js')
-  assert.match(segment, /deform: false/)
-  assert.match(segment, /shellElastic: false/)
-  assert.match(spring, /deform = true/)
-  assert.match(spring, /shellElastic = true/)
+  const component = segment.slice(
+    segment.indexOf('function ClassTopSegment'),
+    segment.indexOf('function ClassStationPage'),
+  )
+  assert.match(segment, /class-top-segment class-own-segment/)
+  assert.match(segment, /class-top-segment-pill ' \+ \(section === 'timetable' \? 'is-timetable'/)
+  assert.match(segment, /transition: transform 440ms cubic-bezier\(\.16, 1, \.3, 1\)/)
+  assert.match(segment, /class-top-segment\.class-own-segment \.class-top-segment-pill\.is-timetable/)
+  assert.doesNotMatch(component, /useClassTopSegmentSpring/)
+  assert.doesNotMatch(component, /spring\./)
+})
+
+
+test('fresh board launch warms built-in sections before the general response', () => {
+  const board = read('src/preview-board-client.js')
+  assert.match(board, /const warmSectionIds = \[\.\.\.new Set\(\[/)
+  assert.match(board, /'question'/)
+  assert.match(board, /'notes'/)
+  assert.match(board, /const warmBySection = new Map\(warmSectionIds\.map/)
 })

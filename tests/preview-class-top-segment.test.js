@@ -28,11 +28,15 @@ function buildFinalMain() {
   return source
 }
 
-test('class navigation is moved out of the bottom bar into a top segmented control', () => {
+test('class navigation is moved out of the bottom bar into a stable top segmented control', () => {
   const source = buildFinalMain()
-  assert.match(source, /function ClassTopSegment\(\{ profile, section, onSectionChange \}\)/)
-  assert.match(source, /className="class-top-segment"/)
-  assert.match(source, /aria-label="우리 반 메뉴"/)
+  const start = source.indexOf('function ClassTopSegment({ profile, section, onSectionChange })')
+  const end = source.indexOf('function ClassStationPage', start)
+  const component = source.slice(start, end)
+  assert.match(component, /className="class-top-segment class-own-segment"/)
+  assert.match(component, /aria-label="우리 반 메뉴"/)
+  assert.match(component, /section === 'timetable' \? 'is-timetable' : ''/)
+  assert.doesNotMatch(component, /useClassTopSegmentSpring|spring\./)
   assert.doesNotMatch(source, /className=\{`class-nav-capsule/)
 })
 

@@ -655,18 +655,6 @@ button {
   background: var(--bg);
 }
 
-html.school-ios-standalone .app-shell::before {
-  content: "";
-  position: fixed;
-  z-index: 0;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: env(safe-area-inset-top, 0px);
-  background: var(--bg);
-  pointer-events: none;
-  transition: background-color 460ms var(--motion-soft);
-}
 
 .app-content {
   width: min(100%, 720px);
