@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta id="shub-theme-color" name="theme-color" content="#000000" />
-    <meta name="shub-shell-version" content="15" />
+    <meta name="shub-shell-version" content="16" />
     <meta name="application-name" content="S-Hub" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="S-Hub" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="manifest" href="./manifest.webmanifest?v=15" />
+    <link rel="manifest" href="./manifest.webmanifest?v=16" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
     <link rel="preload" href="./icon.svg?v=9" as="image" type="image/svg+xml" />
@@ -167,14 +167,9 @@
         const mobileBrowser = /iPhone|iPod|Android|SamsungBrowser/i.test(ua)
         const samsungBrowser = /SamsungBrowser/i.test(ua)
         const iPadDesktopUA = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1
-        const iOSLike = /iPhone|iPod/i.test(ua) || iPadDesktopUA
-        const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true
         const finePointer = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
         if (samsungBrowser) {
           root.classList.add('school-samsung')
-        }
-        if (iOSLike && standalone) {
-          root.classList.add('school-ios-standalone')
         }
         if (!mobileBrowser && !iPadDesktopUA && finePointer) {
           root.classList.add('school-desktop-laptop')
@@ -300,7 +295,7 @@
         }
 
         window.__shubLaunch = {
-          version: 15,
+          version: 16,
           progress: paintLaunchProgress,
           ready: finishLaunch,
         }
