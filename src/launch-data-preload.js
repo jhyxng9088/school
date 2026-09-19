@@ -6,14 +6,14 @@ import { preloadPreviewBoard } from './preview-board-client.js'
 import { preloadPreviewStudy } from './preview-study-client.js'
 import { preloadClassRoster } from './class-roster-ui-v2.js'
 
-const LAUNCH_PRELOAD_TIMEOUT_MS = 8500
+const LAUNCH_PRELOAD_TIMEOUT_MS = 6500
 
 function launchProgress(value) {
   window.__shubLaunch?.progress?.(value)
 }
 
 async function retryFresh(task) {
-  const delays = [0, 260, 720]
+  const delays = [0, 220]
   let lastError = null
   for (const delay of delays) {
     if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay))
