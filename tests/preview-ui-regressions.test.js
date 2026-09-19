@@ -100,3 +100,24 @@ test('Board and Study entrance timing stays near the canonical tab pace', () => 
   assert.match(study, /preview-study-entry-item 820ms/)
   assert.match(study, /preview-study-entry-item 840ms 255ms/)
 })
+
+
+test('launch reuses cached board topology and avoids duplicate critical-path work', () => {
+  const launch = read('src/launch-data-preload.js')
+  const board = read('src/preview-board-client.js')
+  const academic = read('src/class-activity.js')
+  assert.match(launch, /label: 'board', retry: false/)
+  assert.match(board, /const cached = peekPreviewBoardCache\('general'\)/)
+  assert.match(board, /const warmBySection = new Map/)
+  assert.match(academic, /preloadSharedAcademic[\s\S]*await ensureSignedIn\(\)/)
+  assert.doesNotMatch(academic, /preloadSharedAcademic[\s\S]{0,220}await ensureIdentity\(normalized\)/)
+})
+
+test('our-class top segment keeps symmetric spring travel without directional deformation', () => {
+  const segment = read('src/preview-class-top-segment-patch.js')
+  const spring = read('src/s-hub-segment-spring.js')
+  assert.match(segment, /deform: false/)
+  assert.match(segment, /shellElastic: false/)
+  assert.match(spring, /deform = true/)
+  assert.match(spring, /shellElastic = true/)
+})
