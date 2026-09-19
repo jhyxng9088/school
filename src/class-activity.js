@@ -358,7 +358,7 @@ function writeAcademicCache(profile, events) {
 export async function preloadSharedAcademic(profile) {
   const normalized = currentProfile(profile)
   if (!normalized) return []
-  await ensureIdentity(normalized)
+  await ensureSignedIn()
   const snapshot = await getDocsFromServer(academicCollection(normalized))
   const next = academicEventsFromSnapshot(snapshot)
   writeAcademicCache(normalized, next)
