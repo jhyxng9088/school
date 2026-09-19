@@ -3,8 +3,36 @@
   touch-action: pan-y;
 }
 
+html body .app-content:has(.preview-study-page) {
+  animation: none !important;
+}
+
 .preview-study-header {
   align-items: end;
+  animation: preview-study-entry-item 520ms 30ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.preview-study-control-card {
+  animation: preview-study-entry-item 540ms 90ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.preview-study-stack > .preview-study-section:not(.preview-study-ranking-section) {
+  animation: preview-study-entry-item 540ms 150ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.preview-study-stack > .preview-study-ranking-section {
+  animation: preview-study-entry-item 560ms 210ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes preview-study-entry-item {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .preview-study-date {
@@ -582,6 +610,9 @@ html.school-samsung .preview-study-today-list {
     transition-duration: .01ms !important;
   }
 
+  .preview-study-header,
+  .preview-study-control-card,
+  .preview-study-stack > .preview-study-section,
   .preview-study-control-content,
   .preview-study-custom-subject,
   .preview-study-action-label,

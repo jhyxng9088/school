@@ -49,9 +49,11 @@ test('class timetable and board content use keyed directional transition panels'
   assert.match(source, /section === 'board' \? 'is-board' : 'is-timetable'/)
 })
 
-test('mobile class board keeps one page entrance instead of stacking full-board compositor layers', () => {
+test('mobile class board avoids full-page compositor motion while allowing bounded item entrances', () => {
   const source = read('src/preview-board-finish.css')
-  assert.match(source, /html\.school-mobile-compat \.class-station-panel\.is-board,[\s\S]*\.preview-board-page,[\s\S]*\.preview-board-section-view,[\s\S]*\.preview-board-card \{\s*animation: none;/)
+  assert.match(source, /html\.school-mobile-compat \.class-station-panel\.is-board,[\s\S]*\.preview-board-page,[\s\S]*\.preview-board-section-view \{\s*animation: none;/)
+  assert.match(source, /\.preview-board-list > \.preview-board-card:nth-child\(-n \+ 6\)[\s\S]*animation: preview-board-entry-item/)
+  assert.match(source, /school-mobile-compat[\s\S]*nth-child\(n \+ 7\)[\s\S]*animation: none;/)
   assert.match(read('src/preview-ai-stage-motion-patch.js'), /\.preview-station-page-host \{[\s\S]*animation: s-hub-ai-background-page-in/)
 })
 

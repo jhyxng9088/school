@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta id="shub-theme-color" name="theme-color" content="#000000" />
-    <meta name="shub-shell-version" content="13" />
+    <meta name="shub-shell-version" content="14" />
     <meta name="application-name" content="S-Hub" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="S-Hub" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="manifest" href="./manifest.webmanifest?v=13" />
+    <link rel="manifest" href="./manifest.webmanifest?v=14" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
     <link rel="preload" href="./icon.svg?v=9" as="image" type="image/svg+xml" />
@@ -26,6 +26,13 @@
         --shub-launch-fg: #f5f5f7;
         --shub-launch-track: rgba(255, 255, 255, .14);
         --shub-launch-shadow: rgba(0, 0, 0, .34);
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background-color: #000000;
       }
 
       #shub-launch-splash {
@@ -44,8 +51,6 @@
         opacity: 1;
         visibility: visible;
         transition:
-          background-color 720ms cubic-bezier(.22, 1, .36, 1),
-          color 520ms cubic-bezier(.22, 1, .36, 1),
           opacity 360ms cubic-bezier(.22, 1, .36, 1),
           visibility 0s linear 360ms;
         -webkit-tap-highlight-color: transparent;
@@ -87,7 +92,6 @@
         overflow: hidden;
         border-radius: 999px;
         background: var(--shub-launch-track);
-        transition: background-color 520ms cubic-bezier(.22, 1, .36, 1);
       }
 
       .shub-launch-progress > span {
@@ -98,7 +102,6 @@
         background: var(--shub-launch-fg);
         transform: translateZ(0) scaleX(.08);
         transform-origin: 0 50%;
-        transition: background-color 520ms cubic-bezier(.22, 1, .36, 1);
         will-change: transform;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
@@ -178,36 +181,58 @@
           leaving: false,
           removeTimer: null,
           themed: false,
+          targetBg: '#f5f5f7',
+          targetFg: '#161617',
+          dark: false,
+          lastThemeColorMix: -1,
         }
 
         function resolveLaunchTheme() {
           if (launchState.themed) return
+          const styles = getComputedStyle(root)
+          const explicitMode = root.dataset.themeMode
+          launchState.dark = explicitMode === 'dark'
+            || (!explicitMode && window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+          launchState.targetBg = styles.getPropertyValue('--bg').trim() || (launchState.dark ? '#000000' : '#f5f5f7')
+          launchState.targetFg = launchState.dark ? '#f5f5f7' : '#161617'
+          launchState.themed = true
+        }
+
+        function launchThemeMix(progress) {
+          const normalized = Math.max(0, Math.min(1, (progress - .14) / .84))
+          return normalized * normalized * (3 - 2 * normalized)
+        }
+
+        function paintLaunchTheme(progress, force = false) {
+          resolveLaunchTheme()
           const splash = document.getElementById('shub-launch-splash')
           if (!splash) return
 
-          const styles = getComputedStyle(root)
-          const targetBg = styles.getPropertyValue('--bg').trim() || '#f5f5f7'
-          const explicitMode = root.dataset.themeMode
-          const dark = explicitMode === 'dark'
-            || (!explicitMode && window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+          const mix = force ? 1 : launchThemeMix(progress)
+          const targetPercent = Math.round(mix * 1000) / 10
+          const blackPercent = Math.max(0, 100 - targetPercent)
+          const mixedBg = `color-mix(in srgb, #000000 ${blackPercent}%, ${launchState.targetBg} ${targetPercent}%)`
+          const mixedFg = `color-mix(in srgb, #f5f5f7 ${blackPercent}%, ${launchState.targetFg} ${targetPercent}%)`
+          const mixedTrack = launchState.dark
+            ? 'rgba(255, 255, 255, .14)'
+            : `color-mix(in srgb, rgba(255,255,255,.14) ${blackPercent}%, rgba(22,22,23,.09) ${targetPercent}%)`
 
-          launchState.themed = true
-          const targetFg = dark ? '#f5f5f7' : '#161617'
-          root.style.setProperty('--shub-launch-bg', targetBg)
-          root.style.setProperty('--shub-launch-fg', targetFg)
-          root.style.setProperty(
-            '--shub-launch-track',
-            dark ? 'rgba(255, 255, 255, .14)' : 'rgba(22, 22, 23, .09)',
-          )
-          root.style.setProperty('--shub-launch-shadow', dark ? 'rgba(0, 0, 0, .44)' : 'rgba(0, 0, 0, .14)')
+          splash.style.backgroundColor = mixedBg
+          splash.style.color = mixedFg
+          root.style.backgroundColor = mixedBg
+          if (document.body) document.body.style.backgroundColor = mixedBg
+          root.style.setProperty('--shub-launch-fg', mixedFg)
+          root.style.setProperty('--shub-launch-track', mixedTrack)
+          root.style.setProperty('--shub-launch-shadow', launchState.dark ? 'rgba(0, 0, 0, .44)' : 'rgba(0, 0, 0, .14)')
 
-          // Set the actual painted longhands as well as the variables. This avoids
-          // WebKit keeping the launch shorthand on the original black frame.
-          splash.style.backgroundColor = targetBg
-          splash.style.color = targetFg
-
-          const themeColor = document.getElementById('shub-theme-color')
-          if (themeColor) themeColor.setAttribute('content', targetBg)
+          // Keep browser/system chrome paced with the same launch phase instead of
+          // jumping to the final theme while the splash is still mostly black.
+          if (force || Math.abs(mix - launchState.lastThemeColorMix) >= .08) {
+            launchState.lastThemeColorMix = mix
+            const themeColor = document.getElementById('shub-theme-color')
+            const resolvedMixedBg = getComputedStyle(splash).backgroundColor || mixedBg
+            if (themeColor) themeColor.setAttribute('content', force ? launchState.targetBg : resolvedMixedBg)
+          }
         }
 
         function animateLaunchProgress(frameAt) {
@@ -231,6 +256,7 @@
           }
 
           fill.style.transform = `translateZ(0) scaleX(${launchState.progressPainted})`
+          paintLaunchTheme(launchState.progressPainted)
 
           if (Math.abs(launchState.progressTarget - launchState.progressPainted) > .0006) {
             launchState.progressFrame = requestAnimationFrame(animateLaunchProgress)
@@ -255,22 +281,26 @@
             const splash = document.getElementById('shub-launch-splash')
             if (!splash || launchState.leaving) return
 
-            resolveLaunchTheme()
+            paintLaunchTheme(1, true)
             launchState.leaving = true
             splash.classList.add('is-leaving')
-            window.setTimeout(() => splash.remove(), 340)
+            window.setTimeout(() => {
+              splash.remove()
+              root.style.removeProperty('background-color')
+              document.body?.style.removeProperty('background-color')
+            }, 340)
           }, Math.max(0, Math.min(320, Number(settleMs) || 0)))
         }
 
         window.__shubLaunch = {
-          version: 13,
+          version: 14,
           progress: paintLaunchProgress,
           ready: finishLaunch,
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-          paintLaunchProgress(.5)
-          requestAnimationFrame(() => requestAnimationFrame(resolveLaunchTheme))
+          paintLaunchProgress(.14)
+          requestAnimationFrame(() => requestAnimationFrame(() => paintLaunchTheme(launchState.progressPainted)))
         }, { once: true })
 
         requestAnimationFrame(() => {

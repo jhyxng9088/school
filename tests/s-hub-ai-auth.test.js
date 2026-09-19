@@ -25,5 +25,5 @@ test('server verifies Firebase identity while OpenRouter provider auth stays ser
 })
 
 test('service worker cache advances for unified S-Hub AI UX', () => {
-  assert.match(read('public/sw.js'), /const CACHE_NAME = 'school-shell-v161-launch-refresh'/)
+  assert.match(read('public/sw.js'), /const CACHE_NAME = 'school-shell-v162-launch-motion'/)
 })

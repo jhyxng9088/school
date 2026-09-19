@@ -189,14 +189,11 @@ export async function preloadPreviewBoard({ signal } = {}) {
     .map((section) => String(section?.id || '').trim())
     .filter((sectionId) => sectionId && sectionId !== first.activeSectionId)
 
-  for (let start = 0; start < sectionIds.length; start += 4) {
-    const batch = sectionIds.slice(start, start + 4)
-    await Promise.all(batch.map((sectionId) => loadPreviewBoard({
-      signal,
-      sectionId,
-      forceSections: false,
-    })))
-  }
+  await Promise.all(sectionIds.map((sectionId) => loadPreviewBoard({
+    signal,
+    sectionId,
+    forceSections: false,
+  })))
 
   return first
 }
