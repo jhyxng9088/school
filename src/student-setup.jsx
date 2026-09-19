@@ -1,6 +1,34 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { maxGradeForSchoolKind, searchNeisSchools } from './school-directory.js'
+import { SHubIcon } from './s-hub-icon.jsx'
 import './school-setup.css'
+
+const SETUP_FEATURES = [
+  {
+    id: 'class',
+    icon: 'class',
+    title: '우리 반',
+    description: '게시판·시간표 변경과 반 소식을 함께 확인해요.',
+  },
+  {
+    id: 'study',
+    icon: 'study',
+    title: 'Study',
+    description: '공부 기록과 우리 반·전교 랭킹을 이어서 봐요.',
+  },
+  {
+    id: 'schedule',
+    icon: 'schedule',
+    title: '일정',
+    description: '리마인더·학사일정·급식을 한곳에서 챙겨요.',
+  },
+  {
+    id: 'ai',
+    icon: 'ai',
+    title: 'S-Hub AI',
+    description: '사진과 문서에서 필요한 일정과 할 일을 정리해요.',
+  },
+]
 
 export function StudentSetup({ initialName = '', onSave }) {
   const [schoolQuery, setSchoolQuery] = useState('')
@@ -102,100 +130,138 @@ export function StudentSetup({ initialName = '', onSave }) {
   }
 
   return (
-    <main className="onboarding-page">
-      <form className="onboarding-card name-card" onSubmit={submit}>
-        <p className="eyebrow">마지막 설정</p>
-        <h1>학교와 학생 정보를 알려 주세요</h1>
-        <p className="onboarding-copy">학교를 검색해 선택하면 NEIS 시간표·급식·학사일정을 선택한 학교 기준으로 연결해요. 같은 학교·학년·반 친구끼리 S-Hub 공유 정보가 연결돼요.</p>
+    <main className="onboarding-page setup-onboarding-page">
+      <form className="onboarding-card name-card setup-card" onSubmit={submit}>
+        <header className="setup-hero">
+          <div className="setup-app-mark" aria-hidden="true">
+            <span>S</span>
+            <i><SHubIcon name="ai" size={14} /></i>
+          </div>
+          <div className="setup-hero-copy">
+            <p className="eyebrow">S-Hub 시작하기</p>
+            <h1>학교생활, 한곳에서 시작해요</h1>
+            <p className="onboarding-copy">우리 반 소식부터 공부 기록, 일정, 급식, AI 정리까지 학교생활에 필요한 흐름을 한곳에 모았어요.</p>
+          </div>
+        </header>
 
-        <label className="name-field school-search-field">
-          <span>학교</span>
-          <input
-            value={schoolQuery}
-            onChange={(event) => updateSchoolQuery(event.target.value)}
-            placeholder="학교 이름 검색"
-            autoComplete="off"
-            autoFocus
-            aria-autocomplete="list"
-            aria-expanded={schoolResults.length > 0}
-          />
-          {selectedSchool ? (
-            <div className="school-search-status">
-              <strong>NEIS 연결됨</strong>
-              <span>{[selectedSchool.regionName, selectedSchool.schoolKind].filter(Boolean).join(' · ')}</span>
-            </div>
-          ) : schoolSearching ? (
-            <div className="school-search-status"><span>학교 찾는 중…</span></div>
-          ) : schoolError ? (
-            <div className="school-search-status"><span>{schoolError}</span></div>
-          ) : schoolQuery.trim().length === 1 ? (
-            <div className="school-search-status"><span>두 글자 이상 입력하면 검색해요.</span></div>
-          ) : null}
-
-          {schoolResults.length ? (
-            <div className="school-search-results" role="listbox" aria-label="학교 검색 결과">
-              {schoolResults.map((school) => (
-                <button
-                  className="school-search-result"
-                  type="button"
-                  role="option"
-                  key={`${school.officeCode}-${school.schoolCode}`}
-                  onClick={() => chooseSchool(school)}
-                >
-                  <strong>{school.schoolName}</strong>
-                  <span>{[school.regionName, school.schoolKind, school.address].filter(Boolean).join(' · ')}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </label>
-
-        <div className="student-setup-grid">
-          <label className="name-field">
-            <span>학년</span>
-            <select
-              value={grade}
-              onChange={(event) => setGrade(event.target.value)}
-              disabled={!selectedSchool}
-              aria-label="학년"
+        <section className="setup-feature-grid" aria-label="S-Hub 주요 기능">
+          {SETUP_FEATURES.map((feature, index) => (
+            <article
+              className={'setup-feature-card is-' + feature.id}
+              style={{ '--setup-order': index }}
+              key={feature.id}
             >
-              <option value="">선택</option>
-              {gradeOptions.map((value) => <option value={value} key={value}>{value}학년</option>)}
-            </select>
-          </label>
-          <label className="name-field">
-            <span>반</span>
-            <input
-              value={classNumber}
-              onChange={(event) => setClassNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
-              placeholder="예: 7"
-              inputMode="numeric"
-              autoComplete="off"
-            />
-          </label>
-          <label className="name-field">
-            <span>번호</span>
-            <input
-              value={studentNumber}
-              onChange={(event) => setStudentNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
-              placeholder="예: 18"
-              inputMode="numeric"
-              autoComplete="off"
-            />
-          </label>
-        </div>
+              <span className="setup-feature-icon" aria-hidden="true">
+                <SHubIcon name={feature.icon} size={18} />
+              </span>
+              <div>
+                <strong>{feature.title}</strong>
+                <span>{feature.description}</span>
+              </div>
+            </article>
+          ))}
+        </section>
 
-        <label className="name-field">
-          <span>이름</span>
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="이름 입력"
-            autoComplete="name"
-            maxLength={20}
-          />
-        </label>
-        <button className="primary-button" disabled={!canSubmit}>시작하기</button>
+        <section className="setup-profile-section">
+          <div className="setup-profile-heading">
+            <p className="eyebrow">내 정보 연결</p>
+            <h2>학교와 내 정보를 연결해요</h2>
+            <p>선택한 학교·학년·반을 기준으로 NEIS 정보와 S-Hub 공유 데이터를 맞춰 보여줘요.</p>
+          </div>
+
+          <label className="name-field school-search-field">
+            <span>학교</span>
+            <input
+              value={schoolQuery}
+              onChange={(event) => updateSchoolQuery(event.target.value)}
+              placeholder="학교 이름 검색"
+              autoComplete="off"
+              autoFocus
+              aria-autocomplete="list"
+              aria-expanded={schoolResults.length > 0}
+            />
+            {selectedSchool ? (
+              <div className="school-search-status">
+                <strong>NEIS 연결됨</strong>
+                <span>{[selectedSchool.regionName, selectedSchool.schoolKind].filter(Boolean).join(' · ')}</span>
+              </div>
+            ) : schoolSearching ? (
+              <div className="school-search-status"><span>학교 찾는 중…</span></div>
+            ) : schoolError ? (
+              <div className="school-search-status"><span>{schoolError}</span></div>
+            ) : schoolQuery.trim().length === 1 ? (
+              <div className="school-search-status"><span>두 글자 이상 입력하면 검색해요.</span></div>
+            ) : null}
+
+            {schoolResults.length ? (
+              <div className="school-search-results" role="listbox" aria-label="학교 검색 결과">
+                {schoolResults.map((school) => (
+                  <button
+                    className="school-search-result"
+                    type="button"
+                    role="option"
+                    key={`${school.officeCode}-${school.schoolCode}`}
+                    onClick={() => chooseSchool(school)}
+                  >
+                    <strong>{school.schoolName}</strong>
+                    <span>{[school.regionName, school.schoolKind, school.address].filter(Boolean).join(' · ')}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </label>
+
+          <div className="student-setup-grid">
+            <label className="name-field">
+              <span>학년</span>
+              <select
+                value={grade}
+                onChange={(event) => setGrade(event.target.value)}
+                disabled={!selectedSchool}
+                aria-label="학년"
+              >
+                <option value="">선택</option>
+                {gradeOptions.map((value) => <option value={value} key={value}>{value}학년</option>)}
+              </select>
+            </label>
+            <label className="name-field">
+              <span>반</span>
+              <input
+                value={classNumber}
+                onChange={(event) => setClassNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
+                placeholder="예: 7"
+                inputMode="numeric"
+                autoComplete="off"
+              />
+            </label>
+            <label className="name-field">
+              <span>번호</span>
+              <input
+                value={studentNumber}
+                onChange={(event) => setStudentNumber(event.target.value.replace(/\D/g, '').slice(0, 2))}
+                placeholder="예: 18"
+                inputMode="numeric"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+
+          <label className="name-field setup-name-field">
+            <span>이름</span>
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="이름 입력"
+              autoComplete="name"
+              maxLength={20}
+            />
+          </label>
+
+          <button className="primary-button setup-start-button" disabled={!canSubmit}>
+            <span>시작하기</span>
+            <span className="setup-start-arrow" aria-hidden="true">→</span>
+          </button>
+        </section>
       </form>
     </main>
   )
