@@ -183,8 +183,13 @@ export async function preloadPreviewBoard({ signal } = {}) {
   const cachedSectionIds = (cached?.sections || [])
     .map((section) => String(section?.id || '').trim())
     .filter((sectionId) => sectionId && sectionId !== 'general')
+  const warmSectionIds = [...new Set([
+    'question',
+    'notes',
+    ...cachedSectionIds,
+  ])]
 
-  const warmBySection = new Map(cachedSectionIds.map((sectionId) => [
+  const warmBySection = new Map(warmSectionIds.map((sectionId) => [
     sectionId,
     loadPreviewBoard({
       signal,
