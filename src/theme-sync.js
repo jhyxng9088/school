@@ -32,6 +32,24 @@ function writeSyncMeta(value) {
   }
 }
 
+function syncBrowserThemeColor() {
+  const paint = () => {
+    const meta = document.getElementById('shub-theme-color')
+    if (!meta) return
+    const bodyColor = document.body
+      ? getComputedStyle(document.body).backgroundColor
+      : ''
+    const rootColor = getComputedStyle(document.documentElement).backgroundColor
+    const color = bodyColor && bodyColor !== 'rgba(0, 0, 0, 0)'
+      ? bodyColor
+      : rootColor
+    if (color && color !== 'rgba(0, 0, 0, 0)') meta.setAttribute('content', color)
+  }
+
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(paint)
+  else paint()
+}
+
 function publishTheme(preferences) {
   try {
     window.dispatchEvent(new CustomEvent('school:theme-preferences-synced', {
@@ -40,6 +58,7 @@ function publishTheme(preferences) {
   } catch {
     // The DOM theme is already applied even when CustomEvent is unavailable.
   }
+  syncBrowserThemeColor()
   window.__shubLaunch?.refreshTheme?.()
 }
 
