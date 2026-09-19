@@ -46,12 +46,12 @@ export async function preloadConfiguredAppData(profile) {
     { label: 'reminders', run: () => preloadTodos(profile) },
     { label: 'academic-shared', run: () => preloadSharedAcademic(profile) },
     { label: 'school-neis', run: () => preloadSchoolData(profile, new Date(), { signal: controller.signal }) },
-    { label: 'board', run: () => preloadPreviewBoard({ signal: controller.signal }) },
+    { label: 'board', retry: false, run: () => preloadPreviewBoard({ signal: controller.signal }) },
     { label: 'study', run: () => preloadPreviewStudy({ signal: controller.signal }) },
   ]
 
   let completed = 0
-  const wrapped = tasks.map(({ label, run }) => retryFresh(run)
+  const wrapped = tasks.map(({ label, run, retry = true }) => (retry ? retryFresh(run) : run())
     .then((value) => ({ label, status: 'fulfilled', value }))
     .catch((error) => ({ label, status: 'rejected', error }))
     .finally(() => {
