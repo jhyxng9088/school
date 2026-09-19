@@ -106,11 +106,15 @@ test('launch reuses cached board topology and avoids duplicate critical-path wor
   const launch = read('src/launch-data-preload.js')
   const board = read('src/preview-board-client.js')
   const academic = read('src/class-activity.js')
+  const preloadAcademic = academic.slice(
+    academic.indexOf('export async function preloadSharedAcademic'),
+    academic.indexOf('export function useSharedAcademic'),
+  )
   assert.match(launch, /label: 'board', retry: false/)
   assert.match(board, /const cached = peekPreviewBoardCache\('general'\)/)
   assert.match(board, /const warmBySection = new Map/)
-  assert.match(academic, /preloadSharedAcademic[\s\S]*await ensureSignedIn\(\)/)
-  assert.doesNotMatch(academic, /preloadSharedAcademic[\s\S]{0,220}await ensureIdentity\(normalized\)/)
+  assert.match(preloadAcademic, /await ensureSignedIn\(\)/)
+  assert.doesNotMatch(preloadAcademic, /ensureIdentity/)
 })
 
 test('our-class top segment keeps symmetric spring travel without directional deformation', () => {
