@@ -53,7 +53,7 @@ test('the seven question examples remain deliberately informal', () => {
 
 test('production service worker cache is bumped so installed PWAs receive the fresh UI shell', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v161-launch-refresh'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v162-launch-motion'/)
   assert.doesNotMatch(sw, /school-preview-shell-/)
   assert.match(sw, /self\.skipWaiting\(\)/)
   assert.match(sw, /self\.clients\.claim\(\)/)
@@ -67,4 +67,24 @@ test('production V2 config applies feature patches without preview identity rewr
   assert.doesNotMatch(config, /previewLocalStorageText/)
   assert.doesNotMatch(config, /school-sync-preview/)
   assert.doesNotMatch(config, /preview-class-\$\{normalized\.classNumber\}/)
+})
+
+test('board and Study use lightweight per-element entry motion instead of one large page transform', () => {
+  const board = read('src/preview-board-finish.css')
+  const study = read('src/preview-study.css')
+  assert.match(board, /\.preview-board-header[\s\S]*preview-board-entry-item/)
+  assert.match(board, /nth-child\(-n \+ 6\)/)
+  assert.doesNotMatch(board, /school-mobile-compat[\s\S]*preview-board-card \{\s*animation: none/)
+  assert.match(study, /\.preview-study-control-card[\s\S]*preview-study-entry-item/)
+  assert.match(study, /preview-study-ranking-section/)
+  assert.match(study, /app-content:has\(\.preview-study-page\)[\s\S]*animation: none/)
+})
+
+test('launch preload overlaps independent roster, board, and timetable work', () => {
+  const launch = read('src/launch-data-preload.js')
+  const boardClient = read('src/preview-board-client.js')
+  const schoolSync = read('src/school-sync.js')
+  assert.match(launch, /Promise\.all\(\[[\s\S]*preloadClassPresence[\s\S]*preloadClassRoster/)
+  assert.match(boardClient, /Promise\.all\(sectionIds\.map/)
+  assert.match(schoolSync, /Promise\.all\(\[[\s\S]*getDocFromServer\(timetableRef\(profile\)\)[\s\S]*requestPersonalTimetable/)
 })
