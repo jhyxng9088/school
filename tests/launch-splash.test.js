@@ -63,7 +63,7 @@ test('configured launch preloads fresh data before main app import', () => {
   assert.match(preload, /preloadSchoolData/)
   assert.match(preload, /preloadPreviewBoard/)
   assert.match(preload, /preloadPreviewStudy/)
-  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 8500/)
+  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 6500/)
   assert.doesNotMatch(main, /window\.setTimeout\(finish, 1800\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
 })
@@ -85,4 +85,10 @@ test('launch color follows the interpolated loading progress instead of switchin
   assert.match(indexHtml, /paintLaunchProgress\(\.14\)/)
   assert.match(indexHtml, /getComputedStyle\(splash\)\.backgroundColor/)
   assert.doesNotMatch(indexHtml, /paintLaunchProgress\(\.5\)/)
+})
+
+
+test('failed launch sources do not hold the app behind long retry backoff', () => {
+  assert.match(preload, /const delays = \[0, 220\]/)
+  assert.doesNotMatch(preload, /720/)
 })
