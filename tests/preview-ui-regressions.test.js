@@ -88,3 +88,15 @@ test('launch preload overlaps independent roster, board, and timetable work', ()
   assert.match(boardClient, /Promise\.all\(sectionIds\.map/)
   assert.match(schoolSync, /Promise\.all\(\[[\s\S]*getDocFromServer\(timetableRef\(profile\)\)[\s\S]*requestPersonalTimetable/)
 })
+
+
+test('Board and Study entrance timing stays near the canonical tab pace', () => {
+  const board = read('src/preview-board-finish.css')
+  const study = read('src/preview-study.css')
+  const index = read('index.html')
+  assert.match(index, /app-content:has\(> \.todo-page\)[\s\S]*980ms/)
+  assert.match(index, /school-mobile-compat[\s\S]*animation-duration: 760ms/)
+  assert.match(board, /preview-board-entry-item 820ms/)
+  assert.match(study, /preview-study-entry-item 820ms/)
+  assert.match(study, /preview-study-entry-item 840ms 255ms/)
+})
