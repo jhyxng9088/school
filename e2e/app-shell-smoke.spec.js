@@ -92,6 +92,7 @@ test('installed legacy profile without an explicit school opens school search se
   })
 
   await page.goto('index.html')
+  // The legacy-profile path must land on the current school-search onboarding owner.
   await expect(page.getByRole('heading', { name: '학교생활, 한곳에서 시작해요' })).toBeVisible()
   await expect(page.locator('.school-search-field input')).toHaveAttribute('placeholder', '학교 이름 검색')
   await expect(page.locator('.app-shell')).toHaveCount(0)
