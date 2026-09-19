@@ -1301,12 +1301,17 @@ export async function preloadTimetable(profile) {
   if (!signature) return false
   await ensureSignedIn()
 
-  const snapshot = await getDocFromServer(timetableRef(profile))
+  const movingClass = movingClassEnabled(profile)
+  const [snapshot, personal] = await Promise.all([
+    getDocFromServer(timetableRef(profile)),
+    movingClass ? requestPersonalTimetable(profile, { action: 'load' }) : Promise.resolve(null),
+  ])
+
   const next = timetableStateFromSnapshot(snapshot, new Date())
   saveWeeklySchedule(next.weeklySchedule)
   saveOverrides(next.overrides)
-  if (movingClassEnabled(profile)) {
-    const personal = await requestPersonalTimetable(profile, { action: 'load' })
+
+  if (movingClass) {
     const nextWeekly = normalizeWeeklySchedule(personal?.weeklySchedule)
     const nextOverrides = pruneExpiredOverrides(normalizeOverrides(personal?.overrides), new Date())
     savePersonalWeeklyScheduleCache(profile, nextWeekly)
