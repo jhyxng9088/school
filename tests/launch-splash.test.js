@@ -7,6 +7,7 @@ const bootstrap = fs.readFileSync(new URL('../src/app-bootstrap.jsx', import.met
 const main = fs.readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8')
 const setup = fs.readFileSync(new URL('../src/student-setup.jsx', import.meta.url), 'utf8')
 const todo = fs.readFileSync(new URL('../src/todo.jsx', import.meta.url), 'utf8')
+const preload = fs.readFileSync(new URL('../src/launch-data-preload.js', import.meta.url), 'utf8')
 const manifest = fs.readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8')
 
 test('launch splash renders before React root with canonical S-Hub logo', () => {
@@ -34,18 +35,30 @@ test('student onboarding has one canonical owner', () => {
 })
 
 
-test('native launch metadata matches the neutral S-Hub splash surface', () => {
+test('native launch starts black and morphs into the resolved saved theme', () => {
   const parsed = JSON.parse(manifest)
-  assert.equal(parsed.background_color, '#f5f5f7')
-  assert.equal(parsed.theme_color, '#f5f5f7')
-  assert.match(indexHtml, /id="shub-theme-color" name="theme-color" content="#f5f5f7"/)
-  assert.match(indexHtml, /manifest\.webmanifest\?v=11/)
-  assert.doesNotMatch(indexHtml, /--shub-launch-bg:\s*#000000/)
+  assert.equal(parsed.background_color, '#000000')
+  assert.equal(parsed.theme_color, '#000000')
+  assert.match(indexHtml, /id="shub-theme-color" name="theme-color" content="#000000"/)
+  assert.match(indexHtml, /manifest\.webmanifest\?v=12/)
+  assert.match(indexHtml, /--shub-launch-bg:\s*#000000/)
+  assert.match(indexHtml, /function resolveLaunchTheme\(\)/)
+  assert.match(indexHtml, /getPropertyValue\('--bg'\)/)
+  assert.match(indexHtml, /background-color 720ms/)
 })
 
-test('configured launch waits for live home readiness with a short fallback', () => {
-  assert.match(todo, /ready:\s*remoteReady \|\| navigator\.onLine === false/)
-  assert.match(main, /launchHomeReady = presence\?\.ready === true && todoData\.ready === true/)
-  assert.match(main, /window\.setTimeout\(finish, 1800\)/)
+test('configured launch preloads fresh data before main app import', () => {
+  assert.match(bootstrap, /preloadConfiguredAppData/)
+  assert.match(bootstrap, /window\.__shubLaunchPreload = await preloadConfiguredAppData/)
+  assert.match(preload, /preloadClassPresence/)
+  assert.match(preload, /preloadClassRoster/)
+  assert.match(preload, /preloadTimetable/)
+  assert.match(preload, /preloadTodos/)
+  assert.match(preload, /preloadSharedAcademic/)
+  assert.match(preload, /preloadSchoolData/)
+  assert.match(preload, /preloadPreviewBoard/)
+  assert.match(preload, /preloadPreviewStudy/)
+  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 8500/)
+  assert.doesNotMatch(main, /window\.setTimeout\(finish, 1800\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
 })
