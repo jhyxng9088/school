@@ -1051,6 +1051,32 @@ function AppShell({ profile }) {
   const todoData = useTodos(profile, reminderTimetable)
   const presence = useClassPresence(profile)
   const academicData = useSharedAcademic(profile)
+  const launchHomeReady = presence?.ready === true && todoData.ready === true
+
+  useEffect(() => {
+    const launch = window.__shubLaunch
+    if (!launch) return undefined
+
+    launch.progress?.(launchHomeReady ? .96 : .88)
+
+    let secondFrame = null
+    const finish = () => launch.ready?.({ settleMs: 90 })
+    let firstFrame = null
+
+    if (launchHomeReady) {
+      firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(finish)
+      })
+    }
+
+    const fallback = window.setTimeout(finish, 1800)
+
+    return () => {
+      window.clearTimeout(fallback)
+      if (firstFrame !== null) window.cancelAnimationFrame(firstFrame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [launchHomeReady])
   const activity = useClassActivity(profile)
   const timetableActivityRevision = useMemo(() => Object.values(activity || {}).reduce((latest, item) => (
     item?.entityType === 'timetable' ? Math.max(latest, Number(item.updatedAt || 0)) : latest
@@ -1437,21 +1463,6 @@ function AppShell({ profile }) {
 }
 
 function App() {
-  useEffect(() => {
-    window.__shubLaunch?.progress?.(.9)
-    let secondFrame = null
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        window.__shubLaunch?.ready?.({ settleMs: 140 })
-      })
-    })
-
-    return () => {
-      window.cancelAnimationFrame(firstFrame)
-      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
-    }
-  }, [])
-
   const [profile, setProfile] = useState(() => {
     prepareClientDataGeneration()
     return readStudentProfile()
@@ -1459,6 +1470,24 @@ function App() {
   const [installDone, setInstallDone] = useState(() => localStorage.getItem(INSTALL_DONE_KEY) === 'true')
   const standalone = isStandalone()
   const legacyName = localStorage.getItem(USER_NAME_KEY) || ''
+  const appShellOwnsLaunch = standalone && installDone && Boolean(profile)
+
+  useEffect(() => {
+    window.__shubLaunch?.progress?.(.86)
+    if (appShellOwnsLaunch) return undefined
+
+    let secondFrame = null
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        window.__shubLaunch?.ready?.({ settleMs: 120 })
+      })
+    })
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [appShellOwnsLaunch])
 
   function completeInstallGuide() {
     if (!isStandalone()) return
