@@ -1051,32 +1051,24 @@ function AppShell({ profile }) {
   const todoData = useTodos(profile, reminderTimetable)
   const presence = useClassPresence(profile)
   const academicData = useSharedAcademic(profile)
-  const launchHomeReady = presence?.ready === true && todoData.ready === true
 
   useEffect(() => {
     const launch = window.__shubLaunch
     if (!launch) return undefined
 
-    launch.progress?.(launchHomeReady ? .96 : .88)
-
+    launch.progress?.(.985)
     let secondFrame = null
-    const finish = () => launch.ready?.({ settleMs: 90 })
-    let firstFrame = null
-
-    if (launchHomeReady) {
-      firstFrame = window.requestAnimationFrame(() => {
-        secondFrame = window.requestAnimationFrame(finish)
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        launch.ready?.({ settleMs: 120 })
       })
-    }
-
-    const fallback = window.setTimeout(finish, 1800)
+    })
 
     return () => {
-      window.clearTimeout(fallback)
-      if (firstFrame !== null) window.cancelAnimationFrame(firstFrame)
+      window.cancelAnimationFrame(firstFrame)
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
     }
-  }, [launchHomeReady])
+  }, [])
   const activity = useClassActivity(profile)
   const timetableActivityRevision = useMemo(() => Object.values(activity || {}).reduce((latest, item) => (
     item?.entityType === 'timetable' ? Math.max(latest, Number(item.updatedAt || 0)) : latest
