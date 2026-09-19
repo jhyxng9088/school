@@ -37,10 +37,10 @@ export async function preloadConfiguredAppData(profile) {
   const tasks = [
     {
       label: 'presence-roster',
-      run: async () => {
-        await preloadClassPresence(profile, { signal: controller.signal })
-        return preloadClassRoster()
-      },
+      run: () => Promise.all([
+        preloadClassPresence(profile, { signal: controller.signal }),
+        preloadClassRoster(),
+      ]),
     },
     { label: 'timetable', run: () => preloadTimetable(profile) },
     { label: 'reminders', run: () => preloadTodos(profile) },
