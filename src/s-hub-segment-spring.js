@@ -21,6 +21,8 @@ export function useSHubSegmentSpring(activeIndex, {
   fallbackPadding = 5,
   baseRadius = 14,
   minRadius = 11,
+  deform = true,
+  shellElastic = true,
 } = {}) {
   const containerRef = useRef(null)
   const indicatorRef = useRef(null)
@@ -56,18 +58,24 @@ export function useSHubSegmentSpring(activeIndex, {
 
     function paint() {
       const speed = Math.abs(physics.velocity)
-      const stretch = Math.min(speed * S_HUB_SEGMENT_SPRING_PHYSICS.stretchPerVelocity, S_HUB_SEGMENT_SPRING_PHYSICS.maxStretch)
+      const stretch = deform
+        ? Math.min(speed * S_HUB_SEGMENT_SPRING_PHYSICS.stretchPerVelocity, S_HUB_SEGMENT_SPRING_PHYSICS.maxStretch)
+        : 0
       const movingRight = physics.velocity > 0
       const movingLeft = physics.velocity < 0
       const visualX = movingLeft ? physics.x - stretch : physics.x
       const visualWidth = physics.baseWidth + stretch
-      const compression = Math.min(speed / S_HUB_SEGMENT_SPRING_PHYSICS.compressionVelocity, S_HUB_SEGMENT_SPRING_PHYSICS.maxCompression)
+      const compression = deform
+        ? Math.min(speed / S_HUB_SEGMENT_SPRING_PHYSICS.compressionVelocity, S_HUB_SEGMENT_SPRING_PHYSICS.maxCompression)
+        : 0
       const visualRight = visualX + visualWidth
       const containerWidth = container.clientWidth || 1
       const leftShellStretch = Math.max(0, padding - visualX)
       const rightShellStretch = Math.max(0, visualRight - (containerWidth - padding))
-      const shellScaleX = (containerWidth + leftShellStretch + rightShellStretch) / containerWidth
-      const shellShiftX = (rightShellStretch - leftShellStretch) / 2
+      const shellScaleX = shellElastic
+        ? (containerWidth + leftShellStretch + rightShellStretch) / containerWidth
+        : 1
+      const shellShiftX = shellElastic ? (rightShellStretch - leftShellStretch) / 2 : 0
 
       container.style.setProperty(shellScaleProperty, shellScaleX.toFixed(5))
       container.style.setProperty(shellShiftProperty, shellShiftX.toFixed(3) + 'px')
@@ -151,7 +159,7 @@ export function useSHubSegmentSpring(activeIndex, {
       window.removeEventListener('orientationchange', handleViewportChange)
       window.visualViewport?.removeEventListener('resize', handleViewportChange)
     }
-  }, [activeIndex, paddingProperty, shellScaleProperty, shellShiftProperty, fallbackPadding, baseRadius, minRadius])
+  }, [activeIndex, paddingProperty, shellScaleProperty, shellShiftProperty, fallbackPadding, baseRadius, minRadius, deform, shellElastic])
 
   return { containerRef, indicatorRef, buttonRefs }
 }
