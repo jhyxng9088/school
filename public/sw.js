@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-shell-v161-launch-refresh'
+const CACHE_NAME = 'school-shell-v162-launch-motion'
 const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
 const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
 const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
