@@ -126,9 +126,9 @@ export async function syncThemePreferences({ signal } = {}) {
   }
 }
 
-export function saveThemePreferencesSynced(preferences) {
+export function queueThemePreferenceSync(preferences = readThemePreferences()) {
   localThemeRevision += 1
-  const next = saveThemePreferences(preferences)
+  const next = normalizeThemePreferences(preferences)
   writeSyncMeta({ updatedAt: Date.now(), dirty: true })
   publishTheme(next)
 
@@ -136,6 +136,11 @@ export function saveThemePreferencesSynced(preferences) {
     void syncThemePreferences()
   }
   return next
+}
+
+export function saveThemePreferencesSynced(preferences) {
+  const next = saveThemePreferences(preferences)
+  return queueThemePreferenceSync(next)
 }
 
 export function installThemePreferenceSync() {
