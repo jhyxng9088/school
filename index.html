@@ -275,6 +275,12 @@
           }
         }
 
+        function refreshLaunchTheme() {
+          launchState.themed = false
+          launchState.lastThemeColorMix = -1
+          paintLaunchTheme(launchState.progressPainted)
+        }
+
         function finishLaunch({ settleMs = 120 } = {}) {
           if (launchState.leaving) return
           paintLaunchProgress(1)
@@ -297,6 +303,7 @@
         window.__shubLaunch = {
           version: 16,
           progress: paintLaunchProgress,
+          refreshTheme: refreshLaunchTheme,
           ready: finishLaunch,
         }
 
