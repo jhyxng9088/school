@@ -179,14 +179,14 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
 }
 
 const CLASS_SEGMENT_COMPONENT = String.raw`
-function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {
+function useClassTopSegmentSpring(activeIndex) {
   return useSHubSegmentSpring(activeIndex, {
     paddingProperty: '--segment-padding',
     shellScaleProperty: '--segment-shell-scale-x',
     shellShiftProperty: '--segment-shell-shift-x',
     fallbackPadding: 5,
     deform: true,
-    shellElastic,
+    shellElastic: true,
   })
 }
 
