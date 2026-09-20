@@ -65,3 +65,12 @@ test('overview reminder summarizes the nearest deadline instead of duplicating t
   assert.match(component, /detail: nextReminder \? String\(nextReminder\.title/)
   assert.doesNotMatch(component, /value: `\$\{reminderCount\}개`/)
 })
+
+
+test('home reminder and academic cards keep a small bottom breathing space without stretching to the grid row', () => {
+  const styles = read('src/styles.css')
+
+  assert.match(styles, /\.app-content\.tab-home \.todo-home-preview,[\s\S]*\.app-content\.tab-home \.academic-preview \{\s*padding-bottom: 13px;/)
+  assert.match(styles, /@media \(min-width: 820px\)[\s\S]*\.todo-home-preview \{[\s\S]*align-self: start;[\s\S]*\.academic-preview \{[\s\S]*align-self: start;/)
+  assert.match(styles, /@media \(max-width: 430px\)[\s\S]*\.todo-home-preview,[\s\S]*\.academic-preview \{\s*padding-bottom: 12px;/)
+})
