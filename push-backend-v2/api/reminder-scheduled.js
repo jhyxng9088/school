@@ -13,6 +13,10 @@ import {
   todoRelevantForCheckpoints,
 } from '../lib/scheduled-candidates.js'
 import { sendPlan, vapidConfigurationState } from '../lib/push.js'
+import {
+  loadSupabaseSchedulerRuntime,
+  saveSupabaseSchedulerRuntime,
+} from '../lib/supabase-scheduler-state.js'
 
 const RUNTIME_COLLECTION = 'scheduledPushRuntime'
 const RUNTIME_DOCUMENT = 'reminderScheduled'
@@ -154,8 +158,16 @@ export default async function handler(req, res) {
     let checkpoints = [nowMs]
 
     if (diagnostic.value === null) {
-      const runtimeSnapshot = await runtimeRef.get()
-      const lastSuccessMs = Number(runtimeSnapshot.exists ? runtimeSnapshot.data()?.lastSuccessMs : 0)
+      const supabaseRuntime = await loadSupabaseSchedulerRuntime()
+      let lastSuccessMs = 0
+
+      if (supabaseRuntime.available) {
+        lastSuccessMs = Number(supabaseRuntime.runtime?.lastSuccessMs || 0)
+      } else {
+        const runtimeSnapshot = await runtimeRef.get()
+        lastSuccessMs = Number(runtimeSnapshot.exists ? runtimeSnapshot.data()?.lastSuccessMs : 0)
+      }
+
       lookbackMs = scheduleLookbackMs(lastSuccessMs, nowMs)
       checkpoints = recentScheduleCheckpoints(nowMs, lookbackMs)
     }
@@ -284,12 +296,27 @@ export default async function handler(req, res) {
       types,
     }
 
-    await runtimeRef.set({
+    const runtimePayload = {
       lastSuccessMs: nowMs,
-      updatedAt: Date.now(),
+      updatedAtMs: Date.now(),
       checkedWindows: checkpoints.length,
       lastSummary: runtimeSummary,
-    }, { merge: true })
+    }
+    const supabaseRuntimeSaved = await saveSupabaseSchedulerRuntime(runtimePayload)
+
+    try {
+      await runtimeRef.set({
+        lastSuccessMs: runtimePayload.lastSuccessMs,
+        updatedAt: runtimePayload.updatedAtMs,
+        checkedWindows: runtimePayload.checkedWindows,
+        lastSummary: runtimePayload.lastSummary,
+      }, { merge: true })
+    } catch (error) {
+      if (!supabaseRuntimeSaved) throw error
+      console.warn('Firestore scheduler runtime shadow write failed; Supabase checkpoint is available.', {
+        message: error?.message,
+      })
+    }
 
     console.log('reminder-scheduled summary', runtimeSummary)
 
