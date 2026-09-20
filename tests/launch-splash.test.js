@@ -40,16 +40,16 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.equal(parsed.background_color, '#000000')
   assert.equal(parsed.theme_color, '#000000')
   assert.match(indexHtml, /id="shub-theme-color" name="theme-color" content="#000000"/)
-  assert.match(indexHtml, /manifest\.webmanifest\?v=19/)
+  assert.match(indexHtml, /manifest\.webmanifest\?v=20/)
   assert.match(indexHtml, /--shub-launch-bg:\s*#000000/)
   assert.match(indexHtml, /function resolveLaunchTheme\(\)/)
   assert.match(indexHtml, /getPropertyValue\('--bg'\)/)
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
   assert.match(indexHtml, /splash\.style\.backgroundColor = mixedBg/)
   assert.match(indexHtml, /requestAnimationFrame\(animateLaunchProgress\)/)
-  assert.match(indexHtml, /version: 19/)
+  assert.match(indexHtml, /version: 20/)
   assert.doesNotMatch(indexHtml, /setTimeout\(\(\) => paintLaunchProgress\(\.3\)/)
-  assert.match(indexHtml, /name="shub-shell-version" content="19"/)
+  assert.match(indexHtml, /name="shub-shell-version" content="20"/)
 })
 
 test('configured launch mounts canonical data owners immediately behind the splash', () => {
@@ -68,7 +68,7 @@ test('configured launch mounts canonical data owners immediately behind the spla
 test('launch shell cache advances so installed PWAs receive the new boot surface', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
   const deploymentRefresh = fs.readFileSync(new URL('../src/deployment-refresh.js', import.meta.url), 'utf8')
-  assert.match(sw, /school-shell-v167-class-static-launch-fast/)
+  assert.match(sw, /school-shell-v168-ios-status-area/)
   assert.match(bootstrap, /registration\?\.update\(\)/)
   assert.match(deploymentRefresh, /meta\[name="shub-shell-version"\]/)
   assert.match(deploymentRefresh, /shellChanged/)
@@ -95,12 +95,13 @@ test('failed launch sources do not hold the app behind long retry backoff', () =
 
 
 test('fresh iOS installs keep the stable status-bar layout while launch origins stay warm', () => {
-  assert.match(indexHtml, /apple-mobile-web-app-status-bar-style" content="default"/)
+  assert.match(indexHtml, /apple-mobile-web-app-status-bar-style" content="black-translucent"/)
   assert.doesNotMatch(indexHtml, /school-ios-standalone/)
   assert.match(indexHtml, /elhlsqhzjmsfhmawrpqu\.supabase\.co/)
   assert.match(indexHtml, /open\.neis\.go\.kr/)
   const styles = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
   assert.doesNotMatch(styles, /school-ios-standalone \.app-shell::before/)
+  assert.match(styles, /\.app-content \{[\s\S]*padding: max\(32px, env\(safe-area-inset-top\)\)/)
 })
 
 
