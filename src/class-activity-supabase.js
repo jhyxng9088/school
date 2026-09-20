@@ -4,11 +4,13 @@ const PROJECT_REF = 'elhlsqhzjmsfhmawrpqu'
 const PUBLISHABLE_KEY = 'sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0'
 const API_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/class-activity-mirror`
 const SOCKET_URL = `wss://${PROJECT_REF}.supabase.co/realtime/v1/websocket?apikey=${encodeURIComponent(PUBLISHABLE_KEY)}&vsn=1.0.0`
+const BROADCAST_BASE = `https://${PROJECT_REF}.supabase.co/realtime/v1/api/broadcast`
 const RECONNECT_MIN_MS = 1200
 const RECONNECT_MAX_MS = 12_000
 const HEARTBEAT_MS = 25_000
 
 let nextRef = 1
+const topicByClass = new Map()
 
 function cleanActivity(value) {
   const entityType = String(value?.entityType || '').trim().slice(0, 30)
@@ -48,34 +50,76 @@ export async function loadSupabaseClassActivity(profile = readStudentProfile()) 
   if (!response.ok || body?.ok !== true || !body?.topic) {
     throw new Error(String(body?.message || '활동 정보를 불러오지 못했어요.'))
   }
+  const topic = String(body.topic)
+  topicByClass.set(classId, topic)
   return {
-    topic: String(body.topic),
+    topic,
     activity: (Array.isArray(body.activity) ? body.activity : []).map(cleanActivity).filter(Boolean),
+  }
+}
+
+function cleanWriteEntry(value) {
+  const entityType = String(value?.entityType || '').trim().slice(0, 30)
+  const entityId = String(value?.entityId || '').trim().slice(0, 120)
+  const updatedAt = Math.max(0, Number(value?.updatedAt || 0))
+  if (!entityType || !entityId || !updatedAt) return null
+  return {
+    entityType,
+    entityId,
+    action: value?.action === 'added' ? 'added' : 'edited',
+    updatedAt,
+    actorName: String(value?.actorName || '').trim().slice(0, 20),
+    actorStudentKey: String(value?.actorStudentKey || '').trim().slice(0, 120),
+  }
+}
+
+async function broadcastFallback(classId, entries) {
+  const topic = topicByClass.get(classId)
+  if (!topic || !entries.length) return false
+  try {
+    const response = await fetch(`${BROADCAST_BASE}/${encodeURIComponent(topic)}/events/activity_changed`, {
+      method: 'POST',
+      headers: {
+        apikey: PUBLISHABLE_KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ at: Date.now(), entries }),
+      cache: 'no-store',
+      keepalive: true,
+    })
+    return response.ok
+  } catch {
+    return false
   }
 }
 
 export async function saveSupabaseClassActivities(profile, entries = []) {
   const classId = classKeyFor(profile)
-  const cleanEntries = entries.map(cleanActivity).filter(Boolean)
+  const cleanEntries = entries.map(cleanWriteEntry).filter(Boolean)
   if (!classId || !cleanEntries.length) return { ok: false, mirrored: false, realtime: false }
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      authorization: await authorization(),
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({ classId, entries: cleanEntries }),
-    cache: 'no-store',
-    keepalive: true,
-  })
-  const body = await response.json().catch(() => ({}))
-  if (!response.ok || body?.ok !== true) {
-    throw new Error(String(body?.message || '활동 미러를 저장하지 못했어요.'))
-  }
-  return {
-    ok: true,
-    mirrored: body.mirrored === true,
-    realtime: body.realtime === true,
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        authorization: await authorization(),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ classId, entries: cleanEntries }),
+      cache: 'no-store',
+      keepalive: true,
+    })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok || body?.ok !== true) throw new Error(String(body?.message || '활동 미러를 저장하지 못했어요.'))
+    if (body?.topic) topicByClass.set(classId, String(body.topic))
+    return {
+      ok: true,
+      mirrored: body.mirrored === true,
+      realtime: body.realtime === true,
+    }
+  } catch (error) {
+    const realtime = await broadcastFallback(classId, cleanEntries)
+    console.warn('Supabase class activity mirror unavailable; Firestore write remains canonical.', error)
+    return { ok: false, mirrored: false, realtime }
   }
 }
 
