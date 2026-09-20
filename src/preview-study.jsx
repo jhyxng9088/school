@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
 import {
   loadPreviewStudy,
@@ -246,7 +246,7 @@ function ActiveClassmates({ students, meId, nowMs, onStudent }) {
   const [leavingIds, setLeavingIds] = useState(() => new Set())
   const previousActiveRef = useRef(active)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previous = previousActiveRef.current
     previousActiveRef.current = active
     const nextIds = new Set(active.map((student) => studentIdentity(student)).filter(Boolean))
@@ -281,7 +281,7 @@ function ActiveClassmates({ students, meId, nowMs, onStudent }) {
   }, [active])
 
   function finishRowExit(id, event) {
-    if (event.target !== event.currentTarget || !leavingIds.has(id)) return
+    if (event.target !== event.currentTarget || event.animationName !== 'reminder-row-collapse' || !leavingIds.has(id)) return
     setRenderedActive((current) => current.filter((student) => studentIdentity(student) !== id))
     setLeavingIds((current) => {
       const next = new Set(current)
@@ -296,36 +296,34 @@ function ActiveClassmates({ students, meId, nowMs, onStudent }) {
         <h2>현재 스터디</h2>
         <span>{active.length}명</span>
       </div>
-      {renderedActive.length ? (
-        <div className="preview-study-live-list">
-          {renderedActive.map((student) => {
-            const elapsed = activeSessionSeconds(student.active, nowMs)
-            const id = studentIdentity(student)
-            const leaving = leavingIds.has(id)
-            return (
-              <button
-                type="button"
-                className={`preview-study-live-person${student.active.isPaused ? ' is-paused' : ''}${leaving ? ' is-state-leaving' : ''}`}
-                key={id}
-                tabIndex={leaving ? -1 : 0}
-                onAnimationEnd={(event) => finishRowExit(id, event)}
-                onClick={() => {
-                  if (!leaving) onStudent(student)
-                }}
-              >
-                <span className={`preview-study-live-dot${student.active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
-                <span className="preview-study-person-copy">
-                  <strong>{student.name}{id === meId ? ' · 본인' : ''}</strong>
-                  <span>{student.active.subject}{student.active.isPaused ? ' · 일시정지' : ' · 공부 중'}</span>
-                </span>
-                <time>{formatStudyDuration(elapsed)}</time>
-              </button>
-            )
-          })}
-        </div>
-      ) : (
-        <div className="preview-study-empty">현재 스터디 중인 학생이 없습니다.</div>
-      )}
+      <div className={`preview-study-live-list${renderedActive.length ? '' : ' is-empty'}`}>
+        {renderedActive.length ? renderedActive.map((student) => {
+          const elapsed = activeSessionSeconds(student.active, nowMs)
+          const id = studentIdentity(student)
+          const leaving = leavingIds.has(id)
+          return (
+            <button
+              type="button"
+              className={`preview-study-live-person${student.active.isPaused ? ' is-paused' : ''}${leaving ? ' is-state-leaving' : ''}`}
+              key={id}
+              tabIndex={leaving ? -1 : 0}
+              onAnimationEnd={(event) => finishRowExit(id, event)}
+              onClick={() => {
+                if (!leaving) onStudent(student)
+              }}
+            >
+              <span className={`preview-study-live-dot${student.active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
+              <span className="preview-study-person-copy">
+                <strong>{student.name}{id === meId ? ' · 본인' : ''}</strong>
+                <span>{student.active.subject}{student.active.isPaused ? ' · 일시정지' : ' · 공부 중'}</span>
+              </span>
+              <time>{formatStudyDuration(elapsed)}</time>
+            </button>
+          )
+        }) : (
+          <div className="preview-study-live-empty">현재 스터디 중인 학생이 없습니다.</div>
+        )}
+      </div>
     </section>
   )
 }
