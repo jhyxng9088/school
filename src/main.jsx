@@ -356,7 +356,12 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
     weekday: 'long',
   }).format(now)
   const todaySchedule = getScheduleForDate(now, weeklySchedule, overrides)
-  const todayClosure = schoolClosureForDate(now, schoolData?.academicEvents, todaySchedule)
+  const todayClosure = schoolClosureForDate(
+    now,
+    schoolData?.academicEvents,
+    todaySchedule,
+    schoolData?.schoolClosures,
+  )
   const baseSchoolState = getSchoolState(now, weeklySchedule, overrides)
   const schoolState = todayClosure
     ? { ...baseSchoolState, kind: 'off', schedule: [], current: null, next: null, closure: todayClosure }
@@ -487,14 +492,16 @@ function TimetablePage({
           date,
           schoolData?.academicEvents,
           getScheduleForDate(date, weeklySchedule, displayOverrides),
+          schoolData?.schoolClosures,
         ),
       ])
       .filter(([, closure]) => Boolean(closure)),
-  ), [weekDates.map(dateKey).join('|'), schoolData?.academicEvents, weeklySchedule, displayOverrides])
+  ), [weekDates.map(dateKey).join('|'), schoolData?.academicEvents, schoolData?.schoolClosures, weeklySchedule, displayOverrides])
   const currentClosure = schoolClosureForDate(
     now,
     schoolData?.academicEvents,
     getScheduleForDate(now, weeklySchedule, displayOverrides),
+    schoolData?.schoolClosures,
   )
   const baseCurrentState = getSchoolState(now, weeklySchedule, displayOverrides)
   const currentState = currentClosure
@@ -513,6 +520,7 @@ function TimetablePage({
     selectedDate,
     schoolData?.academicEvents,
     selectedDate ? getScheduleForDate(selectedDate, weeklySchedule, displayOverrides) : [],
+    schoolData?.schoolClosures,
   )
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const availablePeriods = selectedDay && !selectedDateIsPast && !selectedClosure
@@ -564,6 +572,7 @@ function TimetablePage({
     const initialDate = nextOpenSchoolDate(now, schoolData?.academicEvents, {
       includeAnchor: currentState.kind !== 'done',
       scheduleForDate: (date) => getScheduleForDate(date, weeklySchedule, displayOverrides),
+      cachedClosures: schoolData?.schoolClosures,
     })
     setChangeScope(movingClass ? scope : 'shared')
     setChangeDate(dateKey(initialDate))
@@ -749,6 +758,9 @@ function TimetablePage({
             >
               <strong>{WEEKDAYS[index].label}</strong>
               <span>{date.getMonth() + 1}/{date.getDate()}</span>
+              {!editing && weekClosureByDate[dateKey(date)] ? (
+                <em className="school-closed-badge">휴업</em>
+              ) : null}
             </div>
           ))}
 
@@ -1114,6 +1126,7 @@ function AppShell({ profile }) {
     commitPersonalWeeklySchedule,
     commitPersonalOverrides,
     refreshSharedTimetable,
+    launchReady: timetableLaunchReady,
   } = useSharedTimetable(profile, now)
   const schoolData = useSchoolData(now, profile)
   const reminderTimetable = useMemo(() => ({
@@ -1123,7 +1136,9 @@ function AppShell({ profile }) {
   const todoData = useTodos(profile, reminderTimetable)
   const presence = useClassPresence(profile)
   const academicData = useSharedAcademic(profile)
-  const launchHomeReady = presence?.ready === true && todoData.ready === true
+  const launchHomeReady = presence?.ready === true
+    && todoData.ready === true
+    && timetableLaunchReady === true
 
   useEffect(() => {
     const launch = window.__shubLaunch
@@ -1177,9 +1192,9 @@ function AppShell({ profile }) {
 
     if (launchHomeReady) requestFinishAfterPaint()
 
-    // Keep the bounded fallback for slow remote sources, but never reveal a
-    // blank or partially laid-out Home shell. The canonical owners keep
-    // reconciling late network data after the first paint is safely visible.
+    // Cached timetable state can reveal immediately; only a cache miss waits
+    // briefly for the canonical timetable owner. Board, meals and academic
+    // revalidation remain background work so one slow source cannot hold launch.
     const fallback = window.setTimeout(requestFinishAfterPaint, 1400)
 
     return () => {
