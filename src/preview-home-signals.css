@@ -118,3 +118,20 @@ html.school-samsung .preview-home-signal {
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Home dashboard: phone keeps the compact 2x2 overview, wide screens use one row. */
+@media (min-width: 820px) {
+  .preview-home-signals-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .preview-home-signal {
+    min-height: 112px;
+    padding: 16px 17px 15px;
+  }
+
+  .preview-home-signal strong {
+    font-size: 20px;
+  }
+}
