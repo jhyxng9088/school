@@ -40,7 +40,7 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.equal(parsed.background_color, '#000000')
   assert.equal(parsed.theme_color, '#000000')
   assert.match(indexHtml, /id="shub-theme-color" name="theme-color" content="#000000"/)
-  assert.match(indexHtml, /manifest\\.webmanifest\\?v=19/)
+  assert.match(indexHtml, /manifest\.webmanifest\?v=19/)
   assert.match(indexHtml, /--shub-launch-bg:\s*#000000/)
   assert.match(indexHtml, /function resolveLaunchTheme\(\)/)
   assert.match(indexHtml, /getPropertyValue\('--bg'\)/)
@@ -75,7 +75,7 @@ test('configured launch evaluates main code in parallel but mounts only after fr
 test('launch shell cache advances so installed PWAs receive the new boot surface', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
   const deploymentRefresh = fs.readFileSync(new URL('../src/deployment-refresh.js', import.meta.url), 'utf8')
-  assert.match(sw, /school-shell-v166-schedule-spring/)
+  assert.match(sw, /school-shell-v167-class-static-launch-fast/)
   assert.match(bootstrap, /registration\?\.update\(\)/)
   assert.match(deploymentRefresh, /meta\[name="shub-shell-version"\]/)
   assert.match(deploymentRefresh, /shellChanged/)
@@ -92,7 +92,7 @@ test('launch color follows the interpolated loading progress instead of switchin
 
 
 test('failed launch sources do not hold the app behind long retry backoff', () => {
-  assert.match(preload, /const delays = \\[0, 90\\]/)
+  assert.match(preload, /const delays = \[0, 90\]/)
   assert.doesNotMatch(preload, /140|220|720/)
 })
 
