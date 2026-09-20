@@ -1246,19 +1246,67 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
 
 .app-content.tab-home .meal-preview {
   padding-bottom: 17px;
+}
+
+.app-content.tab-home .meal-preview-action {
+  width: 100%;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-content.tab-home .meal-preview-action:active {
+  transform: scale(.995);
+}
+
+.app-content.tab-home .meal-preview-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-accent, var(--text)) 26%, transparent);
+  border-radius: 15px;
+}
+
+.app-content.tab-home .meal-preview-heading {
+  display: flex;
+  margin: 0 2px 13px;
+}
+
+.app-content.tab-home .meal-preview-heading strong {
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
 }
 
 .app-content.tab-home .meal-preview .stage3-home-surface {
   min-height: 78px;
+  display: block;
   padding: 14px 4px 0;
 }
 
+.app-content.tab-home .meal-preview .stage3-meal-home-menu {
+  display: block;
+}
+
 .app-content.tab-home .meal-preview .stage3-home-empty {
+  display: block;
   margin: 0;
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.app-content.tab-home .academic-preview .academic-home-item.is-important {
+  margin-bottom: 6px;
+  border: 1px solid color-mix(in srgb, var(--focus-accent, var(--text)) 14%, var(--divider));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--focus-accent-soft, var(--surface-soft)) 64%, var(--surface));
 }
 
 .app-content.tab-home .current-class-card { animation-delay: 50ms; }
