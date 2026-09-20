@@ -20,6 +20,11 @@ import {
   studentKeyFor,
 } from './school-sync'
 import { publishClassLiveData } from './class-live-data.js'
+import {
+  loadSupabaseClassActivity,
+  saveSupabaseClassActivities,
+  subscribeSupabaseClassActivity,
+} from './class-activity-supabase.js'
 
 const syncApp = getApps().some((app) => app.name === 'school-sync') ? getApp('school-sync') : null
 if (!syncApp) throw new Error('School sync app is not initialized')
@@ -160,15 +165,43 @@ export function useClassActivity(profile = null) {
 
   useEffect(() => {
     if (!signature) return undefined
-    setActivity(readActivityCache(normalized))
-    let stopped = false
-    let unsubscribe = () => {}
-    let removeRevalidation = () => {}
-    let generation = 0
 
-    const applySnapshot = (snapshot) => {
+    let currentActivity = readActivityCache(normalized)
+    setActivity(currentActivity)
+    let stopped = false
+    let stopRealtime = () => {}
+    let stopFirestore = () => {}
+    let firestoreFallbackActive = false
+
+    const commitActivity = (next) => {
+      if (stopped) return
+      currentActivity = next
+      writeActivityCache(normalized, next)
+      publishClassLiveData('activity', classKeyFor(normalized), next)
+      setActivity(next)
+    }
+
+    const mergeEntries = (entries, { replace = false } = {}) => {
+      const next = replace ? {} : { ...currentActivity }
+      ;(Array.isArray(entries) ? entries : []).forEach((value) => {
+        if (!value?.entityType || !value?.entityId || !value?.actorName) return
+        const key = activityKey(value.entityType, value.entityId)
+        const updatedAt = Number(value.updatedAt || 0)
+        if (!replace && Number(next[key]?.updatedAt || 0) > updatedAt) return
+        next[key] = {
+          entityType: String(value.entityType),
+          entityId: String(value.entityId),
+          actorName: String(value.actorName).slice(0, 20),
+          actorStudentKey: String(value.actorStudentKey || ''),
+          action: value.action === 'added' ? 'added' : 'edited',
+          updatedAt,
+        }
+      })
+      commitActivity(next)
+    }
+
+    const applyFirestoreSnapshot = (snapshot) => {
       if (stopped || snapshot.metadata?.fromCache) return
-      generation += 1
       const next = {}
       snapshot.docs.forEach((item) => {
         const value = item.data() || {}
@@ -182,37 +215,67 @@ export function useClassActivity(profile = null) {
           updatedAt: Number(value.updatedAt || 0),
         }
       })
-      writeActivityCache(normalized, next)
-      publishClassLiveData('activity', classKeyFor(normalized), next)
-      setActivity(next)
+      commitActivity(next)
     }
 
-    const refreshFromServer = async () => {
-      const startedAtGeneration = generation
+    const stopFirestoreFallback = () => {
+      if (!firestoreFallbackActive) return
+      firestoreFallbackActive = false
+      stopFirestore()
+      stopFirestore = () => {}
+    }
+
+    const startFirestoreFallback = () => {
+      if (stopped || firestoreFallbackActive) return
+      firestoreFallbackActive = true
+      ensureIdentity(normalized)
+        .then(() => {
+          if (stopped || !firestoreFallbackActive) return
+          stopFirestore = onSnapshot(
+            activityCollection(normalized),
+            applyFirestoreSnapshot,
+            (error) => console.error('Class activity Firestore fallback failed:', error),
+          )
+        })
+        .catch((error) => console.error('Class activity Firestore fallback connection failed:', error))
+    }
+
+    const refreshSupabase = async () => {
+      const result = await loadSupabaseClassActivity(normalized)
+      if (stopped) return null
+      mergeEntries(result.activity, { replace: true })
+      return result
+    }
+
+    ;(async () => {
       try {
-        const snapshot = await getDocsFromServer(activityCollection(normalized))
-        if (stopped || generation !== startedAtGeneration) return
-        applySnapshot(snapshot)
-      } catch (error) {
-        if (!stopped) console.error('Class activity server revalidation failed:', error)
-      }
-    }
+        await ensureIdentity(normalized)
+        const primary = await refreshSupabase()
+        if (stopped || !primary) return
 
-    ensureIdentity(normalized)
-      .then(() => {
-        if (stopped) return
-        unsubscribe = onSnapshot(
-          activityCollection(normalized),
-          applySnapshot,
-          (error) => console.error('Class activity sync failed:', error),
-        )
-        removeRevalidation = () => {}
-      })
-      .catch((error) => console.error('Class activity connection failed:', error))
+        stopRealtime = subscribeSupabaseClassActivity(primary.topic, {
+          onEntries: (entries) => {
+            if (!stopped) mergeEntries(entries)
+          },
+          onUnavailable: () => {
+            startFirestoreFallback()
+          },
+          onAvailable: () => {
+            refreshSupabase()
+              .then(() => stopFirestoreFallback())
+              .catch(() => startFirestoreFallback())
+          },
+        })
+      } catch (error) {
+        console.warn('Supabase class activity unavailable; using Firestore fallback.', error)
+        startFirestoreFallback()
+      }
+    })()
+
     return () => {
       stopped = true
-      unsubscribe()
-      removeRevalidation()
+      stopRealtime()
+      stopFirestore()
     }
   }, [signature])
 
@@ -246,11 +309,16 @@ export async function recordClassActivities(profile, entries) {
   })
 
   await batch.commit()
-  committed.forEach((entry) => emitCommittedActivity({
+
+  const mirroredEntries = committed.map((entry) => ({
     ...entry,
+    actorName: identity.profile.name,
     actorStudentKey: identity.studentKey,
     updatedAt,
   }))
+  void saveSupabaseClassActivities(normalized, mirroredEntries)
+
+  mirroredEntries.forEach((entry) => emitCommittedActivity(entry))
 }
 
 export function recordClassActivity(profile, entityType, entityId, action = 'edited') {
