@@ -81,3 +81,14 @@ test('wide Home reminder and academic cards size to their content with modest bo
 
   assert.match(styles, /\.app-content\.tab-home \.todo-home-preview,[\s\S]*\.app-content\.tab-home \.academic-preview \{[\s\S]*align-self: start;[\s\S]*padding-bottom: 14px;/)
 })
+
+
+test('Home timetable uses the same outer card surface and a denser period strip', () => {
+  const styles = read('src/styles.css')
+
+  assert.match(styles, /\.todo-home-preview,[\s\S]*\.home-timetable-preview,[\s\S]*\.meal-preview \{[\s\S]*padding: 17px;[\s\S]*border: 1px solid var\(--border\);[\s\S]*border-radius: 23px;/)
+  assert.match(styles, /\.home-timetable-preview \.period-strip \{[\s\S]*gap: 5px;/)
+  assert.match(styles, /\.home-timetable-preview \.period-item \{[\s\S]*min-height: 54px;/)
+  assert.match(styles, /\.academic-preview \.academic-home-item \{[\s\S]*padding-inline: 12px;/)
+  assert.match(styles, /\.todo-home-preview \.todo-home-item \{[\s\S]*padding-inline: 8px;/)
+})
