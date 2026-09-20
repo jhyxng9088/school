@@ -86,14 +86,15 @@ export function patchPreviewScheduleTopSegmentSource(source, id = '') {
 
   if (!cleanId.endsWith('/main.jsx')) return current
   if (current.includes('Preview-only schedule segment: intentionally reuses useClassTopSegmentSpring.')) return current
-  if (!current.includes('function useClassTopSegmentSpring(activeIndex) {')) {
+  const classSpringMarker = 'function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {'
+  if (!current.includes(classSpringMarker)) {
     throw new Error('Preview schedule top segment requires the class top segment spring first')
   }
 
   return spliceRequired(
     current,
     'function ScheduleStationPage({ section, onSectionChange, todoPage, academicPage, mealPage }) {',
-    'function useClassTopSegmentSpring(activeIndex) {',
+    classSpringMarker,
     `${SCHEDULE_SEGMENT_COMPONENT}\n`,
     'schedule station component',
   )
