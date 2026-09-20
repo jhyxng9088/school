@@ -1194,7 +1194,7 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   pointer-events: none;
 }
 
-.app-content.tab-home .current-class-card > * {
+.app-content.tab-home .current-class-card > :not(.home-nav-action) {
   position: relative;
   z-index: 1;
 }
