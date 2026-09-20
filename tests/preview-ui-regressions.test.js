@@ -164,9 +164,12 @@ test('schedule top segment keeps bottom-nav pill and shell physics coupled', () 
 test('class section entry motion is scoped below the persistent top segment', () => {
   const classSegment = read('src/preview-class-top-segment-patch.js')
   const board = read('src/preview-board.css')
+  const boardFinish = read('src/preview-board-finish.css')
   assert.match(board, /\.class-station-panel \{[\s\S]*animation: class-station-panel-enter/)
   assert.match(
     classSegment,
     /\.class-station-page > \.class-top-segment,[\s\S]*animation: none !important;/,
   )
+  assert.match(boardFinish, /html body \.app-content\.tab-class,[\s\S]*animation: none !important;/)
+  assert.doesNotMatch(boardFinish, /\.app-content:has\(\.preview-board-page\)/)
 })
