@@ -29,20 +29,25 @@ test('class segment parent keeps the home current-class description readable', (
   assert.match(source, /overflow-wrap: break-word/)
 })
 
-test('class segment parent owns board-first order and bottom-nav spring motion directly', () => {
+test('class segment shares the same canonical spring owner as schedule', () => {
   const source = read('src/preview-class-top-segment-patch.js')
+  const helper = source.slice(
+    source.indexOf('function useClassTopSegmentSpring'),
+    source.indexOf('function ClassTopSegment'),
+  )
   const component = source.slice(
     source.indexOf('function ClassTopSegment'),
     source.indexOf('function ClassStationPage'),
   )
+  assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
+  assert.match(helper, /deform: true/)
+  assert.match(helper, /shellElastic: true/)
   assert.match(component, /const activeIndex = section === 'timetable' \? 1 : 0/)
-  assert.match(component, /useSHubSegmentSpring\(activeIndex/)
-  assert.match(component, /deform: true/)
-  assert.match(component, /shellElastic: false/)
+  assert.match(component, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
+  assert.doesNotMatch(component, /useSHubSegmentSpring|deform:|shellElastic:|baseRadius:|minRadius:/)
   assert.match(component, /ref=\{spring\.containerRef\}/)
   assert.match(component, /ref=\{spring\.indicatorRef\}/)
   assert.match(component, /spring\.buttonRefs\.current\[index\]/)
-  assert.doesNotMatch(source, /transition: transform 440ms cubic-bezier/)
   assert.ok(source.indexOf("{ id: 'board', label: '게시판' }") < source.indexOf("{ id: 'timetable', label: '시간표' }"))
   assert.match(source, /setClassSection\] = useState\('timetable'\)[\s\S]*setClassSection\] = useState\('board'\)/)
 })

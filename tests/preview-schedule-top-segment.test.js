@@ -70,3 +70,15 @@ test('schedule spring keeps the outer shell physically coupled to the moving pil
   assert.match(helper, /shellScaleProperty: '--segment-shell-scale-x'/)
   assert.match(helper, /shellShiftProperty: '--segment-shell-shift-x'/)
 })
+
+
+test('class and schedule both consume the same helper without duplicate spring config', () => {
+  const classSegment = read('src/preview-class-top-segment-patch.js')
+  const classStart = classSegment.indexOf('function ClassTopSegment')
+  const classEnd = classSegment.indexOf('function ClassStationPage', classStart)
+  const classComponent = classSegment.slice(classStart, classEnd)
+  const schedulePatch = read('src/preview-schedule-top-segment-patch.js')
+  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
+  assert.match(schedulePatch, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
+  assert.doesNotMatch(classComponent, /useSHubSegmentSpring|deform:|shellElastic:/)
+})
