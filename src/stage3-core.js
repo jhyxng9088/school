@@ -259,33 +259,51 @@ export async function preloadSchoolData(profile, now = new Date(), { signal } = 
   const academicRange = academicWindow(now)
   const academicKey = rangeKey(academicRange.from, academicRange.to)
   const academicStoreKey = academicCacheKey(profile)
+  const checkedAt = Date.now()
 
-  const [meals, academicEvents] = await Promise.all([
-    fetchMealRange(profile, dates[0], dates[4], signal),
-    fetchAcademicRange(profile, academicRange.from, academicRange.to, signal),
-  ])
-
-  const savedAt = Date.now()
   const mealStore = readStore(mealStoreKey)
-  const mealRanges = {
-    ...(mealStore.ranges || {}),
-    [mealKey]: { meals, savedAt },
-  }
-  const mealKeys = Object.keys(mealRanges).sort().slice(-12)
-  writeStore(mealStoreKey, {
-    ranges: Object.fromEntries(mealKeys.map((item) => [item, mealRanges[item]])),
-  })
+  const cachedMeal = mealStore.ranges?.[mealKey]
+  const mealFresh = Array.isArray(cachedMeal?.meals)
+    && checkedAt - Number(cachedMeal.savedAt || 0) < MEAL_CACHE_AGE
 
   const academicStore = readStore(academicStoreKey)
-  writeStore(academicStoreKey, {
-    ranges: {
-      ...(academicStore.ranges || {}),
-      [academicKey]: {
-        savedAt,
-        events: academicEvents.map(({ date, ...event }) => event),
+  const cachedAcademic = academicStore.ranges?.[academicKey]
+  const academicFresh = Array.isArray(cachedAcademic?.events)
+    && cachedAcademic.events.length > 0
+    && checkedAt - Number(cachedAcademic.savedAt || 0) < ACADEMIC_CACHE_AGE
+
+  const [meals, academicEvents] = await Promise.all([
+    mealFresh
+      ? Promise.resolve(cachedMeal.meals)
+      : fetchMealRange(profile, dates[0], dates[4], signal),
+    academicFresh
+      ? Promise.resolve(cachedAcademic.events.map((event) => ({ ...event, date: dateFromRaw(event.rawDate) })))
+      : fetchAcademicRange(profile, academicRange.from, academicRange.to, signal),
+  ])
+
+  if (!mealFresh) {
+    const savedAt = Date.now()
+    const mealRanges = {
+      ...(mealStore.ranges || {}),
+      [mealKey]: { meals, savedAt },
+    }
+    const mealKeys = Object.keys(mealRanges).sort().slice(-12)
+    writeStore(mealStoreKey, {
+      ranges: Object.fromEntries(mealKeys.map((item) => [item, mealRanges[item]])),
+    })
+  }
+
+  if (!academicFresh) {
+    writeStore(academicStoreKey, {
+      ranges: {
+        ...(academicStore.ranges || {}),
+        [academicKey]: {
+          savedAt: Date.now(),
+          events: academicEvents.map(({ date, ...event }) => event),
+        },
       },
-    },
-  })
+    })
+  }
 
   return { meals, academicEvents }
 }
