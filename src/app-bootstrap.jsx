@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import {
+  ensureSignedIn,
   prepareClientDataGeneration,
   profileSignature,
   readStudentProfile,
@@ -80,6 +81,12 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
   }
 
   launchProgress(.54)
+  // Start the canonical Firebase auth + identity revalidation before the larger
+  // launch preload module finishes loading. Every data owner still calls the
+  // same ensureSignedIn promise; this only overlaps the unavoidable round trip.
+  void ensureSignedIn().catch((error) => {
+    console.warn('S-Hub auth warmup deferred to data owners:', error)
+  })
   const mainModulePromise = preloadMainAppModule()
   try {
     const { preloadConfiguredAppData } = await import('./launch-data-preload.js')
