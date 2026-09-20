@@ -423,7 +423,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
           />
         ) : null}
         <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} />
-        <Stage3MealPreview now={now} schoolData={schoolData} />
+        <Stage3MealPreview now={now} schoolData={schoolData} onNavigate={onNavigate} />
       </div>
     </>
   )
@@ -1486,6 +1486,11 @@ function AppShell({ profile }) {
     }
     if (target === 'reminder') {
       setScheduleSection('todo')
+      changeTab('schedule')
+      return
+    }
+    if (target === 'meal') {
+      setScheduleSection('meal')
       changeTab('schedule')
     }
   }
