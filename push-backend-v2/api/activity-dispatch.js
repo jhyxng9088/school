@@ -124,7 +124,7 @@ async function dispatchSocial({ db, token, identity, body, res }) {
     claimId = `social-board-${verifiedPostId}`
     payload = {
       title: 'S-Hub',
-      body: `${actorName}님이 게시판에 새 글을 올렸어요.`,
+      body: `${actorName}님이 게시판에 새 글을 올렸습니다.`,
       tag: `board-post-${verifiedPostId}`,
       url: './?tab=board',
     }
@@ -139,7 +139,7 @@ async function dispatchSocial({ db, token, identity, body, res }) {
     claimId = `social-study-${actorStudentKey.slice(0, 48)}-${Math.floor(startedAt)}`
     payload = {
       title: 'S-Hub',
-      body: `${actorName}님이 ${subject} 공부를 시작했어요.`,
+      body: `${actorName}님이 ${subject} 공부를 시작했습니다.`,
       tag: `study-start-${actorStudentKey.slice(0, 48)}-${Math.floor(startedAt)}`,
       url: './?tab=study',
     }
