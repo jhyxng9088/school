@@ -53,7 +53,7 @@ test('the seven question examples remain deliberately informal', () => {
 
 test('production service worker cache is bumped so installed PWAs receive the fresh UI shell', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v167-class-static-launch-fast'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v168-class-scene-isolation'/)
   assert.doesNotMatch(sw, /school-preview-shell-/)
   assert.match(sw, /self\.skipWaiting\(\)/)
   assert.match(sw, /self\.clients\.claim\(\)/)
@@ -131,9 +131,9 @@ test('class and schedule top segments share one canonical spring owner', () => {
   )
   assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
   assert.match(helper, /deform: true/)
-  assert.match(helper, /shellElastic = true/)
-  assert.match(helper, /shellElastic,/)
-  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex, \{ shellElastic: false \}\)/)
+  assert.match(helper, /shellElastic: true/)
+  assert.match(helper, /shellElastic: true,/)
+  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
   assert.doesNotMatch(classComponent, /useSHubSegmentSpring|deform:/)
   assert.match(schedule, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
   assert.match(spring, /stiffness: 56/)
@@ -154,12 +154,12 @@ test('fresh board launch warms built-in sections before the general response', (
 
 test('schedule top segment keeps bottom-nav pill and shell physics coupled', () => {
   const segment = read('src/preview-class-top-segment-patch.js')
-  const start = segment.indexOf('function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {')
+  const start = segment.indexOf('function useClassTopSegmentSpring(activeIndex) {')
   const end = segment.indexOf('function ClassTopSegment', start)
   const helper = segment.slice(start, end)
   assert.match(helper, /deform: true/)
-  assert.match(helper, /shellElastic = true/)
-  assert.match(helper, /shellElastic,/)
+  assert.match(helper, /shellElastic: true/)
+  assert.match(helper, /shellElastic: true,/)
 })
 
 
@@ -167,8 +167,6 @@ test('class section entry motion is scoped below the persistent top segment', ()
   const classSegment = read('src/preview-class-top-segment-patch.js')
   const board = read('src/preview-board.css')
   assert.match(board, /\.class-station-panel \{[\s\S]*animation: class-station-panel-enter/)
-  assert.match(
-    classSegment,
-    /\.class-station-page > \.class-top-segment,[\s\S]*animation: none !important;/,
-  )
+  assert.match(classSegment, /\.class-station-page > \.class-top-segment \{[\s\S]*animation: none !important;[\s\S]*opacity: 1 !important;[\s\S]*transform: none !important;/)
+  assert.match(classSegment, /\.class-station-page > \.class-top-segment::before \{[\s\S]*animation: none !important;[\s\S]*opacity: 1 !important;/)
 })
