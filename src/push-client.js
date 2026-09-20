@@ -116,7 +116,10 @@ async function mirrorPushSubscription(identity, payload) {
         authorization: `Bearer ${idToken}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        classId: identity.classId,
+      }),
       cache: 'no-store',
       signal: controller.signal,
     })
