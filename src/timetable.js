@@ -288,6 +288,14 @@ export function pruneExpiredOverrides(value, now = new Date()) {
   return next
 }
 
+export function hasStoredWeeklySchedule() {
+  try {
+    return readClassScopedStorage(TIMETABLE_STORAGE_KEY).stored !== null
+  } catch {
+    return false
+  }
+}
+
 export function loadWeeklySchedule() {
   const fallback = () => storedClassNumber() === 1
     ? createDefaultWeeklySchedule()
