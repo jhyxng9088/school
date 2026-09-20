@@ -57,3 +57,16 @@ test('vite applies schedule patch after the source-owned class segment structure
   assert.doesNotMatch(vite, /preview-class-top-segment-style-patch\.js/)
   assert.match(vite, /preview-schedule-top-segment-patch\.js/)
 })
+
+
+test('schedule spring keeps the outer shell physically coupled to the moving pill', () => {
+  const classSegment = read('src/preview-class-top-segment-patch.js')
+  const start = classSegment.indexOf('function useClassTopSegmentSpring(activeIndex) {')
+  const end = classSegment.indexOf('function ClassTopSegment', start)
+  const helper = classSegment.slice(start, end)
+  assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
+  assert.match(helper, /deform: true/)
+  assert.match(helper, /shellElastic: true/)
+  assert.match(helper, /shellScaleProperty: '--segment-shell-scale-x'/)
+  assert.match(helper, /shellShiftProperty: '--segment-shell-shift-x'/)
+})
