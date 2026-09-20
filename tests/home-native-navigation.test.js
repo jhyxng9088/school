@@ -36,10 +36,14 @@ test('retired home navigation retrofit runtime stays removed', () => {
 })
 
 
-test('home dashboard styling never converts the native navigation overlay into layout content', () => {
+test('home current-class card uses the same React-owned navigation callback as other cards', () => {
+  const main = read('src/main.jsx')
   const styles = read('src/styles.css')
 
-  assert.match(styles, /\.current-class-card > :not\(\.home-nav-action\) \{[\s\S]*position: relative;[\s\S]*z-index: 1;/)
+  assert.match(main, /function CurrentClassPreview\(\{ schoolState, now, onNavigate \}\)[\s\S]*className="current-class-card"[\s\S]*className="home-detail-card-action"[\s\S]*onClick=\{\(\) => onNavigate\?\.\('timetable'\)\}/)
+  assert.match(main, /<CurrentClassPreview schoolState=\{schoolState\} now=\{now\} onNavigate=\{onNavigate\} \/>/)
+  assert.match(main, /if \(target === 'timetable'\) \{\s*setClassSection\('timetable'\)\s*changeTab\('class'\)/)
+  assert.match(styles, /\.current-class-card > :not\(\.home-detail-card-action\) \{[\s\S]*position: relative;[\s\S]*z-index: 1;/)
   assert.doesNotMatch(styles, /\.current-class-card > \* \{[\s\S]*position: relative;/)
 })
 

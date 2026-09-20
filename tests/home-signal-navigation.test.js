@@ -15,6 +15,7 @@ test('home overview cards route to the correct V2 destination without proxy-clic
   assert.match(roster, /export function openClassRoster\(/)
   assert.doesNotMatch(roster, /counter\.addEventListener\('click'/)
   assert.match(main, /if \(target === 'board'\) \{\s*setClassSection\('board'\)\s*changeTab\('class'\)/)
+  assert.match(main, /if \(target === 'timetable'\) \{\s*setClassSection\('timetable'\)\s*changeTab\('class'\)/)
   assert.match(main, /if \(target === 'study'\) \{\s*changeTab\('study'\)/)
   assert.match(main, /if \(target === 'reminder'\) \{\s*setScheduleSection\('todo'\)\s*changeTab\('schedule'\)/)
   assert.match(main, /if \(target === 'academic'\) \{\s*setScheduleSection\('academic'\)\s*changeTab\('schedule'\)/)
@@ -68,6 +69,7 @@ test('home overview stays 2 by 2 on narrow screens and becomes a four-card row w
 test('all Home detail cards feed the same navigation owner', () => {
   const main = read('src/main.jsx')
 
+  assert.match(main, /<CurrentClassPreview[^>]*onNavigate=\{onNavigate\}/)
   assert.match(main, /<TodoHomePreview[^>]*onNavigate=\{onNavigate\}/)
   assert.match(main, /<SharedAcademicPreview[^>]*onNavigate=\{onNavigate\}/)
   assert.match(main, /<Stage3MealPreview[^>]*onNavigate=\{onNavigate\}/)
