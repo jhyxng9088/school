@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LEGACY_SCHOOL_CONTEXT, schoolScopeKey } from './school-directory.js'
+import {
+  closuresFromAcademicEvents,
+  readSchoolClosureSnapshot,
+  replaceSchoolClosureSnapshot,
+  subscribeSchoolClosureSnapshot,
+} from './school-day-status.js'
 
 const NEIS_BASE = 'https://open.neis.go.kr/hub'
 const MEAL_CACHE_PREFIX = 'school.stage3.meals.v2'
@@ -265,6 +271,8 @@ export async function preloadSchoolData(profile, now = new Date(), { signal } = 
     fetchAcademicRange(profile, academicRange.from, academicRange.to, signal),
   ])
 
+  replaceSchoolClosureSnapshot(profile, closuresFromAcademicEvents(academicEvents))
+
   const savedAt = Date.now()
   const mealStore = readStore(mealStoreKey)
   const mealRanges = {
@@ -300,6 +308,10 @@ export function useSchoolData(now, profile) {
 
   const initialAcademic = useMemo(() => hydrateAcademic(now, profile), [scope])
   const [academicEvents, setAcademicEvents] = useState(initialAcademic.events)
+  const [schoolClosures, setSchoolClosures] = useState(() => {
+    const cachedClosures = readSchoolClosureSnapshot(profile)
+    return cachedClosures.length ? cachedClosures : closuresFromAcademicEvents(initialAcademic.events)
+  })
   const [academicLoading, setAcademicLoading] = useState(false)
   const [academicError, setAcademicError] = useState(null)
   const academicRequestRef = useRef(null)
@@ -309,8 +321,13 @@ export function useSchoolData(now, profile) {
     mealRangesRef.current = nextRanges
     setMealRanges(nextRanges)
     setMealErrors({})
-    setAcademicEvents(hydrateAcademic(new Date(), profile).events)
+    const nextAcademic = hydrateAcademic(new Date(), profile).events
+    setAcademicEvents(nextAcademic)
+    const cachedClosures = readSchoolClosureSnapshot(profile)
+    setSchoolClosures(cachedClosures.length ? cachedClosures : closuresFromAcademicEvents(nextAcademic))
   }, [scope])
+
+  useEffect(() => subscribeSchoolClosureSnapshot(profile, setSchoolClosures), [scope])
 
   useEffect(() => {
     mealRangesRef.current = mealRanges
@@ -361,7 +378,9 @@ export function useSchoolData(now, profile) {
     const fresh = hasCachedEvents && Date.now() - Number(cached.savedAt || 0) < ACADEMIC_CACHE_AGE
 
     if (!force && fresh) {
-      setAcademicEvents(cached.events.map((event) => ({ ...event, date: dateFromRaw(event.rawDate) })))
+      const events = cached.events.map((event) => ({ ...event, date: dateFromRaw(event.rawDate) }))
+      setAcademicEvents(events)
+      setSchoolClosures(replaceSchoolClosureSnapshot(profile, closuresFromAcademicEvents(events)))
       return
     }
 
@@ -374,6 +393,7 @@ export function useSchoolData(now, profile) {
     try {
       const events = await fetchAcademicRange(profile, from, to, controller.signal)
       setAcademicEvents(events)
+      setSchoolClosures(replaceSchoolClosureSnapshot(profile, closuresFromAcademicEvents(events)))
       const serializable = events.map(({ date, ...event }) => event)
       writeStore(storeKey, {
         ranges: {
@@ -385,7 +405,10 @@ export function useSchoolData(now, profile) {
       if (error.name !== 'AbortError') {
         setAcademicError(error)
         if (hasCachedEvents) {
-          setAcademicEvents(cached.events.map((event) => ({ ...event, date: dateFromRaw(event.rawDate) })))
+          const events = cached.events.map((event) => ({ ...event, date: dateFromRaw(event.rawDate) }))
+          setAcademicEvents(events)
+          const cachedClosures = readSchoolClosureSnapshot(profile)
+          setSchoolClosures(cachedClosures.length ? cachedClosures : closuresFromAcademicEvents(events))
         }
       }
     } finally {
@@ -426,6 +449,7 @@ export function useSchoolData(now, profile) {
     mealWeek,
     ensureMealWeek,
     academicEvents,
+    schoolClosures,
     academicLoading,
     academicError,
     refreshAcademic,
