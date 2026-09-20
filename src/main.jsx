@@ -367,7 +367,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
   const timetablePreviewSchedule = showTomorrowTimetable
     ? getScheduleForDate(timetablePreviewDate, weeklySchedule, overrides)
     : schoolState.schedule
-  const presenceReady = presence?.ready !== false
+  const presenceReady = presence?.ready === true
   const showPresenceCount = presenceReady && (presence.online > 0 || presence.total > 0)
 
   return (
@@ -1096,7 +1096,7 @@ function AppShell({ profile }) {
     commitPersonalOverrides,
     refreshSharedTimetable,
   } = useSharedTimetable(profile, now)
-  const schoolData = useSchoolData(now)
+  const schoolData = useSchoolData(now, profile)
   const reminderTimetable = useMemo(() => ({
     weeklySchedule: sharedWeeklySchedule,
     overrides: sharedOverrides,

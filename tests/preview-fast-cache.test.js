@@ -99,7 +99,7 @@ test('home live signals hydrate cached presence and keep unknown states neutral'
   assert.match(sync, /writePresenceSnapshotCache\(profile, next\)/)
 
   assert.match(unread, /initialized: Boolean\(controller\.state\.initialized\)/)
-  assert.match(signals, /presence\?\.ready !== false/)
+  assert.match(signals, /presence\?\.ready === true/)
   assert.match(signals, /studyUnread\?\.initialized !== false/)
   assert.match(signals, /pending: !presenceReady/)
   assert.match(signals, /pending: !studyReady/)
@@ -109,5 +109,7 @@ test('home live signals hydrate cached presence and keep unknown states neutral'
   assert.match(main, /const showPresenceCount = presenceReady && \(presence\.online > 0 \|\| presence\.total > 0\)/)
   assert.match(main, /aria-hidden=\{!showPresenceCount\}/)
   assert.match(signalStyle, /\.preview-home-signal\.is-pending strong/)
+  assert.match(signalStyle, /visibility: hidden/)
+  assert.match(signalStyle, /opacity: 0/)
   assert.match(signalStyle, /transition: opacity 220ms var\(--motion-soft\)/)
 })
