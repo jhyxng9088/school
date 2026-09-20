@@ -42,18 +42,20 @@ test('V2 home overview stays 2 by 2 on phones and expands to one row on wide scr
 })
 
 
-test('home dashboard keeps detail owners but removes the duplicate holiday timetable empty state', () => {
+test('home dashboard uses independent wide columns without changing the mobile detail order', () => {
   const main = read('src/main.jsx')
   const styles = read('src/styles.css')
 
-  assert.match(main, /schoolState\.kind !== 'off' \? \([\s\S]*<TimetablePreview/)
+  assert.match(main, /className="home-detail-column home-detail-column-primary"[\s\S]*<TodoHomePreview[\s\S]*schoolState\.kind !== 'off' \? \([\s\S]*<TimetablePreview/)
+  assert.match(main, /className="home-detail-column home-detail-column-secondary"[\s\S]*<SharedAcademicPreview[\s\S]*<Stage3MealPreview/)
   assert.match(main, /home-stack \$\{mealPriority \? 'is-meal-priority' : ''\} \$\{schoolState\.kind === 'off' \? 'is-school-off' : ''\}/)
   assert.match(main, /home-timetable-preview home-nav-native-surface/)
 
   assert.match(styles, /\.app-content\.tab-home \{[\s\S]*width: min\(100%, 1180px\)/)
-  assert.match(styles, /\.app-content\.tab-home \.todo-home-preview[\s\S]*grid-row: 3/)
-  assert.match(styles, /\.app-content\.tab-home \.academic-preview[\s\S]*grid-row: 3/)
-  assert.match(styles, /@media \(max-width: 819px\)[\s\S]*\.academic-preview \{ order: 3; \}/)
+  assert.match(styles, /\.home-detail-column \{[\s\S]*display: grid;[\s\S]*gap: 22px;[\s\S]*grid-row: 3;/)
+  assert.match(styles, /\.home-detail-column-primary \{\s*grid-column: 1;/)
+  assert.match(styles, /\.home-detail-column-secondary \{\s*grid-column: 2;/)
+  assert.match(styles, /@media \(max-width: 819px\)[\s\S]*\.academic-preview \{ order: 3; \}[\s\S]*\.home-timetable-preview \{ order: 4; \}/)
 })
 
 
