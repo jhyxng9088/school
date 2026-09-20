@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import './ios-reinstall-notice.css'
 
-const IOS_REINSTALL_NOTICE_KEY = 'school.iosLayoutReinstallNotice.v1'
+const IOS_REINSTALL_NOTICE_KEY = 'school.iosLayoutReinstallNotice.v2'
 
 function isIOSStandalone() {
   const ua = navigator.userAgent
@@ -41,9 +41,9 @@ export function IOSReinstallNotice() {
         <p className="ios-reinstall-notice-kicker">iPhone · iPad</p>
         <h2>상단 화면이 이상하면 한 번만 다시 설치해 줘</h2>
         <p>
-          최근 iOS 홈 화면 앱의 상단 표시 방식을 수정했어. 위쪽 여백이 크게 보이거나
-          상태바 색이 따로 보이면 홈 화면의 S-Hub을 삭제한 뒤 Safari에서 다시 열어
-          ‘홈 화면에 추가’로 설치하면 수정된 화면 설정이 적용돼.
+          iOS 홈 화면 앱의 상태바 영역 계산 방식을 다시 수정했어. 위쪽 여백이 크게 보이거나
+          상태바와 앱 화면이 따로 노는 경우에는 기존 S-Hub을 삭제한 뒤 Safari에서 다시 열어
+          ‘홈 화면에 추가’로 설치해야 새 상태바 설정이 설치 시점부터 적용돼.
         </p>
         <p className="ios-reinstall-notice-note">
           재설치 뒤에는 이름·학교 정보를 다시 확인해야 할 수 있어.
