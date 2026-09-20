@@ -52,7 +52,7 @@ test('자정 이후에도 전날 23시 미발송 알림을 다시 계획할 수 
   }))
   const recoverable = recoverableScheduledPlans(plans, nowMs)
   assert.equal(recoverable.filter((plan) => plan.type === 'reminder-tomorrow').length, 1)
-  assert.equal(recoverable[0].payload.body, '내일 준비물 있습니다. 확인해 주세요.')
+  assert.equal(recoverable[0].payload.body, '내일 준비물이 있어요.')
 })
 
 test('마감이 이미 지난 시간 지정 알림은 장시간 catch-up에서 버린다', () => {
