@@ -5,16 +5,15 @@ import { preloadSchoolData } from './stage3-core.js'
 import { preloadPreviewBoard } from './preview-board-client.js'
 import { preloadPreviewStudy } from './preview-study-client.js'
 import { preloadClassRoster } from './class-roster-ui-v2.js'
-import { preloadThemePreferences } from './theme-sync.js'
 
-const LAUNCH_PRELOAD_TIMEOUT_MS = 6500
+const LAUNCH_PRELOAD_TIMEOUT_MS = 5200
 
 function launchProgress(value) {
   window.__shubLaunch?.progress?.(value)
 }
 
 async function retryFresh(task) {
-  const delays = [0, 220]
+  const delays = [0, 140]
   let lastError = null
   for (const delay of delays) {
     if (delay) await new Promise((resolve) => window.setTimeout(resolve, delay))
@@ -49,7 +48,6 @@ export async function preloadConfiguredAppData(profile) {
     { label: 'school-neis', run: () => preloadSchoolData(profile, new Date(), { signal: controller.signal }) },
     { label: 'board', retry: false, run: () => preloadPreviewBoard({ signal: controller.signal }) },
     { label: 'study', run: () => preloadPreviewStudy({ signal: controller.signal }) },
-    { label: 'theme', retry: false, run: () => preloadThemePreferences({ signal: controller.signal }) },
   ]
 
   let completed = 0
