@@ -1152,3 +1152,203 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+
+/* Home dashboard refresh.
+   Reuse the existing home owners; only hierarchy, density, and responsive placement change here. */
+.app-content.tab-home .home-stack {
+  gap: 22px;
+}
+
+.app-content.tab-home .current-class-card {
+  position: relative;
+  isolation: isolate;
+  border-radius: 28px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--surface-soft) 76%, var(--surface)),
+      var(--surface) 72%
+    );
+  box-shadow:
+    inset 0 1px 0 var(--specular-edge, rgba(255, 255, 255, 0.06)),
+    0 12px 34px color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.app-content.tab-home .current-class-card::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: -76px;
+  right: -38px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--focus-accent-soft, var(--surface-soft)) 82%, transparent) 0 34%,
+      transparent 68%
+    );
+  opacity: .72;
+  pointer-events: none;
+}
+
+.app-content.tab-home .current-class-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.app-content.tab-home .current-class-copy h2 {
+  font-size: clamp(24px, 3.2vw, 31px);
+}
+
+.app-content.tab-home .todo-home-preview,
+.app-content.tab-home .academic-preview {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--border);
+  border-radius: 23px;
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--specular-edge, rgba(255, 255, 255, 0.05));
+}
+
+.app-content.tab-home .todo-home-preview .section-heading,
+.app-content.tab-home .academic-preview .section-heading {
+  margin: 0 2px 13px;
+}
+
+.app-content.tab-home .todo-home-preview .todo-home-list,
+.app-content.tab-home .academic-preview .academic-home-list {
+  border-width: 1px 0 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-content.tab-home .todo-home-preview .todo-home-item,
+.app-content.tab-home .academic-preview .academic-home-item {
+  padding-inline: 4px;
+}
+
+.app-content.tab-home .todo-home-preview .compact-empty {
+  min-height: 174px;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.app-content.tab-home .home-timetable-preview,
+.app-content.tab-home .meal-preview {
+  min-width: 0;
+}
+
+.app-content.tab-home .current-class-card { animation-delay: 50ms; }
+.app-content.tab-home .preview-home-signals { animation-delay: 95ms; }
+.app-content.tab-home .todo-home-preview { animation-delay: 140ms; }
+.app-content.tab-home .academic-preview { animation-delay: 185ms; }
+.app-content.tab-home .home-timetable-preview { animation-delay: 230ms; }
+.app-content.tab-home .meal-preview { animation-delay: 275ms; }
+
+@media (max-width: 819px) {
+  .app-content.tab-home .home-stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-content.tab-home .current-class-card { order: 0; }
+  .app-content.tab-home .preview-home-signals { order: 1; }
+  .app-content.tab-home .todo-home-preview { order: 2; }
+  .app-content.tab-home .academic-preview { order: 3; }
+  .app-content.tab-home .home-timetable-preview { order: 4; }
+  .app-content.tab-home .meal-preview { order: 5; }
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+  .app-content.tab-home .home-stack.is-meal-priority > .current-class-card {
+    order: -2;
+    animation-delay: 50ms;
+  }
+
+  .app-content.tab-home .home-stack.is-meal-priority > .meal-preview {
+    order: -1;
+    animation-delay: 95ms;
+  }
+
+  .app-content.tab-home .home-stack.is-meal-priority > .preview-home-signals { animation-delay: 140ms; }
+  .app-content.tab-home .home-stack.is-meal-priority > .todo-home-preview { animation-delay: 185ms; }
+  .app-content.tab-home .home-stack.is-meal-priority > .academic-preview { animation-delay: 230ms; }
+  .app-content.tab-home .home-stack.is-meal-priority > .home-timetable-preview { animation-delay: 275ms; }
+}
+
+@media (min-width: 820px) {
+  .app-content.tab-home {
+    width: min(100%, 1180px);
+  }
+
+  .app-content.tab-home .home-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+  }
+
+  .app-content.tab-home .current-class-card,
+  .app-content.tab-home .preview-home-signals {
+    grid-column: 1 / -1;
+  }
+
+  .app-content.tab-home .todo-home-preview {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .app-content.tab-home .academic-preview {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .app-content.tab-home .home-timetable-preview {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .app-content.tab-home .meal-preview {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .app-content.tab-home .home-stack.is-school-off > .meal-preview {
+    grid-column: 1 / -1;
+  }
+
+  .app-content.tab-home .current-class-card {
+    min-height: 216px;
+    padding: 27px 30px 0;
+  }
+
+  .app-content.tab-home .current-class-icon {
+    margin-bottom: 18px;
+  }
+
+  .app-content.tab-home .current-class-copy {
+    padding-bottom: 24px;
+  }
+
+  .app-content.tab-home .next-class-row {
+    min-height: 58px;
+  }
+}
+
+@media (max-width: 430px) {
+  .app-content.tab-home .home-stack {
+    gap: 20px;
+  }
+
+  .app-content.tab-home .current-class-card {
+    border-radius: 24px;
+  }
+
+  .app-content.tab-home .todo-home-preview,
+  .app-content.tab-home .academic-preview {
+    padding: 15px;
+    border-radius: 21px;
+  }
+}
