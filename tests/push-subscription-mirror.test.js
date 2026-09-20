@@ -7,11 +7,11 @@ const scheduled = fs.readFileSync(new URL('../push-backend-v2/api/reminder-sched
 
 test('push subscription migration keeps Firestore primary and mirrors only after a successful canonical write', () => {
   const storeAt = pushClient.indexOf("doc(db, 'classes', identity.classId, 'pushSubscriptions'")
-  const mirrorAt = pushClient.indexOf('await mirrorPushSubscription(identity, subscriptionPayload)')
+  const mirrorAt = pushClient.indexOf('void mirrorPushSubscription(identity, subscriptionPayload)')
   assert.ok(storeAt >= 0)
   assert.ok(mirrorAt > storeAt)
   assert.match(pushClient, /const subscriptionPayload = \{[\s\S]*studentKey: identity\.studentKey[\s\S]*deviceId: currentDeviceId[\s\S]*endpoint,[\s\S]*p256dh,[\s\S]*auth,[\s\S]*updatedAt,/)
-  assert.match(pushClient, /await setDoc\([\s\S]*subscriptionPayload,[\s\S]*\{ merge: true \},[\s\S]*\)[\s\S]*await mirrorPushSubscription/)
+  assert.match(pushClient, /await setDoc\([\s\S]*subscriptionPayload,[\s\S]*\{ merge: true \},[\s\S]*\)[\s\S]*void mirrorPushSubscription/)
 })
 
 test('Supabase mirror failure can never fail the existing Firestore registration path', () => {
@@ -20,6 +20,7 @@ test('Supabase mirror failure can never fail the existing Firestore registration
   assert.ok(start >= 0 && end > start)
   const body = pushClient.slice(start, end)
   assert.match(body, /window\.setTimeout\(\(\) => controller\.abort\(\), 2200\)/)
+  assert.match(body, /keepalive: true/)
   assert.match(body, /if \(!response\.ok\)[\s\S]*return false/)
   assert.match(body, /catch \(error\)[\s\S]*return false/)
   assert.doesNotMatch(body, /throw new Error/)
