@@ -378,9 +378,11 @@ html[data-theme-mode="light"][data-theme-accent] {
 }
 
 .theme-mode-segment {
-  width: 100% !important;
+  /* The shared spring can extend the shell by up to 18px at either edge.
+     Keep that motion inside the sheet's horizontal clip instead of weakening the spring. */
+  width: calc(100% - 36px) !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  margin: 0 !important;
+  margin: 0 18px !important;
   /* Keep paint overflow visible so the shared segment spring can stretch the outer shell. */
   contain: layout !important;
   transform: translateZ(0);
