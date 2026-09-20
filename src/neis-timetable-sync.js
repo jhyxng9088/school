@@ -1,7 +1,7 @@
 import { ensureSignedIn, readStudentProfile } from './school-sync'
 import { fetchClassTimetable, neisTargetWeek } from './neis-timetable'
 import { schoolScopeKey } from './school-directory.js'
-import { isNonInstructionalSchoolLabel } from './school-day-status.js'
+import { isNonInstructionalSchoolLabel, mergeSchoolClosureSnapshot } from './school-day-status.js'
 
 const SYNC_MAX_AGE_MS = 6 * 60 * 60 * 1000
 const RETRY_GUARD_MS = 15 * 60 * 1000
@@ -48,6 +48,29 @@ function recentlyAttempted(profile, weekStart) {
   if (Date.now() - previous < RETRY_GUARD_MS) return true
   attemptTimes.set(key, Date.now())
   return false
+}
+
+function closureEntriesFromTimetableResult(result) {
+  const byDate = new Map()
+  const closedDates = new Set((result?.closedDates || []).map((value) => String(value || '')))
+
+  ;(result?.rows || []).forEach((row) => {
+    const rawDate = String(row?.rawDate || '').trim()
+    const subject = String(row?.subject || '').trim()
+    if (!/^\d{8}$/.test(rawDate)) return
+    if (isNonInstructionalSchoolLabel(subject)) {
+      closedDates.add(rawDate)
+      if (!byDate.has(rawDate)) byDate.set(rawDate, subject)
+    }
+  })
+
+  return [...closedDates]
+    .filter((rawDate) => /^\d{8}$/.test(rawDate))
+    .map((rawDate) => ({
+      rawDate,
+      label: byDate.get(rawDate) || '휴업일',
+      dayOffType: '휴업일',
+    }))
 }
 
 function timetableResultHasClosure(result) {
@@ -116,6 +139,7 @@ export async function syncCurrentClassTimetableFromNeis({ force = false } = {}) 
   const closureWeek = timetableResultHasClosure(result)
 
   if (closureWeek) {
+    mergeSchoolClosureSnapshot(profile, closureEntriesFromTimetableResult(result))
     const reference = await findInstructionalReferenceTimetable(profile, anchor)
     const now = Date.now()
 
