@@ -63,6 +63,11 @@ test('알림 문구 형식', () => {
   assert.equal(academicTomorrowBody([{ title: '체육대회' }, { title: '동아리 발표' }]), '내일 체육대회 외 1개의 중요 일정이 있어요.')
 })
 
+test('single performance-style reminder uses a natural subject particle and short polite copy', () => {
+  assert.equal(reminderTomorrowBody([{ title: '영어 수행평가' }]), '내일 영어 수행평가가 있어요.')
+  assert.equal(reminderTomorrowBody([{ title: '준비물' }]), '내일 준비물이 있어요.')
+})
+
 test('알림 제목 앞 목록 기호는 제거하고 제목 내부 하이픈은 유지한다', () => {
   assert.equal(reminderHourBody('-수학 과제'), '수학 과제 확인해 주세요.')
   assert.equal(reminderTomorrowBody([{ title: '— 실행' }]), '내일 실행이 있어요.')
