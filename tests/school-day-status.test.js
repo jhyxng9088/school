@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  closuresFromAcademicEvents,
   inferSchoolClosureFromSchedule,
   isNonInstructionalSchoolLabel,
   isSchoolClosureDayOffType,
@@ -78,5 +79,42 @@ test('학사일정 캐시가 비어 있어도 오염된 시간표를 보고 변�
   })
   assert.equal(next.getFullYear(), 2026)
   assert.equal(next.getMonth(), 8)
+  assert.equal(next.getDate(), 28)
+})
+
+
+test('복구된 정상 시간표에서도 저장된 휴업일 스냅샷이 날짜 상태를 유지한다', () => {
+  const cachedClosures = [
+    { rawDate: '20260924', label: '추석', dayOffType: '휴업일' },
+  ]
+  assert.deepEqual(
+    schoolClosureForDate(
+      new Date(2026, 8, 24, 12),
+      [],
+      [{ subject: '정보' }, { subject: '기하' }],
+      cachedClosures,
+    ),
+    { rawDate: '20260924', label: '추석', dayOffType: '휴업일' },
+  )
+})
+
+test('NEIS가 휴업 구분을 약하게 내려줘도 명확한 공휴일 이름은 캐시에 남긴다', () => {
+  assert.deepEqual(closuresFromAcademicEvents([
+    { rawDate: '20260924', name: '추석연휴', dayOffType: '해당없음' },
+    { rawDate: '20260923', name: '체육대회', dayOffType: '해당없음' },
+  ]), [
+    { rawDate: '20260924', label: '추석연휴', dayOffType: '해당없음' },
+  ])
+})
+
+test('저장된 휴업일 스냅샷도 변경 추가 날짜에서 건너뛴다', () => {
+  const next = nextOpenSchoolDate(new Date(2026, 8, 24, 9), [], {
+    includeAnchor: true,
+    cachedClosures: [
+      { rawDate: '20260924', label: '추석', dayOffType: '휴업일' },
+      { rawDate: '20260925', label: '추석', dayOffType: '휴업일' },
+    ],
+    scheduleForDate: () => [{ subject: '국어' }],
+  })
   assert.equal(next.getDate(), 28)
 })
