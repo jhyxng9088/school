@@ -148,3 +148,35 @@ test('public NEIS sync URL shares the existing timetable function', () => {
   assert.match(entrypoint, /if \(mode === 'neis-sync'\) return handleTimetableNeisSync\(req, res\)/)
   assert.equal(fs.existsSync(oldEntrypoint), false)
 })
+
+
+test('repairing a holiday-contaminated NEIS base preserves existing manual weekly overrides', () => {
+  const pollutedBase = schedule({
+    thu: { 1: '추석', 2: '추석', 3: '추석', 4: '추석', 5: '추석' },
+    fri: { 1: '추석', 2: '추석', 4: '추석', 5: '추석' },
+  })
+  const manual = {
+    thu: { 6: '화법과 언어 B' },
+    fri: { 3: '화법과 언어 A', 6: '자율 및 자치활동', 7: '자율 및 자치활동' },
+  }
+  const effective = applyManualWeeklyOverrides(pollutedBase, manual)
+  const referenceWeek = schedule()
+
+  const state = buildNeisTimetableSyncState({
+    timetableData: { weeklySchedule: effective, updatedAt: 5000 },
+    metadata: {
+      neisWeeklySchedule: pollutedBase,
+      manualWeeklyOverrides: manual,
+    },
+    neisWeeklySchedule: referenceWeek,
+    lastClientSyncAt: 4000,
+  })
+
+  assert.equal(state.weeklySchedule.thu[1], referenceWeek.thu[1])
+  assert.equal(state.weeklySchedule.thu[5], referenceWeek.thu[5])
+  assert.equal(state.weeklySchedule.thu[6], '화법과 언어 B')
+  assert.equal(state.weeklySchedule.fri[1], referenceWeek.fri[1])
+  assert.equal(state.weeklySchedule.fri[3], '화법과 언어 A')
+  assert.equal(state.weeklySchedule.fri[7], '자율 및 자치활동')
+  assert.deepEqual(state.manualWeeklyOverrides, manual)
+})

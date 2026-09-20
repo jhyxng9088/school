@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  inferSchoolClosureFromSchedule,
   isNonInstructionalSchoolLabel,
   isSchoolClosureDayOffType,
   nextOpenSchoolDate,
@@ -42,4 +43,40 @@ test('시간표 응답의 휴일 표기도 보조 안전장치로 감지한다',
   assert.equal(isNonInstructionalSchoolLabel('추석'), true)
   assert.equal(isNonInstructionalSchoolLabel('대체공휴일'), true)
   assert.equal(isNonInstructionalSchoolLabel('미적분I'), false)
+})
+
+
+test('이미 저장된 추석 값이 여러 교시에 남아 있으면 휴업일로 추론한다', () => {
+  const closure = inferSchoolClosureFromSchedule([
+    { number: 1, subject: '추석' },
+    { number: 2, subject: '추석' },
+    { number: 3, subject: '화법과 언어 A' },
+    { number: 4, subject: '추석' },
+  ])
+  assert.deepEqual(closure, {
+    label: '추석',
+    dayOffType: '시간표 휴업일',
+    inferred: true,
+  })
+})
+
+test('일반 과목 한 칸은 휴업일로 오판하지 않는다', () => {
+  assert.equal(inferSchoolClosureFromSchedule([
+    { number: 1, subject: '미적분I' },
+    { number: 2, subject: '영어II' },
+  ]), null)
+})
+
+test('학사일정 캐시가 비어 있어도 오염된 시간표를 보고 변경 날짜에서 휴일을 건너뛴다', () => {
+  const next = nextOpenSchoolDate(new Date(2026, 8, 24, 9), [], {
+    includeAnchor: true,
+    scheduleForDate: (date) => (
+      date.getDate() === 24 || date.getDate() === 25
+        ? [{ subject: '추석' }, { subject: '추석' }]
+        : [{ subject: '국어' }]
+    ),
+  })
+  assert.equal(next.getFullYear(), 2026)
+  assert.equal(next.getMonth(), 8)
+  assert.equal(next.getDate(), 28)
 })
