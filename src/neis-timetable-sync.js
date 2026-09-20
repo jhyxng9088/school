@@ -5,7 +5,7 @@ import { isNonInstructionalSchoolLabel } from './school-day-status.js'
 
 const SYNC_MAX_AGE_MS = 6 * 60 * 60 * 1000
 const RETRY_GUARD_MS = 15 * 60 * 1000
-const CACHE_PREFIX = 'school.neisTimetableSync.v3'
+const CACHE_PREFIX = 'school.neisTimetableSync.v4'
 const NEIS_TIMETABLE_SYNC_API_URL = 'https://school-reminder-backend.vercel.app/api/timetable-neis-sync'
 const attemptTimes = new Map()
 let syncTimer = 0
@@ -50,6 +50,30 @@ function recentlyAttempted(profile, weekStart) {
   return false
 }
 
+function timetableResultHasClosure(result) {
+  return (result?.closedDates || []).length > 0
+    || (result?.rows || []).some((row) => isNonInstructionalSchoolLabel(row?.subject))
+}
+
+async function findInstructionalReferenceTimetable(profile, anchor) {
+  const offsets = [-7, -14, 7, 14]
+
+  for (const offset of offsets) {
+    const date = new Date(anchor)
+    date.setHours(12, 0, 0, 0)
+    date.setDate(date.getDate() + offset)
+
+    try {
+      const result = await fetchClassTimetable(profile, date)
+      if (result.available && !timetableResultHasClosure(result)) return result
+    } catch {
+      // Try the next nearby school week.
+    }
+  }
+
+  return null
+}
+
 async function writeNeisTimetableThroughServer(result, cached) {
   const user = await ensureSignedIn()
   const idToken = String(await user.getIdToken()).trim()
@@ -87,14 +111,39 @@ export async function syncCurrentClassTimetableFromNeis({ force = false } = {}) 
   if (!force && cachedFresh) return { ok: true, reason: 'fresh' }
   if (!force && recentlyAttempted(profile, week.weekStart)) return { ok: true, reason: 'recent_attempt' }
 
-  const result = await fetchClassTimetable(profile, new Date())
-  const closureWeek = (result.closedDates || []).length > 0
-    || (result.rows || []).some((row) => isNonInstructionalSchoolLabel(row?.subject))
+  const anchor = new Date()
+  const result = await fetchClassTimetable(profile, anchor)
+  const closureWeek = timetableResultHasClosure(result)
 
   if (closureWeek) {
+    const reference = await findInstructionalReferenceTimetable(profile, anchor)
+    const now = Date.now()
+
+    if (reference) {
+      await writeNeisTimetableThroughServer(reference, cached)
+      writeCache(profile, result.weekStart, {
+        ok: true,
+        syncedAt: now,
+        weekStart: result.weekStart,
+        weekEnd: result.weekEnd,
+        reason: 'school_closed_week_repaired',
+        closedDates: result.closedDates || [],
+        repairedFromWeekStart: reference.weekStart,
+      })
+      return {
+        ok: true,
+        reason: 'school_closed_week_repaired',
+        classNumber,
+        subjectCount: reference.subjectCount,
+        weekStart: result.weekStart,
+        weekEnd: result.weekEnd,
+        repairedFromWeekStart: reference.weekStart,
+      }
+    }
+
     writeCache(profile, result.weekStart, {
       ok: true,
-      syncedAt: Date.now(),
+      syncedAt: now,
       weekStart: result.weekStart,
       weekEnd: result.weekEnd,
       reason: 'school_closed_week',
