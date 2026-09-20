@@ -53,7 +53,7 @@ test('the seven question examples remain deliberately informal', () => {
 
 test('production service worker cache is bumped so installed PWAs receive the fresh UI shell', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v165-class-spring'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v166-schedule-spring'/)
   assert.doesNotMatch(sw, /school-preview-shell-/)
   assert.match(sw, /self\.skipWaiting\(\)/)
   assert.match(sw, /self\.clients\.claim\(\)/)
@@ -142,4 +142,14 @@ test('fresh board launch warms built-in sections before the general response', (
   assert.match(board, /'question'/)
   assert.match(board, /'notes'/)
   assert.match(board, /const warmBySection = new Map\(warmSectionIds\.map/)
+})
+
+
+test('schedule top segment keeps bottom-nav pill and shell physics coupled', () => {
+  const segment = read('src/preview-class-top-segment-patch.js')
+  const start = segment.indexOf('function useClassTopSegmentSpring(activeIndex) {')
+  const end = segment.indexOf('function ClassTopSegment', start)
+  const helper = segment.slice(start, end)
+  assert.match(helper, /deform: true/)
+  assert.match(helper, /shellElastic: true/)
 })
