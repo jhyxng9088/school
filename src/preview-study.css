@@ -398,11 +398,20 @@ html body .app-content:has(.preview-study-page) {
   align-items: center;
   gap: 11px;
   padding: 11px 14px;
-  animation: todo-item-state-in 360ms cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .preview-study-live-person {
+  --reminder-row-max-height: 96px;
+  --reminder-row-min-height: 62px;
+  max-height: var(--reminder-row-max-height);
   grid-template-columns: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  animation: reminder-row-mount 440ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.preview-study-live-person.is-state-leaving {
+  pointer-events: none;
+  animation: reminder-row-collapse 280ms cubic-bezier(.4, 0, 1, 1) both !important;
 }
 
 .preview-study-live-person.is-paused {
@@ -411,6 +420,7 @@ html body .app-content:has(.preview-study-page) {
 
 .preview-study-today-person {
   grid-template-columns: 26px minmax(0, 1fr) auto;
+  animation: todo-item-state-in 360ms cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .preview-study-live-person + .preview-study-live-person,
