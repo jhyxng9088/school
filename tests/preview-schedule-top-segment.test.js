@@ -18,8 +18,8 @@ function ScheduleStationPage({ section, onSectionChange, todoPage, academicPage,
     </section>
   )
 }
-function useClassTopSegmentSpring(activeIndex) {
-  return activeIndex
+function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {
+  return { activeIndex, shellElastic }
 }
 `
 
@@ -61,12 +61,13 @@ test('vite applies schedule patch after the source-owned class segment structure
 
 test('schedule spring keeps the outer shell physically coupled to the moving pill', () => {
   const classSegment = read('src/preview-class-top-segment-patch.js')
-  const start = classSegment.indexOf('function useClassTopSegmentSpring(activeIndex) {')
+  const start = classSegment.indexOf('function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {')
   const end = classSegment.indexOf('function ClassTopSegment', start)
   const helper = classSegment.slice(start, end)
   assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
   assert.match(helper, /deform: true/)
-  assert.match(helper, /shellElastic: true/)
+  assert.match(helper, /shellElastic = true/)
+  assert.match(helper, /shellElastic,/)
   assert.match(helper, /shellScaleProperty: '--segment-shell-scale-x'/)
   assert.match(helper, /shellShiftProperty: '--segment-shell-shift-x'/)
 })
@@ -78,7 +79,7 @@ test('class and schedule both consume the same helper without duplicate spring c
   const classEnd = classSegment.indexOf('function ClassStationPage', classStart)
   const classComponent = classSegment.slice(classStart, classEnd)
   const schedulePatch = read('src/preview-schedule-top-segment-patch.js')
-  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
+  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex, \{ shellElastic: false \}\)/)
   assert.match(schedulePatch, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
-  assert.doesNotMatch(classComponent, /useSHubSegmentSpring|deform:|shellElastic:/)
+  assert.doesNotMatch(classComponent, /useSHubSegmentSpring|deform:/)
 })
