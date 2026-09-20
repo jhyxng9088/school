@@ -53,7 +53,7 @@ test('the seven question examples remain deliberately informal', () => {
 
 test('production service worker cache is bumped so installed PWAs receive the fresh UI shell', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v170-ios-status-canvas'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v169-ios-system-topbar'/)
   assert.doesNotMatch(sw, /school-preview-shell-/)
   assert.match(sw, /self\.skipWaiting\(\)/)
   assert.match(sw, /self\.clients\.claim\(\)/)
