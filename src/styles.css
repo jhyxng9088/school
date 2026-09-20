@@ -1221,6 +1221,12 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   margin: 0 2px 13px;
 }
 
+.app-content.tab-home .todo-home-preview,
+.app-content.tab-home .academic-preview {
+  align-self: start;
+  padding-bottom: 14px;
+}
+
 .app-content.tab-home .todo-home-preview .todo-home-list {
   border-width: 1px 0 0;
   border-radius: 0;
