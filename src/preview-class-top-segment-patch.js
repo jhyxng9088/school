@@ -27,12 +27,24 @@ const CLASS_TOP_SEGMENT_CSS = `
   min-width: 0;
 }
 
-/* Board/Timetable content is allowed to re-enter, but the persistent top segment
-   itself must never inherit or restart a page-entry animation. Its moving pill
-   and elastic shell remain owned exclusively by useClassTopSegmentSpring. */
-.class-station-page > .class-top-segment,
+/* Board/Timetable content may run its keyed scene-entry sequence, but this
+   persistent control never participates in that sequence. Keep the container
+   fully painted/stationary; only the shared spring is allowed to move the pill
+   and ::before elastic shell. */
+.class-station-page > .class-top-segment {
+  animation: none !important;
+  animation-delay: 0ms !important;
+  opacity: 1 !important;
+  transform: none !important;
+  translate: none !important;
+  scale: none !important;
+  filter: none !important;
+}
+
 .class-station-page > .class-top-segment::before {
   animation: none !important;
+  animation-delay: 0ms !important;
+  opacity: 1 !important;
 }
 
 .class-top-segment {
@@ -167,20 +179,20 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
 }
 
 const CLASS_SEGMENT_COMPONENT = String.raw`
-function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {
+function useClassTopSegmentSpring(activeIndex) {
   return useSHubSegmentSpring(activeIndex, {
     paddingProperty: '--segment-padding',
     shellScaleProperty: '--segment-shell-scale-x',
     shellShiftProperty: '--segment-shell-shift-x',
     fallbackPadding: 5,
     deform: true,
-    shellElastic,
+    shellElastic: true,
   })
 }
 
 function ClassTopSegment({ profile, section, onSectionChange }) {
   const activeIndex = section === 'timetable' ? 1 : 0
-  const spring = useClassTopSegmentSpring(activeIndex, { shellElastic: false })
+  const spring = useClassTopSegmentSpring(activeIndex)
   const touchIntentRef = useRef({ key: '', at: 0 })
   const [unread, setUnread] = useState({})
 
