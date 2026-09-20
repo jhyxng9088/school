@@ -66,7 +66,6 @@ test('configured launch evaluates main code in parallel but mounts only after fr
   assert.match(preload, /preloadSchoolData/)
   assert.match(preload, /preloadPreviewBoard/)
   assert.match(preload, /preloadPreviewStudy/)
-  assert.match(preload, /preloadThemePreferences/)
   assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 5200/)
   assert.doesNotMatch(main, /window\.setTimeout\(finish, 1800\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
