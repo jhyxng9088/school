@@ -15,7 +15,7 @@ function activeReminderCount(todos) {
 function signalCopy({ boardUnread, studyUnread, presence, todos }) {
   const online = safeCount(presence?.online)
   const total = safeCount(presence?.total)
-  const presenceReady = presence?.ready !== false
+  const presenceReady = presence?.ready === true
   const studyReady = studyUnread?.initialized !== false
   const boardCount = safeCount(boardUnread?.sectionUnreadCount)
   const reminderCount = activeReminderCount(todos)
