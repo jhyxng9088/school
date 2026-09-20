@@ -17,12 +17,16 @@ test('meal home preview uses the same React-owned navigation callback pattern as
   assert.match(main, /if \(target === 'meal'\) \{\s*setScheduleSection\('meal'\)\s*changeTab\('schedule'\)/)
 })
 
-test('academic home preview owns native semantic navigation', () => {
+test('academic and reminder home cards use the React-owned Home navigation callback', () => {
   const academic = read('src/academic-shared.jsx')
+  const todo = read('src/todo.jsx')
+  const main = read('src/main.jsx')
 
-  assert.match(academic, /import \{ HomeNavAction \} from '\.\/home-nav-action\.jsx'/)
-  assert.match(academic, /academic-preview home-nav-native-surface" data-home-nav-ready="true"/)
-  assert.match(academic, /<HomeNavAction tab="schedule" section="academic" label="학사일정 열기" \/>/)
+  assert.doesNotMatch(academic, /HomeNavAction/)
+  assert.match(academic, /className="home-detail-card-action"[\s\S]*onClick=\{\(\) => onNavigate\?\.\('academic'\)\}/)
+  assert.doesNotMatch(todo, /HomeNavAction/)
+  assert.match(todo, /className="home-detail-card-action"[\s\S]*onClick=\{\(\) => onNavigate\?\.\('reminder'\)\}/)
+  assert.match(main, /if \(target === 'academic'\) \{\s*setScheduleSection\('academic'\)\s*changeTab\('schedule'\)/)
 })
 
 test('retired home navigation retrofit runtime stays removed', () => {
@@ -51,8 +55,18 @@ test('home meal preview is a full native-button dashboard card', () => {
 })
 
 
-test('important home academic item is a rounded nested highlight instead of a square strip', () => {
+test('important home academic item is rounded and the list no longer draws a line across its top', () => {
   const styles = read('src/styles.css')
 
+  assert.match(styles, /\.academic-preview \.academic-home-list \{[\s\S]*border: 0;[\s\S]*background: transparent;/)
   assert.match(styles, /\.academic-preview \.academic-home-item\.is-important \{[\s\S]*border-radius: 14px;[\s\S]*background:/)
+})
+
+
+test('home reminder preview shows four rows without growing the dashboard card rhythm', () => {
+  const todo = read('src/todo.jsx')
+  const styles = read('src/styles.css')
+
+  assert.match(todo, /const visible = upcoming\.slice\(0, 4\)/)
+  assert.match(styles, /\.todo-home-preview \.todo-home-item \{[\s\S]*min-height: 48px;[\s\S]*padding-block: 5px;/)
 })
