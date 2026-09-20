@@ -52,22 +52,15 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.match(indexHtml, /name="shub-shell-version" content="19"/)
 })
 
-test('configured launch evaluates main code in parallel but mounts only after fresh hydration', () => {
+test('configured launch mounts canonical data owners immediately behind the splash', () => {
   assert.match(bootstrap, /const mainModulePromise = preloadMainAppModule\(\)/)
-  assert.match(bootstrap, /window\.__shubLaunchPreload = await preloadConfiguredAppData/)
+  assert.doesNotMatch(bootstrap, /preloadConfiguredAppData/)
+  assert.doesNotMatch(bootstrap, /__shubLaunchPreload/)
   assert.match(bootstrap, /const mainModule = await mainModulePromise/)
   assert.match(bootstrap, /mainModule\.mountMainApp\(\)/)
   assert.match(main, /export function mountMainApp\(\)/)
-  assert.match(preload, /preloadClassPresence/)
-  assert.match(preload, /preloadClassRoster/)
-  assert.match(preload, /preloadTimetable/)
-  assert.match(preload, /preloadTodos/)
-  assert.match(preload, /preloadSharedAcademic/)
-  assert.match(preload, /preloadSchoolData/)
-  assert.match(preload, /preloadPreviewBoard/)
-  assert.match(preload, /preloadPreviewStudy/)
-  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 4200/)
-  assert.doesNotMatch(main, /window\.setTimeout\(finish, 1800\)/)
+  assert.match(main, /const launchHomeReady = presence\?\.ready === true && todoData\.ready === true/)
+  assert.match(main, /window\.setTimeout\(finish, 1400\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
 })
 
@@ -82,9 +75,13 @@ test('launch shell cache advances so installed PWAs receive the new boot surface
 })
 
 
-test('launch color follows the interpolated loading progress instead of switching immediately', () => {
+test('launch color and bar move continuously between data milestones', () => {
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
+  assert.match(indexHtml, /progressPainted: 0\.015/)
+  assert.match(indexHtml, /const continuous = launchState\.progressPainted \+ \(delta \* \(finalizing \? \.00004 : \.000012\)\)/)
+  assert.match(indexHtml, /const cap = finalizing \? 1 : \.94/)
   assert.match(indexHtml, /paintLaunchTheme\(launchState\.progressPainted\)/)
+  assert.match(indexHtml, /Math\.abs\(mix - launchState\.lastThemeColorMix\) >= \.025/)
   assert.match(indexHtml, /paintLaunchProgress\(\.14\)/)
   assert.match(indexHtml, /getComputedStyle\(splash\)\.backgroundColor/)
   assert.doesNotMatch(indexHtml, /paintLaunchProgress\(\.5\)/)
@@ -119,18 +116,26 @@ test('theme preference sync no longer blocks school-data launch hydration', () =
 })
 
 
-test('auth revalidation starts before the larger launch preload module resolves', () => {
+test('auth revalidation starts before the main app mounts', () => {
   const warmAt = bootstrap.indexOf('void ensureSignedIn().catch')
-  const preloadImportAt = bootstrap.indexOf("import('./launch-data-preload.js')")
+  const mainLoadAt = bootstrap.indexOf('const mainModulePromise = preloadMainAppModule()')
   assert.ok(warmAt >= 0)
-  assert.ok(preloadImportAt > warmAt)
+  assert.ok(mainLoadAt > warmAt)
+})
+
+test('service worker refresh tolerates a missing registration object', () => {
+  assert.match(main, /registration\?\.update\?\.\(\)\.catch\(\(\) => \{\}\)/)
 })
 
 
-test('launch preloads the hydration graph and shortens the already-painted handoff', () => {
-  assert.match(indexHtml, /modulepreload" href="\/src\/launch-data-preload\.js"/)
-  assert.match(indexHtml, /opacity 220ms/)
-  assert.match(indexHtml, /visibility 0s linear 220ms/)
+test('launch avoids the duplicate preload graph and crossfades into the mounted app', () => {
+  assert.doesNotMatch(indexHtml, /modulepreload" href="\/src\/launch-data-preload\.js"/)
+  assert.match(indexHtml, /opacity 280ms/)
+  assert.match(indexHtml, /visibility 0s linear 280ms/)
+  assert.match(indexHtml, /html\.shub-launch-handoff #root/)
+  assert.match(indexHtml, /function beginLaunchHandoff\(\)/)
+  assert.match(indexHtml, /progressPainted < \.985 && elapsed < 190/)
   assert.match(indexHtml, /function finishLaunch\(\{ settleMs = 60 \} = \{\}\)/)
   assert.match(main, /launch\.ready\?\.\(\{ settleMs: 40 \}\)/)
+  assert.match(main, /window\.setTimeout\(finish, 1400\)/)
 })

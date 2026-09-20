@@ -81,24 +81,20 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
   }
 
   launchProgress(.54)
-  // Start the canonical Firebase auth + identity revalidation before the larger
-  // launch preload module finishes loading. Every data owner still calls the
-  // same ensureSignedIn promise; this only overlaps the unavoidable round trip.
+  // Start the canonical Firebase auth + identity revalidation before the main
+  // app module finishes loading. Every data owner still calls the same
+  // ensureSignedIn promise; this only overlaps the unavoidable round trip.
   void ensureSignedIn().catch((error) => {
     console.warn('S-Hub auth warmup deferred to data owners:', error)
   })
   const mainModulePromise = preloadMainAppModule()
-  try {
-    const { preloadConfiguredAppData } = await import('./launch-data-preload.js')
-    window.__shubLaunchPreload = await preloadConfiguredAppData(configuredProfile)
-  } catch (error) {
-    console.warn('S-Hub launch data preload failed; continuing with available caches.', error)
-    window.__shubLaunchPreload = { failed: true }
-  }
 
+  // Mount the real app behind the launch surface immediately. The canonical
+  // data owners in AppShell now perform their own first sync, so startup no
+  // longer duplicates Firestore reads through a separate preload graph.
   try {
     const mainModule = await mainModulePromise
-    launchProgress(.97)
+    launchProgress(.78)
     mainModule.mountMainApp()
   } catch (error) {
     console.error('S-Hub startup failed:', error)
