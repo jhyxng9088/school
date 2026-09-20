@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta id="shub-theme-color" name="theme-color" content="#000000" />
-    <meta name="shub-shell-version" content="18" />
+    <meta name="shub-shell-version" content="19" />
     <meta name="application-name" content="S-Hub" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="S-Hub" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="manifest" href="./manifest.webmanifest?v=18" />
+    <link rel="manifest" href="./manifest.webmanifest?v=19" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
     <link rel="preload" href="./icon.svg?v=9" as="image" type="image/svg+xml" />
@@ -22,6 +22,7 @@
     <link rel="preconnect" href="https://elhlsqhzjmsfhmawrpqu.supabase.co" crossorigin />
     <link rel="preconnect" href="https://open.neis.go.kr" crossorigin />
     <link rel="modulepreload" href="/src/main.jsx" />
+    <link rel="modulepreload" href="/src/launch-data-preload.js" />
     <style>
       :root {
         --shub-launch-bg: #000000;
@@ -53,8 +54,8 @@
         opacity: 1;
         visibility: visible;
         transition:
-          opacity 360ms cubic-bezier(.22, 1, .36, 1),
-          visibility 0s linear 360ms;
+          opacity 220ms cubic-bezier(.22, 1, .36, 1),
+          visibility 0s linear 220ms;
         -webkit-tap-highlight-color: transparent;
       }
 
@@ -281,7 +282,7 @@
           paintLaunchTheme(launchState.progressPainted)
         }
 
-        function finishLaunch({ settleMs = 120 } = {}) {
+        function finishLaunch({ settleMs = 60 } = {}) {
           if (launchState.leaving) return
           paintLaunchProgress(1)
           window.clearTimeout(launchState.removeTimer)
@@ -296,12 +297,12 @@
               splash.remove()
               root.style.removeProperty('background-color')
               document.body?.style.removeProperty('background-color')
-            }, 340)
+            }, 220)
           }, Math.max(0, Math.min(320, Number(settleMs) || 0)))
         }
 
         window.__shubLaunch = {
-          version: 18,
+          version: 19,
           progress: paintLaunchProgress,
           refreshTheme: refreshLaunchTheme,
           ready: finishLaunch,

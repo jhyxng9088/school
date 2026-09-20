@@ -167,20 +167,20 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
 }
 
 const CLASS_SEGMENT_COMPONENT = String.raw`
-function useClassTopSegmentSpring(activeIndex) {
+function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {
   return useSHubSegmentSpring(activeIndex, {
     paddingProperty: '--segment-padding',
     shellScaleProperty: '--segment-shell-scale-x',
     shellShiftProperty: '--segment-shell-shift-x',
     fallbackPadding: 5,
     deform: true,
-    shellElastic: true,
+    shellElastic,
   })
 }
 
 function ClassTopSegment({ profile, section, onSectionChange }) {
   const activeIndex = section === 'timetable' ? 1 : 0
-  const spring = useClassTopSegmentSpring(activeIndex)
+  const spring = useClassTopSegmentSpring(activeIndex, { shellElastic: false })
   const touchIntentRef = useRef({ key: '', at: 0 })
   const [unread, setUnread] = useState({})
 

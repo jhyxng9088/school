@@ -40,16 +40,16 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.equal(parsed.background_color, '#000000')
   assert.equal(parsed.theme_color, '#000000')
   assert.match(indexHtml, /id="shub-theme-color" name="theme-color" content="#000000"/)
-  assert.match(indexHtml, /manifest\.webmanifest\?v=18/)
+  assert.match(indexHtml, /manifest\.webmanifest\?v=19/)
   assert.match(indexHtml, /--shub-launch-bg:\s*#000000/)
   assert.match(indexHtml, /function resolveLaunchTheme\(\)/)
   assert.match(indexHtml, /getPropertyValue\('--bg'\)/)
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
   assert.match(indexHtml, /splash\.style\.backgroundColor = mixedBg/)
   assert.match(indexHtml, /requestAnimationFrame\(animateLaunchProgress\)/)
-  assert.match(indexHtml, /version: 18/)
+  assert.match(indexHtml, /version: 19/)
   assert.doesNotMatch(indexHtml, /setTimeout\(\(\) => paintLaunchProgress\(\.3\)/)
-  assert.match(indexHtml, /name="shub-shell-version" content="18"/)
+  assert.match(indexHtml, /name="shub-shell-version" content="19"/)
 })
 
 test('configured launch evaluates main code in parallel but mounts only after fresh hydration', () => {
@@ -66,7 +66,7 @@ test('configured launch evaluates main code in parallel but mounts only after fr
   assert.match(preload, /preloadSchoolData/)
   assert.match(preload, /preloadPreviewBoard/)
   assert.match(preload, /preloadPreviewStudy/)
-  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 5200/)
+  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 4200/)
   assert.doesNotMatch(main, /window\.setTimeout\(finish, 1800\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
 })
@@ -75,7 +75,7 @@ test('configured launch evaluates main code in parallel but mounts only after fr
 test('launch shell cache advances so installed PWAs receive the new boot surface', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
   const deploymentRefresh = fs.readFileSync(new URL('../src/deployment-refresh.js', import.meta.url), 'utf8')
-  assert.match(sw, /school-shell-v166-schedule-spring/)
+  assert.match(sw, /school-shell-v167-class-static-launch-fast/)
   assert.match(bootstrap, /registration\?\.update\(\)/)
   assert.match(deploymentRefresh, /meta\[name="shub-shell-version"\]/)
   assert.match(deploymentRefresh, /shellChanged/)
@@ -92,8 +92,8 @@ test('launch color follows the interpolated loading progress instead of switchin
 
 
 test('failed launch sources do not hold the app behind long retry backoff', () => {
-  assert.match(preload, /const delays = \[0, 140\]/)
-  assert.doesNotMatch(preload, /220|720/)
+  assert.match(preload, /const delays = \[0, 90\]/)
+  assert.doesNotMatch(preload, /140|220|720/)
 })
 
 
@@ -124,4 +124,13 @@ test('auth revalidation starts before the larger launch preload module resolves'
   const preloadImportAt = bootstrap.indexOf("import('./launch-data-preload.js')")
   assert.ok(warmAt >= 0)
   assert.ok(preloadImportAt > warmAt)
+})
+
+
+test('launch preloads the hydration graph and shortens the already-painted handoff', () => {
+  assert.match(indexHtml, /modulepreload" href="\/src\/launch-data-preload\.js"/)
+  assert.match(indexHtml, /opacity 220ms/)
+  assert.match(indexHtml, /visibility 0s linear 220ms/)
+  assert.match(indexHtml, /function finishLaunch\(\{ settleMs = 60 \} = \{\}\)/)
+  assert.match(main, /launch\.ready\?\.\(\{ settleMs: 40 \}\)/)
 })
