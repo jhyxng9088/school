@@ -1206,6 +1206,7 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
 .app-content.tab-home .todo-home-preview,
 .app-content.tab-home .academic-preview,
 .app-content.tab-home .meal-preview {
+  position: relative;
   min-width: 0;
   padding: 17px;
   border: 1px solid var(--border);
@@ -1220,9 +1221,16 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   margin: 0 2px 13px;
 }
 
-.app-content.tab-home .todo-home-preview .todo-home-list,
-.app-content.tab-home .academic-preview .academic-home-list {
+.app-content.tab-home .todo-home-preview .todo-home-list {
   border-width: 1px 0 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-content.tab-home .academic-preview .academic-home-list {
+  overflow: visible;
+  border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -1231,6 +1239,37 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
 .app-content.tab-home .todo-home-preview .todo-home-item,
 .app-content.tab-home .academic-preview .academic-home-item {
   padding-inline: 4px;
+}
+
+.app-content.tab-home .todo-home-preview .todo-home-item {
+  min-height: 48px;
+  padding-block: 5px;
+}
+
+.app-content.tab-home .home-detail-card-action {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-content.tab-home .home-detail-card-action:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--focus-accent, var(--text)) 28%, transparent);
+}
+
+.app-content.tab-home .home-detail-card-action:active {
+  background: color-mix(in srgb, var(--text) 2.5%, transparent);
 }
 
 .app-content.tab-home .todo-home-preview .compact-empty {
@@ -1303,7 +1342,7 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
 }
 
 .app-content.tab-home .academic-preview .academic-home-item.is-important {
-  margin-bottom: 6px;
+  margin: 0 0 6px;
   border: 1px solid color-mix(in srgb, var(--focus-accent, var(--text)) 14%, var(--divider));
   border-radius: 14px;
   background: color-mix(in srgb, var(--focus-accent-soft, var(--surface-soft)) 64%, var(--surface));

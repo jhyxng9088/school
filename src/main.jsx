@@ -410,8 +410,8 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
 
       <div ref={homeStackRef} className={`home-stack ${mealPriority ? 'is-meal-priority' : ''} ${schoolState.kind === 'off' ? 'is-school-off' : ''}`.trim()} data-home-lunch-ready="true">
         <CurrentClassPreview schoolState={schoolState} now={now} />
-        <PreviewHomeSignals profile={profile} presence={presence} todos={todoData.todos} onNavigate={onNavigate} />
-        <TodoHomePreview todos={todoData.todos} categories={todoData.categories} now={now} />
+        <PreviewHomeSignals profile={profile} presence={presence} todos={todoData.todos} now={now} onNavigate={onNavigate} />
+        <TodoHomePreview todos={todoData.todos} categories={todoData.categories} now={now} onNavigate={onNavigate} />
         {schoolState.kind !== 'off' ? (
           <TimetablePreview
             schedule={timetablePreviewSchedule}
@@ -422,7 +422,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
             closure={showTomorrowTimetable ? null : todayClosure}
           />
         ) : null}
-        <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} />
+        <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} onNavigate={onNavigate} />
         <Stage3MealPreview now={now} schoolData={schoolData} onNavigate={onNavigate} />
       </div>
     </>
@@ -1486,6 +1486,11 @@ function AppShell({ profile }) {
     }
     if (target === 'reminder') {
       setScheduleSection('todo')
+      changeTab('schedule')
+      return
+    }
+    if (target === 'academic') {
+      setScheduleSection('academic')
       changeTab('schedule')
       return
     }

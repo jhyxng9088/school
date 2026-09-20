@@ -8,17 +8,37 @@ function safeCount(value) {
   return Number.isFinite(number) && number > 0 ? Math.floor(number) : 0
 }
 
-function activeReminderCount(todos) {
-  return (Array.isArray(todos) ? todos : []).filter((todo) => todo && !todo.completed && !todo.hidden).length
+function activeReminders(todos) {
+  return (Array.isArray(todos) ? todos : [])
+    .filter((todo) => todo && !todo.completed && !todo.hidden)
+    .sort((a, b) => String(a.dueDate || '').localeCompare(String(b.dueDate || ''))
+      || String(a.dueTime || '').localeCompare(String(b.dueTime || '')))
 }
 
-function signalCopy({ boardUnread, studyUnread, presence, todos }) {
+function activeReminderCount(todos) {
+  return activeReminders(todos).length
+}
+
+function reminderDeadlineCopy(todo, now) {
+  if (!todo?.dueDate) return '예정'
+  const [year, month, day] = String(todo.dueDate).split('-').map(Number)
+  if (!year || !month || !day) return '예정'
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0)
+  const due = new Date(year, month - 1, day, 12, 0, 0, 0)
+  const days = Math.round((due.getTime() - today.getTime()) / 86400000)
+  if (days <= 0) return '오늘'
+  if (days === 1) return '내일'
+  return `D-${days}`
+}
+
+function signalCopy({ boardUnread, studyUnread, presence, todos, now }) {
   const online = safeCount(presence?.online)
   const total = safeCount(presence?.total)
   const presenceReady = presence?.ready === true
   const studyReady = studyUnread?.initialized !== false
   const boardCount = safeCount(boardUnread?.sectionUnreadCount)
   const reminderCount = activeReminderCount(todos)
+  const nextReminder = activeReminders(todos)[0] || null
 
   return [
     {
@@ -48,23 +68,23 @@ function signalCopy({ boardUnread, studyUnread, presence, todos }) {
     {
       id: 'reminder',
       label: '리마인더',
-      value: `${reminderCount}개`,
-      detail: reminderCount > 0 ? '아직 남아 있어요' : '남은 리마인더 없음',
+      value: nextReminder ? reminderDeadlineCopy(nextReminder, now) : '없음',
+      detail: nextReminder ? String(nextReminder.title || '다가오는 리마인더') : '남은 리마인더 없음',
       active: reminderCount > 0,
       pending: false,
     },
   ]
 }
 
-export function PreviewHomeSignals({ profile, presence, todos, onNavigate }) {
+export function PreviewHomeSignals({ profile, presence, todos, now, onNavigate }) {
   const boardUnread = usePreviewBoardUnread(profile)
   const [studyUnread, setStudyUnread] = useState(() => previewStudyUnreadSnapshot(profile))
 
   useEffect(() => subscribePreviewStudyUnread(profile, setStudyUnread), [profile])
 
   const signals = useMemo(
-    () => signalCopy({ boardUnread, studyUnread, presence, todos }),
-    [boardUnread, studyUnread, presence, todos],
+    () => signalCopy({ boardUnread, studyUnread, presence, todos, now }),
+    [boardUnread, studyUnread, presence, todos, now],
   )
 
   return (

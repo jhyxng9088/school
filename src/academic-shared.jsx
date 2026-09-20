@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './academic-shared.css'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import { actorActionLabel } from './class-activity'
-import { HomeNavAction } from './home-nav-action.jsx'
 import { readStudentProfile } from './school-sync.js'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
@@ -130,7 +129,7 @@ function academicErrorMessage(error, fallback) {
   return error?.message || fallback
 }
 
-export function SharedAcademicPreview({ now, schoolData, academicData }) {
+export function SharedAcademicPreview({ now, schoolData, academicData, onNavigate }) {
   const groups = useMemo(() => allGroups(schoolData, academicData), [schoolData?.academicEvents, academicData?.events])
   const today = rawDate(now)
   const upcoming = groups.filter((group) => group.endRawDate >= today)
@@ -138,8 +137,13 @@ export function SharedAcademicPreview({ now, schoolData, academicData }) {
   const others = upcoming.filter((group) => group !== exam).slice(0, exam ? 2 : 3)
 
   return (
-    <section className="home-section stage3-home-block academic-preview home-nav-native-surface" data-home-nav-ready="true">
-      <HomeNavAction tab="schedule" section="academic" label="학사일정 열기" />
+    <section className="home-section stage3-home-block academic-preview" data-home-nav-ready="true">
+      <button
+        type="button"
+        className="home-detail-card-action"
+        aria-label="학사일정 열기"
+        onClick={() => onNavigate?.('academic')}
+      />
       <div className="section-heading"><h2>학사일정</h2></div>
       <div className="academic-home-list">
         {exam ? (
