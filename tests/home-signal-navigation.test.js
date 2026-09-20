@@ -17,6 +17,7 @@ test('home overview cards route to the correct V2 destination without proxy-clic
   assert.match(main, /if \(target === 'board'\) \{\s*setClassSection\('board'\)\s*changeTab\('class'\)/)
   assert.match(main, /if \(target === 'study'\) \{\s*changeTab\('study'\)/)
   assert.match(main, /if \(target === 'reminder'\) \{\s*setScheduleSection\('todo'\)\s*changeTab\('schedule'\)/)
+  assert.match(main, /if \(target === 'meal'\) \{\s*setScheduleSection\('meal'\)\s*changeTab\('schedule'\)/)
   assert.match(main, /onNavigate=\{navigateHomeSignal\}/)
   assert.match(main, /onNavigate=\{onNavigate\}/)
 })

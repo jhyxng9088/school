@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from 'react'
-import { HomeNavAction } from './home-nav-action.jsx'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -36,7 +35,7 @@ function dateLabel(date) {
   return `${date.getMonth() + 1}월 ${date.getDate()}일 ${WEEKDAY_LABELS[date.getDay()]}요일`
 }
 
-export default function HomeMealPreview({ now, schoolData }) {
+export default function HomeMealPreview({ now, schoolData, onNavigate }) {
   const afterLunch = now.getHours() >= 14
   const weekend = now.getDay() === 0 || now.getDay() === 6
   const targetDate = useMemo(
@@ -64,24 +63,30 @@ export default function HomeMealPreview({ now, schoolData }) {
         : `${dateLabel(targetDate)} 급식이 등록되지 않았어요.`
 
   return (
-    <section className="home-section meal-preview stage3-home-block home-nav-native-surface" data-home-nav-ready="true">
-      <HomeNavAction tab="schedule" section="meal" label="급식 열기" />
-      <div className="section-heading">
-        <h2>{title}</h2>
-      </div>
-      <div className="stage3-home-surface">
-        {meal ? (
-          <>
-            <p className="stage3-meal-home-menu">{meal.dishes.slice(0, 5).join(' · ')}</p>
-            <span className="stage3-home-meta">
-              {meal.dishes.length > 5 ? `외 ${meal.dishes.length - 5}개 · ` : ''}
-              {meal.calories || dateLabel(targetDate)}
-            </span>
-          </>
-        ) : (
-          <p className="stage3-home-empty">{statusCopy}</p>
-        )}
-      </div>
+    <section className="home-section meal-preview stage3-home-block" data-home-nav-ready="true">
+      <button
+        type="button"
+        className="meal-preview-action"
+        aria-label="급식 열기"
+        onClick={() => onNavigate?.('meal')}
+      >
+        <span className="section-heading meal-preview-heading">
+          <strong>{title}</strong>
+        </span>
+        <span className="stage3-home-surface">
+          {meal ? (
+            <>
+              <span className="stage3-meal-home-menu">{meal.dishes.slice(0, 5).join(' · ')}</span>
+              <span className="stage3-home-meta">
+                {meal.dishes.length > 5 ? `외 ${meal.dishes.length - 5}개 · ` : ''}
+                {meal.calories || dateLabel(targetDate)}
+              </span>
+            </>
+          ) : (
+            <span className="stage3-home-empty">{statusCopy}</span>
+          )}
+        </span>
+      </button>
     </section>
   )
 }
