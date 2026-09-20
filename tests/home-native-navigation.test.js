@@ -70,3 +70,10 @@ test('home reminder preview shows four rows without growing the dashboard card r
   assert.match(todo, /const visible = upcoming\.slice\(0, 4\)/)
   assert.match(styles, /\.todo-home-preview \.todo-home-item \{[\s\S]*min-height: 48px;[\s\S]*padding-block: 5px;/)
 })
+
+
+test('wide Home reminder and academic cards size to their content with modest bottom breathing room', () => {
+  const styles = read('src/styles.css')
+
+  assert.match(styles, /\.app-content\.tab-home \.todo-home-preview,[\s\S]*\.app-content\.tab-home \.academic-preview \{[\s\S]*align-self: start;[\s\S]*padding-bottom: 14px;/)
+})
