@@ -52,15 +52,21 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.match(indexHtml, /name="shub-shell-version" content="21"/)
 })
 
-test('configured launch mounts canonical data owners immediately behind the splash', () => {
+test('configured launch mounts canonical owners immediately but reveals only after a stable Home paint', () => {
   assert.match(bootstrap, /const mainModulePromise = preloadMainAppModule\(\)/)
   assert.doesNotMatch(bootstrap, /preloadConfiguredAppData/)
   assert.doesNotMatch(bootstrap, /__shubLaunchPreload/)
   assert.match(bootstrap, /const mainModule = await mainModulePromise/)
   assert.match(bootstrap, /mainModule\.mountMainApp\(\)/)
   assert.match(main, /export function mountMainApp\(\)/)
+  assert.match(main, /const launchHomeSurfaceRef = useRef\(null\)/)
   assert.match(main, /const launchHomeReady = presence\?\.ready === true && todoData\.ready === true/)
-  assert.match(main, /window\.setTimeout\(finish, 1400\)/)
+  assert.match(main, /stack\.childElementCount < 6/)
+  assert.match(main, /stack\.closest\('\.app-content\.tab-home'\)/)
+  assert.match(main, /stablePaintFrames < 2/)
+  assert.match(main, /launch\.ready\?\.\(\{ settleMs: 24 \}\)/)
+  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1400\)/)
+  assert.match(main, /launchSurfaceRef=\{launchHomeSurfaceRef\}/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
 })
 
@@ -132,7 +138,7 @@ test('service worker refresh tolerates a missing registration object', () => {
 })
 
 
-test('launch avoids the duplicate preload graph and crossfades into the mounted app', () => {
+test('launch avoids duplicate hydration and crossfades only after real Home layout is paintable', () => {
   assert.doesNotMatch(indexHtml, /modulepreload" href="\/src\/launch-data-preload\.js"/)
   assert.match(indexHtml, /opacity 280ms/)
   assert.match(indexHtml, /visibility 0s linear 280ms/)
@@ -140,6 +146,10 @@ test('launch avoids the duplicate preload graph and crossfades into the mounted 
   assert.match(indexHtml, /function beginLaunchHandoff\(\)/)
   assert.match(indexHtml, /progressPainted < \.985 && elapsed < 190/)
   assert.match(indexHtml, /function finishLaunch\(\{ settleMs = 60 \} = \{\}\)/)
-  assert.match(main, /launch\.ready\?\.\(\{ settleMs: 40 \}\)/)
-  assert.match(main, /window\.setTimeout\(finish, 1400\)/)
+  assert.match(main, /homeSurfaceHasPaintableLayout/)
+  assert.match(main, /getBoundingClientRect\(\)/)
+  assert.match(main, /Array\.from\(stack\.children\)\.every/)
+  assert.match(main, /stablePaintFrames \+= 1/)
+  assert.match(main, /launch\.ready\?\.\(\{ settleMs: 24 \}\)/)
+  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1400\)/)
 })
