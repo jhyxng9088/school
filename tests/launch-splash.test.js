@@ -94,7 +94,7 @@ test('launch color follows the interpolated loading progress instead of switchin
 
 
 test('failed launch sources do not hold the app behind long retry backoff', () => {
-  assert.match(preload, /const delays = \[0, 220\]/)
+  assert.match(preload, /const delays = \[0, 140\]/)
   assert.doesNotMatch(preload, /220|720/)
 })
 
