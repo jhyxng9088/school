@@ -81,9 +81,9 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
   }
 
   launchProgress(.54)
-  // Start the canonical Firebase auth + identity revalidation before the larger
-  // launch preload module finishes loading. Every data owner still calls the
-  // same ensureSignedIn promise; this only overlaps the unavoidable round trip.
+  // Start the canonical Firebase auth + identity revalidation before the main
+  // app module finishes loading. Every data owner still calls the same
+  // ensureSignedIn promise; this only overlaps the unavoidable round trip.
   void ensureSignedIn().catch((error) => {
     console.warn('S-Hub auth warmup deferred to data owners:', error)
   })
