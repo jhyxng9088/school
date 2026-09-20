@@ -28,15 +28,18 @@ function buildFinalMain() {
   return source
 }
 
-test('class navigation is moved out of the bottom bar into a stable top segmented control', () => {
+test('class navigation uses the shared bottom-nav spring without reviving the nested capsule', () => {
   const source = buildFinalMain()
   const start = source.indexOf('function ClassTopSegment({ profile, section, onSectionChange })')
   const end = source.indexOf('function ClassStationPage', start)
   const component = source.slice(start, end)
-  assert.match(component, /className="class-top-segment class-own-segment"/)
+  assert.match(component, /const activeIndex = section === 'timetable' \? 1 : 0/)
+  assert.match(component, /useSHubSegmentSpring\(activeIndex/)
+  assert.match(component, /deform: true/)
+  assert.match(component, /shellElastic: false/)
+  assert.match(component, /ref=\{spring\.containerRef\}/)
+  assert.match(component, /ref=\{spring\.indicatorRef\}/)
   assert.match(component, /aria-label="우리 반 메뉴"/)
-  assert.match(component, /section === 'timetable' \? 'is-timetable' : ''/)
-  assert.doesNotMatch(component, /useClassTopSegmentSpring|spring\./)
   assert.doesNotMatch(source, /className=\{`class-nav-capsule/)
 })
 

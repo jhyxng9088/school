@@ -53,7 +53,7 @@ test('the seven question examples remain deliberately informal', () => {
 
 test('production service worker cache is bumped so installed PWAs receive the fresh UI shell', () => {
   const sw = read('public/sw.js')
-  assert.match(sw, /const CACHE_NAME = 'school-shell-v164-ios-layout'/)
+  assert.match(sw, /const CACHE_NAME = 'school-shell-v165-class-spring'/)
   assert.doesNotMatch(sw, /school-preview-shell-/)
   assert.match(sw, /self\.skipWaiting\(\)/)
   assert.match(sw, /self\.clients\.claim\(\)/)
@@ -117,18 +117,22 @@ test('launch reuses cached board topology and avoids duplicate critical-path wor
   assert.doesNotMatch(preloadAcademic, /ensureIdentity/)
 })
 
-test('our-class top segment uses one deterministic transition in both directions', () => {
+test('our-class top segment reuses bottom-nav spring physics without shell deformation', () => {
   const segment = read('src/preview-class-top-segment-patch.js')
+  const spring = read('src/s-hub-segment-spring.js')
   const component = segment.slice(
     segment.indexOf('function ClassTopSegment'),
     segment.indexOf('function ClassStationPage'),
   )
-  assert.match(segment, /class-top-segment class-own-segment/)
-  assert.match(segment, /class-top-segment-pill ' \+ \(section === 'timetable' \? 'is-timetable'/)
-  assert.match(segment, /transition: transform 440ms cubic-bezier\(\.16, 1, \.3, 1\)/)
-  assert.match(segment, /class-top-segment\.class-own-segment \.class-top-segment-pill\.is-timetable/)
-  assert.doesNotMatch(component, /useClassTopSegmentSpring/)
-  assert.doesNotMatch(component, /spring\./)
+  assert.match(component, /useSHubSegmentSpring\(activeIndex/)
+  assert.match(component, /deform: true/)
+  assert.match(component, /shellElastic: false/)
+  assert.match(component, /spring\.buttonRefs\.current\[index\]/)
+  assert.match(spring, /stiffness: 56/)
+  assert.match(spring, /damping: 10\.5/)
+  assert.match(spring, /stretchPerVelocity: 0\.032/)
+  assert.match(spring, /compressionVelocity: 18000/)
+  assert.doesNotMatch(segment, /transition: transform 440ms cubic-bezier/)
 })
 
 
