@@ -35,3 +35,22 @@ test('retired home navigation retrofit runtime stays removed', () => {
   assert.doesNotMatch(read('index.html'), /school-home-nav\.js/)
   assert.doesNotMatch(read('public/sw.js'), /school-home-nav\.js/)
 })
+
+
+test('home dashboard styling never converts the native navigation overlay into layout content', () => {
+  const styles = read('src/styles.css')
+
+  assert.match(styles, /\.current-class-card > :not\(\.home-nav-action\) \{[\s\S]*position: relative;[\s\S]*z-index: 1;/)
+  assert.doesNotMatch(styles, /\.current-class-card > \* \{[\s\S]*position: relative;/)
+})
+
+
+test('home meal preview is a full clickable dashboard card routed by the semantic navigation owner', () => {
+  const meal = read('src/home-meal-preview.jsx')
+  const styles = read('src/styles.css')
+
+  assert.match(meal, /meal-preview stage3-home-block home-nav-native-surface/)
+  assert.match(meal, /<HomeNavAction tab="schedule" section="meal" label="급식 열기" \/>/)
+  assert.match(styles, /\.app-content\.tab-home \.meal-preview \{[\s\S]*padding-bottom: 17px;[\s\S]*cursor: pointer;/)
+  assert.match(styles, /\.app-content\.tab-home \.todo-home-preview,[\s\S]*\.app-content\.tab-home \.meal-preview \{[\s\S]*border: 1px solid var\(--border\);/)
+})

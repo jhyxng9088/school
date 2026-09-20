@@ -1194,7 +1194,7 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   pointer-events: none;
 }
 
-.app-content.tab-home .current-class-card > * {
+.app-content.tab-home .current-class-card > :not(.home-nav-action) {
   position: relative;
   z-index: 1;
 }
@@ -1204,7 +1204,8 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
 }
 
 .app-content.tab-home .todo-home-preview,
-.app-content.tab-home .academic-preview {
+.app-content.tab-home .academic-preview,
+.app-content.tab-home .meal-preview {
   min-width: 0;
   padding: 17px;
   border: 1px solid var(--border);
@@ -1214,7 +1215,8 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
 }
 
 .app-content.tab-home .todo-home-preview .section-heading,
-.app-content.tab-home .academic-preview .section-heading {
+.app-content.tab-home .academic-preview .section-heading,
+.app-content.tab-home .meal-preview .section-heading {
   margin: 0 2px 13px;
 }
 
@@ -1238,9 +1240,25 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   background: transparent;
 }
 
-.app-content.tab-home .home-timetable-preview,
-.app-content.tab-home .meal-preview {
+.app-content.tab-home .home-timetable-preview {
   min-width: 0;
+}
+
+.app-content.tab-home .meal-preview {
+  padding-bottom: 17px;
+  cursor: pointer;
+}
+
+.app-content.tab-home .meal-preview .stage3-home-surface {
+  min-height: 78px;
+  padding: 14px 4px 0;
+}
+
+.app-content.tab-home .meal-preview .stage3-home-empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .app-content.tab-home .current-class-card { animation-delay: 50ms; }
@@ -1347,8 +1365,13 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   }
 
   .app-content.tab-home .todo-home-preview,
-  .app-content.tab-home .academic-preview {
+  .app-content.tab-home .academic-preview,
+  .app-content.tab-home .meal-preview {
     padding: 15px;
     border-radius: 21px;
+  }
+
+  .app-content.tab-home .meal-preview {
+    padding-bottom: 15px;
   }
 }
