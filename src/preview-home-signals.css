@@ -87,7 +87,8 @@
 
 .preview-home-signal.is-pending strong,
 .preview-home-signal.is-pending p {
-  opacity: .56;
+  visibility: hidden;
+  opacity: 0;
 }
 
 html.school-samsung .preview-home-signal {
