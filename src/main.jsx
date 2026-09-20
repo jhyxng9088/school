@@ -355,7 +355,8 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
     day: 'numeric',
     weekday: 'long',
   }).format(now)
-  const todayClosure = schoolClosureForDate(now, schoolData?.academicEvents)
+  const todaySchedule = getScheduleForDate(now, weeklySchedule, overrides)
+  const todayClosure = schoolClosureForDate(now, schoolData?.academicEvents, todaySchedule)
   const baseSchoolState = getSchoolState(now, weeklySchedule, overrides)
   const schoolState = todayClosure
     ? { ...baseSchoolState, kind: 'off', schedule: [], current: null, next: null, closure: todayClosure }
@@ -478,10 +479,21 @@ function TimetablePage({
   const weekDates = useMemo(() => getWeekDates(weekAnchor), [dateKey(weekAnchor)])
   const weekClosureByDate = useMemo(() => Object.fromEntries(
     weekDates
-      .map((date) => [dateKey(date), schoolClosureForDate(date, schoolData?.academicEvents)])
+      .map((date) => [
+        dateKey(date),
+        schoolClosureForDate(
+          date,
+          schoolData?.academicEvents,
+          getScheduleForDate(date, weeklySchedule, displayOverrides),
+        ),
+      ])
       .filter(([, closure]) => Boolean(closure)),
-  ), [weekDates.map(dateKey).join('|'), schoolData?.academicEvents])
-  const currentClosure = schoolClosureForDate(now, schoolData?.academicEvents)
+  ), [weekDates.map(dateKey).join('|'), schoolData?.academicEvents, weeklySchedule, displayOverrides])
+  const currentClosure = schoolClosureForDate(
+    now,
+    schoolData?.academicEvents,
+    getScheduleForDate(now, weeklySchedule, displayOverrides),
+  )
   const baseCurrentState = getSchoolState(now, weeklySchedule, displayOverrides)
   const currentState = currentClosure
     ? { ...baseCurrentState, kind: 'off', schedule: [], current: null, next: null, closure: currentClosure }
@@ -495,7 +507,11 @@ function TimetablePage({
   const selectedDay = getDayForDate(selectedDate)
   const selectedDateIsPast = Boolean(changeDate && changeDate < todayKey)
   const selectedDateIsToday = changeDate === todayKey
-  const selectedClosure = schoolClosureForDate(selectedDate, schoolData?.academicEvents)
+  const selectedClosure = schoolClosureForDate(
+    selectedDate,
+    schoolData?.academicEvents,
+    selectedDate ? getScheduleForDate(selectedDate, weeklySchedule, displayOverrides) : [],
+  )
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const availablePeriods = selectedDay && !selectedDateIsPast && !selectedClosure
     ? getPeriodsForDay(selectedDay.id).filter((period) => !selectedDateIsToday || timeToMinutes(period.end) > nowMinutes)
@@ -545,6 +561,7 @@ function TimetablePage({
     if (!requireOnline('시간표를 수정')) return
     const initialDate = nextOpenSchoolDate(now, schoolData?.academicEvents, {
       includeAnchor: currentState.kind !== 'done',
+      scheduleForDate: (date) => getScheduleForDate(date, weeklySchedule, displayOverrides),
     })
     setChangeScope(movingClass ? scope : 'shared')
     setChangeDate(dateKey(initialDate))
