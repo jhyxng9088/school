@@ -54,6 +54,37 @@ function preloadMainAppModule() {
   return import('./main.jsx')
 }
 
+async function warmHighValueInteractiveData() {
+  if (navigator.onLine === false) return
+
+  const tasks = [
+    {
+      label: 'board',
+      run: () => import('./preview-board-client.js')
+        .then(({ loadPreviewBoard }) => loadPreviewBoard({ sectionId: 'general', forceSections: false })),
+    },
+    {
+      label: 'study',
+      run: () => import('./preview-study-client.js')
+        .then(({ loadPreviewStudy }) => loadPreviewStudy({ scope: 'class', period: 'today' })),
+    },
+    {
+      label: 'class-roster',
+      run: () => import('./class-roster-ui-v2.js')
+        .then(({ preloadClassRoster }) => preloadClassRoster()),
+    },
+  ]
+
+  const results = await Promise.allSettled(tasks.map(({ run }) => run()))
+  const failures = results
+    .map((result, index) => (result.status === 'rejected' ? tasks[index].label : ''))
+    .filter(Boolean)
+
+  if (failures.length) {
+    console.warn('S-Hub priority data warmup deferred:', failures)
+  }
+}
+
 function hasExplicitSchoolSelection() {
   try {
     const stored = JSON.parse(localStorage.getItem(STUDENT_PROFILE_KEY) || 'null')
@@ -96,6 +127,7 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
     const mainModule = await mainModulePromise
     launchProgress(.78)
     mainModule.mountMainApp()
+    void warmHighValueInteractiveData()
   } catch (error) {
     console.error('S-Hub startup failed:', error)
   }
