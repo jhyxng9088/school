@@ -41,10 +41,11 @@ test('class segment shares the same canonical spring owner as schedule', () => {
   )
   assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
   assert.match(helper, /deform: true/)
-  assert.match(helper, /shellElastic: true/)
+  assert.match(helper, /shellElastic = true/)
+  assert.match(helper, /shellElastic,/)
   assert.match(component, /const activeIndex = section === 'timetable' \? 1 : 0/)
-  assert.match(component, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
-  assert.doesNotMatch(component, /useSHubSegmentSpring|deform:|shellElastic:|baseRadius:|minRadius:/)
+  assert.match(component, /const spring = useClassTopSegmentSpring\(activeIndex, \{ shellElastic: false \}\)/)
+  assert.doesNotMatch(component, /useSHubSegmentSpring|deform:|baseRadius:|minRadius:/)
   assert.match(component, /ref=\{spring\.containerRef\}/)
   assert.match(component, /ref=\{spring\.indicatorRef\}/)
   assert.match(component, /spring\.buttonRefs\.current\[index\]/)
@@ -68,4 +69,15 @@ test('class top segment never replays the Board-Timetable content entry animatio
     /\.class-station-page > \.class-top-segment,[\s\S]*\.class-station-page > \.class-top-segment::before \{[\s\S]*animation: none !important;/,
   )
   assert.match(styles, /\.class-top-segment::before[\s\S]*--segment-shell-shift-x/)
+})
+
+
+test('class Board-Timetable switch keeps the outer segment shell physically static', () => {
+  const source = read('src/preview-class-top-segment-patch.js')
+  const component = source.slice(
+    source.indexOf('function ClassTopSegment'),
+    source.indexOf('function ClassStationPage'),
+  )
+  assert.match(component, /useClassTopSegmentSpring\(activeIndex, \{ shellElastic: false \}\)/)
+  assert.match(source, /function useClassTopSegmentSpring\(activeIndex, \{ shellElastic = true \} = \{\}\)/)
 })
