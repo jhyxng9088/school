@@ -78,23 +78,35 @@ export function isImportantAcademic(event) {
   return Boolean(event && String(event.detail || '').startsWith(IMPORTANT_PREFIX))
 }
 
+function withSubjectParticle(value) {
+  const label = String(value || '').trim()
+  if (!label) return ''
+  const last = label.at(-1)
+  const code = last?.charCodeAt(0) || 0
+  if (code >= 0xac00 && code <= 0xd7a3) {
+    const hasFinalConsonant = (code - 0xac00) % 28 !== 0
+    return `${label}${hasFinalConsonant ? '이' : '가'}`
+  }
+  return label
+}
+
 export function reminderHourBody(title) {
   const clean = cleanNotificationLabel(title)
-  return clean ? `${clean} 관련 내용을 확인해 주세요.` : '할 일을 확인해 주세요.'
+  return clean ? `${clean} 확인해 주세요.` : '할 일을 확인해 주세요.'
 }
 
 export function reminderTomorrowBody(todos) {
   const list = Array.isArray(todos) ? todos.filter(Boolean) : []
   if (!list.length) return ''
   const first = cleanNotificationLabel(list[0]?.title, '할 일')
-  if (list.length === 1) return `내일 ${first} 있습니다. 확인해 주세요.`
-  return `내일 ${first} 외 ${list.length - 1}개의 할 일이 있습니다. 확인해 주세요.`
+  if (list.length === 1) return `내일 ${withSubjectParticle(first)} 있어요.`
+  return `내일 ${first} 외 ${list.length - 1}개의 할 일이 있어요.`
 }
 
 export function academicTomorrowBody(events) {
   const list = Array.isArray(events) ? events.filter(Boolean) : []
   if (!list.length) return ''
   const first = cleanNotificationLabel(list[0]?.title, '중요 일정')
-  if (list.length === 1) return `내일 ${first} 예정입니다.`
-  return `내일 ${first} 외 ${list.length - 1}개의 중요 일정이 있습니다.`
+  if (list.length === 1) return `내일 ${first} 예정이에요.`
+  return `내일 ${first} 외 ${list.length - 1}개의 중요 일정이 있어요.`
 }
