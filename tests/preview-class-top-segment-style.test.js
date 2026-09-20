@@ -64,20 +64,20 @@ test('downstream class segment style build owner is retired', () => {
 
 test('class top segment never replays the Board-Timetable content entry animation', () => {
   const styles = patchPreviewClassTopSegmentSource('', '/workspace/src/styles.css')
-  assert.match(
-    styles,
-    /\.class-station-page > \.class-top-segment,[\s\S]*\.class-station-page > \.class-top-segment::before \{[\s\S]*animation: none !important;/,
-  )
+  assert.match(styles, /\.class-station-page > \.class-top-segment \{[\s\S]*animation: none !important;[\s\S]*opacity: 1 !important;[\s\S]*transform: none !important;/)
+  assert.match(styles, /\.class-station-page > \.class-top-segment::before \{[\s\S]*animation: none !important;[\s\S]*opacity: 1 !important;/)
   assert.match(styles, /\.class-top-segment::before[\s\S]*--segment-shell-shift-x/)
 })
 
 
-test('class Board-Timetable switch keeps the outer segment shell physically static', () => {
+test('class Board-Timetable switch keeps the same elastic shell spring as schedule', () => {
   const source = read('src/preview-class-top-segment-patch.js')
   const component = source.slice(
     source.indexOf('function ClassTopSegment'),
     source.indexOf('function ClassStationPage'),
   )
-  assert.match(component, /useClassTopSegmentSpring\(activeIndex, \{ shellElastic: false \}\)/)
-  assert.match(source, /function useClassTopSegmentSpring\(activeIndex, \{ shellElastic = true \} = \{\}\)/)
+  assert.match(component, /useClassTopSegmentSpring\(activeIndex\)/)
+  assert.match(source, /function useClassTopSegmentSpring\(activeIndex\)/)
+  assert.match(source, /shellElastic: true/)
+  assert.doesNotMatch(component, /shellElastic:/)
 })
