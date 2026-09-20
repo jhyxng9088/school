@@ -21,17 +21,9 @@ function afterTwoFrames(callback) {
 
 function needsFixedBodyScrollLock() {
   const userAgent = navigator.userAgent
-  const iOSLike = /iPhone|iPad|iPod/i.test(userAgent) || (
+  return /iPhone|iPad|iPod/i.test(userAgent) || (
     /Macintosh/i.test(userAgent) && navigator.maxTouchPoints > 1
   )
-  const standalone = window.matchMedia?.('(display-mode: standalone)').matches
-    || navigator.standalone === true
-
-  // In an installed iOS PWA, fixing <body> makes WebKit keep the status-area
-  // compositor frozen while the sheet backdrop fades. Keep the legacy Safari
-  // lock for browser tabs, but let standalone use the overflow lock below so
-  // the status area and page backdrop fade as one surface.
-  return iOSLike && !standalone
 }
 
 export function UnifiedBottomSheet({
