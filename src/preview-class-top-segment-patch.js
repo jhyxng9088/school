@@ -27,12 +27,28 @@ const CLASS_TOP_SEGMENT_CSS = `
   min-width: 0;
 }
 
-/* Board/Timetable content is allowed to re-enter, but the persistent top segment
-   itself must never inherit or restart a page-entry animation. Its moving pill
-   and elastic shell remain owned exclusively by useClassTopSegmentSpring. */
+/* Board/Timetable scene-entry motion belongs only to .class-station-panel.
+   The persistent top segment never fades/slides/staggers with that scene change.
+   Its pill + shell transform remain exclusively owned by useClassTopSegmentSpring. */
+.class-station-page,
 .class-station-page > .class-top-segment,
-.class-station-page > .class-top-segment::before {
+.class-station-page > .class-top-segment::before,
+.class-station-page > .class-top-segment > .class-top-segment-pill,
+.class-station-page > .class-top-segment > .class-top-segment-button,
+.class-station-page > .class-station-content {
   animation: none !important;
+  animation-delay: 0ms !important;
+}
+
+.class-station-page > .class-top-segment,
+.class-station-page > .class-top-segment::before,
+.class-station-page > .class-top-segment > .class-top-segment-pill,
+.class-station-page > .class-top-segment > .class-top-segment-button {
+  opacity: 1 !important;
+}
+
+.class-station-page > .class-top-segment {
+  transform: none !important;
 }
 
 .class-top-segment {
@@ -167,20 +183,20 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
 }
 
 const CLASS_SEGMENT_COMPONENT = String.raw`
-function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {
+function useClassTopSegmentSpring(activeIndex) {
   return useSHubSegmentSpring(activeIndex, {
     paddingProperty: '--segment-padding',
     shellScaleProperty: '--segment-shell-scale-x',
     shellShiftProperty: '--segment-shell-shift-x',
     fallbackPadding: 5,
     deform: true,
-    shellElastic,
+    shellElastic: true,
   })
 }
 
 function ClassTopSegment({ profile, section, onSectionChange }) {
   const activeIndex = section === 'timetable' ? 1 : 0
-  const spring = useClassTopSegmentSpring(activeIndex, { shellElastic: false })
+  const spring = useClassTopSegmentSpring(activeIndex)
   const touchIntentRef = useRef({ key: '', at: 0 })
   const [unread, setUnread] = useState({})
 
