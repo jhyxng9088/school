@@ -1064,7 +1064,7 @@ function AppShell({ profile }) {
     let secondFrame = null
     const firstFrame = window.requestAnimationFrame(() => {
       secondFrame = window.requestAnimationFrame(() => {
-        launch.ready?.({ settleMs: 40 })
+        launch.ready?.({ settleMs: 0 })
       })
     })
 
