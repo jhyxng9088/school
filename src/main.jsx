@@ -1124,6 +1124,7 @@ function AppShell({ profile }) {
     commitPersonalWeeklySchedule,
     commitPersonalOverrides,
     refreshSharedTimetable,
+    launchReady: timetableLaunchReady,
   } = useSharedTimetable(profile, now)
   const schoolData = useSchoolData(now, profile)
   const reminderTimetable = useMemo(() => ({
@@ -1133,7 +1134,9 @@ function AppShell({ profile }) {
   const todoData = useTodos(profile, reminderTimetable)
   const presence = useClassPresence(profile)
   const academicData = useSharedAcademic(profile)
-  const launchHomeReady = presence?.ready === true && todoData.ready === true
+  const launchHomeReady = presence?.ready === true
+    && todoData.ready === true
+    && timetableLaunchReady === true
 
   useEffect(() => {
     const launch = window.__shubLaunch
@@ -1187,9 +1190,9 @@ function AppShell({ profile }) {
 
     if (launchHomeReady) requestFinishAfterPaint()
 
-    // Keep the bounded fallback for slow remote sources, but never reveal a
-    // blank or partially laid-out Home shell. The canonical owners keep
-    // reconciling late network data after the first paint is safely visible.
+    // Cached timetable state can reveal immediately; only a cache miss waits
+    // briefly for the canonical timetable owner. Board, meals and academic
+    // revalidation remain background work so one slow source cannot hold launch.
     const fallback = window.setTimeout(requestFinishAfterPaint, 1400)
 
     return () => {
