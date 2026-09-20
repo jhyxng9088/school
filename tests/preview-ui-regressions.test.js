@@ -131,9 +131,8 @@ test('class and schedule top segments share one canonical spring owner', () => {
   )
   assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
   assert.match(helper, /deform: true/)
-  assert.match(helper, /shellElastic = true/)
-  assert.match(helper, /shellElastic,/)
-  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex, \{ shellElastic: false \}\)/)
+  assert.match(helper, /shellElastic: true/)
+  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
   assert.doesNotMatch(classComponent, /useSHubSegmentSpring|deform:/)
   assert.match(schedule, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
   assert.match(spring, /stiffness: 56/)
@@ -154,12 +153,11 @@ test('fresh board launch warms built-in sections before the general response', (
 
 test('schedule top segment keeps bottom-nav pill and shell physics coupled', () => {
   const segment = read('src/preview-class-top-segment-patch.js')
-  const start = segment.indexOf('function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {')
+  const start = segment.indexOf('function useClassTopSegmentSpring(activeIndex) {')
   const end = segment.indexOf('function ClassTopSegment', start)
   const helper = segment.slice(start, end)
   assert.match(helper, /deform: true/)
-  assert.match(helper, /shellElastic = true/)
-  assert.match(helper, /shellElastic,/)
+  assert.match(helper, /shellElastic: true/)
 })
 
 
