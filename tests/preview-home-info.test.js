@@ -40,3 +40,18 @@ test('V2 home overview stays 2 by 2 on phones and expands to one row on wide scr
   assert.match(css, /html\.school-samsung \.preview-home-signal/)
   assert.match(css, /prefers-reduced-motion: reduce/)
 })
+
+
+test('home dashboard keeps detail owners but removes the duplicate holiday timetable empty state', () => {
+  const main = read('src/main.jsx')
+  const styles = read('src/styles.css')
+
+  assert.match(main, /schoolState\.kind !== 'off' \? \([\s\S]*<TimetablePreview/)
+  assert.match(main, /home-stack \$\{mealPriority \? 'is-meal-priority' : ''\} \$\{schoolState\.kind === 'off' \? 'is-school-off' : ''\}/)
+  assert.match(main, /home-timetable-preview home-nav-native-surface/)
+
+  assert.match(styles, /\.app-content\.tab-home \{[\s\S]*width: min\(100%, 1180px\)/)
+  assert.match(styles, /\.app-content\.tab-home \.todo-home-preview[\s\S]*grid-row: 3/)
+  assert.match(styles, /\.app-content\.tab-home \.academic-preview[\s\S]*grid-row: 3/)
+  assert.match(styles, /@media \(max-width: 819px\)[\s\S]*\.academic-preview \{ order: 3; \}/)
+})
