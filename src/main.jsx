@@ -298,7 +298,7 @@ function CurrentClassPreview({ schoolState, now }) {
 function TimetablePreview({ schedule, now, configured, title = '오늘 시간표', futureDay = false, closure = null }) {
   if (!schedule.length) {
     return (
-      <section className="home-section home-nav-native-surface" data-home-nav-ready="true">
+      <section className="home-section home-timetable-preview home-nav-native-surface" data-home-nav-ready="true">
         <HomeNavAction tab="class" section="timetable" label="시간표 열기" />
         <SectionTitle>{title}</SectionTitle>
         <div className="today-timetable-empty">{closure ? `${closure.label} · 휴업일` : futureDay ? '내일은 정규 수업이 없어.' : '오늘은 정규 수업이 없어.'}</div>
@@ -312,7 +312,7 @@ function TimetablePreview({ schedule, now, configured, title = '오늘 시간표
     : schedule.find((period) => timeToMinutes(period.start) > nowMinutes) || null
 
   return (
-    <section className="home-section home-nav-native-surface" data-home-nav-ready="true">
+    <section className="home-section home-timetable-preview home-nav-native-surface" data-home-nav-ready="true">
       <HomeNavAction tab="class" section="timetable" label="시간표 열기" />
       <SectionTitle>{title}</SectionTitle>
       <div
@@ -403,18 +403,20 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
       </header>
 
 
-      <div ref={homeStackRef} className={`home-stack ${mealPriority ? 'is-meal-priority' : ''}`} data-home-lunch-ready="true">
+      <div ref={homeStackRef} className={`home-stack ${mealPriority ? 'is-meal-priority' : ''} ${schoolState.kind === 'off' ? 'is-school-off' : ''}`.trim()} data-home-lunch-ready="true">
         <CurrentClassPreview schoolState={schoolState} now={now} />
         <PreviewHomeSignals profile={profile} presence={presence} todos={todoData.todos} onNavigate={onNavigate} />
         <TodoHomePreview todos={todoData.todos} categories={todoData.categories} now={now} />
-        <TimetablePreview
-          schedule={timetablePreviewSchedule}
-          now={now}
-          configured={schoolState.configured}
-          title={showTomorrowTimetable ? '내일 시간표' : '오늘 시간표'}
-          futureDay={showTomorrowTimetable}
-          closure={showTomorrowTimetable ? null : todayClosure}
-        />
+        {schoolState.kind !== 'off' ? (
+          <TimetablePreview
+            schedule={timetablePreviewSchedule}
+            now={now}
+            configured={schoolState.configured}
+            title={showTomorrowTimetable ? '내일 시간표' : '오늘 시간표'}
+            futureDay={showTomorrowTimetable}
+            closure={showTomorrowTimetable ? null : todayClosure}
+          />
+        ) : null}
         <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} />
         <Stage3MealPreview now={now} schoolData={schoolData} />
       </div>
@@ -1134,7 +1136,7 @@ function AppShell({ profile }) {
 
     const homeSurfaceHasPaintableLayout = () => {
       const stack = launchHomeSurfaceRef.current
-      if (!stack?.isConnected || stack.childElementCount < 6) return false
+      if (!stack?.isConnected || stack.childElementCount < 5) return false
 
       const content = stack.closest('.app-content.tab-home')
       if (!content) return false
