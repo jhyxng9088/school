@@ -693,6 +693,20 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     () => studentTodaySeconds(displayMe, nowMs),
     [displayMe, nowMs],
   )
+  const displayClassStudents = useMemo(() => {
+    const students = Array.isArray(snapshot?.students) ? snapshot.students : []
+    if (!displayMe) return students
+    const displayMeId = studentIdentity(displayMe)
+    if (!displayMeId) return students
+
+    let replaced = false
+    const next = students.map((student) => {
+      if (studentIdentity(student) !== displayMeId) return student
+      replaced = true
+      return displayMe
+    })
+    return replaced ? next : [...next, displayMe]
+  }, [snapshot?.students, displayMe])
 
   useEffect(() => {
     if (optimisticStopped) {
@@ -939,7 +953,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
 
           {loadError ? <p className="preview-study-inline-warning">실시간 새로고침이 일시적으로 중단되었습니다. 마지막으로 불러온 기록을 표시합니다.</p> : null}
           <ActiveClassmates
-            students={snapshot.students}
+            students={displayClassStudents}
             meId={meId}
             nowMs={nowMs}
             onStudent={(student) => {

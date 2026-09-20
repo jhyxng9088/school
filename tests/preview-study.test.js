@@ -164,6 +164,18 @@ test('study start enters the active timer locally before the server request comp
   assert.match(start, /setCustomSubject\(''\)/)
 })
 
+test('study start appears in the current Study list before the server request completes', () => {
+  const page = read('src/preview-study.jsx')
+  const start = page.slice(page.indexOf('async function start()'), page.indexOf('async function pause()'))
+
+  assert.match(page, /const displayClassStudents = useMemo\(\(\) => \{/)
+  assert.match(page, /const students = Array\.isArray\(snapshot\?\.students\) \? snapshot\.students : \[\]/)
+  assert.match(page, /return replaced \? next : \[\.\.\.next, displayMe\]/)
+  assert.match(page, /<ActiveClassmates[\s\S]*students=\{displayClassStudents\}/)
+  assert.ok(start.indexOf('setOptimisticActive({') < start.indexOf('await startPreviewStudy(subject)'))
+  assert.match(start, /setActionError\(error\?\.message \|\| '공부를 시작하지 못했습니다\.'\)/)
+})
+
 test('optimistic Study transitions update locally before waiting for the server and roll back authoritative failures', () => {
   const page = read('src/preview-study.jsx')
   const runAction = page.slice(page.indexOf('async function runAction('), page.indexOf('async function start()'))
