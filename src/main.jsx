@@ -1530,7 +1530,7 @@ function registerMainServiceWorker() {
       updateViaCache: 'none',
     }).then((registration) => {
       window.setTimeout(() => {
-        registration.update().catch(() => {})
+        registration?.update?.().catch(() => {})
       }, 5000)
     }).catch(() => {
       // The app still works online even if service worker registration fails.
