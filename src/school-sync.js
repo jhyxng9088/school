@@ -101,6 +101,7 @@ function safeAttachment(value) {
 
 const PRESENCE_ACTIVE_MS = 45 * 1000
 const PRESENCE_SNAPSHOT_CACHE_MS = 60 * 1000
+const PRESENCE_MEMBER_COUNT_CACHE_MS = 30 * 60 * 1000
 
 function normalizeName(value) {
   return String(value || '')
@@ -790,6 +791,41 @@ export function listenStudentTodoState(profile, onValue, onError = () => {}) {
   }
 }
 
+function presenceMemberCountCacheKey(profile) {
+  const classId = classKeyFor(profile)
+  return classId ? `school.presenceMemberCount.v1.${classId}` : ''
+}
+
+function readCachedPresenceMemberCount(profile, { allowStale = false } = {}) {
+  const key = presenceMemberCountCacheKey(profile)
+  if (!key || typeof localStorage === 'undefined') return null
+  try {
+    const cached = JSON.parse(localStorage.getItem(key) || 'null')
+    const total = Number(cached?.total)
+    if (!Number.isInteger(total) || total < 0) return null
+    if (
+      !allowStale
+      && Date.now() - Number(cached?.checkedAt || 0) > PRESENCE_MEMBER_COUNT_CACHE_MS
+    ) return null
+    return total
+  } catch {
+    return null
+  }
+}
+
+function cachePresenceMemberCount(profile, total) {
+  const key = presenceMemberCountCacheKey(profile)
+  if (!key || typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      total: Math.max(0, Number(total || 0)),
+      checkedAt: Date.now(),
+    }))
+  } catch {
+    // Presence accuracy never depends on local cache availability.
+  }
+}
+
 function presenceSnapshotCacheKey(profile) {
   const classId = classKeyFor(profile)
   return classId ? `school.presenceSnapshot.v1.${classId}` : ''
@@ -799,14 +835,7 @@ function readPresenceInitialCounts(profile) {
   const classId = classKeyFor(profile)
   if (!classId || typeof localStorage === 'undefined') return { online: 0, total: 0, ready: false }
 
-  let total = 0
-  try {
-    const member = JSON.parse(localStorage.getItem(`school.presenceMemberCount.v1.${classId}`) || 'null')
-    const memberTotal = Number(member?.total)
-    if (Number.isInteger(memberTotal) && memberTotal >= 0) total = memberTotal
-  } catch {
-    // A missing member cache should not delay first paint.
-  }
+  let total = readCachedPresenceMemberCount(profile, { allowStale: true }) ?? 0
 
   try {
     const cached = JSON.parse(localStorage.getItem(presenceSnapshotCacheKey(profile)) || 'null')
@@ -848,19 +877,17 @@ export async function preloadClassPresence(profile, { signal } = {}) {
   const classId = classKeyFor(profile)
   if (!classId) return null
   const user = await ensureSignedIn()
+  const cachedTotal = readCachedPresenceMemberCount(profile)
   const [snapshot, memberCount] = await Promise.all([
     refreshSupabasePresenceSnapshot({ user, classId, signal }),
-    getCountFromServer(classMembersCollection(profile)),
+    cachedTotal === null
+      ? getCountFromServer(classMembersCollection(profile))
+      : Promise.resolve(null),
   ])
-  const total = Math.max(0, Number(memberCount.data().count || 0))
-  try {
-    localStorage.setItem(
-      `school.presenceMemberCount.v1.${classId}`,
-      JSON.stringify({ total, checkedAt: Date.now() }),
-    )
-  } catch {
-    // The live snapshot is still authoritative for this launch.
-  }
+  const total = cachedTotal === null
+    ? Math.max(0, Number(memberCount?.data().count || 0))
+    : cachedTotal
+  if (cachedTotal === null) cachePresenceMemberCount(profile, total)
   const counts = { online: snapshot.online, total, ready: true }
   writePresenceSnapshotCache(profile, counts)
   return { ...snapshot, total }
@@ -881,31 +908,8 @@ export function useClassPresence(profile) {
     let stopActiveTransport = () => {}
     const classId = classKeyFor(profile)
     const studentKey = studentKeyFor(profile)
-    const memberCountCacheKey = `school.presenceMemberCount.v1.${classId}`
-    const MEMBER_COUNT_CACHE_MS = 30 * 60 * 1000
 
-    function readCachedMemberCount({ allowStale = false } = {}) {
-      try {
-        const cached = JSON.parse(localStorage.getItem(memberCountCacheKey) || 'null')
-        if (!cached) return null
-        const total = Number(cached.total)
-        if (!Number.isInteger(total) || total < 0) return null
-        if (!allowStale && Date.now() - Number(cached.checkedAt || 0) > MEMBER_COUNT_CACHE_MS) return null
-        return total
-      } catch {
-        return null
-      }
-    }
-
-    function cacheMemberCount(total) {
-      try {
-        localStorage.setItem(memberCountCacheKey, JSON.stringify({ total, checkedAt: Date.now() }))
-      } catch {
-        // Presence accuracy never depends on local cache availability.
-      }
-    }
-
-    const cachedTotal = readCachedMemberCount({ allowStale: true })
+    const cachedTotal = readCachedPresenceMemberCount(profile, { allowStale: true })
     if (cachedTotal !== null) {
       setCounts((current) => {
         const next = { ...current, total: cachedTotal }
@@ -915,7 +919,7 @@ export function useClassPresence(profile) {
     }
 
     const refreshMemberTotal = async ({ force = false } = {}) => {
-      const cached = force ? null : readCachedMemberCount()
+      const cached = force ? null : readCachedPresenceMemberCount(profile)
       if (cached !== null) {
         if (!stopped) {
           setCounts((current) => {
@@ -928,7 +932,7 @@ export function useClassPresence(profile) {
       }
       const snapshot = await getCountFromServer(classMembersCollection(profile))
       const total = Number(snapshot.data().count || 0)
-      cacheMemberCount(total)
+      cachePresenceMemberCount(profile, total)
       if (!stopped) {
         setCounts((current) => {
           const next = { ...current, total }
@@ -945,7 +949,7 @@ export function useClassPresence(profile) {
         const existing = await getDoc(member)
         if (!existing.exists()) {
           await setDoc(member, { joinedAt: Date.now() })
-          try { localStorage.removeItem(memberCountCacheKey) } catch { /* best effort */ }
+          try { localStorage.removeItem(presenceMemberCountCacheKey(profile)) } catch { /* best effort */ }
           await refreshMemberTotal({ force: true })
         } else {
           await refreshMemberTotal()
