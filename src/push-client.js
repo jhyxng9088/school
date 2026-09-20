@@ -282,8 +282,8 @@ async function maybeShowPermissionPrompt(profile) {
   layer.setAttribute('role', 'status')
   layer.innerHTML = `
     <div class="school-push-prompt-copy">
-      <strong>${permissionDenied ? 'S-Hub 알림이 꺼져 있습니다' : 'S-Hub 알림을 켜시겠습니까?'}</strong>
-      <span>${permissionDenied ? '기기 설정에서 S-Hub 알림을 허용해 주세요.' : '새 리마인더와 시간표 변경 같은 중요한 학교 소식을 바로 알려 드립니다.'}</span>
+      <strong>${permissionDenied ? 'S-Hub 알림이 꺼져 있어요' : 'S-Hub 알림을 켜시겠어요?'}</strong>
+      <span>${permissionDenied ? '기기 설정에서 S-Hub 알림을 허용해 주세요.' : '새 리마인더와 시간표 변경 같은 중요한 학교 소식을 바로 알려 드려요.'}</span>
     </div>
     <button class="school-push-enable" type="button">${permissionDenied ? '확인' : '알림 켜기'}</button>
     <button class="school-push-close" type="button">나중에</button>
