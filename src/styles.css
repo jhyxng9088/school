@@ -1221,6 +1221,11 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   margin: 0 2px 13px;
 }
 
+.app-content.tab-home .todo-home-preview,
+.app-content.tab-home .academic-preview {
+  padding-bottom: 13px;
+}
+
 .app-content.tab-home .todo-home-preview .todo-home-list {
   border-width: 1px 0 0;
   border-radius: 0;
@@ -1403,11 +1408,13 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   .app-content.tab-home .todo-home-preview {
     grid-column: 1;
     grid-row: 3;
+    align-self: start;
   }
 
   .app-content.tab-home .academic-preview {
     grid-column: 2;
     grid-row: 3;
+    align-self: start;
   }
 
   .app-content.tab-home .home-timetable-preview {
@@ -1456,6 +1463,11 @@ html.school-samsung .bottom-nav[data-elastic-shell="true"]::before {
   .app-content.tab-home .meal-preview {
     padding: 15px;
     border-radius: 21px;
+  }
+
+  .app-content.tab-home .todo-home-preview,
+  .app-content.tab-home .academic-preview {
+    padding-bottom: 12px;
   }
 
   .app-content.tab-home .meal-preview {
