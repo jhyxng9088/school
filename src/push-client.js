@@ -121,6 +121,7 @@ async function mirrorPushSubscription(identity, payload) {
         classId: identity.classId,
       }),
       cache: 'no-store',
+      keepalive: true,
       signal: controller.signal,
     })
     if (!response.ok) {
@@ -187,7 +188,7 @@ async function ensurePushSubscription(profile) {
     subscriptionPayload,
     { merge: true },
   )
-  await mirrorPushSubscription(identity, subscriptionPayload)
+  void mirrorPushSubscription(identity, subscriptionPayload)
 
   return subscription
 }
