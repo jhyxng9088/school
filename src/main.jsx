@@ -1055,24 +1055,37 @@ function AppShell({ profile }) {
   const todoData = useTodos(profile, reminderTimetable)
   const presence = useClassPresence(profile)
   const academicData = useSharedAcademic(profile)
+  const launchHomeReady = presence?.ready === true && todoData.ready === true
 
   useEffect(() => {
     const launch = window.__shubLaunch
     if (!launch) return undefined
 
-    launch.progress?.(.985)
+    launch.progress?.(launchHomeReady ? .985 : .86)
+    let firstFrame = null
     let secondFrame = null
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        launch.ready?.({ settleMs: 40 })
+
+    const finish = () => {
+      if (firstFrame !== null) return
+      firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(() => {
+          launch.ready?.({ settleMs: 40 })
+        })
       })
-    })
+    }
+
+    if (launchHomeReady) finish()
+
+    // Never hold the user behind a slow remote source. Cached state remains
+    // visible and the same canonical listeners keep reconciling after reveal.
+    const fallback = window.setTimeout(finish, 1400)
 
     return () => {
-      window.cancelAnimationFrame(firstFrame)
+      window.clearTimeout(fallback)
+      if (firstFrame !== null) window.cancelAnimationFrame(firstFrame)
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
     }
-  }, [])
+  }, [launchHomeReady])
   const activity = useClassActivity(profile)
   const timetableActivityRevision = useMemo(() => Object.values(activity || {}).reduce((latest, item) => (
     item?.entityType === 'timetable' ? Math.max(latest, Number(item.updatedAt || 0)) : latest
@@ -1517,7 +1530,7 @@ function registerMainServiceWorker() {
       updateViaCache: 'none',
     }).then((registration) => {
       window.setTimeout(() => {
-        registration.update().catch(() => {})
+        registration?.update?.().catch(() => {})
       }, 5000)
     }).catch(() => {
       // The app still works online even if service worker registration fails.
