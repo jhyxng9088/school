@@ -1136,7 +1136,7 @@ function AppShell({ profile }) {
 
     const homeSurfaceHasPaintableLayout = () => {
       const stack = launchHomeSurfaceRef.current
-      if (!stack?.isConnected || stack.childElementCount < 6) return false
+      if (!stack?.isConnected || stack.childElementCount < 5) return false
 
       const content = stack.closest('.app-content.tab-home')
       if (!content) return false
