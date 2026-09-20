@@ -37,5 +37,5 @@ test('cache stores no prompt or attachment bytes and service worker advances', (
   assert.match(endpoint, /result: \{ \.\.\.result, cacheHit: false \}/)
   assert.doesNotMatch(endpoint, /prompt:\s*prompt[\s\S]*?createdAtMs/)
   assert.doesNotMatch(endpoint, /dataBase64:[\s\S]*?createdAtMs/)
-  assert.match(read('public/sw.js'), /const CACHE_NAME = 'school-shell-v166-schedule-spring'/)
+  assert.match(read('public/sw.js'), /const CACHE_NAME = 'school-shell-v167-class-static-launch-fast'/)
 })
