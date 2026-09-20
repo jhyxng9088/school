@@ -51,6 +51,7 @@ test('station nav composes directly with source-owned timetable output', () => {
   const sourceOwnedOutput = patchPreviewStationNavSource(main, path)
   assert.match(sourceOwnedOutput, /setClassNavExpanded\(true\)/)
   assert.match(sourceOwnedOutput, /const aiContext = useMemo/)
+  assert.match(sourceOwnedOutput, /launchSurfaceRef=\{launchHomeSurfaceRef\}/)
   assert.equal(sourceOwnedOutput.includes(LEGACY_TIMETABLE_REVALIDATION_EFFECT), false)
 })
 
