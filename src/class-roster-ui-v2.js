@@ -501,7 +501,7 @@ function scheduleModalWarmup() {
 
 export async function preloadClassRoster() {
   hydrateRosterCache()
-  const roster = await fetchRoster({ force: true })
+  const roster = await fetchRoster({ force: false })
   applyLatestPresenceSnapshot()
   return roster
 }
