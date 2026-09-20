@@ -226,7 +226,7 @@ function SectionTitle({ children, aside }) {
   )
 }
 
-function CurrentClassPreview({ schoolState, now }) {
+function CurrentClassPreview({ schoolState, now, onNavigate }) {
   let label = '현재 수업'
   let title = '시간표 설정 전'
   let description = '시간표를 설정하면 지금 수업과 다음 수업이 여기에 표시돼.'
@@ -279,8 +279,13 @@ function CurrentClassPreview({ schoolState, now }) {
   }
 
   return (
-    <section className="current-class-card home-nav-native-surface" data-home-nav-ready="true">
-      <HomeNavAction tab="class" section="timetable" label="시간표 열기" />
+    <section className="current-class-card" data-home-nav-ready="true">
+      <button
+        type="button"
+        className="home-detail-card-action"
+        aria-label="시간표 열기"
+        onClick={() => onNavigate?.('timetable')}
+      />
       <div className="current-class-icon"><Icon type="clock" size={20} /></div>
       <div className="current-class-copy">
         <p className="current-class-label">{label}</p>
@@ -409,7 +414,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
 
 
       <div ref={homeStackRef} className={`home-stack ${mealPriority ? 'is-meal-priority' : ''} ${schoolState.kind === 'off' ? 'is-school-off' : ''}`.trim()} data-home-lunch-ready="true">
-        <CurrentClassPreview schoolState={schoolState} now={now} />
+        <CurrentClassPreview schoolState={schoolState} now={now} onNavigate={onNavigate} />
         <PreviewHomeSignals profile={profile} presence={presence} todos={todoData.todos} now={now} onNavigate={onNavigate} />
         <TodoHomePreview todos={todoData.todos} categories={todoData.categories} now={now} onNavigate={onNavigate} />
         {schoolState.kind !== 'off' ? (
@@ -1477,6 +1482,11 @@ function AppShell({ profile }) {
     }
     if (target === 'board') {
       setClassSection('board')
+      changeTab('class')
+      return
+    }
+    if (target === 'timetable') {
+      setClassSection('timetable')
       changeTab('class')
       return
     }
