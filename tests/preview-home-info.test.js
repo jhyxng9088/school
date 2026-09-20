@@ -18,7 +18,7 @@ test('V2 home overview directly reuses existing unread controllers and local app
   assert.doesNotMatch(component, /loadPreviewStudy\(/)
   assert.doesNotMatch(component, /loadPreviewBoard/)
 
-  assert.match(main, /<PreviewHomeSignals profile=\{profile\} presence=\{presence\} todos=\{todoData\.todos\} onNavigate=\{onNavigate\} \/>/)
+  assert.match(main, /<PreviewHomeSignals profile=\{profile\} presence=\{presence\} todos=\{todoData\.todos\} now=\{now\} onNavigate=\{onNavigate\} \/>/)
   assert.match(main, /function Home\(\{ profile, name, now/)
   assert.match(main, /onNavigate=\{navigateHomeSignal\}/)
   assert.match(main, /useHomeMealPriority\(now\)/)
@@ -54,4 +54,14 @@ test('home dashboard keeps detail owners but removes the duplicate holiday timet
   assert.match(styles, /\.app-content\.tab-home \.todo-home-preview[\s\S]*grid-row: 3/)
   assert.match(styles, /\.app-content\.tab-home \.academic-preview[\s\S]*grid-row: 3/)
   assert.match(styles, /@media \(max-width: 819px\)[\s\S]*\.academic-preview \{ order: 3; \}/)
+})
+
+
+test('overview reminder summarizes the nearest deadline instead of duplicating the detail-card count', () => {
+  const component = read('src/preview-home-signals.jsx')
+
+  assert.match(component, /const nextReminder = activeReminders\(todos\)\[0\] \|\| null/)
+  assert.match(component, /value: nextReminder \? reminderDeadlineCopy\(nextReminder, now\) : '없음'/)
+  assert.match(component, /detail: nextReminder \? String\(nextReminder\.title/)
+  assert.doesNotMatch(component, /value: `\$\{reminderCount\}개`/)
 })
