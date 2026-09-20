@@ -410,7 +410,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
 
       <div ref={homeStackRef} className={`home-stack ${mealPriority ? 'is-meal-priority' : ''} ${schoolState.kind === 'off' ? 'is-school-off' : ''}`.trim()} data-home-lunch-ready="true">
         <CurrentClassPreview schoolState={schoolState} now={now} />
-        <PreviewHomeSignals profile={profile} presence={presence} todos={todoData.todos} onNavigate={onNavigate} />
+        <PreviewHomeSignals profile={profile} presence={presence} todos={todoData.todos} now={now} onNavigate={onNavigate} />
         <TodoHomePreview todos={todoData.todos} categories={todoData.categories} now={now} onNavigate={onNavigate} />
         {schoolState.kind !== 'off' ? (
           <TimetablePreview
