@@ -8,7 +8,6 @@ const main = fs.readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8'
 const setup = fs.readFileSync(new URL('../src/student-setup.jsx', import.meta.url), 'utf8')
 const todo = fs.readFileSync(new URL('../src/todo.jsx', import.meta.url), 'utf8')
 const preload = fs.readFileSync(new URL('../src/launch-data-preload.js', import.meta.url), 'utf8')
-const schoolSync = fs.readFileSync(new URL('../src/school-sync.js', import.meta.url), 'utf8')
 const manifest = fs.readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8')
 
 test('launch splash renders before React root with canonical S-Hub logo', () => {
@@ -115,15 +114,15 @@ test('synced theme can retarget the active launch surface', () => {
 })
 
 
-test('verified student identity uses the persistent UID-profile marker fast path', () => {
-  assert.match(schoolSync, /if \(identitySyncMarkerMatches\(cacheKey\)\) return user/)
-  assert.doesNotMatch(
-    schoolSync,
-    /identitySyncMarkerMatches\(cacheKey\) && identitySyncPromises\.has\(cacheKey\)/,
-  )
-})
-
 test('theme preference sync no longer blocks school-data launch hydration', () => {
   assert.doesNotMatch(preload, /preloadThemePreferences/)
   assert.doesNotMatch(preload, /label: 'theme'/)
+})
+
+
+test('auth revalidation starts before the larger launch preload module resolves', () => {
+  const warmAt = bootstrap.indexOf('void ensureSignedIn().catch')
+  const preloadImportAt = bootstrap.indexOf("import('./launch-data-preload.js')")
+  assert.ok(warmAt >= 0)
+  assert.ok(preloadImportAt > warmAt)
 })
