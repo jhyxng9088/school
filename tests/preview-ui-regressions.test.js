@@ -117,22 +117,28 @@ test('launch reuses cached board topology and avoids duplicate critical-path wor
   assert.doesNotMatch(preloadAcademic, /ensureIdentity/)
 })
 
-test('our-class top segment reuses bottom-nav spring physics without shell deformation', () => {
+test('class and schedule top segments share one canonical spring owner', () => {
   const segment = read('src/preview-class-top-segment-patch.js')
+  const schedule = read('src/preview-schedule-top-segment-patch.js')
   const spring = read('src/s-hub-segment-spring.js')
-  const component = segment.slice(
+  const helper = segment.slice(
+    segment.indexOf('function useClassTopSegmentSpring'),
+    segment.indexOf('function ClassTopSegment'),
+  )
+  const classComponent = segment.slice(
     segment.indexOf('function ClassTopSegment'),
     segment.indexOf('function ClassStationPage'),
   )
-  assert.match(component, /useSHubSegmentSpring\(activeIndex/)
-  assert.match(component, /deform: true/)
-  assert.match(component, /shellElastic: false/)
-  assert.match(component, /spring\.buttonRefs\.current\[index\]/)
+  assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
+  assert.match(helper, /deform: true/)
+  assert.match(helper, /shellElastic: true/)
+  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
+  assert.doesNotMatch(classComponent, /useSHubSegmentSpring|deform:|shellElastic:/)
+  assert.match(schedule, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
   assert.match(spring, /stiffness: 56/)
   assert.match(spring, /damping: 10\.5/)
   assert.match(spring, /stretchPerVelocity: 0\.032/)
   assert.match(spring, /compressionVelocity: 18000/)
-  assert.doesNotMatch(segment, /transition: transform 440ms cubic-bezier/)
 })
 
 
