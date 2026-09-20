@@ -113,3 +113,19 @@ test('home live signals hydrate cached presence and keep unknown states neutral'
   assert.match(signalStyle, /opacity: 0/)
   assert.match(signalStyle, /transition: opacity 220ms var\(--motion-soft\)/)
 })
+
+
+test('configured startup warms high-value interactive data without blocking launch', () => {
+  const bootstrap = read('src/app-bootstrap.jsx')
+
+  assert.match(bootstrap, /async function warmHighValueInteractiveData\(\)/)
+  assert.match(bootstrap, /loadPreviewBoard\(\{ sectionId: 'general', forceSections: false \}\)/)
+  assert.match(bootstrap, /loadPreviewStudy\(\{ scope: 'class', period: 'today' \}\)/)
+  assert.match(bootstrap, /preloadClassRoster\(\)/)
+  assert.doesNotMatch(bootstrap, /preloadConfiguredAppData|preloadPreviewBoard\(/)
+
+  const mountAt = bootstrap.indexOf('mainModule.mountMainApp()')
+  const warmAt = bootstrap.indexOf('void warmHighValueInteractiveData()', mountAt)
+  assert.ok(mountAt >= 0)
+  assert.ok(warmAt > mountAt)
+})
