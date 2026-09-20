@@ -238,10 +238,57 @@ function StudyControlCard({
 }
 
 function ActiveClassmates({ students, meId, nowMs, onStudent }) {
-  const active = students
+  const active = useMemo(() => students
     .filter((student) => student.active)
     .sort((a, b) => Number(a.active.isPaused) - Number(b.active.isPaused)
-      || Number(a.active.startedAt || 0) - Number(b.active.startedAt || 0))
+      || Number(a.active.startedAt || 0) - Number(b.active.startedAt || 0)), [students])
+  const [renderedActive, setRenderedActive] = useState(active)
+  const [leavingIds, setLeavingIds] = useState(() => new Set())
+  const previousActiveRef = useRef(active)
+
+  useEffect(() => {
+    const previous = previousActiveRef.current
+    previousActiveRef.current = active
+    const nextIds = new Set(active.map((student) => studentIdentity(student)).filter(Boolean))
+    const removedIds = previous
+      .map((student) => studentIdentity(student))
+      .filter((id) => id && !nextIds.has(id))
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+    if (reduceMotion) {
+      setLeavingIds(new Set())
+      setRenderedActive(active)
+      return
+    }
+
+    setLeavingIds((current) => {
+      const next = new Set(current)
+      for (const id of nextIds) next.delete(id)
+      for (const id of removedIds) next.add(id)
+      return next
+    })
+    setRenderedActive((current) => {
+      const currentIndex = new Map(current.map((student, index) => [studentIdentity(student), index]))
+      const leavingRows = current.filter((student) => !nextIds.has(studentIdentity(student)))
+      const next = [...active]
+      for (const student of leavingRows) {
+        const id = studentIdentity(student)
+        const index = Math.min(currentIndex.get(id) ?? next.length, next.length)
+        next.splice(index, 0, student)
+      }
+      return next
+    })
+  }, [active])
+
+  function finishRowExit(id, event) {
+    if (event.target !== event.currentTarget || !leavingIds.has(id)) return
+    setRenderedActive((current) => current.filter((student) => studentIdentity(student) !== id))
+    setLeavingIds((current) => {
+      const next = new Set(current)
+      next.delete(id)
+      return next
+    })
+  }
 
   return (
     <section className="preview-study-section">
@@ -249,17 +296,22 @@ function ActiveClassmates({ students, meId, nowMs, onStudent }) {
         <h2>현재 스터디</h2>
         <span>{active.length}명</span>
       </div>
-      {active.length ? (
+      {renderedActive.length ? (
         <div className="preview-study-live-list">
-          {active.map((student) => {
+          {renderedActive.map((student) => {
             const elapsed = activeSessionSeconds(student.active, nowMs)
             const id = studentIdentity(student)
+            const leaving = leavingIds.has(id)
             return (
               <button
                 type="button"
-                className={`preview-study-live-person${student.active.isPaused ? ' is-paused' : ''}`}
+                className={`preview-study-live-person${student.active.isPaused ? ' is-paused' : ''}${leaving ? ' is-state-leaving' : ''}`}
                 key={id}
-                onClick={() => onStudent(student)}
+                tabIndex={leaving ? -1 : 0}
+                onAnimationEnd={(event) => finishRowExit(id, event)}
+                onClick={() => {
+                  if (!leaving) onStudent(student)
+                }}
               >
                 <span className={`preview-study-live-dot${student.active.isPaused ? ' is-paused' : ''}`} aria-hidden="true" />
                 <span className="preview-study-person-copy">
