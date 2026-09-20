@@ -52,7 +52,7 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.match(indexHtml, /name="shub-shell-version" content="21"/)
 })
 
-test('configured launch mounts canonical owners immediately but reveals only after a stable Home paint', () => {
+test('configured launch mounts canonical owners immediately but reveals only after a stable Home paint, including holiday layout', () => {
   assert.match(bootstrap, /const mainModulePromise = preloadMainAppModule\(\)/)
   assert.doesNotMatch(bootstrap, /preloadConfiguredAppData/)
   assert.doesNotMatch(bootstrap, /__shubLaunchPreload/)
@@ -61,7 +61,7 @@ test('configured launch mounts canonical owners immediately but reveals only aft
   assert.match(main, /export function mountMainApp\(\)/)
   assert.match(main, /const launchHomeSurfaceRef = useRef\(null\)/)
   assert.match(main, /const launchHomeReady = presence\?\.ready === true && todoData\.ready === true/)
-  assert.match(main, /stack\.childElementCount < 6/)
+  assert.match(main, /stack\.childElementCount < 5/)
   assert.match(main, /stack\.closest\('\.app-content\.tab-home'\)/)
   assert.match(main, /stablePaintFrames < 2/)
   assert.match(main, /launch\.ready\?\.\(\{ settleMs: 24 \}\)/)
