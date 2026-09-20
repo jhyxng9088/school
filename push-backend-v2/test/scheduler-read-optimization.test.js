@@ -23,8 +23,11 @@ test('scheduled reminders only request todoState documents for candidate todo id
   assert.match(source, /db\.getAll\(/)
 })
 
-test('scheduler remembers the last successful scan to avoid repeating two hours every five minutes', () => {
-  assert.match(source, /scheduledPushRuntime/)
+test('scheduler remembers the last successful scan with Supabase primary and Firestore fallback', () => {
+  assert.match(source, /loadSupabaseSchedulerRuntime\(\)/)
+  assert.match(source, /if \(supabaseRuntime\.available\)/)
+  assert.match(source, /runtimeSnapshot = await runtimeRef\.get\(\)/)
   assert.match(source, /scheduleLookbackMs\(lastSuccessMs, nowMs\)/)
-  assert.match(source, /lastSuccessMs:\s*nowMs/)
+  assert.match(source, /saveSupabaseSchedulerRuntime\(runtimePayload\)/)
+  assert.match(source, /await runtimeRef\.set\(/)
 })
