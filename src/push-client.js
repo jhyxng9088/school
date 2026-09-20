@@ -1,11 +1,8 @@
 import { getApp, getApps } from 'firebase/app'
 import {
-  collection,
   deleteDoc,
   doc,
-  getDoc,
   getFirestore,
-  onSnapshot,
   runTransaction,
   setDoc,
 } from 'firebase/firestore'
@@ -15,6 +12,7 @@ import {
   readStudentProfile,
   studentKeyFor,
 } from './school-sync'
+import { subscribeClassLiveData } from './class-live-data.js'
 
 const PUSH_API_BASE = 'https://school-reminder-backend.vercel.app/api'
 const DEVICE_ID_KEY = 'school.pushDeviceId.v1'
@@ -38,10 +36,6 @@ function pushSupported() {
 
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
 function waitForAppShell() {
@@ -83,29 +77,13 @@ function arrayBufferToBase64Url(buffer) {
 }
 
 async function resolveIdentity(profile) {
+  // ensureSignedIn() is the canonical identity verifier: it creates a missing
+  // users/{uid} document and rejects any stored profile mismatch before it
+  // resolves. Re-reading the same document here only duplicated Firestore reads.
   const user = await ensureSignedIn()
   const classId = classKeyFor(profile)
   const studentKey = studentKeyFor(profile)
   if (!classId || !studentKey) throw new Error('Push identity is incomplete')
-
-  const identityRef = doc(db, 'users', user.uid)
-  let snapshot = null
-  for (let attempt = 0; attempt < 16; attempt += 1) {
-    snapshot = await getDoc(identityRef)
-    if (snapshot.exists()) break
-    await sleep(250)
-  }
-  if (!snapshot?.exists()) throw new Error('School identity was not initialized')
-
-  const existing = snapshot.data() || {}
-  if (
-    existing.classId !== classId
-    || existing.studentKey !== studentKey
-    || existing.name !== profile.name
-  ) {
-    throw new Error('Push identity does not match the signed-in student')
-  }
-
   return { user, classId, studentKey }
 }
 
@@ -391,72 +369,62 @@ async function claimAndDispatch(profile, event) {
   }
 }
 
-function watchOwnActivity(profile) {
+function watchCanonicalPushFallback(profile) {
   const classId = classKeyFor(profile)
   const myStudentKey = studentKeyFor(profile)
   if (!classId || !myStudentKey) return () => {}
 
+  // push-dispatch-direct.js handles the immediate local commit event. These
+  // subscriptions are a no-extra-Firestore-read fallback that reuse the app's
+  // canonical activity/academic listeners instead of opening duplicate ones.
   const startedAt = Date.now()
-  let ready = false
-  return onSnapshot(
-    collection(db, 'classes', classId, 'activity'),
-    (snapshot) => {
-      if (!ready) {
-        ready = true
-        return
-      }
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'removed') return
-        const value = change.doc.data() || {}
-        const entityType = String(value.entityType || '')
-        const updatedAt = Number(value.updatedAt || 0)
-        if (!['reminder', 'timetable'].includes(entityType)) return
-        if (!updatedAt || updatedAt < startedAt - 5000 || value.actorStudentKey !== myStudentKey) return
-        claimAndDispatch(profile, {
-          entityType,
-          entityId: String(value.entityId || ''),
-          sourceId: change.doc.id,
-          actorStudentKey: String(value.actorStudentKey || ''),
-          action: value.action === 'added' ? 'added' : 'edited',
-          updatedAt,
-        }).catch((error) => console.error('Class activity push failed:', error))
-      })
-    },
-    (error) => console.error('Class activity push listener failed:', error),
-  )
-}
+  let activityReady = false
+  let academicReady = false
 
-function watchOwnAcademic(profile) {
-  const classId = classKeyFor(profile)
-  const myStudentKey = studentKeyFor(profile)
-  if (!classId || !myStudentKey) return () => {}
+  const stopActivity = subscribeClassLiveData('activity', classId, (activity) => {
+    if (!activityReady) {
+      activityReady = true
+      return
+    }
+    Object.values(activity || {}).forEach((value) => {
+      const entityType = String(value?.entityType || '')
+      const updatedAt = Number(value?.updatedAt || 0)
+      if (!['reminder', 'timetable'].includes(entityType)) return
+      if (!updatedAt || updatedAt < startedAt - 5000 || value?.actorStudentKey !== myStudentKey) return
+      claimAndDispatch(profile, {
+        entityType,
+        entityId: String(value?.entityId || ''),
+        sourceId: `${entityType}:${String(value?.entityId || '')}`,
+        actorStudentKey: String(value?.actorStudentKey || ''),
+        action: value?.action === 'added' ? 'added' : 'edited',
+        updatedAt,
+      }).catch((error) => console.error('Class activity push fallback failed:', error))
+    })
+  })
 
-  const startedAt = Date.now()
-  let ready = false
-  return onSnapshot(
-    collection(db, 'classes', classId, 'academicEvents'),
-    (snapshot) => {
-      if (!ready) {
-        ready = true
-        return
-      }
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'removed') return
-        const value = change.doc.data() || {}
-        const updatedAt = Number(value.updatedAt || 0)
-        if (!updatedAt || updatedAt < startedAt - 5000 || value.lastEditedByStudentKey !== myStudentKey) return
-        claimAndDispatch(profile, {
-          entityType: 'academic',
-          entityId: change.doc.id,
-          sourceId: change.doc.id,
-          actorStudentKey: String(value.lastEditedByStudentKey || ''),
-          action: value.lastAction === 'added' ? 'added' : 'edited',
-          updatedAt,
-        }).catch((error) => console.error('Academic push failed:', error))
-      })
-    },
-    (error) => console.error('Academic push listener failed:', error),
-  )
+  const stopAcademic = subscribeClassLiveData('academic', classId, (events) => {
+    if (!academicReady) {
+      academicReady = true
+      return
+    }
+    ;(Array.isArray(events) ? events : []).forEach((value) => {
+      const updatedAt = Number(value?.updatedAt || 0)
+      if (!updatedAt || updatedAt < startedAt - 5000 || value?.lastEditedByStudentKey !== myStudentKey) return
+      claimAndDispatch(profile, {
+        entityType: 'academic',
+        entityId: String(value?.id || ''),
+        sourceId: String(value?.id || ''),
+        actorStudentKey: String(value?.lastEditedByStudentKey || ''),
+        action: value?.lastAction === 'added' ? 'added' : 'edited',
+        updatedAt,
+      }).catch((error) => console.error('Academic push fallback failed:', error))
+    })
+  })
+
+  return () => {
+    stopActivity()
+    stopAcademic()
+  }
 }
 
 async function startPushBridge() {
@@ -472,8 +440,7 @@ async function startPushBridge() {
     return
   }
 
-  watchOwnActivity(profile)
-  watchOwnAcademic(profile)
+  watchCanonicalPushFallback(profile)
   installPermissionPromptEntryWatcher(profile)
 
   if (Notification.permission === 'granted') {
