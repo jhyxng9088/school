@@ -1,5 +1,6 @@
 import { normalizeWeeklySchedule } from './timetable.js'
 import { LEGACY_SCHOOL_CONTEXT, timetableEndpointForSchoolKind } from './school-directory.js'
+import { isSchoolClosureDayOffType } from './school-day-status.js'
 
 export const NEIS_TIMETABLE_SCHOOL = {
   officeCode: LEGACY_SCHOOL_CONTEXT.officeCode,
@@ -69,12 +70,12 @@ function officialResultCode(payload, endpoint) {
   return result?.CODE ? String(result.CODE) : ''
 }
 
-async function officialTimetableRequest(endpoint, params, signal) {
+async function officialTimetableRequest(endpoint, params, signal, pSize = 5) {
   const url = new URL(`${NEIS_BASE}/${endpoint}`)
   url.searchParams.set('KEY', 'sample')
   url.searchParams.set('Type', 'json')
   url.searchParams.set('pIndex', '1')
-  url.searchParams.set('pSize', '5')
+  url.searchParams.set('pSize', String(pSize))
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && String(value) !== '') {
       url.searchParams.set(key, String(value))
@@ -88,6 +89,32 @@ async function officialTimetableRequest(endpoint, params, signal) {
   if (code === 'INFO-200') return []
   if (code && code !== 'INFO-000') throw new Error(`NEIS 시간표 오류 (${code})`)
   return getOfficialRows(payload, endpoint)
+}
+
+function scheduleRowRelevantToGrade(row, grade) {
+  const flags = [
+    String(row?.ONE_GRADE_EVENT_YN || '').trim().toUpperCase(),
+    String(row?.TW_GRADE_EVENT_YN || '').trim().toUpperCase(),
+    String(row?.THREE_GRADE_EVENT_YN || '').trim().toUpperCase(),
+  ]
+  const anyExplicitGrade = flags.some((value) => value === 'Y')
+  if (!anyExplicitGrade || grade < 1 || grade > 3) return true
+  return flags[grade - 1] === 'Y'
+}
+
+async function fetchOfficialClosedDates(context, week, signal) {
+  const rows = await officialTimetableRequest('SchoolSchedule', {
+    ATPT_OFCDC_SC_CODE: context.officeCode,
+    SD_SCHUL_CODE: context.schoolCode,
+    AA_FROM_YMD: week.weekStart,
+    AA_TO_YMD: week.weekEnd,
+  }, signal, 100)
+
+  return new Set(rows
+    .filter((row) => scheduleRowRelevantToGrade(row, context.grade))
+    .filter((row) => isSchoolClosureDayOffType(row?.SBTR_DD_SC_NM))
+    .map((row) => String(row?.AA_YMD || ''))
+    .filter((rawDate) => /^\d{8}$/.test(rawDate)))
 }
 
 async function fetchMirrorRows(context, classNumber, week, signal) {
@@ -149,7 +176,7 @@ function normalizedRow(row, fallbackClassNumber, fallbackGrade) {
   }
 }
 
-function buildResult(allRows, context, classNumber, week, dataSource) {
+function buildResult(allRows, context, classNumber, week, dataSource, closedDates = new Set()) {
   const deduped = new Map()
   allRows.forEach((row) => {
     const normalized = normalizedRow(row, classNumber, context.grade)
@@ -161,6 +188,7 @@ function buildResult(allRows, context, classNumber, week, dataSource) {
   const rows = [...deduped.values()].sort((a, b) => a.rawDate.localeCompare(b.rawDate) || a.period - b.period)
   const rawSchedule = { mon: {}, tue: {}, wed: {}, thu: {}, fri: {} }
   rows.forEach((row) => {
+    if (closedDates.has(row.rawDate)) return
     const year = Number(row.rawDate.slice(0, 4))
     const month = Number(row.rawDate.slice(4, 6))
     const day = Number(row.rawDate.slice(6, 8))
@@ -182,6 +210,7 @@ function buildResult(allRows, context, classNumber, week, dataSource) {
     weeklySchedule,
     subjectCount,
     dataSource,
+    closedDates: [...closedDates].sort(),
     available: rows.length > 0 && subjectCount > 0,
   }
 }
@@ -193,10 +222,12 @@ export async function fetchClassTimetable(profile, anchor = new Date(), signal) 
 
   const week = neisTargetWeek(anchor)
   let mirrorError = null
+  const closedDatesPromise = fetchOfficialClosedDates(context, week, signal).catch(() => new Set())
 
   try {
     const mirrorRows = await fetchMirrorRows(context, classNumber, week, signal)
-    const mirrorResult = buildResult(mirrorRows, context, classNumber, week, 'NEIS-mirror')
+    const closedDates = await closedDatesPromise
+    const mirrorResult = buildResult(mirrorRows, context, classNumber, week, 'NEIS-mirror', closedDates)
     if (mirrorResult.available) return mirrorResult
   } catch (error) {
     mirrorError = error
@@ -204,7 +235,8 @@ export async function fetchClassTimetable(profile, anchor = new Date(), signal) 
 
   try {
     const officialRows = await fetchOfficialRows(context, classNumber, week, signal)
-    return buildResult(officialRows, context, classNumber, week, 'NEIS-direct')
+    const closedDates = await closedDatesPromise
+    return buildResult(officialRows, context, classNumber, week, 'NEIS-direct', closedDates)
   } catch (error) {
     if (mirrorError) throw mirrorError
     throw error

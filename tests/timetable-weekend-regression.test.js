@@ -31,7 +31,7 @@ test('temporary change defaults to the next real school day after classes finish
 test('timetable page follows the date that was temporarily changed and uses polite modal copy', () => {
   const main = fs.readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8')
   assert.match(main, /setWeekAnchor\(selectedDate\)/)
-  assert.match(main, /getNextSchoolDate\(now, currentState\.kind === 'done'\)/)
+  assert.match(main, /nextOpenSchoolDate\(now, schoolData\?\.academicEvents,[\s\S]*includeAnchor: currentState\.kind !== 'done'/)
   assert.ok(main.includes('기본 시간표는 그대로 두고 선택한 날짜에만 적용됩니다. 지나면 자동으로 기본 시간표로 돌아옵니다.'))
   assert.ok(!main.includes('기본 시간표로 돌아와.'))
 })

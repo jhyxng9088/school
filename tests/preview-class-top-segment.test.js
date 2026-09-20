@@ -42,6 +42,14 @@ test('class navigation uses the same canonical top-segment spring owner as sched
   assert.doesNotMatch(source, /className=\{`class-nav-capsule/)
 })
 
+test('class timetable keeps the source-owned school closure data prop', () => {
+  const source = buildFinalMain()
+  const classStart = source.indexOf('class: (')
+  const classEnd = source.indexOf('ai: <PreviewAIPage', classStart)
+  assert.ok(classStart >= 0 && classEnd > classStart)
+  assert.match(source.slice(classStart, classEnd), /<TimetablePage[\s\S]*schoolData=\{schoolData\}/)
+})
+
 test('bottom nav no longer runs nested class geometry or class layout springs', () => {
   const source = buildFinalMain()
   assert.doesNotMatch(source, /const classMiniSpring = useStationLikePillSpring/)
