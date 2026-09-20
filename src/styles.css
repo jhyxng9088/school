@@ -664,6 +664,13 @@ button {
   transform-origin: 50% 20%;
 }
 
+/* In installed iOS mode the translucent status area becomes part of the viewport.
+   Add the safe inset to the existing 32px app spacing so content keeps the same
+   physical vertical position it had with the system-owned status bar. */
+html.school-ios-standalone .app-content {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 32px);
+}
+
 @keyframes content-in {
   from {
     opacity: 0;
