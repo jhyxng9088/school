@@ -112,6 +112,32 @@
   }
 }
 
+@keyframes reminder-row-mount {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 7px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes reminder-row-collapse {
+  from {
+    max-height: var(--reminder-row-max-height, 180px);
+    min-height: var(--reminder-row-min-height, 78px);
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    max-height: 0;
+    min-height: 0;
+    opacity: 0;
+    transform: translate3d(0, -5px, 0);
+  }
+}
+
 .todo-item.is-state-entering {
   animation: todo-item-state-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
   will-change: opacity, transform;
