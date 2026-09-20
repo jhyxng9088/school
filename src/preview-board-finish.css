@@ -36,7 +36,7 @@
   }
 }
 
-html body .app-content:has(.preview-board-page),
+html body .app-content.tab-class,
 .class-station-panel.is-board {
   animation: none !important;
 }

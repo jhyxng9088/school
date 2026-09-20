@@ -131,9 +131,8 @@ test('class and schedule top segments share one canonical spring owner', () => {
   )
   assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
   assert.match(helper, /deform: true/)
-  assert.match(helper, /shellElastic = true/)
-  assert.match(helper, /shellElastic,/)
-  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex, \{ shellElastic: false \}\)/)
+  assert.match(helper, /shellElastic: true/)
+  assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
   assert.doesNotMatch(classComponent, /useSHubSegmentSpring|deform:/)
   assert.match(schedule, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
   assert.match(spring, /stiffness: 56/)
@@ -154,21 +153,23 @@ test('fresh board launch warms built-in sections before the general response', (
 
 test('schedule top segment keeps bottom-nav pill and shell physics coupled', () => {
   const segment = read('src/preview-class-top-segment-patch.js')
-  const start = segment.indexOf('function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {')
+  const start = segment.indexOf('function useClassTopSegmentSpring(activeIndex) {')
   const end = segment.indexOf('function ClassTopSegment', start)
   const helper = segment.slice(start, end)
   assert.match(helper, /deform: true/)
-  assert.match(helper, /shellElastic = true/)
-  assert.match(helper, /shellElastic,/)
+  assert.match(helper, /shellElastic: true/)
 })
 
 
 test('class section entry motion is scoped below the persistent top segment', () => {
   const classSegment = read('src/preview-class-top-segment-patch.js')
   const board = read('src/preview-board.css')
+  const boardFinish = read('src/preview-board-finish.css')
   assert.match(board, /\.class-station-panel \{[\s\S]*animation: class-station-panel-enter/)
   assert.match(
     classSegment,
     /\.class-station-page > \.class-top-segment,[\s\S]*animation: none !important;/,
   )
+  assert.match(boardFinish, /html body \.app-content\.tab-class,[\s\S]*animation: none !important;/)
+  assert.doesNotMatch(boardFinish, /\.app-content:has\(\.preview-board-page\)/)
 })

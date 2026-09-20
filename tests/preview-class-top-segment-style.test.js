@@ -41,10 +41,9 @@ test('class segment shares the same canonical spring owner as schedule', () => {
   )
   assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
   assert.match(helper, /deform: true/)
-  assert.match(helper, /shellElastic = true/)
-  assert.match(helper, /shellElastic,/)
+  assert.match(helper, /shellElastic: true/)
   assert.match(component, /const activeIndex = section === 'timetable' \? 1 : 0/)
-  assert.match(component, /const spring = useClassTopSegmentSpring\(activeIndex, \{ shellElastic: false \}\)/)
+  assert.match(component, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
   assert.doesNotMatch(component, /useSHubSegmentSpring|deform:|baseRadius:|minRadius:/)
   assert.match(component, /ref=\{spring\.containerRef\}/)
   assert.match(component, /ref=\{spring\.indicatorRef\}/)
@@ -72,12 +71,16 @@ test('class top segment never replays the Board-Timetable content entry animatio
 })
 
 
-test('class Board-Timetable switch keeps the outer segment shell physically static', () => {
+test('class Board-Timetable switch keeps the outer segment shell elastically coupled', () => {
   const source = read('src/preview-class-top-segment-patch.js')
+  const helper = source.slice(
+    source.indexOf('function useClassTopSegmentSpring'),
+    source.indexOf('function ClassTopSegment'),
+  )
   const component = source.slice(
     source.indexOf('function ClassTopSegment'),
     source.indexOf('function ClassStationPage'),
   )
-  assert.match(component, /useClassTopSegmentSpring\(activeIndex, \{ shellElastic: false \}\)/)
-  assert.match(source, /function useClassTopSegmentSpring\(activeIndex, \{ shellElastic = true \} = \{\}\)/)
+  assert.match(component, /useClassTopSegmentSpring\(activeIndex\)/)
+  assert.match(helper, /shellElastic: true/)
 })
