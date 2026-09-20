@@ -8,7 +8,7 @@ test('notification prompt is offered whenever permission is not granted', () => 
   assert.match(source, /Notification\.permission === 'granted'\) return/)
   assert.doesNotMatch(source, /PROMPT_SESSION_KEY|school\.pushPromptSeen|sessionStorage\.getItem/)
   assert.match(source, /permissionDenied = Notification\.permission === 'denied'/)
-  assert.match(source, /기기 설정에서 S-Hub 알림을 허용해줘/)
+  assert.match(source, /기기 설정에서 S-Hub 알림을 허용해 주세요/)
 })
 
 test('returning to the app offers the prompt again and refreshes granted subscriptions', () => {
