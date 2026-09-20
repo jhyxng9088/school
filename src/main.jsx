@@ -237,7 +237,7 @@ function CurrentClassPreview({ schoolState, now }) {
     label = schoolState.closure ? '휴업일' : '오늘'
     title = schoolState.closure?.label || '수업 없는 날'
     description = schoolState.closure
-      ? `${schoolState.closure.dayOffType || '휴업일'} · 기본 시간표는 그대로 유지돼.`
+      ? `${schoolState.closure.dayOffType || '휴업일'} · 기본 시간표는 그대로 유지됩니다.`
       : '오늘은 정규 수업이 없어.'
   } else if (schoolState.kind === 'before') {
     label = '수업 전'
@@ -878,7 +878,7 @@ function TimetablePage({
           ) : selectedDateIsPast ? (
             <p className="change-warning">지난 날짜의 시간표는 변경할 수 없어.</p>
           ) : selectedClosure ? (
-            <p className="change-warning">{selectedClosure.label} · 휴업일에는 정규 시간표 변경을 추가하지 않아.</p>
+            <p className="change-warning">{selectedClosure.label} · 휴업일에는 정규 시간표 변경을 추가할 수 없습니다.</p>
           ) : !availablePeriods.length ? (
             <p className="change-warning">오늘 이미 끝난 교시는 변경할 수 없어.</p>
           ) : (
