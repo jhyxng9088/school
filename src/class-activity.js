@@ -172,7 +172,6 @@ export function useClassActivity(profile = null) {
     let stopRealtime = () => {}
     let stopFirestore = () => {}
     let firestoreFallbackActive = false
-    let realtimeConnectedOnce = false
 
     const commitActivity = (next) => {
       if (stopped) return
@@ -262,10 +261,6 @@ export function useClassActivity(profile = null) {
             startFirestoreFallback()
           },
           onAvailable: () => {
-            if (!realtimeConnectedOnce) {
-              realtimeConnectedOnce = true
-              return
-            }
             refreshSupabase()
               .then(() => stopFirestoreFallback())
               .catch(() => startFirestoreFallback())
