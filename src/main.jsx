@@ -336,8 +336,17 @@ function TimetablePreview({ schedule, now, configured, title = '오늘 시간표
   )
 }
 
-function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI, onNavigate }) {
+function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI, onNavigate, launchSurfaceRef }) {
   const { homeStackRef, mealPriority } = useHomeMealPriority(now)
+
+  useLayoutEffect(() => {
+    if (!launchSurfaceRef) return undefined
+    const stack = homeStackRef.current
+    launchSurfaceRef.current = stack
+    return () => {
+      if (launchSurfaceRef.current === stack) launchSurfaceRef.current = null
+    }
+  }, [homeStackRef, launchSurfaceRef])
   const today = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
@@ -1016,6 +1025,7 @@ function AppShell({ profile }) {
   const [activeTab, setActiveTab] = useState('home')
   const [contentDirection, setContentDirection] = useState(1)
   const [aiOpen, setAiOpen] = useState(false)
+  const launchHomeSurfaceRef = useRef(null)
 
   useLayoutEffect(() => {
     const resetScroll = () => {
@@ -1060,28 +1070,61 @@ function AppShell({ profile }) {
     if (!launch) return undefined
 
     launch.progress?.(launchHomeReady ? .985 : .86)
-    let firstFrame = null
-    let secondFrame = null
+    let paintFrame = null
+    let stablePaintFrames = 0
+    let finished = false
 
-    const finish = () => {
-      if (firstFrame !== null) return
-      firstFrame = window.requestAnimationFrame(() => {
-        secondFrame = window.requestAnimationFrame(() => {
-          launch.ready?.({ settleMs: 40 })
-        })
+    const homeSurfaceHasPaintableLayout = () => {
+      const stack = launchHomeSurfaceRef.current
+      if (!stack?.isConnected || stack.childElementCount < 6) return false
+
+      const content = stack.closest('.app-content.tab-home')
+      if (!content) return false
+
+      const contentRect = content.getBoundingClientRect()
+      const stackRect = stack.getBoundingClientRect()
+      if (contentRect.width <= 0 || contentRect.height <= 0 || stackRect.width <= 0 || stackRect.height <= 0) {
+        return false
+      }
+
+      return Array.from(stack.children).every((node) => {
+        const rect = node.getBoundingClientRect()
+        return rect.width > 0 && rect.height > 0
       })
     }
 
-    if (launchHomeReady) finish()
+    const finishAfterPaint = () => {
+      paintFrame = null
+      if (finished) return
 
-    // Never hold the user behind a slow remote source. Cached state remains
-    // visible and the same canonical listeners keep reconciling after reveal.
-    const fallback = window.setTimeout(finish, 1400)
+      if (homeSurfaceHasPaintableLayout()) stablePaintFrames += 1
+      else stablePaintFrames = 0
+
+      if (stablePaintFrames < 2) {
+        paintFrame = window.requestAnimationFrame(finishAfterPaint)
+        return
+      }
+
+      finished = true
+      launch.progress?.(.995)
+      launch.ready?.({ settleMs: 24 })
+    }
+
+    const requestFinishAfterPaint = () => {
+      if (finished || paintFrame !== null) return
+      paintFrame = window.requestAnimationFrame(finishAfterPaint)
+    }
+
+    if (launchHomeReady) requestFinishAfterPaint()
+
+    // Keep the bounded fallback for slow remote sources, but never reveal a
+    // blank or partially laid-out Home shell. The canonical owners keep
+    // reconciling late network data after the first paint is safely visible.
+    const fallback = window.setTimeout(requestFinishAfterPaint, 1400)
 
     return () => {
       window.clearTimeout(fallback)
-      if (firstFrame !== null) window.cancelAnimationFrame(firstFrame)
-      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame)
+      if (paintFrame !== null) window.cancelAnimationFrame(paintFrame)
     }
   }, [launchHomeReady])
   const activity = useClassActivity(profile)
@@ -1385,6 +1428,7 @@ function AppShell({ profile }) {
         todoData={todoData}
         presence={presence}
         academicData={academicData}
+        launchSurfaceRef={launchHomeSurfaceRef}
         onOpenAI={() => setAiOpen(true)}
       />
     ),
