@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { fetchGrade2ClassTimetable, neisTargetWeek } from '../src/neis-timetable.js'
@@ -166,4 +167,15 @@ test('official SchoolSchedule closure dates are removed from instructional weekl
   } finally {
     global.fetch = originalFetch
   }
+})
+
+
+test('closure weeks never write the NEIS weekly result back over the base timetable', () => {
+  const syncSource = fs.readFileSync(new URL('../src/neis-timetable-sync.js', import.meta.url), 'utf8')
+  const closureAt = syncSource.indexOf('const closureWeek =')
+  const writeAt = syncSource.indexOf('await writeNeisTimetableThroughServer(result, cached)')
+  assert.ok(closureAt >= 0)
+  assert.ok(writeAt > closureAt)
+  assert.match(syncSource.slice(closureAt, writeAt), /reason: 'school_closed_week'/)
+  assert.match(syncSource, /school\.neisTimetableSync\.v3/)
 })
