@@ -170,12 +170,13 @@ test('official SchoolSchedule closure dates are removed from instructional weekl
 })
 
 
-test('closure weeks never write the NEIS weekly result back over the base timetable', () => {
+test('closure weeks repair an already contaminated base from a nearby instructional week', () => {
   const syncSource = fs.readFileSync(new URL('../src/neis-timetable-sync.js', import.meta.url), 'utf8')
-  const closureAt = syncSource.indexOf('const closureWeek =')
-  const writeAt = syncSource.indexOf('await writeNeisTimetableThroughServer(result, cached)')
-  assert.ok(closureAt >= 0)
-  assert.ok(writeAt > closureAt)
-  assert.match(syncSource.slice(closureAt, writeAt), /reason: 'school_closed_week'/)
-  assert.match(syncSource, /school\.neisTimetableSync\.v3/)
+  assert.match(syncSource, /school\.neisTimetableSync\.v4/)
+  assert.match(syncSource, /function timetableResultHasClosure\(result\)/)
+  assert.match(syncSource, /const offsets = \[-7, -14, 7, 14\]/)
+  assert.match(syncSource, /const reference = await findInstructionalReferenceTimetable\(profile, anchor\)/)
+  assert.match(syncSource, /await writeNeisTimetableThroughServer\(reference, cached\)/)
+  assert.match(syncSource, /reason: 'school_closed_week_repaired'/)
+  assert.match(syncSource, /repairedFromWeekStart: reference\.weekStart/)
 })
