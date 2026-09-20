@@ -295,7 +295,7 @@ async function ensureStoredProfileIdentity(user) {
   if (!classId || !studentKey || !signature) return user
 
   const cacheKey = `${user.uid}|${signature}`
-  if (identitySyncMarkerMatches(cacheKey)) return user
+  if (identitySyncMarkerMatches(cacheKey) && identitySyncPromises.has(cacheKey)) return user
 
   if (!identitySyncPromises.has(cacheKey)) {
     const pending = (async () => {
