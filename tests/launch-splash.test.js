@@ -123,6 +123,10 @@ test('auth revalidation starts before the main app mounts', () => {
   assert.ok(mainLoadAt > warmAt)
 })
 
+test('service worker refresh tolerates a missing registration object', () => {
+  assert.match(main, /registration\?\.update\?\.\(\)\.catch\(\(\) => \{\}\)/)
+})
+
 
 test('launch avoids the duplicate preload graph and crossfades into the mounted app', () => {
   assert.doesNotMatch(indexHtml, /modulepreload" href="\/src\/launch-data-preload\.js"/)
