@@ -60,7 +60,8 @@ test('configured launch mounts canonical owners immediately but reveals only aft
   assert.match(bootstrap, /mainModule\.mountMainApp\(\)/)
   assert.match(main, /export function mountMainApp\(\)/)
   assert.match(main, /const launchHomeSurfaceRef = useRef\(null\)/)
-  assert.match(main, /const launchHomeReady = presence\?\.ready === true && todoData\.ready === true/)
+  assert.match(main, /launchReady: timetableLaunchReady/)
+  assert.match(main, /const launchHomeReady = presence\?\.ready === true[\s\S]*todoData\.ready === true[\s\S]*timetableLaunchReady === true/)
   assert.match(main, /stack\.childElementCount < 5/)
   assert.match(main, /stack\.closest\('\.app-content\.tab-home'\)/)
   assert.match(main, /stablePaintFrames < 2/)
@@ -152,4 +153,18 @@ test('launch avoids duplicate hydration and crossfades only after real Home layo
   assert.match(main, /stablePaintFrames \+= 1/)
   assert.match(main, /launch\.ready\?\.\(\{ settleMs: 24 \}\)/)
   assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1400\)/)
+})
+
+
+test('launch waits for timetable only when its local cache is missing', () => {
+  const timetable = fs.readFileSync(new URL('../src/timetable.js', import.meta.url), 'utf8')
+  const sync = fs.readFileSync(new URL('../src/school-sync.js', import.meta.url), 'utf8')
+  assert.match(timetable, /export function hasStoredWeeklySchedule\(\)/)
+  assert.match(sync, /useState\(\(\) => hasStoredWeeklySchedule\(\)\)/)
+  assert.match(sync, /setSharedLaunchReady\(true\)/)
+  assert.match(sync, /launchReady: sharedLaunchReady && personalLaunchReady/)
+  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1400\)/)
+  const gateAt = main.indexOf('const launchHomeReady =')
+  const gate = main.slice(gateAt, main.indexOf('\n\n  useEffect', gateAt))
+  assert.doesNotMatch(gate, /board|academic|meal/)
 })
