@@ -174,6 +174,7 @@ export function nextOpenSchoolDate(anchor, academicEvents = [], {
   includeAnchor = false,
   maxDays = 21,
   scheduleForDate = null,
+  cachedClosures = [],
 } = {}) {
   const date = new Date(anchor)
   date.setHours(12, 0, 0, 0)
@@ -182,7 +183,7 @@ export function nextOpenSchoolDate(anchor, academicEvents = [], {
   for (let index = 0; index <= maxDays; index += 1) {
     const day = date.getDay()
     const schedule = typeof scheduleForDate === 'function' ? scheduleForDate(date) : []
-    if (day !== 0 && day !== 6 && !schoolClosureForDate(date, academicEvents, schedule)) return date
+    if (day !== 0 && day !== 6 && !schoolClosureForDate(date, academicEvents, schedule, cachedClosures)) return date
     date.setDate(date.getDate() + 1)
   }
 
