@@ -381,7 +381,8 @@ html[data-theme-mode="light"][data-theme-accent] {
   width: 100% !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   margin: 0 !important;
-  contain: layout paint !important;
+  /* Keep paint overflow visible so the shared segment spring can stretch the outer shell. */
+  contain: layout !important;
   transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;

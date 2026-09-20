@@ -94,7 +94,8 @@ test('theme settings UI owns a real circular settings button, reuses UnifiedBott
 test('theme mode labels paint as one fixed visual layer while the canonical pill remains the only moving selector', () => {
   const css = read('src/theme-preferences.css')
 
-  assert.match(css, /\.theme-mode-segment \{[\s\S]*contain: layout paint !important[\s\S]*transform: translateZ\(0\)/)
+  assert.match(css, /\.theme-mode-segment \{[\s\S]*contain: layout !important[\s\S]*transform: translateZ\(0\)/)
+  assert.doesNotMatch(css, /\.theme-mode-segment \{[\s\S]*contain: layout paint !important/)
   assert.match(css, /\.theme-mode-segment \.class-top-segment-button \{[\s\S]*animation: none !important[\s\S]*color: transparent !important/)
   assert.match(css, /\.theme-mode-label \{[\s\S]*clip-path: inset\(50%\) !important[\s\S]*animation: none !important[\s\S]*transition: none !important/)
   assert.match(css, /\.theme-mode-label-layer \{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)[\s\S]*pointer-events: none[\s\S]*contain: paint/)
