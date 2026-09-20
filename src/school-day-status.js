@@ -125,7 +125,10 @@ export function mergeSchoolClosureSnapshot(profile, values) {
 export function closuresFromAcademicEvents(events = []) {
   return normalizedClosureList(
     (Array.isArray(events) ? events : [])
-      .filter((event) => isSchoolClosureDayOffType(event?.dayOffType))
+      .filter((event) => (
+        isSchoolClosureDayOffType(event?.dayOffType)
+        || isNonInstructionalSchoolLabel(event?.name)
+      ))
       .map((event) => ({
         rawDate: event.rawDate,
         label: event.name || event.dayOffType || '휴업일',
