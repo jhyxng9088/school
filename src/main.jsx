@@ -51,6 +51,7 @@ import { useHomeMealPriority } from './home-meal-priority.js'
 import { ThemeSettingsIsland } from './theme-settings-entry.jsx'
 import { installThemePreferenceSync } from './theme-sync.js'
 import { StudentSetup } from './student-setup.jsx'
+import { nextOpenSchoolDate, schoolClosureForDate } from './school-day-status.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -233,9 +234,11 @@ function CurrentClassPreview({ schoolState, now }) {
   let nextValue = '—'
 
   if (schoolState.kind === 'off') {
-    label = '오늘'
-    title = '수업 없는 날'
-    description = '오늘은 정규 수업이 없어.'
+    label = schoolState.closure ? '휴업일' : '오늘'
+    title = schoolState.closure?.label || '수업 없는 날'
+    description = schoolState.closure
+      ? `${schoolState.closure.dayOffType || '휴업일'} · 기본 시간표는 그대로 유지돼.`
+      : '오늘은 정규 수업이 없어.'
   } else if (schoolState.kind === 'before') {
     label = '수업 전'
     title = subjectName(schoolState.next)
@@ -292,13 +295,13 @@ function CurrentClassPreview({ schoolState, now }) {
   )
 }
 
-function TimetablePreview({ schedule, now, configured, title = '오늘 시간표', futureDay = false }) {
+function TimetablePreview({ schedule, now, configured, title = '오늘 시간표', futureDay = false, closure = null }) {
   if (!schedule.length) {
     return (
       <section className="home-section home-nav-native-surface" data-home-nav-ready="true">
         <HomeNavAction tab="class" section="timetable" label="시간표 열기" />
         <SectionTitle>{title}</SectionTitle>
-        <div className="today-timetable-empty">{futureDay ? '내일은 정규 수업이 없어.' : '오늘은 정규 수업이 없어.'}</div>
+        <div className="today-timetable-empty">{closure ? `${closure.label} · 휴업일` : futureDay ? '내일은 정규 수업이 없어.' : '오늘은 정규 수업이 없어.'}</div>
       </section>
     )
   }
@@ -352,7 +355,11 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
     day: 'numeric',
     weekday: 'long',
   }).format(now)
-  const schoolState = getSchoolState(now, weeklySchedule, overrides)
+  const todayClosure = schoolClosureForDate(now, schoolData?.academicEvents)
+  const baseSchoolState = getSchoolState(now, weeklySchedule, overrides)
+  const schoolState = todayClosure
+    ? { ...baseSchoolState, kind: 'off', schedule: [], current: null, next: null, closure: todayClosure }
+    : baseSchoolState
   const showTomorrowTimetable = schoolState.kind === 'done'
   const timetablePreviewDate = showTomorrowTimetable
     ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12, 0, 0, 0)
@@ -405,6 +412,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
           configured={schoolState.configured}
           title={showTomorrowTimetable ? '내일 시간표' : '오늘 시간표'}
           futureDay={showTomorrowTimetable}
+          closure={showTomorrowTimetable ? null : todayClosure}
         />
         <SharedAcademicPreview now={now} schoolData={schoolData} academicData={academicData} />
         <Stage3MealPreview now={now} schoolData={schoolData} />
@@ -450,6 +458,7 @@ function TimetablePage({
   onSavePersonalOverrides,
   activity,
   profile,
+  schoolData,
   requireOnline = () => true,
 }) {
   const movingClass = Number(profile?.classNumber) >= 7 && Number(profile?.classNumber) <= 15
@@ -467,7 +476,16 @@ function TimetablePage({
   const [weekAnchor, setWeekAnchor] = useState(() => getTimetableWeekAnchor(now))
 
   const weekDates = useMemo(() => getWeekDates(weekAnchor), [dateKey(weekAnchor)])
-  const currentState = getSchoolState(now, weeklySchedule, displayOverrides)
+  const weekClosureByDate = useMemo(() => Object.fromEntries(
+    weekDates
+      .map((date) => [dateKey(date), schoolClosureForDate(date, schoolData?.academicEvents)])
+      .filter(([, closure]) => Boolean(closure)),
+  ), [weekDates.map(dateKey).join('|'), schoolData?.academicEvents])
+  const currentClosure = schoolClosureForDate(now, schoolData?.academicEvents)
+  const baseCurrentState = getSchoolState(now, weeklySchedule, displayOverrides)
+  const currentState = currentClosure
+    ? { ...baseCurrentState, kind: 'off', schedule: [], current: null, next: null, closure: currentClosure }
+    : baseCurrentState
 
   useEffect(() => {
     setWeekAnchor(getTimetableWeekAnchor(now))
@@ -477,8 +495,9 @@ function TimetablePage({
   const selectedDay = getDayForDate(selectedDate)
   const selectedDateIsPast = Boolean(changeDate && changeDate < todayKey)
   const selectedDateIsToday = changeDate === todayKey
+  const selectedClosure = schoolClosureForDate(selectedDate, schoolData?.academicEvents)
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
-  const availablePeriods = selectedDay && !selectedDateIsPast
+  const availablePeriods = selectedDay && !selectedDateIsPast && !selectedClosure
     ? getPeriodsForDay(selectedDay.id).filter((period) => !selectedDateIsToday || timeToMinutes(period.end) > nowMinutes)
     : []
   const availablePeriodSignature = availablePeriods.map((period) => period.number).join(',')
@@ -524,7 +543,9 @@ function TimetablePage({
 
   function openChange(scope = 'shared') {
     if (!requireOnline('시간표를 수정')) return
-    const initialDate = getNextSchoolDate(now, currentState.kind === 'done')
+    const initialDate = nextOpenSchoolDate(now, schoolData?.academicEvents, {
+      includeAnchor: currentState.kind !== 'done',
+    })
     setChangeScope(movingClass ? scope : 'shared')
     setChangeDate(dateKey(initialDate))
     setChangeSubject('')
@@ -704,7 +725,7 @@ function TimetablePage({
           <div className="week-corner">교시</div>
           {weekDates.map((date, index) => (
             <div
-              className={`week-day-head ${dateKey(date) === todayKey && !editing ? 'today' : ''}`}
+              className={`week-day-head ${dateKey(date) === todayKey && !editing ? 'today' : ''} ${!editing && weekClosureByDate[dateKey(date)] ? 'is-school-closed' : ''}`.trim()}
               key={WEEKDAYS[index].id}
             >
               <strong>{WEEKDAYS[index].label}</strong>
@@ -724,6 +745,7 @@ function TimetablePage({
                 const daySchedule = getScheduleForDate(date, weeklySchedule, displayOverrides)
                 const item = daySchedule.find((entry) => entry.number === period.number)
                 const outsideBaseSchedule = period.number > day.regularPeriodCount
+                const schoolClosure = weekClosureByDate[dateKey(date)] || null
 
                 if (editing) {
                   if (outsideBaseSchedule) {
@@ -741,6 +763,23 @@ function TimetablePage({
                         maxLength={20}
                         autoComplete="off"
                       />
+                    </div>
+                  )
+                }
+
+                if (schoolClosure) {
+                  return (
+                    <div
+                      className={`week-cell is-school-closed ${period.number === 1 ? 'is-school-closed-label' : ''}`.trim()}
+                      key={`${day.id}-${period.number}`}
+                      aria-label={period.number === 1 ? `${schoolClosure.label} 휴업일` : undefined}
+                    >
+                      {period.number === 1 ? (
+                        <span className="school-closed-copy">
+                          <strong>{schoolClosure.label}</strong>
+                          <small>휴업일</small>
+                        </span>
+                      ) : null}
                     </div>
                   )
                 }
@@ -838,6 +877,8 @@ function TimetablePage({
             <p className="change-warning">토·일요일에는 정규 시간표를 변경할 수 없어.</p>
           ) : selectedDateIsPast ? (
             <p className="change-warning">지난 날짜의 시간표는 변경할 수 없어.</p>
+          ) : selectedClosure ? (
+            <p className="change-warning">{selectedClosure.label} · 휴업일에는 정규 시간표 변경을 추가하지 않아.</p>
           ) : !availablePeriods.length ? (
             <p className="change-warning">오늘 이미 끝난 교시는 변경할 수 없어.</p>
           ) : (
@@ -1448,6 +1489,7 @@ function AppShell({ profile }) {
         onSavePersonalOverrides={commitPersonalOverrides}
         activity={activity}
         profile={profile}
+        schoolData={schoolData}
         requireOnline={requireOnline}
       />
     ),
