@@ -76,7 +76,7 @@ function routinePushPaused(tag, nowMs = Date.now()) {
 async function notificationBodyForProfile(body) {
   const studentKey = await readNotificationToneProfile()
   if (studentKey !== PERSONALIZED_STUDENT_KEY) return body
-  return `☺️ ${String(body || '').trim()} 잊지 않도록 알려 드리겠습니다. 오늘도 무리하지 마시고 잘 챙겨 주세요. 좋은 하루 보내세요!`.slice(0, 220)
+  return `☺️ ${String(body || '').trim()} 잊지 않도록 알려 드릴게요. 오늘도 무리하지 말고 잘 챙겨 주세요. 좋은 하루 보내세요!`.slice(0, 220)
 }
 
 function tabFromUrl(value) {
@@ -97,7 +97,7 @@ self.addEventListener('push', (event) => {
   }
 
   const title = String(payload.title || 'S-Hub').slice(0, 80)
-  const body = String(payload.body || '새로운 알림이 있습니다.').slice(0, 220)
+  const body = String(payload.body || '새로운 알림이 있어요.').slice(0, 220)
   const tag = String(payload.tag || `school-push-${Date.now()}`).slice(0, 120)
 
   event.waitUntil((async () => {
