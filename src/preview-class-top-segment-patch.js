@@ -27,6 +27,14 @@ const CLASS_TOP_SEGMENT_CSS = `
   min-width: 0;
 }
 
+/* Board/Timetable content is allowed to re-enter, but the persistent top segment
+   itself must never inherit or restart a page-entry animation. Its moving pill
+   and elastic shell remain owned exclusively by useClassTopSegmentSpring. */
+.class-station-page > .class-top-segment,
+.class-station-page > .class-top-segment::before {
+  animation: none !important;
+}
+
 .class-top-segment {
   --segment-padding: 5px;
   position: relative;

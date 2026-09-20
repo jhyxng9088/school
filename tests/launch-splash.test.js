@@ -66,8 +66,7 @@ test('configured launch evaluates main code in parallel but mounts only after fr
   assert.match(preload, /preloadSchoolData/)
   assert.match(preload, /preloadPreviewBoard/)
   assert.match(preload, /preloadPreviewStudy/)
-  assert.match(preload, /preloadThemePreferences/)
-  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 6500/)
+  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 5200/)
   assert.doesNotMatch(main, /window\.setTimeout\(finish, 1800\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
 })
@@ -93,8 +92,8 @@ test('launch color follows the interpolated loading progress instead of switchin
 
 
 test('failed launch sources do not hold the app behind long retry backoff', () => {
-  assert.match(preload, /const delays = \[0, 220\]/)
-  assert.doesNotMatch(preload, /720/)
+  assert.match(preload, /const delays = \[0, 140\]/)
+  assert.doesNotMatch(preload, /220|720/)
 })
 
 
@@ -111,4 +110,18 @@ test('fresh iOS installs keep the stable status-bar layout while launch origins 
 test('synced theme can retarget the active launch surface', () => {
   assert.match(indexHtml, /function refreshLaunchTheme\(\)/)
   assert.match(indexHtml, /refreshTheme: refreshLaunchTheme/)
+})
+
+
+test('theme preference sync no longer blocks school-data launch hydration', () => {
+  assert.doesNotMatch(preload, /preloadThemePreferences/)
+  assert.doesNotMatch(preload, /label: 'theme'/)
+})
+
+
+test('auth revalidation starts before the larger launch preload module resolves', () => {
+  const warmAt = bootstrap.indexOf('void ensureSignedIn().catch')
+  const preloadImportAt = bootstrap.indexOf("import('./launch-data-preload.js')")
+  assert.ok(warmAt >= 0)
+  assert.ok(preloadImportAt > warmAt)
 })

@@ -59,3 +59,13 @@ test('downstream class segment style build owner is retired', () => {
   assert.doesNotMatch(vite, /preview-class-top-segment-style-patch\.js/)
   assert.match(vite, /patchPreviewClassTopSegmentSource\(next, cleanId\)/)
 })
+
+
+test('class top segment never replays the Board-Timetable content entry animation', () => {
+  const styles = patchPreviewClassTopSegmentSource('', '/workspace/src/styles.css')
+  assert.match(
+    styles,
+    /\.class-station-page > \.class-top-segment,[\s\S]*\.class-station-page > \.class-top-segment::before \{[\s\S]*animation: none !important;/,
+  )
+  assert.match(styles, /\.class-top-segment::before[\s\S]*--segment-shell-shift-x/)
+})
