@@ -7,19 +7,14 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
-test('meal home preview owns native semantic navigation', () => {
+test('meal home preview uses the same React-owned navigation callback pattern as overview cards', () => {
   const meal = read('src/home-meal-preview.jsx')
-  const action = read('src/home-nav-action.jsx')
+  const main = read('src/main.jsx')
 
-  assert.match(meal, /import \{ HomeNavAction \} from '\.\/home-nav-action\.jsx'/)
-  assert.match(meal, /home-nav-native-surface" data-home-nav-ready="true"/)
-  assert.match(meal, /<HomeNavAction tab="schedule" section="meal" label="급식 열기" \/>/)
-
-  assert.match(action, /<button[\s\S]*type="button"/)
-  assert.match(action, /window\.SHubNavigation\?\.navigate\(\{ tab, section \}\)/)
-  assert.doesNotMatch(action, /role=/)
-  assert.doesNotMatch(action, /tabIndex=/)
-  assert.doesNotMatch(action, /onKeyDown=/)
+  assert.doesNotMatch(meal, /HomeNavAction/)
+  assert.match(meal, /<button[\s\S]*className="meal-preview-action"[\s\S]*onClick=\{\(\) => onNavigate\?\.\('meal'\)\}/)
+  assert.match(main, /<Stage3MealPreview now=\{now\} schoolData=\{schoolData\} onNavigate=\{onNavigate\} \/>/)
+  assert.match(main, /if \(target === 'meal'\) \{\s*setScheduleSection\('meal'\)\s*changeTab\('schedule'\)/)
 })
 
 test('academic home preview owns native semantic navigation', () => {
@@ -45,12 +40,19 @@ test('home dashboard styling never converts the native navigation overlay into l
 })
 
 
-test('home meal preview is a full clickable dashboard card routed by the semantic navigation owner', () => {
+test('home meal preview is a full native-button dashboard card', () => {
   const meal = read('src/home-meal-preview.jsx')
   const styles = read('src/styles.css')
 
-  assert.match(meal, /meal-preview stage3-home-block home-nav-native-surface/)
-  assert.match(meal, /<HomeNavAction tab="schedule" section="meal" label="급식 열기" \/>/)
-  assert.match(styles, /\.app-content\.tab-home \.meal-preview \{[\s\S]*padding-bottom: 17px;[\s\S]*cursor: pointer;/)
+  assert.match(meal, /className="home-section meal-preview stage3-home-block"/)
+  assert.match(meal, /type="button"[\s\S]*className="meal-preview-action"/)
+  assert.match(styles, /\.app-content\.tab-home \.meal-preview-action \{[\s\S]*width: 100%;[\s\S]*touch-action: manipulation;/)
   assert.match(styles, /\.app-content\.tab-home \.todo-home-preview,[\s\S]*\.app-content\.tab-home \.meal-preview \{[\s\S]*border: 1px solid var\(--border\);/)
+})
+
+
+test('important home academic item is a rounded nested highlight instead of a square strip', () => {
+  const styles = read('src/styles.css')
+
+  assert.match(styles, /\.academic-preview \.academic-home-item\.is-important \{[\s\S]*border-radius: 14px;[\s\S]*background:/)
 })
