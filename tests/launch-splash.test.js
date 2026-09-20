@@ -75,9 +75,13 @@ test('launch shell cache advances so installed PWAs receive the new boot surface
 })
 
 
-test('launch color follows the interpolated loading progress instead of switching immediately', () => {
+test('launch color and bar move continuously between data milestones', () => {
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
+  assert.match(indexHtml, /progressPainted: 0\.015/)
+  assert.match(indexHtml, /const continuous = launchState\.progressPainted \+ \(delta \* \(finalizing \? \.00004 : \.000012\)\)/)
+  assert.match(indexHtml, /const cap = finalizing \? 1 : \.94/)
   assert.match(indexHtml, /paintLaunchTheme\(launchState\.progressPainted\)/)
+  assert.match(indexHtml, /Math\.abs\(mix - launchState\.lastThemeColorMix\) >= \.025/)
   assert.match(indexHtml, /paintLaunchProgress\(\.14\)/)
   assert.match(indexHtml, /getComputedStyle\(splash\)\.backgroundColor/)
   assert.doesNotMatch(indexHtml, /paintLaunchProgress\(\.5\)/)
@@ -120,10 +124,13 @@ test('auth revalidation starts before the main app mounts', () => {
 })
 
 
-test('launch avoids the duplicate preload graph and keeps a short painted handoff', () => {
+test('launch avoids the duplicate preload graph and crossfades into the mounted app', () => {
   assert.doesNotMatch(indexHtml, /modulepreload" href="\/src\/launch-data-preload\.js"/)
-  assert.match(indexHtml, /opacity 220ms/)
-  assert.match(indexHtml, /visibility 0s linear 220ms/)
+  assert.match(indexHtml, /opacity 280ms/)
+  assert.match(indexHtml, /visibility 0s linear 280ms/)
+  assert.match(indexHtml, /html\.shub-launch-handoff #root/)
+  assert.match(indexHtml, /function beginLaunchHandoff\(\)/)
+  assert.match(indexHtml, /progressPainted < \.985 && elapsed < 190/)
   assert.match(indexHtml, /function finishLaunch\(\{ settleMs = 60 \} = \{\}\)/)
   assert.match(main, /launch\.ready\?\.\(\{ settleMs: 40 \}\)/)
   assert.match(main, /window\.setTimeout\(finish, 1400\)/)
