@@ -12,8 +12,9 @@ test('React owns service worker registration and scheduled update without an ind
   assert.doesNotMatch(index, /registration\?\.update\(\)/)
   assert.match(main, /navigator\.serviceWorker\.register\(`\$\{import\.meta\.env\.BASE_URL\}sw\.js`/)
   assert.match(main, /updateViaCache:\s*'none'/)
-  assert.match(main, /window\.setTimeout\(\(\) => \{[\s\S]*registration\.update\(\)\.catch\(\(\) => \{\}\)[\s\S]*\}, 5000\)/)
+  assert.match(main, /window\.setTimeout\(\(\) => \{[\s\S]*registration\?\.update\?\.\(\)\.catch\(\(\) => \{\}\)[\s\S]*\}, 5000\)/)
 
-  const updateCalls = (index.match(/\.update\(\)/g) || []).length + (main.match(/\.update\(\)/g) || []).length
+  const updateCalls = (index.match(/\.update\(\)/g) || []).length
+    + (main.match(/(?:\?\.)?update(?:\?\.)?\(\)/g) || []).length
   assert.equal(updateCalls, 1)
 })
