@@ -172,16 +172,7 @@ function useClassTopSegmentSpring(activeIndex) {
 
 function ClassTopSegment({ profile, section, onSectionChange }) {
   const activeIndex = section === 'timetable' ? 1 : 0
-  const spring = useSHubSegmentSpring(activeIndex, {
-    paddingProperty: '--segment-padding',
-    shellScaleProperty: '--segment-shell-scale-x',
-    shellShiftProperty: '--segment-shell-shift-x',
-    fallbackPadding: 5,
-    baseRadius: 14,
-    minRadius: 11,
-    deform: true,
-    shellElastic: false,
-  })
+  const spring = useClassTopSegmentSpring(activeIndex)
   const touchIntentRef = useRef({ key: '', at: 0 })
   const [unread, setUnread] = useState({})
 
