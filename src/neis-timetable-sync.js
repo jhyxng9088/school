@@ -1,10 +1,11 @@
 import { ensureSignedIn, readStudentProfile } from './school-sync'
 import { fetchClassTimetable, neisTargetWeek } from './neis-timetable'
 import { schoolScopeKey } from './school-directory.js'
+import { isNonInstructionalSchoolLabel } from './school-day-status.js'
 
 const SYNC_MAX_AGE_MS = 6 * 60 * 60 * 1000
 const RETRY_GUARD_MS = 15 * 60 * 1000
-const CACHE_PREFIX = 'school.neisTimetableSync.v2'
+const CACHE_PREFIX = 'school.neisTimetableSync.v3'
 const NEIS_TIMETABLE_SYNC_API_URL = 'https://school-reminder-backend.vercel.app/api/timetable-neis-sync'
 const attemptTimes = new Map()
 let syncTimer = 0
@@ -87,6 +88,28 @@ export async function syncCurrentClassTimetableFromNeis({ force = false } = {}) 
   if (!force && recentlyAttempted(profile, week.weekStart)) return { ok: true, reason: 'recent_attempt' }
 
   const result = await fetchClassTimetable(profile, new Date())
+  const closureWeek = (result.closedDates || []).length > 0
+    || (result.rows || []).some((row) => isNonInstructionalSchoolLabel(row?.subject))
+
+  if (closureWeek) {
+    writeCache(profile, result.weekStart, {
+      ok: true,
+      syncedAt: Date.now(),
+      weekStart: result.weekStart,
+      weekEnd: result.weekEnd,
+      reason: 'school_closed_week',
+      closedDates: result.closedDates || [],
+    })
+    return {
+      ok: true,
+      reason: 'school_closed_week',
+      classNumber,
+      subjectCount: result.subjectCount,
+      weekStart: result.weekStart,
+      weekEnd: result.weekEnd,
+    }
+  }
+
   if (!result.available) {
     writeCache(profile, week.weekStart, {
       ok: false,
