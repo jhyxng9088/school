@@ -166,7 +166,9 @@ export function subscribeSupabaseClassActivity(topic, {
     try { onUnavailable() } catch {}
   }
   const markAvailable = () => {
+    const recovered = state.unavailable
     state.unavailable = false
+    if (!recovered) return
     try { onAvailable() } catch {}
   }
 
