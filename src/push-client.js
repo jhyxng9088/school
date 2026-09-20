@@ -15,6 +15,7 @@ import {
 import { subscribeClassLiveData } from './class-live-data.js'
 
 const PUSH_API_BASE = 'https://school-reminder-backend.vercel.app/api'
+const PUSH_MIRROR_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/push-subscription-mirror'
 const DEVICE_ID_KEY = 'school.pushDeviceId.v1'
 const CONTACT_NOTICE_KEY = 'school.contactNotice.v1'
 const IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -104,6 +105,40 @@ async function fetchPublicKey() {
   return key
 }
 
+async function mirrorPushSubscription(identity, payload) {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 2200)
+  try {
+    const idToken = await identity.user.getIdToken()
+    const response = await fetch(PUSH_MIRROR_URL, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${idToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...payload,
+        classId: identity.classId,
+      }),
+      cache: 'no-store',
+      keepalive: true,
+      signal: controller.signal,
+    })
+    if (!response.ok) {
+      console.warn('Supabase push subscription mirror skipped:', response.status)
+      return false
+    }
+    return true
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      console.warn('Supabase push subscription mirror unavailable; Firestore remains primary.', error)
+    }
+    return false
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
+
 async function ensurePushSubscription(profile) {
   if (!pushSupported() || Notification.permission !== 'granted') return null
   if (IOS && !isStandalone()) return null
@@ -135,19 +170,25 @@ async function ensurePushSubscription(profile) {
   if (!endpoint || !p256dh || !auth) throw new Error('Push subscription is incomplete')
 
   const currentDeviceId = deviceId()
+  const updatedAt = Date.now()
+  const subscriptionPayload = {
+    studentKey: identity.studentKey,
+    deviceId: currentDeviceId,
+    endpoint,
+    p256dh,
+    auth,
+    userAgent: navigator.userAgent.slice(0, 350),
+    updatedAt,
+  }
+
+  // Firestore remains the canonical push-subscription store during migration.
+  // The Supabase write is only a shadow copy and can never block registration.
   await setDoc(
     doc(db, 'classes', identity.classId, 'pushSubscriptions', `${identity.studentKey}-${currentDeviceId}`),
-    {
-      studentKey: identity.studentKey,
-      deviceId: currentDeviceId,
-      endpoint,
-      p256dh,
-      auth,
-      userAgent: navigator.userAgent.slice(0, 350),
-      updatedAt: Date.now(),
-    },
+    subscriptionPayload,
     { merge: true },
   )
+  void mirrorPushSubscription(identity, subscriptionPayload)
 
   return subscription
 }
