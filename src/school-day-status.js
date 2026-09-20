@@ -1,3 +1,8 @@
+import { schoolScopeKey } from './school-directory.js'
+
+const CLOSURE_CACHE_PREFIX = 'school.closureDates.v1'
+const CLOSURE_EVENT = 'school:closure-snapshot-updated'
+
 function pad2(value) {
   return String(value).padStart(2, '0')
 }
@@ -43,7 +48,104 @@ export function inferSchoolClosureFromSchedule(schedule = []) {
   }
 }
 
-export function schoolClosureForDate(date, academicEvents = [], schedule = []) {
+function normalizeClosureEntry(value) {
+  const rawDate = String(value?.rawDate || '').trim()
+  if (!/^\d{8}$/.test(rawDate)) return null
+  const label = String(value?.label || value?.name || value?.dayOffType || '휴업일').trim() || '휴업일'
+  return {
+    rawDate,
+    label,
+    dayOffType: String(value?.dayOffType || '휴업일').trim() || '휴업일',
+  }
+}
+
+function closureCacheKey(profile) {
+  const scope = schoolScopeKey(profile)
+  return scope ? `${CLOSURE_CACHE_PREFIX}.${scope}` : ''
+}
+
+function normalizedClosureList(values) {
+  const byDate = new Map()
+  ;(Array.isArray(values) ? values : []).forEach((value) => {
+    const normalized = normalizeClosureEntry(value)
+    if (normalized) byDate.set(normalized.rawDate, normalized)
+  })
+  return [...byDate.values()].sort((a, b) => a.rawDate.localeCompare(b.rawDate)).slice(-180)
+}
+
+export function readSchoolClosureSnapshot(profile) {
+  if (typeof localStorage === 'undefined') return []
+  const key = closureCacheKey(profile)
+  if (!key) return []
+  try {
+    const stored = JSON.parse(localStorage.getItem(key) || 'null')
+    return normalizedClosureList(stored?.closures)
+  } catch {
+    return []
+  }
+}
+
+function publishClosureSnapshot(profile, closures) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(CLOSURE_EVENT, {
+    detail: {
+      scope: schoolScopeKey(profile),
+      closures,
+    },
+  }))
+}
+
+export function replaceSchoolClosureSnapshot(profile, values) {
+  const key = closureCacheKey(profile)
+  if (!key || typeof localStorage === 'undefined') return []
+  const closures = normalizedClosureList(values)
+  try {
+    localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), closures }))
+  } catch {
+    // Closure UI can still use the live payload when persistent storage is unavailable.
+  }
+  publishClosureSnapshot(profile, closures)
+  return closures
+}
+
+export function mergeSchoolClosureSnapshot(profile, values) {
+  const previous = readSchoolClosureSnapshot(profile)
+  const closures = normalizedClosureList([...previous, ...(Array.isArray(values) ? values : [])])
+  const key = closureCacheKey(profile)
+  if (!key || typeof localStorage === 'undefined') return closures
+  try {
+    localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), closures }))
+  } catch {
+    // Keep the live snapshot even if storage fails.
+  }
+  publishClosureSnapshot(profile, closures)
+  return closures
+}
+
+export function closuresFromAcademicEvents(events = []) {
+  return normalizedClosureList(
+    (Array.isArray(events) ? events : [])
+      .filter((event) => isSchoolClosureDayOffType(event?.dayOffType))
+      .map((event) => ({
+        rawDate: event.rawDate,
+        label: event.name || event.dayOffType || '휴업일',
+        dayOffType: event.dayOffType || '휴업일',
+      })),
+  )
+}
+
+export function subscribeSchoolClosureSnapshot(profile, onValue) {
+  if (typeof window === 'undefined' || typeof onValue !== 'function') return () => {}
+  const scope = schoolScopeKey(profile)
+  const handler = (event) => {
+    if (event?.detail?.scope !== scope) return
+    onValue(normalizedClosureList(event.detail.closures))
+  }
+  window.addEventListener(CLOSURE_EVENT, handler)
+  return () => window.removeEventListener(CLOSURE_EVENT, handler)
+}
+
+export function schoolClosureForDate(date, academicEvents = [], schedule = [], cachedClosures = []) {
   const rawDate = schoolRawDateKey(date)
   if (!rawDate) return null
 
@@ -60,6 +162,9 @@ export function schoolClosureForDate(date, academicEvents = [], schedule = []) {
       dayOffType: String(event.dayOffType || '').trim(),
     }
   }
+
+  const cached = normalizedClosureList(cachedClosures).find((item) => item.rawDate === rawDate)
+  if (cached) return cached
 
   const inferred = inferSchoolClosureFromSchedule(schedule)
   return inferred ? { rawDate, ...inferred } : null
