@@ -35,3 +35,11 @@ test('retired home navigation retrofit runtime stays removed', () => {
   assert.doesNotMatch(read('index.html'), /school-home-nav\.js/)
   assert.doesNotMatch(read('public/sw.js'), /school-home-nav\.js/)
 })
+
+
+test('home dashboard styling never converts the native navigation overlay into layout content', () => {
+  const styles = read('src/styles.css')
+
+  assert.match(styles, /\.current-class-card > :not\(\.home-nav-action\) \{[\s\S]*position: relative;[\s\S]*z-index: 1;/)
+  assert.doesNotMatch(styles, /\.current-class-card > \* \{[\s\S]*position: relative;/)
+})
