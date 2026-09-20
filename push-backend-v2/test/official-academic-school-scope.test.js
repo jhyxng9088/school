@@ -56,5 +56,5 @@ test('a new-school class never receives the legacy Suji official academic push',
   }).filter((plan) => plan.type === 'academic-tomorrow')
 
   assert.equal(plans.length, 1)
-  assert.equal(plans[0].payload.body, '내일 우리 학교 수행 일정 예정이에요.')
+  assert.equal(plans[0].payload.body, '내일 우리 학교 수행 일정 예정입니다.')
 })
