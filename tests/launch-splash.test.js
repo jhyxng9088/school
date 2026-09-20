@@ -8,6 +8,7 @@ const main = fs.readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8'
 const setup = fs.readFileSync(new URL('../src/student-setup.jsx', import.meta.url), 'utf8')
 const todo = fs.readFileSync(new URL('../src/todo.jsx', import.meta.url), 'utf8')
 const preload = fs.readFileSync(new URL('../src/launch-data-preload.js', import.meta.url), 'utf8')
+const schoolSync = fs.readFileSync(new URL('../src/school-sync.js', import.meta.url), 'utf8')
 const manifest = fs.readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8')
 
 test('launch splash renders before React root with canonical S-Hub logo', () => {
@@ -67,7 +68,7 @@ test('configured launch evaluates main code in parallel but mounts only after fr
   assert.match(preload, /preloadPreviewBoard/)
   assert.match(preload, /preloadPreviewStudy/)
   assert.match(preload, /preloadThemePreferences/)
-  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 6500/)
+  assert.match(preload, /LAUNCH_PRELOAD_TIMEOUT_MS = 5200/)
   assert.doesNotMatch(main, /window\.setTimeout\(finish, 1800\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
 })
@@ -94,7 +95,7 @@ test('launch color follows the interpolated loading progress instead of switchin
 
 test('failed launch sources do not hold the app behind long retry backoff', () => {
   assert.match(preload, /const delays = \[0, 220\]/)
-  assert.doesNotMatch(preload, /720/)
+  assert.doesNotMatch(preload, /220|720/)
 })
 
 
@@ -111,4 +112,18 @@ test('fresh iOS installs keep the stable status-bar layout while launch origins 
 test('synced theme can retarget the active launch surface', () => {
   assert.match(indexHtml, /function refreshLaunchTheme\(\)/)
   assert.match(indexHtml, /refreshTheme: refreshLaunchTheme/)
+})
+
+
+test('verified student identity uses the persistent UID-profile marker fast path', () => {
+  assert.match(schoolSync, /if \(identitySyncMarkerMatches\(cacheKey\)\) return user/)
+  assert.doesNotMatch(
+    schoolSync,
+    /identitySyncMarkerMatches\(cacheKey\) && identitySyncPromises\.has\(cacheKey\)/,
+  )
+})
+
+test('theme preference sync no longer blocks school-data launch hydration', () => {
+  assert.doesNotMatch(preload, /preloadThemePreferences/)
+  assert.doesNotMatch(preload, /label: 'theme'/)
 })
