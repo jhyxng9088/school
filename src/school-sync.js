@@ -18,6 +18,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import {
+  hasStoredWeeklySchedule,
   loadOverrides,
   loadWeeklySchedule,
   normalizeOverrides,
@@ -1326,6 +1327,10 @@ export function useSharedTimetable(profile, now) {
   const movingClass = movingClassEnabled(profile)
   const [weeklySchedule, setWeeklySchedule] = useState(() => loadWeeklySchedule())
   const [overrides, setOverrides] = useState(() => pruneExpiredOverrides(loadOverrides(), now))
+  const [sharedLaunchReady, setSharedLaunchReady] = useState(() => hasStoredWeeklySchedule())
+  const [personalLaunchReady, setPersonalLaunchReady] = useState(() => (
+    !movingClass || readPersonalTimetableCache(profile, 'weekly') !== null
+  ))
   const [personalWeeklySchedule, setPersonalWeeklySchedule] = useState(() => movingClass
     ? loadPersonalWeeklyScheduleCache(profile)
     : normalizeWeeklySchedule(null))
@@ -1343,6 +1348,7 @@ export function useSharedTimetable(profile, now) {
       saveOverrides(next.overrides)
       setWeeklySchedule(next.weeklySchedule)
       setOverrides(next.overrides)
+      setSharedLaunchReady(true)
       publishClassLiveData('timetable', classKeyFor(profile), next)
       return true
     } catch (error) {
@@ -1361,11 +1367,17 @@ export function useSharedTimetable(profile, now) {
       savePersonalOverridesCache(profile, nextOverrides)
       setPersonalWeeklySchedule(nextWeekly)
       setPersonalOverrides(nextOverrides)
+      setPersonalLaunchReady(true)
       return true
     } catch (error) {
       console.error('Personal timetable server refresh failed:', error)
       return false
     }
+  }, [signature, movingClass])
+
+  useEffect(() => {
+    setSharedLaunchReady(hasStoredWeeklySchedule())
+    setPersonalLaunchReady(!movingClass || readPersonalTimetableCache(profile, 'weekly') !== null)
   }, [signature, movingClass])
 
   useEffect(() => {
@@ -1383,6 +1395,7 @@ export function useSharedTimetable(profile, now) {
       saveOverrides(next.overrides)
       setWeeklySchedule(next.weeklySchedule)
       setOverrides(next.overrides)
+      setSharedLaunchReady(true)
       publishClassLiveData('timetable', classKeyFor(profile), next)
     }
 
@@ -1420,6 +1433,7 @@ export function useSharedTimetable(profile, now) {
     if (!signature || !movingClass) {
       setPersonalWeeklySchedule(normalizeWeeklySchedule(null))
       setPersonalOverrides({})
+      setPersonalLaunchReady(true)
       return undefined
     }
     setPersonalWeeklySchedule(loadPersonalWeeklyScheduleCache(profile))
@@ -1527,6 +1541,7 @@ export function useSharedTimetable(profile, now) {
     sharedOverrides: overrides,
     personalWeeklySchedule,
     personalOverrides,
+    launchReady: sharedLaunchReady && personalLaunchReady,
     commitWeeklySchedule,
     commitOverrides,
     commitPersonalWeeklySchedule,

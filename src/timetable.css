@@ -912,7 +912,30 @@ body .unified-school-sheet.timetable-unified-sheet .timetable-sheet-actions > bu
 /* NEIS school-closure overlay. Keep the weekly base timetable intact underneath. */
 .week-day-head.is-school-closed {
   color: var(--text-tertiary);
-  background: color-mix(in srgb, var(--surface-soft) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-soft) 82%, transparent);
+}
+
+.week-day-head.is-school-closed strong,
+.week-day-head.is-school-closed > span {
+  opacity: .58;
+}
+
+.school-closed-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 15px;
+  margin-top: 3px;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--text-tertiary) 26%, transparent);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 720;
+  letter-spacing: -.02em;
+  line-height: 1;
 }
 
 .week-cell.is-school-closed {
