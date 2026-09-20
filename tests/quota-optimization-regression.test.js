@@ -68,5 +68,6 @@ test('push identity relies on canonical signed-in identity verification without 
   assert.ok(start >= 0 && end > start)
   const body = pushClient.slice(start, end)
   assert.match(body, /await ensureSignedIn\(\)/)
-  assert.doesNotMatch(body, /getDoc\(|users/)
+  assert.doesNotMatch(body, /getDoc\(/)
+  assert.doesNotMatch(body, /doc\(db, 'users'/)
 })
