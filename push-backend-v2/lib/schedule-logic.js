@@ -80,21 +80,21 @@ export function isImportantAcademic(event) {
 
 export function reminderHourBody(title) {
   const clean = cleanNotificationLabel(title)
-  return clean ? `${clean} 했나요?` : '할 일을 확인했나요?'
+  return clean ? `${clean} 관련 내용을 확인해 주세요.` : '할 일을 확인해 주세요.'
 }
 
 export function reminderTomorrowBody(todos) {
   const list = Array.isArray(todos) ? todos.filter(Boolean) : []
   if (!list.length) return ''
   const first = cleanNotificationLabel(list[0]?.title, '할 일')
-  if (list.length === 1) return `내일 ${first} 있어요. 확인해 주세요.`
-  return `내일 ${first} 외 ${list.length - 1}개의 할 일이 있어요. 확인해 주세요.`
+  if (list.length === 1) return `내일 ${first} 있습니다. 확인해 주세요.`
+  return `내일 ${first} 외 ${list.length - 1}개의 할 일이 있습니다. 확인해 주세요.`
 }
 
 export function academicTomorrowBody(events) {
   const list = Array.isArray(events) ? events.filter(Boolean) : []
   if (!list.length) return ''
   const first = cleanNotificationLabel(list[0]?.title, '중요 일정')
-  if (list.length === 1) return `내일 ${first} 예정이에요.`
-  return `내일 ${first} 외 ${list.length - 1}개의 중요 일정이 있어요.`
+  if (list.length === 1) return `내일 ${first} 예정입니다.`
+  return `내일 ${first} 외 ${list.length - 1}개의 중요 일정이 있습니다.`
 }

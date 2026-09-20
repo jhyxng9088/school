@@ -29,22 +29,22 @@ test('the actor never receives their own reminder activity push', () => {
 test('reminder activity push uses honorific actor name', () => {
   assert.equal(
     reminderActivityBody({ actorName: '홍길동', action: 'added', title: '수학 과제' }),
-    '홍길동님이 수학 과제 리마인더를 추가했어요.',
+    '홍길동님이 수학 과제 리마인더를 추가했습니다.',
   )
   assert.equal(
     reminderActivityBody({ actorName: '홍길동', action: 'edited', title: '수학 과제' }),
-    '홍길동님이 수학 과제 리마인더를 수정했어요.',
+    '홍길동님이 수학 과제 리마인더를 수정했습니다.',
   )
 })
 
 test('reminder activity push strips leading list markers only', () => {
   assert.equal(
     reminderActivityBody({ actorName: '홍길동', action: 'added', title: '-수학 과제' }),
-    '홍길동님이 수학 과제 리마인더를 추가했어요.',
+    '홍길동님이 수학 과제 리마인더를 추가했습니다.',
   )
   assert.equal(
     reminderActivityBody({ actorName: '홍길동', action: 'edited', title: 'AI-반도체 발표' }),
-    '홍길동님이 AI-반도체 발표 리마인더를 수정했어요.',
+    '홍길동님이 AI-반도체 발표 리마인더를 수정했습니다.',
   )
 })
 
@@ -52,18 +52,18 @@ test('reminder activity push strips leading list markers only', () => {
 test('timetable and academic activity push copy stays concise and semantic', () => {
   assert.equal(
     classActivityBody({ actorName: '홍길동', action: 'edited', entityType: 'timetable' }),
-    '홍길동님이 시간표를 변경했어요.',
+    '홍길동님이 시간표를 변경했습니다.',
   )
   assert.equal(
     classActivityBody({ actorName: '홍길동', action: 'added', entityType: 'academic', title: '-중간고사' }),
-    '홍길동님이 중간고사 학사일정을 추가했어요.',
+    '홍길동님이 중간고사 학사일정을 추가했습니다.',
   )
   assert.equal(
     classActivityBody({ actorName: '홍길동', action: 'edited', entityType: 'academic', title: '체육대회' }),
-    '홍길동님이 체육대회 학사일정을 수정했어요.',
+    '홍길동님이 체육대회 학사일정을 수정했습니다.',
   )
   assert.equal(
     classActivityBody({ actorName: '홍길동', action: 'edited', entityType: 'academic', title: '' }),
-    '홍길동님이 학사일정을 수정했어요.',
+    '홍길동님이 학사일정을 수정했습니다.',
   )
 })
