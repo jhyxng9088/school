@@ -154,7 +154,7 @@ test('fresh board launch warms built-in sections before the general response', (
 
 test('schedule top segment keeps bottom-nav pill and shell physics coupled', () => {
   const segment = read('src/preview-class-top-segment-patch.js')
-  const start = segment.indexOf('function useClassTopSegmentSpring(activeIndex) {')
+  const start = segment.indexOf('function useClassTopSegmentSpring(activeIndex, { shellElastic = true } = {}) {')
   const end = segment.indexOf('function ClassTopSegment', start)
   const helper = segment.slice(start, end)
   assert.match(helper, /deform: true/)
