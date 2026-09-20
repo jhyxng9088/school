@@ -756,6 +756,9 @@ function TimetablePage({
             >
               <strong>{WEEKDAYS[index].label}</strong>
               <span>{date.getMonth() + 1}/{date.getDate()}</span>
+              {!editing && weekClosureByDate[dateKey(date)] ? (
+                <em className="school-closed-badge">휴업</em>
+              ) : null}
             </div>
           ))}
 
