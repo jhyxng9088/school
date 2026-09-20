@@ -40,10 +40,10 @@ test('main app installs background theme revalidation after mount', () => {
 test('iOS reinstall guidance is standalone-only and persists dismissal once', () => {
   const notice = read('src/ios-reinstall-notice.jsx')
   const main = read('src/main.jsx')
-  assert.match(notice, /school\.iosLayoutReinstallNotice\.v1/)
+  assert.match(notice, /school\.iosLayoutReinstallNotice\.v2/)
   assert.match(notice, /display-mode: standalone/)
   assert.match(notice, /navigator\.standalone === true/)
-  assert.match(notice, /홈 화면의 S-Hub을 삭제/)
+  assert.match(notice, /기존 S-Hub을 삭제/)
   assert.match(notice, /Safari/)
   assert.match(notice, /localStorage\.setItem\(IOS_REINSTALL_NOTICE_KEY, 'dismissed'\)/)
   assert.match(main, /<IOSReinstallNotice \/>/)
