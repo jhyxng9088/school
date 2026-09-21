@@ -353,7 +353,7 @@ function TimetablePreview({ schedule, now, configured, title = '오늘 시간표
   )
 }
 
-function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI, onNavigate, launchSurfaceRef }) {
+function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoData, presence, academicData, onOpenAI, onNavigate, launchSurfaceRef, onSignalsReadyChange }) {
   const { homeStackRef, mealPriority } = useHomeMealPriority(now)
 
   useLayoutEffect(() => {
@@ -424,7 +424,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
 
       <div ref={homeStackRef} className={`home-stack ${mealPriority ? 'is-meal-priority' : ''} ${schoolState.kind === 'off' ? 'is-school-off' : ''}`.trim()} data-home-lunch-ready="true">
         <CurrentClassPreview schoolState={schoolState} now={now} onNavigate={onNavigate} />
-        <PreviewHomeSignals profile={profile} presence={presence} todos={todoData.todos} now={now} onNavigate={onNavigate} />
+        <PreviewHomeSignals profile={profile} presence={presence} todos={todoData.todos} now={now} onNavigate={onNavigate} onLaunchReadyChange={onSignalsReadyChange} />
         <div className="home-detail-column home-detail-column-primary">
           <TodoHomePreview todos={todoData.todos} categories={todoData.categories} now={now} onNavigate={onNavigate} />
           {schoolState.kind !== 'off' ? (
@@ -1116,6 +1116,7 @@ function AppShell({ profile }) {
   const [activeTab, setActiveTab] = useState('home')
   const [contentDirection, setContentDirection] = useState(1)
   const [aiOpen, setAiOpen] = useState(false)
+  const [homeSignalsReady, setHomeSignalsReady] = useState(false)
   const launchHomeSurfaceRef = useRef(null)
 
   useLayoutEffect(() => {
@@ -1156,6 +1157,7 @@ function AppShell({ profile }) {
   const presence = useClassPresence(profile)
   const academicData = useSharedAcademic(profile)
   const launchHomeReady = presence?.ready === true
+    && homeSignalsReady === true
     && todoData.ready === true
     && timetableLaunchReady === true
 
@@ -1219,7 +1221,7 @@ function AppShell({ profile }) {
     // Cached timetable state can reveal immediately; only a cache miss waits
     // briefly for the canonical timetable owner. Board, meals and academic
     // revalidation remain background work so one slow source cannot hold launch.
-    const fallback = window.setTimeout(requestFinishAfterPaint, 1400)
+    const fallback = window.setTimeout(requestFinishAfterPaint, 1800)
 
     return () => {
       window.clearTimeout(fallback)
@@ -1543,6 +1545,7 @@ function AppShell({ profile }) {
         presence={presence}
         academicData={academicData}
         launchSurfaceRef={launchHomeSurfaceRef}
+        onSignalsReadyChange={setHomeSignalsReady}
         onOpenAI={() => setAiOpen(true)}
       />
     ),
