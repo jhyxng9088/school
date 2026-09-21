@@ -158,19 +158,21 @@ test('launch avoids duplicate hydration and crossfades only after real Home layo
   assert.match(main, /Array\.from\(surfaces\)\.every/)
   assert.match(main, /stablePaintFrames \+= 1/)
   assert.match(main, /launch\.ready\?\.\(\{ settleMs: 24 \}\)/)
-  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1400\)/)
+  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1800\)/)
 })
 
 
-test('launch waits for timetable only when its local cache is missing', () => {
+test('launch keeps secondary Home sources in the background while priority state is bounded', () => {
   const timetable = fs.readFileSync(new URL('../src/timetable.js', import.meta.url), 'utf8')
   const sync = fs.readFileSync(new URL('../src/school-sync.js', import.meta.url), 'utf8')
   assert.match(timetable, /export function hasStoredWeeklySchedule\(\)/)
   assert.match(sync, /useState\(\(\) => hasStoredWeeklySchedule\(\)\)/)
   assert.match(sync, /setSharedLaunchReady\(true\)/)
   assert.match(sync, /launchReady: sharedLaunchReady && personalLaunchReady/)
-  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1400\)/)
+  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1800\)/)
   const gateAt = main.indexOf('const launchHomeReady =')
   const gate = main.slice(gateAt, main.indexOf('\n\n  useEffect', gateAt))
+  assert.match(gate, /presence\?\.ready === true/)
+  assert.match(gate, /homeSignalsReady === true/)
   assert.doesNotMatch(gate, /board|academic|meal/)
 })
