@@ -1221,7 +1221,7 @@ function AppShell({ profile }) {
     // Cached timetable state can reveal immediately; only a cache miss waits
     // briefly for the canonical timetable owner. Board, meals and academic
     // revalidation remain background work so one slow source cannot hold launch.
-    const fallback = window.setTimeout(requestFinishAfterPaint, 1800)
+    const fallback = window.setTimeout(requestFinishAfterPaint, 2000)
 
     return () => {
       window.clearTimeout(fallback)
