@@ -1,4 +1,5 @@
 import { ensureSignedIn } from './school-sync.js'
+import { dispatchPreviewBoardCommentPush } from './preview-social-push.js'
 
 const BOARD_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-board'
 const BOARD_CACHE_FRESH_MS = 45_000
@@ -358,6 +359,16 @@ export async function deletePreviewBoardSection(sectionId) {
 }
 
 export async function addPreviewBoardComment(postId, body, attachments = []) {
+  const knownCommentIds = new Set()
+  for (const cached of sectionCache.values()) {
+    const cachedPost = (cached.posts || []).find((item) => item?.id === postId)
+    if (!cachedPost) continue
+    ;(Array.isArray(cachedPost.comments) ? cachedPost.comments : []).forEach((comment) => {
+      const id = String(comment?.id || '').trim()
+      if (id) knownCommentIds.add(id)
+    })
+  }
+
   const response = await requestBoard({
     method: 'POST',
     payload: {
@@ -368,7 +379,23 @@ export async function addPreviewBoardComment(postId, body, attachments = []) {
     },
   })
   if (!response.post?.id) throw boardError('board/invalid-post', '댓글이 반영된 게시글을 확인하지 못했어요.')
+
+  const cleanBody = String(body || '').trim()
+  const matchingComments = (Array.isArray(response.post.comments) ? response.post.comments : [])
+    .filter((comment) => String(comment?.id || '').trim() && String(comment?.body || '').trim() === cleanBody)
+    .sort((a, b) => Number(a?.createdAt || 0) - Number(b?.createdAt || 0))
+  const createdComment = matchingComments.find((comment) => !knownCommentIds.has(String(comment.id)))
+    || matchingComments[matchingComments.length - 1]
+    || null
+
   updateCachedPost(response.post)
+  if (createdComment?.id) {
+    void dispatchPreviewBoardCommentPush({
+      postId: response.post.id,
+      sectionId: response.post.sectionId || 'general',
+      commentId: createdComment.id,
+    })
+  }
   return response.post
 }
 
