@@ -46,7 +46,6 @@ import {
 } from './s-hub-reminder-source.js'
 import { openClassRoster } from './class-roster-ui-v2.js'
 import { PreviewHomeSignals } from './preview-home-signals.jsx'
-import { HomeNavAction } from './home-nav-action.jsx'
 import { useHomeMealPriority } from './home-meal-priority.js'
 import { ThemeSettingsIsland } from './theme-settings-entry.jsx'
 import { installThemePreferenceSync } from './theme-sync.js'
