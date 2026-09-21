@@ -13,12 +13,12 @@ test('home cards use semantic V2 destinations through React-owned navigation', (
   const index = read('index.html')
   const sw = read('public/sw.js')
 
-  assert.match(main, /import \{ HomeNavAction \} from '\.\/home-nav-action\.jsx'/)
+  assert.doesNotMatch(main, /HomeNavAction/)
   assert.match(main, /className="current-class-card"[\s\S]*className="home-detail-card-action"[\s\S]*onClick=\{\(\) => onNavigate\?\.\('timetable'\)\}/)
   assert.match(main, /if \(target === 'timetable'\) \{\s*setClassSection\('timetable'\)\s*changeTab\('class'\)/)
   assert.match(main, /today-timetable-empty/)
   assert.match(main, /className="period-strip"/)
-  assert.equal(main.split('<HomeNavAction tab="class" section="timetable" label="시간표 열기" />').length - 1, 2)
+  assert.match(main, /function TimetablePreview\([\s\S]*className="home-detail-card-action"[\s\S]*onClick=\{\(\) => onNavigate\?\.\('timetable'\)\}/)
 
   assert.match(meal, /className="meal-preview-action"/)
   assert.match(meal, /onClick=\{\(\) => onNavigate\?\.\('meal'\)\}/)
