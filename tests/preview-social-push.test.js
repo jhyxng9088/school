@@ -6,9 +6,12 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 
 test('social dispatch shares activity endpoint and accepts isolated preview or production class identities', () => {
   const source = read('push-backend-v2/api/activity-dispatch.js')
-  assert.match(source, /body\.kind === 'board-post' \|\| body\.kind === 'study-start'/)
+  assert.match(source, /body\.kind === 'board-post' \|\| body\.kind === 'board-comment' \|\| body\.kind === 'study-start'/)
   assert.match(source, /\^\(\?:preview-\)\?class-/)
   assert.match(source, /verifyBoardPost/)
+  assert.match(source, /verifyBoardComment/)
+  assert.match(source, /board-comment/)
+  assert.match(source, /where\('studentKey', '==', recipientStudentKey\)/)
   assert.match(source, /authorStudentKey/)
   assert.match(source, /withinFreshWindow/)
   assert.match(source, /verifyStudyStart/)
@@ -22,6 +25,7 @@ test('social push logic is owned by the canonical production module', () => {
   const source = read('src/social-push.js')
   assert.match(source, /school-reminder-backend\.vercel\.app\/api\/activity-dispatch/)
   assert.match(source, /export function dispatchBoardPostPush/)
+  assert.match(source, /export function dispatchBoardCommentPush/)
   assert.match(source, /export function dispatchStudyStartPush/)
   assert.doesNotMatch(source, /school-reminder-backend-git-preview-s-hub-v2/)
 })
@@ -29,6 +33,7 @@ test('social push logic is owned by the canonical production module', () => {
 test('preview social push stays a compatibility-only facade', () => {
   const source = read('src/preview-social-push.js')
   assert.match(source, /dispatchBoardPostPush as dispatchPreviewBoardPostPush/)
+  assert.match(source, /dispatchBoardCommentPush as dispatchPreviewBoardCommentPush/)
   assert.match(source, /dispatchStudyStartPush as dispatchPreviewStudyStartPush/)
   assert.match(source, /from '\.\/social-push\.js'/)
   assert.doesNotMatch(source, /fetch\(/)
@@ -102,4 +107,17 @@ test('all client push dispatch paths use the canonical reminder backend', () => 
 
   assert.match(backend, /CURRENT_VAPID_PUBLIC_KEY/)
   assert.match(backend, /req\.method === 'GET'.*publicKey: CURRENT_VAPID_PUBLIC_KEY/)
+})
+
+
+test('confirmed board comments notify only the original post author through the social push path', () => {
+  const client = read('src/preview-board-client.js')
+  const backend = read('push-backend-v2/api/activity-dispatch.js')
+
+  assert.match(client, /dispatchPreviewBoardCommentPush/)
+  assert.match(client, /commentId: createdComment\.id/)
+  assert.match(backend, /recipientStudentKey = verified\.recipientStudentKey/)
+  assert.match(backend, /recipientStudentKey === actorStudentKey/)
+  assert.match(backend, /내 게시글에 댓글을 남겼어요\./)
+  assert.match(backend, /subscriptionsRef\.where\('studentKey', '==', recipientStudentKey\)/)
 })

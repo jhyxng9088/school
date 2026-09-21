@@ -73,6 +73,26 @@ async function verifyBoardPost({ token, postId, sectionId, actorStudentKey }) {
   return post
 }
 
+async function verifyBoardComment({ token, postId, sectionId, commentId, actorStudentKey }) {
+  const url = new URL(BOARD_API_URL)
+  url.searchParams.set('section', sectionId)
+  url.searchParams.set('sections', '0')
+  const body = await verifiedJson(url.toString(), token)
+  const posts = Array.isArray(body?.posts) ? body.posts : []
+  const post = posts.find((item) => String(item?.id || '') === postId)
+  if (!post) return null
+
+  const comments = Array.isArray(post.comments) ? post.comments : []
+  const comment = comments.find((item) => String(item?.id || '') === commentId)
+  if (!comment) return null
+  if (safeSocialText(comment.authorStudentKey, 80) !== actorStudentKey) return null
+  if (!withinFreshWindow(comment.createdAt || comment.updatedAt)) return null
+
+  const recipientStudentKey = safeSocialText(post.authorStudentKey, 80)
+  if (!recipientStudentKey) return null
+  return { post, comment, recipientStudentKey }
+}
+
 async function verifyStudyStart({ token, subject, startedAt, actorStudentKey }) {
   const body = await verifiedJson(`${STUDY_API_URL}?scope=class`, token)
   const active = body?.me?.active && typeof body.me.active === 'object' ? body.me.active : null
@@ -110,6 +130,7 @@ async function dispatchSocial({ db, token, identity, body, res }) {
   const kind = safeSocialText(body.kind, 30)
   let payload = null
   let claimId = ''
+  let recipientStudentKey = ''
 
   if (kind === 'board-post') {
     const postId = safeSocialText(body.postId, 80)
@@ -126,6 +147,26 @@ async function dispatchSocial({ db, token, identity, body, res }) {
       title: 'S-Hub',
       body: `${actorName}님이 게시판에 새 글을 올렸어요.`,
       tag: `board-post-${verifiedPostId}`,
+      url: './?tab=board',
+    }
+  } else if (kind === 'board-comment') {
+    const postId = safeSocialText(body.postId, 80)
+    const commentId = safeSocialText(body.commentId, 80)
+    const sectionId = safeSocialText(body.sectionId || 'general', 32).toLowerCase()
+    if (!/^[0-9a-f-]{36}$/i.test(postId) || !/^[0-9a-f-]{36}$/i.test(commentId) || !/^(?:general|question|notes|custom-[0-9a-f]{6})$/.test(sectionId)) {
+      return res.status(400).json({ ok: false, error: 'invalid_board_comment_event' })
+    }
+    const verified = await verifyBoardComment({ token, postId, sectionId, commentId, actorStudentKey })
+    if (!verified) return res.status(409).json({ ok: false, error: 'board_comment_event_unverified' })
+    recipientStudentKey = verified.recipientStudentKey
+    if (recipientStudentKey === actorStudentKey) {
+      return res.status(200).json({ ok: true, duplicate: false, attempted: 0, sent: 0, suppressedSelf: 1 })
+    }
+    claimId = `social-board-comment-${postId}-${commentId}`
+    payload = {
+      title: 'S-Hub',
+      body: `${actorName}님이 내 게시글에 댓글을 남겼어요.`,
+      tag: `board-comment-${postId}-${commentId}`,
       url: './?tab=board',
     }
   } else if (kind === 'study-start') {
@@ -151,11 +192,16 @@ async function dispatchSocial({ db, token, identity, body, res }) {
     return res.status(200).json({ ok: true, duplicate: true, attempted: 0, sent: 0 })
   }
 
-  const subscriptionsSnapshot = await db.collection('classes').doc(classId).collection('pushSubscriptions').get()
+  const subscriptionsRef = db.collection('classes').doc(classId).collection('pushSubscriptions')
+  const subscriptionsSnapshot = recipientStudentKey
+    ? await subscriptionsRef.where('studentKey', '==', recipientStudentKey).get()
+    : await subscriptionsRef.get()
   const recipients = subscriptionsSnapshot.docs
     .map(subscriptionFromSnapshot)
     .filter(Boolean)
-    .filter((subscription) => subscription.studentKey !== actorStudentKey)
+    .filter((subscription) => recipientStudentKey
+      ? subscription.studentKey === recipientStudentKey
+      : subscription.studentKey !== actorStudentKey)
 
   const summary = await sendPlan(db, { recipients, payload })
   return res.status(200).json({ ok: true, duplicate: false, ...summary })
@@ -179,7 +225,7 @@ export default async function handler(req, res) {
     const identity = identitySnapshot.data() || {}
     const body = req.body && typeof req.body === 'object' ? req.body : {}
 
-    if (body.kind === 'board-post' || body.kind === 'study-start') {
+    if (body.kind === 'board-post' || body.kind === 'board-comment' || body.kind === 'study-start') {
       return dispatchSocial({ db, token, identity, body, res })
     }
 

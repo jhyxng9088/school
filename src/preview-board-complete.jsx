@@ -585,6 +585,11 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
   const [commentActionId, setCommentActionId] = useState('')
   const [deleteCommentId, setDeleteCommentId] = useState('')
   const [error, setError] = useState('')
+  const latestPostRef = useRef(post)
+
+  useEffect(() => {
+    latestPostRef.current = post
+  }, [post])
 
   useEffect(() => {
     if (!open) return
@@ -639,17 +644,49 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
     setCommentPending(true)
     setError('')
     setCommentProgress('')
+
+    const optimisticAt = Date.now()
+    const optimisticId = `optimistic-comment-${globalThis.crypto?.randomUUID?.() || `${optimisticAt}-${Math.random().toString(36).slice(2)}`}`
+    const optimisticComment = {
+      id: optimisticId,
+      body: nextComment,
+      authorName: readStudentProfile()?.name || '나',
+      authorStudentKey: meKey,
+      createdAt: optimisticAt,
+      updatedAt: optimisticAt,
+      attachments: [],
+      optimistic: true,
+    }
+    const optimisticPost = {
+      ...post,
+      comments: [...comments, optimisticComment],
+      updatedAt: Math.max(Number(post.updatedAt || 0), optimisticAt),
+    }
+    latestPostRef.current = optimisticPost
+    onUpdated(optimisticPost)
+    setComment('')
+    setCommentFiles([])
+
     let uploaded = []
     try {
       uploaded = await uploadCommentFiles(commentFiles, setCommentProgress)
       setCommentProgress(commentFiles.length ? '댓글을 저장하는 중…' : '')
       const updated = await addPreviewBoardComment(post.id, nextComment, uploaded)
+      latestPostRef.current = updated
       onUpdated(updated)
       onMutated(post.id, 'edited')
-      setComment('')
-      setCommentFiles([])
     } catch (requestError) {
       if (uploaded.length) discardPreviewBoardAttachments(uploaded.map((item) => item.storagePath))
+      const currentPost = latestPostRef.current || optimisticPost
+      const revertedPost = {
+        ...currentPost,
+        comments: (Array.isArray(currentPost.comments) ? currentPost.comments : [])
+          .filter((item) => item.id !== optimisticId),
+      }
+      latestPostRef.current = revertedPost
+      onUpdated(revertedPost)
+      setComment(nextComment)
+      setCommentFiles(commentFiles)
       setError(normalizeUiError(requestError, '댓글을 등록하지 못했어요.'))
     } finally {
       setCommentProgress('')
@@ -761,7 +798,7 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
               <article className="preview-board-comment" key={item.id}>
                 <div className="preview-board-comment-head">
                   <strong>{item.authorName || '학생'}</strong>
-                  <span>{formatBoardTime(item.createdAt)}{item.updatedAt > item.createdAt + 1000 ? ' · 수정됨' : ''}</span>
+                  <span>{item.optimistic ? '전송 중…' : formatBoardTime(item.createdAt)}{!item.optimistic && item.updatedAt > item.createdAt + 1000 ? ' · 수정됨' : ''}</span>
                 </div>
                 {editing ? (
                   <div className="preview-board-comment-editor">
@@ -803,7 +840,7 @@ function BoardDetail({ post, sections, meKey, open, onClose, onUpdated, onEditPo
                     <BoardAttachmentGallery post={post} attachments={itemAttachments} compact ariaLabel="댓글 첨부 파일" />
                   </>
                 )}
-                {mine && !editing ? (
+                {mine && !editing && !item.optimistic ? (
                   <div className="preview-board-comment-actions">
                     <button
                       type="button"

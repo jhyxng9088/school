@@ -37,6 +37,19 @@ export function dispatchBoardPostPush(post = {}) {
   return dispatch({ kind: 'board-post', postId, sectionId })
 }
 
+export function dispatchBoardCommentPush({ postId, sectionId = 'general', commentId } = {}) {
+  const cleanPostId = String(postId || '').trim()
+  const cleanSectionId = String(sectionId || 'general').trim()
+  const cleanCommentId = String(commentId || '').trim()
+  if (!cleanPostId || !cleanSectionId || !cleanCommentId) return Promise.resolve(null)
+  return dispatch({
+    kind: 'board-comment',
+    postId: cleanPostId,
+    sectionId: cleanSectionId,
+    commentId: cleanCommentId,
+  })
+}
+
 export function dispatchStudyStartPush(active) {
   const subject = String(active?.subject || '').trim()
   const startedAt = Number(active?.startedAt || 0)
