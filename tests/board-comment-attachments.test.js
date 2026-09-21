@@ -32,3 +32,15 @@ test('post and comment files render through one attachment card and one original
   assert.match(attachments, /<OriginalFileViewer[\s\S]*portal/)
   assert.doesNotMatch(attachments, /function BoardOriginalViewer/)
 })
+
+
+test('comment submission renders optimistically and rolls back only the temporary comment on failure', () => {
+  const board = read('src/preview-board-complete.jsx')
+
+  assert.match(board, /optimistic-comment-/)
+  assert.match(board, /optimistic: true/)
+  assert.match(board, /onUpdated\(optimisticPost\)/)
+  assert.match(board, /item\.optimistic \? '전송 중…'/)
+  assert.match(board, /filter\(\(item\) => item\.id !== optimisticId\)/)
+  assert.match(board, /setComment\(nextComment\)/)
+})
