@@ -69,7 +69,7 @@ test('configured launch mounts canonical owners immediately but reveals only aft
   assert.match(main, /stack\.closest\('\.app-content\.tab-home'\)/)
   assert.match(main, /stablePaintFrames < 2/)
   assert.match(main, /launch\.ready\?\.\(\{ settleMs: 24 \}\)/)
-  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1800\)/)
+  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 2000\)/)
   assert.match(main, /launchSurfaceRef=\{launchHomeSurfaceRef\}/)
   assert.match(main, /onSignalsReadyChange=\{setHomeSignalsReady\}/)
   assert.match(previewHomeSignals, /const launchReady = presence\?\.ready === true && studyUnread\?\.initialized === true/)
@@ -158,7 +158,7 @@ test('launch avoids duplicate hydration and crossfades only after real Home layo
   assert.match(main, /Array\.from\(surfaces\)\.every/)
   assert.match(main, /stablePaintFrames \+= 1/)
   assert.match(main, /launch\.ready\?\.\(\{ settleMs: 24 \}\)/)
-  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1800\)/)
+  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 2000\)/)
 })
 
 
@@ -169,7 +169,7 @@ test('launch keeps secondary Home sources in the background while priority state
   assert.match(sync, /useState\(\(\) => hasStoredWeeklySchedule\(\)\)/)
   assert.match(sync, /setSharedLaunchReady\(true\)/)
   assert.match(sync, /launchReady: sharedLaunchReady && personalLaunchReady/)
-  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 1800\)/)
+  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 2000\)/)
   const gateAt = main.indexOf('const launchHomeReady =')
   const gate = main.slice(gateAt, main.indexOf('\n\n  useEffect', gateAt))
   assert.match(gate, /presence\?\.ready === true/)
