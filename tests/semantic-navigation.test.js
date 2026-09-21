@@ -58,9 +58,8 @@ test('semantic navigation preserves the latest request until an owner can receiv
   assert.equal(received.length, 2)
 })
 
-test('React home actions and notification routing share one semantic navigation bridge', () => {
+test('React Home cards use their owner callback while notification routing keeps the semantic bridge', () => {
   const index = read('index.html')
-  const action = read('src/home-nav-action.jsx')
   const main = read('src/main.jsx')
   const notifications = read('public/notification-routing.js')
   const bridge = read('public/s-hub-navigation.js')
@@ -70,8 +69,9 @@ test('React home actions and notification routing share one semantic navigation 
   assert.ok(bridgeIndex < index.indexOf('./notification-routing.js'))
   assert.doesNotMatch(index, /school-home-nav\.js/)
 
-  assert.match(action, /window\.SHubNavigation\?\.navigate\(\{ tab, section \}\)/)
-  assert.match(main, /<HomeNavAction tab="class" section="timetable" label="시간표 열기" \/>/)
+  assert.doesNotMatch(main, /HomeNavAction/)
+  assert.match(main, /function TimetablePreview\([\s\S]*onClick=\{\(\) => onNavigate\?\.\('timetable'\)\}/)
+  assert.match(main, /if \(target === 'timetable'\) \{\s*setClassSection\('timetable'\)\s*changeTab\('class'\)/)
 
   assert.match(notifications, /SHubNavigation\?\.navigate\(tab\)/)
   assert.doesNotMatch(notifications, /new MutationObserver/)
