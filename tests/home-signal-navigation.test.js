@@ -27,20 +27,18 @@ test('home overview cards route to the correct V2 destination without proxy-clic
 test('home source owns its imports directly after the build owner is retired', () => {
   const main = read('src/main.jsx')
   const signals = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
-  const homeNav = "import { HomeNavAction } from './home-nav-action.jsx'\n"
   const mealPriority = "import { useHomeMealPriority } from './home-meal-priority.js'\n"
   const roster = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
   const aiCore = "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n"
 
   assert.equal(main.split(roster).length - 1, 1)
   assert.equal(main.split(signals).length - 1, 1)
-  assert.equal(main.split(homeNav).length - 1, 1)
+  assert.doesNotMatch(main, /HomeNavAction/)
   assert.equal(main.split(mealPriority).length - 1, 1)
   assert.equal(main.split(aiCore).length - 1, 1)
   assert.ok(main.indexOf(aiCore) < main.indexOf(roster))
   assert.ok(main.indexOf(roster) < main.indexOf(signals))
-  assert.ok(main.indexOf(signals) < main.indexOf(homeNav))
-  assert.ok(main.indexOf(homeNav) < main.indexOf(mealPriority))
+  assert.ok(main.indexOf(signals) < main.indexOf(mealPriority))
   assert.equal(existsSync(url('src/preview-home-info-patch.js')), false)
 })
 
@@ -70,6 +68,7 @@ test('all Home detail cards feed the same navigation owner', () => {
   const main = read('src/main.jsx')
 
   assert.match(main, /<CurrentClassPreview[^>]*onNavigate=\{onNavigate\}/)
+  assert.match(main, /<TimetablePreview[\s\S]*onNavigate=\{onNavigate\}[\s\S]*\/>/)
   assert.match(main, /<TodoHomePreview[^>]*onNavigate=\{onNavigate\}/)
   assert.match(main, /<SharedAcademicPreview[^>]*onNavigate=\{onNavigate\}/)
   assert.match(main, /<Stage3MealPreview[^>]*onNavigate=\{onNavigate\}/)

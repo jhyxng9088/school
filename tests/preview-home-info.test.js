@@ -49,7 +49,8 @@ test('home dashboard uses independent wide columns without changing the mobile d
   assert.match(main, /className="home-detail-column home-detail-column-primary"[\s\S]*<TodoHomePreview[\s\S]*schoolState\.kind !== 'off' \? \([\s\S]*<TimetablePreview/)
   assert.match(main, /className="home-detail-column home-detail-column-secondary"[\s\S]*<SharedAcademicPreview[\s\S]*<Stage3MealPreview/)
   assert.match(main, /home-stack \$\{mealPriority \? 'is-meal-priority' : ''\} \$\{schoolState\.kind === 'off' \? 'is-school-off' : ''\}/)
-  assert.match(main, /home-timetable-preview home-nav-native-surface/)
+  assert.match(main, /className="home-section home-timetable-preview"/)
+  assert.match(main, /<TimetablePreview[\s\S]*onNavigate=\{onNavigate\}[\s\S]*\/>/)
 
   assert.match(styles, /\.app-content\.tab-home \{[\s\S]*width: min\(100%, 1180px\)/)
   assert.match(styles, /\.home-detail-column \{[\s\S]*display: grid;[\s\S]*gap: 22px;[\s\S]*grid-row: 3;/)
