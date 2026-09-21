@@ -300,11 +300,16 @@ function CurrentClassPreview({ schoolState, now, onNavigate }) {
   )
 }
 
-function TimetablePreview({ schedule, now, configured, title = '오늘 시간표', futureDay = false, closure = null }) {
+function TimetablePreview({ schedule, now, configured, title = '오늘 시간표', futureDay = false, closure = null, onNavigate }) {
   if (!schedule.length) {
     return (
-      <section className="home-section home-timetable-preview home-nav-native-surface" data-home-nav-ready="true">
-        <HomeNavAction tab="class" section="timetable" label="시간표 열기" />
+      <section className="home-section home-timetable-preview" data-home-nav-ready="true">
+        <button
+          type="button"
+          className="home-detail-card-action"
+          aria-label="시간표 열기"
+          onClick={() => onNavigate?.('timetable')}
+        />
         <SectionTitle>{title}</SectionTitle>
         <div className="today-timetable-empty">{closure ? `${closure.label} · 휴업일` : futureDay ? '내일은 정규 수업이 없어.' : '오늘은 정규 수업이 없어.'}</div>
       </section>
@@ -317,8 +322,13 @@ function TimetablePreview({ schedule, now, configured, title = '오늘 시간표
     : schedule.find((period) => timeToMinutes(period.start) > nowMinutes) || null
 
   return (
-    <section className="home-section home-timetable-preview home-nav-native-surface" data-home-nav-ready="true">
-      <HomeNavAction tab="class" section="timetable" label="시간표 열기" />
+    <section className="home-section home-timetable-preview" data-home-nav-ready="true">
+      <button
+        type="button"
+        className="home-detail-card-action"
+        aria-label="시간표 열기"
+        onClick={() => onNavigate?.('timetable')}
+      />
       <SectionTitle>{title}</SectionTitle>
       <div
         className="period-strip"
@@ -426,6 +436,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
               title={showTomorrowTimetable ? '내일 시간표' : '오늘 시간표'}
               futureDay={showTomorrowTimetable}
               closure={showTomorrowTimetable ? null : todayClosure}
+              onNavigate={onNavigate}
             />
           ) : null}
         </div>
