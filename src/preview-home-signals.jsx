@@ -76,11 +76,16 @@ function signalCopy({ boardUnread, studyUnread, presence, todos, now }) {
   ]
 }
 
-export function PreviewHomeSignals({ profile, presence, todos, now, onNavigate }) {
+export function PreviewHomeSignals({ profile, presence, todos, now, onNavigate, onLaunchReadyChange }) {
   const boardUnread = usePreviewBoardUnread(profile)
   const [studyUnread, setStudyUnread] = useState(() => previewStudyUnreadSnapshot(profile))
 
   useEffect(() => subscribePreviewStudyUnread(profile, setStudyUnread), [profile])
+
+  const launchReady = presence?.ready === true && studyUnread?.initialized === true
+  useEffect(() => {
+    onLaunchReadyChange?.(launchReady)
+  }, [launchReady, onLaunchReadyChange])
 
   const signals = useMemo(
     () => signalCopy({ boardUnread, studyUnread, presence, todos, now }),
