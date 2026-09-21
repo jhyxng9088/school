@@ -92,3 +92,14 @@ test('Home timetable uses the same outer card surface and a denser period strip'
   assert.match(styles, /\.academic-preview \.academic-home-item \{[\s\S]*padding-inline: 12px;/)
   assert.match(styles, /\.todo-home-preview \.todo-home-item \{[\s\S]*padding-inline: 8px;/)
 })
+
+test('Home timetable card uses the shared React-owned timetable navigation callback', () => {
+  const main = read('src/main.jsx')
+
+  assert.doesNotMatch(main, /<HomeNavAction tab="class" section="timetable"/)
+  assert.match(main, /function TimetablePreview\(\{ schedule, now, configured, title = '오늘 시간표', futureDay = false, closure = null, onNavigate \}\)/)
+  assert.equal((main.match(/className="home-section home-timetable-preview"/g) || []).length, 2)
+  assert.equal((main.match(/className="home-detail-card-action"[\s\S]{0,180}onClick=\{\(\) => onNavigate\?\.\('timetable'\)\}/g) || []).length >= 2, true)
+  assert.match(main, /<TimetablePreview[\s\S]*onNavigate=\{onNavigate\}[\s\S]*\/>/)
+  assert.match(main, /if \(target === 'timetable'\) \{\s*setClassSection\('timetable'\)\s*changeTab\('class'\)/)
+})
