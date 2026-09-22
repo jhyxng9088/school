@@ -41,7 +41,7 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.equal(parsed.background_color, '#000000')
   assert.equal(parsed.theme_color, '#000000')
   assert.match(indexHtml, /id="shub-theme-color" name="theme-color" content="#000000"/)
-  assert.match(indexHtml, /manifest\.webmanifest\\?v=22/)
+  assert.match(indexHtml, /manifest\.webmanifest\?v=22/)
   assert.match(indexHtml, /--shub-launch-bg:\s*#000000/)
   assert.match(indexHtml, /function resolveLaunchTheme\(\)/)
   assert.match(indexHtml, /getPropertyValue\('--bg'\)/)
