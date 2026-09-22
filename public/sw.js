@@ -171,25 +171,24 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return
 
   if (request.mode === 'navigate') {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(request, { ignoreSearch: true }) || await cache.match('./')
-        const refresh = fetch(request, { cache: 'no-store' }).then(async (response) => {
-          if (response.ok) {
-            await cache.put(request, response.clone())
-            const scopeUrl = new URL(self.registration.scope)
-            if (url.pathname === scopeUrl.pathname) {
-              await cache.put(new Request(scopeUrl.href), response.clone())
-            }
+    const navigation = caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(request, { ignoreSearch: true }) || await cache.match('./')
+      const refresh = fetch(request, { cache: 'no-store' }).then(async (response) => {
+        if (response.ok) {
+          await cache.put(request, response.clone())
+          const scopeUrl = new URL(self.registration.scope)
+          if (url.pathname === scopeUrl.pathname) {
+            await cache.put(new Request(scopeUrl.href), response.clone())
           }
-          return response
-        })
-
-        if (cached) {
-          event.waitUntil(refresh.catch(() => {}))
-          return cached
         }
+        return response
+      })
+      return { cache, cached, refresh }
+    })
 
+    event.respondWith(
+      navigation.then(async ({ cache, cached, refresh }) => {
+        if (cached) return cached
         try {
           return await refresh
         } catch {
@@ -198,6 +197,12 @@ self.addEventListener('fetch', (event) => {
           throw new Error('Offline and navigation shell is not cached')
         }
       }),
+    )
+
+    event.waitUntil(
+      navigation.then(({ cached, refresh }) => (
+        cached ? refresh.then(() => {}, () => {}) : undefined
+      )),
     )
     return
   }
