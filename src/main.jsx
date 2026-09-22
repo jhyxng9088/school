@@ -1117,6 +1117,7 @@ function AppShell({ profile }) {
   const [contentDirection, setContentDirection] = useState(1)
   const [aiOpen, setAiOpen] = useState(false)
   const [homeSignalsReady, setHomeSignalsReady] = useState(false)
+  const [studyStatusLaunchReady, setStudyStatusLaunchReady] = useState(() => navigator.onLine === false)
   const launchHomeSurfaceRef = useRef(null)
 
   useLayoutEffect(() => {
@@ -1156,8 +1157,26 @@ function AppShell({ profile }) {
   const todoData = useTodos(profile, reminderTimetable)
   const presence = useClassPresence(profile)
   const academicData = useSharedAcademic(profile)
+
+  useEffect(() => {
+    const pending = window.__shubLaunchStudyStatus
+    if (!pending || typeof pending.then !== 'function') {
+      setStudyStatusLaunchReady(true)
+      return undefined
+    }
+
+    let cancelled = false
+    pending.then((ready) => {
+      if (!cancelled && ready === true) setStudyStatusLaunchReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const launchHomeReady = presence?.ready === true
     && homeSignalsReady === true
+    && studyStatusLaunchReady === true
     && todoData.ready === true
     && timetableLaunchReady === true
 
@@ -1218,9 +1237,9 @@ function AppShell({ profile }) {
 
     if (launchHomeReady) requestFinishAfterPaint()
 
-    // Cached timetable state can reveal immediately; only a cache miss waits
-    // briefly for the canonical timetable owner. Board, meals and academic
-    // revalidation remain background work so one slow source cannot hold launch.
+    // Home presence totals and the current Study snapshot may release early
+    // once this launch has fresh status data. Board, meals, academic and roster
+    // warmups remain background work, while the 2s fallback bounds slow sources.
     const fallback = window.setTimeout(requestFinishAfterPaint, 2000)
 
     return () => {

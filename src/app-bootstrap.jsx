@@ -54,6 +54,18 @@ function preloadMainAppModule() {
   return import('./main.jsx')
 }
 
+async function warmLaunchStudyStatus() {
+  if (navigator.onLine === false) return true
+  try {
+    await import('./preview-study-client.js')
+      .then(({ loadPreviewStudy }) => loadPreviewStudy({ scope: 'class', period: 'today' }))
+    return true
+  } catch (error) {
+    console.warn('S-Hub Study launch status warmup deferred:', error)
+    return false
+  }
+}
+
 async function warmHighValueInteractiveData() {
   if (navigator.onLine === false) return
 
@@ -62,11 +74,6 @@ async function warmHighValueInteractiveData() {
       label: 'board',
       run: () => import('./preview-board-client.js')
         .then(({ loadPreviewBoard }) => loadPreviewBoard({ sectionId: 'general', forceSections: false })),
-    },
-    {
-      label: 'study',
-      run: () => import('./preview-study-client.js')
-        .then(({ loadPreviewStudy }) => loadPreviewStudy({ scope: 'class', period: 'today' })),
     },
     {
       label: 'class-roster',
@@ -119,6 +126,7 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
     console.warn('S-Hub auth warmup deferred to data owners:', error)
   })
   const mainModulePromise = preloadMainAppModule()
+  window.__shubLaunchStudyStatus = warmLaunchStudyStatus()
 
   // Mount the real app behind the launch surface immediately. The canonical
   // data owners in AppShell now perform their own first sync, so startup no

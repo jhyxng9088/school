@@ -798,7 +798,7 @@ function presenceSnapshotCacheKey(profile) {
 
 function readPresenceInitialCounts(profile) {
   const classId = classKeyFor(profile)
-  if (!classId || typeof localStorage === 'undefined') return { online: 0, total: 0, ready: false, liveReady: false }
+  if (!classId || typeof localStorage === 'undefined') return { online: 0, total: 0, ready: false, liveReady: false, totalReady: false }
 
   let total = 0
   try {
@@ -820,13 +820,13 @@ function readPresenceInitialCounts(profile) {
 
     if (Number.isInteger(cachedTotal) && cachedTotal >= 0) total = cachedTotal
     if (fresh && Number.isInteger(online) && online >= 0) {
-      return { online, total, ready: true, liveReady: false }
+      return { online, total, ready: true, liveReady: false, totalReady: false }
     }
   } catch {
     // Fall through to the neutral unknown state.
   }
 
-  return { online: 0, total, ready: false, liveReady: false }
+  return { online: 0, total, ready: false, liveReady: false, totalReady: false }
 }
 
 function writePresenceSnapshotCache(profile, counts) {
@@ -920,7 +920,7 @@ export function useClassPresence(profile) {
       if (cached !== null) {
         if (!stopped) {
           setCounts((current) => {
-            const next = { ...current, total: cached }
+            const next = { ...current, total: cached, totalReady: true }
             writePresenceSnapshotCache(profile, next)
             return next
           })
@@ -932,7 +932,7 @@ export function useClassPresence(profile) {
       cacheMemberCount(total)
       if (!stopped) {
         setCounts((current) => {
-          const next = { ...current, total }
+          const next = { ...current, total, totalReady: true }
           writePresenceSnapshotCache(profile, next)
           return next
         })
