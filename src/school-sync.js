@@ -798,7 +798,7 @@ function presenceSnapshotCacheKey(profile) {
 
 function readPresenceInitialCounts(profile) {
   const classId = classKeyFor(profile)
-  if (!classId || typeof localStorage === 'undefined') return { online: 0, total: 0, ready: false }
+  if (!classId || typeof localStorage === 'undefined') return { online: 0, total: 0, ready: false, liveReady: false }
 
   let total = 0
   try {
@@ -820,13 +820,13 @@ function readPresenceInitialCounts(profile) {
 
     if (Number.isInteger(cachedTotal) && cachedTotal >= 0) total = cachedTotal
     if (fresh && Number.isInteger(online) && online >= 0) {
-      return { online, total, ready: true }
+      return { online, total, ready: true, liveReady: false }
     }
   } catch {
     // Fall through to the neutral unknown state.
   }
 
-  return { online: 0, total, ready: false }
+  return { online: 0, total, ready: false, liveReady: false }
 }
 
 function writePresenceSnapshotCache(profile, counts) {
@@ -979,7 +979,7 @@ export function useClassPresence(profile) {
         if (!stopped) {
           const online = Number(onlineSnapshot.data().count || 0)
           setCounts((current) => {
-            const next = { ...current, online, ready: true }
+            const next = { ...current, online, ready: true, liveReady: true }
             writePresenceSnapshotCache(profile, next)
             return next
           })
@@ -1044,7 +1044,7 @@ export function useClassPresence(profile) {
           onOnlineCount: (online) => {
             if (!stopped && fallbackLevel === 'rtdb') {
               setCounts((current) => {
-                const next = { ...current, online, ready: true }
+                const next = { ...current, online, ready: true, liveReady: true }
                 writePresenceSnapshotCache(profile, next)
                 return next
               })
@@ -1084,7 +1084,7 @@ export function useClassPresence(profile) {
           onOnlineCount: (online) => {
             if (!stopped && fallbackLevel === 'supabase') {
               setCounts((current) => {
-                const next = { ...current, online, ready: true }
+                const next = { ...current, online, ready: true, liveReady: true }
                 writePresenceSnapshotCache(profile, next)
                 return next
               })
