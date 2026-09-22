@@ -24,7 +24,7 @@ function patchBoardClient(source) {
   next = replaceRequired(
     next,
     `function uniquePosts(posts = []) {`,
-    `async function requestBoardSections({ method = 'GET', payload = null, signal } = {}) {\n  const headers = await authHeaders('application/json')\n  const options = { method, headers, cache: 'no-store', signal }\n  if (payload) options.body = JSON.stringify(payload)\n  let response\n  try {\n    response = await fetch(BOARD_SECTION_API_URL, options)\n  } catch (error) {\n    if (error?.name === 'AbortError') throw error\n    throw boardError('board/network', '게시판 섹션 서버에 연결하지 못했어요.')\n  }\n  return parseBoardResponse(response)\n}\n\nfunction uniquePosts(posts = []) {`,
+    `async function requestBoardSections({ method = 'GET', payload = null, signal } = {}) {\n  const headers = await authHeaders('application/json')\n  const options = { method, headers, cache: 'no-store', signal }\n  if (payload) options.body = JSON.stringify(payload)\n  let response\n  try {\n    response = await fetchSupabaseFunction(BOARD_SECTION_API_URL, options)\n  } catch (error) {\n    if (error?.name === 'AbortError') throw error\n    throw boardError('board/network', '게시판 섹션 서버에 연결하지 못했어요.')\n  }\n  return parseBoardResponse(response)\n}\n\nfunction uniquePosts(posts = []) {`,
     'stable section request owner',
   )
 
