@@ -19,7 +19,7 @@ test('V2 home overview directly reuses existing unread controllers and local app
   assert.doesNotMatch(component, /loadPreviewBoard/)
 
   assert.match(main, /<PreviewHomeSignals profile=\{profile\} presence=\{presence\} todos=\{todoData\.todos\} now=\{now\} onNavigate=\{onNavigate\} onLaunchReadyChange=\{onSignalsReadyChange\} \/>/)
-  assert.match(component, /const launchReady = presence\?\.liveReady === true && presence\?\.totalReady === true/)
+  assert.match(component, /presence\?\.launchCachedReady === true[\s\S]*presence\?\.liveReady === true && presence\?\.totalReady === true/)
   assert.match(main, /function Home\(\{ profile, name, now/)
   assert.match(main, /onNavigate=\{navigateHomeSignal\}/)
   assert.match(main, /useHomeMealPriority\(now\)/)
