@@ -82,7 +82,7 @@ export function PreviewHomeSignals({ profile, presence, todos, now, onNavigate, 
 
   useEffect(() => subscribePreviewStudyUnread(profile, setStudyUnread), [profile])
 
-  const launchReady = presence?.liveReady === true && studyUnread?.syncedThisLaunch === true
+  const launchReady = presence?.liveReady === true && presence?.totalReady === true
   useEffect(() => {
     onLaunchReadyChange?.(launchReady)
   }, [launchReady, onLaunchReadyChange])
