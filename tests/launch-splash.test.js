@@ -81,7 +81,7 @@ test('configured launch mounts canonical owners immediately but reveals only aft
 test('launch shell cache advances so installed PWAs receive the new boot surface', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
   const deploymentRefresh = fs.readFileSync(new URL('../src/deployment-refresh.js', import.meta.url), 'utf8')
-  assert.match(sw, /school-shell-v170-fast-launch/)
+  assert.match(sw, /school-shell-v171-runtime-prewarm/)
   assert.match(bootstrap, /registration\?\.update\(\)/)
   assert.match(deploymentRefresh, /meta\[name="shub-shell-version"\]/)
   assert.match(deploymentRefresh, /shellChanged/)
@@ -222,4 +222,22 @@ test('launch progress is visible from the first frame and fills continuously fro
 test('iOS handoff keeps the document body black until the web splash is removed', () => {
   assert.match(indexHtml, /<body style="background-color:#000000">/)
   assert.match(indexHtml, /splash\.remove\(\)[\s\S]*document\.body\?\.style\.removeProperty\('background-color'\)/)
+})
+
+
+test('service worker prewarms generated JS/CSS before activation and serves runtime assets cache-first', () => {
+  const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
+  assert.match(sw, /async function warmRuntimeAssets\(cache\)/)
+  assert.match(sw, /runtimeAssetUrls\(html, shellUrl\.href\)/)
+  assert.match(sw, /await warmRuntimeAssets\(cache\)/)
+  assert.match(sw, /request\.destination === 'script' \|\| request\.destination === 'style'/)
+  assert.match(sw, /if \(cached\) return cached/)
+  assert.match(sw, /event\.waitUntil\([\s\S]*cached \? refresh\.then/)
+})
+
+test('Study launch never waits indefinitely for a fresh network snapshot', () => {
+  assert.match(bootstrap, /STUDY_LAUNCH_NETWORK_BUDGET_MS = 700/)
+  assert.match(bootstrap, /Promise\.race\(/)
+  assert.match(bootstrap, /if \(cached\)[\s\S]*return true/)
+  assert.match(bootstrap, /return true[\s\S]*catch \(error\)[\s\S]*return true/)
 })
