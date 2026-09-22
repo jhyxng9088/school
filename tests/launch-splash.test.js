@@ -72,7 +72,7 @@ test('configured launch mounts canonical owners immediately but reveals only aft
   assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 2000\)/)
   assert.match(main, /launchSurfaceRef=\{launchHomeSurfaceRef\}/)
   assert.match(main, /onSignalsReadyChange=\{setHomeSignalsReady\}/)
-  assert.match(previewHomeSignals, /const launchReady = presence\?\.ready === true && studyUnread\?\.initialized === true/)
+  assert.match(previewHomeSignals, /const launchReady = presence\?\.liveReady === true && studyUnread\?\.syncedThisLaunch === true/)
   assert.match(previewHomeSignals, /onLaunchReadyChange\?\.\(launchReady\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
 })
