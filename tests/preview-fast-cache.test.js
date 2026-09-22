@@ -101,7 +101,7 @@ test('home live signals hydrate cached presence and keep unknown states neutral'
   assert.match(unread, /initialized: Boolean\(controller\.state\.initialized\)/)
   assert.match(unread, /syncedThisLaunch: controller\.state\.syncedThisLaunch === true/)
   assert.match(signals, /presence\?\.ready === true/)
-  assert.match(signals, /const launchReady = presence\?\.liveReady === true && studyUnread\?\.syncedThisLaunch === true/)
+  assert.match(signals, /const launchReady = presence\?\.liveReady === true && presence\?\.totalReady === true/)
   assert.match(signals, /studyUnread\?\.initialized !== false/)
   assert.match(signals, /pending: !presenceReady/)
   assert.match(signals, /pending: !studyReady/)
@@ -117,17 +117,25 @@ test('home live signals hydrate cached presence and keep unknown states neutral'
 })
 
 
-test('configured startup warms high-value interactive data without blocking launch', () => {
+test('configured startup warms current Study status during launch and leaves secondary data in background', () => {
   const bootstrap = read('src/app-bootstrap.jsx')
+  const main = read('src/main.jsx')
 
+  assert.match(bootstrap, /async function warmLaunchStudyStatus\(\)/)
+  assert.match(bootstrap, /loadPreviewStudy\(\{ scope: 'class', period: 'today' \}\)/)
+  assert.match(bootstrap, /window\.__shubLaunchStudyStatus = warmLaunchStudyStatus\(\)/)
   assert.match(bootstrap, /async function warmHighValueInteractiveData\(\)/)
   assert.match(bootstrap, /loadPreviewBoard\(\{ sectionId: 'general', forceSections: false \}\)/)
-  assert.match(bootstrap, /loadPreviewStudy\(\{ scope: 'class', period: 'today' \}\)/)
   assert.match(bootstrap, /preloadClassRoster\(\)/)
   assert.doesNotMatch(bootstrap, /preloadConfiguredAppData|preloadPreviewBoard\(/)
+  assert.match(main, /const \[studyStatusLaunchReady, setStudyStatusLaunchReady\]/)
+  assert.match(main, /window\.__shubLaunchStudyStatus/)
+  assert.match(main, /studyStatusLaunchReady === true/)
 
+  const studyWarmAt = bootstrap.indexOf('window.__shubLaunchStudyStatus = warmLaunchStudyStatus()')
   const mountAt = bootstrap.indexOf('mainModule.mountMainApp()')
   const warmAt = bootstrap.indexOf('void warmHighValueInteractiveData()', mountAt)
+  assert.ok(studyWarmAt >= 0 && studyWarmAt < mountAt)
   assert.ok(mountAt >= 0)
   assert.ok(warmAt > mountAt)
 })
