@@ -1,3 +1,5 @@
+import { fetchSupabaseFunction } from './supabase-http.js'
+
 const SUPABASE_PRESENCE_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-presence'
 const PRESENCE_REFRESH_MS = 45_000
 const latestSnapshots = new Map()
@@ -44,7 +46,7 @@ async function requestPresence(user, classId, action, signal) {
   if (!user?.getIdToken || !classId) throw new Error('접속 상태 로그인 정보를 확인하지 못했어요.')
   const idToken = String(await user.getIdToken()).trim()
   if (!idToken) throw new Error('접속 상태 로그인 정보를 확인하지 못했어요.')
-  const response = await fetch(SUPABASE_PRESENCE_URL, {
+  const response = await fetchSupabaseFunction(SUPABASE_PRESENCE_URL, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${idToken}`,
@@ -53,7 +55,7 @@ async function requestPresence(user, classId, action, signal) {
     body: JSON.stringify({ action }),
     cache: 'no-store',
     signal,
-  })
+  }, { safeToRetry: true })
   const body = await response.json().catch(() => ({}))
   if (!response.ok || body?.ok !== true) {
     const error = new Error(String(body?.message || '접속 상태를 확인하지 못했어요.'))
