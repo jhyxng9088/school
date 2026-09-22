@@ -16,7 +16,7 @@ test('persistent preview cache is student-scoped and bounded', () => {
   assert.doesNotMatch(cache, /SERVICE_ROLE|SUPABASE_SECRET|authorization/)
 })
 
-test('study uses only real current-day cache data and revalidates in background', () => {
+test('study uses current-day cache data and carries only recent live state across midnight', () => {
   const rawClient = read('src/preview-study-client.js')
   const rawPage = read('src/preview-study.jsx')
   const client = patchPreviewFastCacheSource(rawClient, '/workspace/src/preview-study-client.js')
@@ -28,7 +28,9 @@ test('study uses only real current-day cache data and revalidates in background'
   assert.match(client, /readPreviewPersistentCache\('study', normalizedScope\)/)
   assert.match(client, /writePreviewPersistentCache\('study', normalizedScope, snapshot\)/)
   assert.match(client, /if \(!stored \|\| !Array\.isArray\(stored\.students\)\) return null/)
-  assert.match(client, /if \(normalized\.date !== studyCacheToday\(\)\) return null/)
+  assert.match(client, /if \(normalized\.date === today\) return normalized/)
+  assert.match(client, /STUDY_ACTIVE_CARRYOVER_MS/)
+  assert.match(client, /activeCarryover: true/)
   assert.doesNotMatch(client, /emptyStudySnapshot|resetCachedStudyDay/)
   assert.doesNotMatch(client, /generatedAt:\s*0/)
 
@@ -122,11 +124,11 @@ test('configured startup warms current Study status during launch and leaves sec
   const main = read('src/main.jsx')
 
   assert.match(bootstrap, /async function warmLaunchStudyStatus\(\)/)
-  assert.match(bootstrap, /STUDY_LAUNCH_CACHE_MAX_AGE_MS = 2 \* 60 \* 1000/)
+  assert.match(bootstrap, /STUDY_LAUNCH_NETWORK_BUDGET_MS = 700/)
   assert.match(bootstrap, /peekPreviewStudyCache\(\{ scope: 'class' \}\)/)
-  assert.match(bootstrap, /cacheAge <= STUDY_LAUNCH_CACHE_MAX_AGE_MS/)
-  assert.match(bootstrap, /void loadPreviewStudy\(\{ scope: 'class', period: 'today' \}\)\.catch/)
-  assert.match(bootstrap, /await loadPreviewStudy\(\{ scope: 'class', period: 'today' \}\)/)
+  assert.match(bootstrap, /const refresh = loadPreviewStudy\(\{ scope: 'class', period: 'today' \}\)/)
+  assert.match(bootstrap, /if \(cached\)[\s\S]*return true/)
+  assert.match(bootstrap, /Promise\.race\(/)
   assert.match(bootstrap, /window\.__shubLaunchStudyStatus = warmLaunchStudyStatus\(\)/)
   assert.match(bootstrap, /async function warmHighValueInteractiveData\(\)/)
   assert.match(bootstrap, /loadPreviewBoard\(\{ sectionId: 'general', forceSections: false \}\)/)
