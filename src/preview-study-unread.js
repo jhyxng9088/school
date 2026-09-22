@@ -24,6 +24,7 @@ function blankState() {
     pendingSeenAt: 0,
     pendingSeenCursor: 0,
     revision: 0,
+    syncedThisLaunch: false,
   }
 }
 
@@ -50,6 +51,7 @@ function loadStored(key) {
       pendingSeenAt: Math.max(0, Number(parsed?.pendingSeenAt || 0)),
       pendingSeenCursor,
       revision: 0,
+      syncedThisLaunch: false,
     }
   } catch {
     return blankState()
@@ -83,6 +85,7 @@ function snapshot(controller) {
     eventCursor: Math.max(0, Number(controller.state.eventCursor || 0)),
     seenCursor: Math.max(0, Number(controller.state.seenCursor || 0)),
     revision: controller.state.revision,
+    syncedThisLaunch: controller.state.syncedThisLaunch === true,
   }
 }
 
@@ -128,6 +131,7 @@ function applyServerReadState(controller, readState, latestCursor) {
   const serverLatestAt = Math.max(0, Number(readState.latestAt || 0))
   const nextHasUnread = serverLatestAt > 0 && nextEventCursor > nextSeenCursor
   const changed = !controller.state.initialized
+    || controller.state.syncedThisLaunch !== true
     || nextSeenAt !== controller.state.seenAt
     || nextSeenCursor !== controller.state.seenCursor
     || nextEventCursor !== controller.state.eventCursor
@@ -135,6 +139,7 @@ function applyServerReadState(controller, readState, latestCursor) {
     || nextHasUnread !== controller.state.hasUnread
 
   controller.state.initialized = true
+  controller.state.syncedThisLaunch = true
   controller.state.seenAt = nextSeenAt
   controller.state.seenCursor = nextSeenCursor
   controller.state.latestAt = serverLatestAt
@@ -240,6 +245,7 @@ async function syncController(controller) {
       // Compatibility fallback while an older Edge Function is still serving.
       if (!controller.state.initialized) {
         controller.state.initialized = true
+        controller.state.syncedThisLaunch = true
         controller.state.eventCursor = latestCursor
         controller.state.seenCursor = latestCursor
         controller.state.latestAt = 0
@@ -270,11 +276,14 @@ async function syncController(controller) {
 
       const nextEventCursor = Math.max(controller.state.eventCursor, combinedLatestCursor)
       const nextHasUnread = latestOther.cursor > Number(controller.state.seenCursor || 0)
+      const syncBecameReady = controller.state.syncedThisLaunch !== true
       if (
-        nextEventCursor !== controller.state.eventCursor
+        syncBecameReady
+        || nextEventCursor !== controller.state.eventCursor
         || nextHasUnread !== controller.state.hasUnread
         || latestOther.startedAt !== controller.state.latestAt
       ) {
+        controller.state.syncedThisLaunch = true
         controller.state.eventCursor = nextEventCursor
         controller.state.latestAt = latestOther.startedAt
         controller.state.hasUnread = nextHasUnread
