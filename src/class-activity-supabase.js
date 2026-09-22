@@ -1,4 +1,5 @@
 import { classKeyFor, ensureSignedIn, readStudentProfile } from './school-sync.js'
+import { fetchSupabaseFunction } from './supabase-http.js'
 
 const PROJECT_REF = 'elhlsqhzjmsfhmawrpqu'
 const PUBLISHABLE_KEY = 'sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0'
@@ -41,7 +42,7 @@ export async function loadSupabaseClassActivity(profile = readStudentProfile()) 
   if (!classId) throw new Error('반 정보를 확인하지 못했어요.')
   const url = new URL(API_URL)
   url.searchParams.set('classId', classId)
-  const response = await fetch(url, {
+  const response = await fetchSupabaseFunction(url, {
     method: 'GET',
     headers: { authorization: await authorization() },
     cache: 'no-store',
@@ -98,7 +99,7 @@ export async function saveSupabaseClassActivities(profile, entries = []) {
   const cleanEntries = entries.map(cleanWriteEntry).filter(Boolean)
   if (!classId || !cleanEntries.length) return { ok: false, mirrored: false, realtime: false }
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetchSupabaseFunction(API_URL, {
       method: 'POST',
       headers: {
         authorization: await authorization(),
