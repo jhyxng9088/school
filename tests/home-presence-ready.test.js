@@ -25,7 +25,8 @@ test('pending home realtime values keep their layout but never expose dash place
 
 
 test('cached presence can paint immediately but only a live transport confirms launch readiness', () => {
-  assert.match(sync, /return \{ online, total, ready: true, liveReady: false \}/)
+  assert.match(sync, /return \{ online, total, ready: true, liveReady: false, totalReady: false \}/)
   assert.match(sync, /const next = \{ \.\.\.current, online, ready: true, liveReady: true \}/)
-  assert.match(signals, /const launchReady = presence\?\.liveReady === true/)
+  assert.match(sync, /const next = \{ \.\.\.current, total: cached, totalReady: true \}/)
+  assert.match(signals, /const launchReady = presence\?\.liveReady === true && presence\?\.totalReady === true/)
 })
