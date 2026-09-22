@@ -21,29 +21,82 @@ export const WEEKDAYS = [
 export const TIMETABLE_STORAGE_KEY = 'school.timetable.weekly.v2'
 export const OVERRIDES_STORAGE_KEY = 'school.timetable.overrides.v2'
 const STUDENT_PROFILE_STORAGE_KEY = 'school.studentProfile.v1'
+const TIMETABLE_SCOPE_MIGRATION_KEY = 'school.timetable.storageScopeMigration.v1'
 
-function storedClassNumber() {
+function safeStorageScopePart(value, max = 24) {
+  return String(value || '').trim().replace(/[^0-9A-Za-z_-]/g, '').slice(0, max)
+}
+
+function storedTimetableScope() {
   try {
     const profile = JSON.parse(localStorage.getItem(STUDENT_PROFILE_STORAGE_KEY) || 'null')
     const classNumber = Number(profile?.classNumber)
-    return Number.isInteger(classNumber) && classNumber >= 1 && classNumber <= 30 ? classNumber : null
+    if (!Number.isInteger(classNumber) || classNumber < 1 || classNumber > 30) {
+      return { classNumber: null, schoolScoped: false, storageSuffix: '' }
+    }
+
+    const officeCode = safeStorageScopePart(profile?.officeCode, 12)
+    const schoolCode = safeStorageScopePart(profile?.schoolCode, 20)
+    const grade = Number(profile?.grade)
+    const schoolScoped = Boolean(
+      officeCode
+      && schoolCode
+      && Number.isInteger(grade)
+      && grade >= 1
+      && grade <= 6
+    )
+
+    return {
+      classNumber,
+      schoolScoped,
+      storageSuffix: schoolScoped
+        ? `school-${officeCode}-${schoolCode}.grade-${grade}.class-${classNumber}`
+        : `class-${classNumber}`,
+    }
   } catch {
-    return null
+    return { classNumber: null, schoolScoped: false, storageSuffix: '' }
   }
 }
 
-function classScopedStorageKey(baseKey, classNumber = storedClassNumber()) {
-  return classNumber ? `${baseKey}.class-${classNumber}` : baseKey
+function storedClassNumber() {
+  return storedTimetableScope().classNumber
+}
+
+function classScopedStorageKey(baseKey, scope = storedTimetableScope()) {
+  return scope?.storageSuffix ? `${baseKey}.${scope.storageSuffix}` : baseKey
+}
+
+function timetableScopeMigrationKey(baseKey, classNumber) {
+  return `${TIMETABLE_SCOPE_MIGRATION_KEY}.${baseKey}.class-${classNumber}`
 }
 
 function readClassScopedStorage(baseKey) {
-  const classNumber = storedClassNumber()
-  const key = classScopedStorageKey(baseKey, classNumber)
+  const scope = storedTimetableScope()
+  const { classNumber } = scope
+  const key = classScopedStorageKey(baseKey, scope)
   let stored = localStorage.getItem(key)
 
-  // Existing S-Hub users were class 1 before class isolation existed.
-  // Migrate that old cache only into class 1; no other class may inherit it.
-  if (stored === null && classNumber === 1 && key !== baseKey) {
+  if (stored === null && scope.schoolScoped && classNumber) {
+    const legacyClassKey = `${baseKey}.class-${classNumber}`
+    const migrationKey = timetableScopeMigrationKey(baseKey, classNumber)
+    const migratedTo = localStorage.getItem(migrationKey)
+    let legacy = localStorage.getItem(legacyClassKey)
+
+    // Very old class 1 installs predate even the class-number cache suffix.
+    if (legacy === null && classNumber === 1) legacy = localStorage.getItem(baseKey)
+
+    // Adopt the old class-only cache once for the profile active during the
+    // migration. If the student later changes school/grade but keeps the same
+    // class number, that old cache must never be adopted by the new scope.
+    if (legacy !== null && (!migratedTo || migratedTo === key)) {
+      stored = legacy
+      localStorage.setItem(key, legacy)
+      localStorage.setItem(migrationKey, key)
+    }
+  }
+
+  // Profiles without an explicit school keep the old compatibility behavior.
+  if (stored === null && !scope.schoolScoped && classNumber === 1 && key !== baseKey) {
     const legacy = localStorage.getItem(baseKey)
     if (legacy !== null) {
       stored = legacy
@@ -51,7 +104,7 @@ function readClassScopedStorage(baseKey) {
     }
   }
 
-  return { classNumber, key, stored }
+  return { classNumber, key, stored, schoolScoped: scope.schoolScoped }
 }
 
 export const DEFAULT_WEEKLY_SCHEDULE = {
@@ -297,9 +350,12 @@ export function hasStoredWeeklySchedule() {
 }
 
 export function loadWeeklySchedule() {
-  const fallback = () => storedClassNumber() === 1
-    ? createDefaultWeeklySchedule()
-    : createEmptyWeeklySchedule()
+  const fallback = () => {
+    const scope = storedTimetableScope()
+    return scope.classNumber === 1 && !scope.schoolScoped
+      ? createDefaultWeeklySchedule()
+      : createEmptyWeeklySchedule()
+  }
   try {
     const { stored } = readClassScopedStorage(TIMETABLE_STORAGE_KEY)
     if (!stored) return fallback()
