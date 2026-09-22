@@ -1,4 +1,5 @@
 import { classKeyFor, ensureSignedIn, readStudentProfile } from './school-sync.js'
+import { fetchSupabaseFunction } from './supabase-http.js'
 
 const PROJECT_REF = 'elhlsqhzjmsfhmawrpqu'
 const PUBLISHABLE_KEY = 'sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0'
@@ -39,7 +40,7 @@ async function loadRealtimeTopic() {
   if (cachedTopic) return cachedTopic
   if (!topicPromise) {
     topicPromise = (async () => {
-      const response = await fetch(REALTIME_CONFIG_URL, {
+      const response = await fetchSupabaseFunction(REALTIME_CONFIG_URL, {
         method: 'GET',
         headers: { authorization: await firebaseAuthorization() },
         cache: 'no-store',
