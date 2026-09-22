@@ -37,6 +37,21 @@ test('study unread has one event owner with a shared seen cursor and offline loc
   assert.match(client, /action: 'mark-seen'/)
 })
 
+test('Study launch readiness is session-only and flips only after a successful server sync', () => {
+  const source = read('src/preview-study-unread.js')
+  const persist = source.slice(source.indexOf('function persist'), source.indexOf('function snapshot'))
+  const snap = source.slice(source.indexOf('function snapshot'), source.indexOf('function notify'))
+  const apply = source.slice(source.indexOf('function applyServerReadState'), source.indexOf('function hasPendingWrite'))
+  const sync = source.slice(source.indexOf('async function syncController'), source.indexOf('function startController'))
+
+  assert.match(source, /syncedThisLaunch: false/)
+  assert.match(snap, /syncedThisLaunch: controller\.state\.syncedThisLaunch === true/)
+  assert.doesNotMatch(persist, /syncedThisLaunch/)
+  assert.match(apply, /controller\.state\.syncedThisLaunch !== true/)
+  assert.match(apply, /controller\.state\.syncedThisLaunch = true/)
+  assert.match(sync, /const syncBecameReady = controller\.state\.syncedThisLaunch !== true/)
+})
+
 test('server Study state cannot roll a locally advanced seen cursor backward or resurrect an old dot', () => {
   const source = read('src/preview-study-unread.js')
   const apply = source.slice(source.indexOf('function applyServerReadState'), source.indexOf('function hasPendingWrite'))
