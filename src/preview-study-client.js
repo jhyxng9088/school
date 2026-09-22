@@ -6,6 +6,7 @@ import { fetchSupabaseFunction } from './supabase-http.js'
 
 const STUDY_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-study'
 const STUDY_CACHE_KST_OFFSET_MS = 9 * 60 * 60 * 1000
+const STUDY_ACTIVE_CARRYOVER_MS = 45 * 60 * 1000
 
 function studyCacheToday() {
   return new Date(Date.now() + STUDY_CACHE_KST_OFFSET_MS).toISOString().slice(0, 10)
@@ -168,8 +169,38 @@ export function peekPreviewStudyCache({ scope = 'class' } = {}) {
   const stored = readPreviewPersistentCache('study', normalizedScope)
   if (!stored || !Array.isArray(stored.students)) return null
   const normalized = normalizePreviewStudySnapshot(stored)
-  if (normalized.date !== studyCacheToday()) return null
-  return normalized
+  const today = studyCacheToday()
+  if (normalized.date === today) return normalized
+
+  // Daily totals reset at midnight, but an active Study session does not.
+  // Carry only recent live state across the KST date boundary so the first
+  // render does not blank "현재 공부중" while today's snapshot is fetched.
+  const cacheAge = Date.now() - Number(normalized.generatedAt || 0)
+  if (
+    normalizedScope !== 'class'
+    || !Number.isFinite(cacheAge)
+    || cacheAge < 0
+    || cacheAge > STUDY_ACTIVE_CARRYOVER_MS
+  ) return null
+
+  const carryStudent = (student) => ({
+    ...student,
+    totalSeconds: 0,
+    subjectTotals: [],
+  })
+  const me = normalized.me ? carryStudent(normalized.me) : null
+  const students = normalized.students
+    .filter((student) => student?.active || student?.studentKey === me?.studentKey)
+    .map(carryStudent)
+
+  return {
+    ...normalized,
+    date: today,
+    students,
+    me,
+    generatedAt: normalized.generatedAt,
+    activeCarryover: true,
+  }
 }
 
 export function patchPreviewStudyActiveCache(active) {
