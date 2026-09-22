@@ -1,10 +1,24 @@
 const SUPABASE_HOST = 'elhlsqhzjmsfhmawrpqu.supabase.co'
 const RELAY_BASE_URL = 'https://school-reminder-backend.vercel.app/api/supabase-relay'
-const DIRECT_TIMEOUT_MS = 1600
+const DIRECT_TIMEOUT_MS = 900
 const RELAY_TIMEOUT_MS = 12_000
 const DIRECT_FAILURE_COOLDOWN_MS = 60_000
+const RELAY_PREFERENCE_TTL_MS = 6 * 60 * 60_000
+const RELAY_PREFERENCE_KEY = 'school.supabaseRelayUntil.v1'
 
-let directBlockedUntil = 0
+function storedRelayUntil() {
+  try {
+    const value = Number(globalThis.localStorage?.getItem?.(RELAY_PREFERENCE_KEY) || 0)
+    if (Number.isFinite(value) && value > Date.now()) return value
+    if (value) globalThis.localStorage?.removeItem?.(RELAY_PREFERENCE_KEY)
+  } catch {
+    // Storage can be unavailable in private/restricted contexts. Session fallback still works.
+  }
+  return 0
+}
+
+let persistedRelayUntil = storedRelayUntil()
+let directBlockedUntil = persistedRelayUntil
 
 function abortError() {
   const error = new Error('Aborted')
@@ -34,6 +48,33 @@ function likelyFilteredResponse(response) {
   return response?.status === 403
     || response?.status === 451
     || (response?.ok === true && contentType.includes('text/html'))
+}
+
+function relayLooksReachable(response) {
+  return Boolean(response) && response.status !== 502 && response.status !== 504
+}
+
+function markDirectUnavailable({ persist = false } = {}) {
+  directBlockedUntil = Math.max(directBlockedUntil, Date.now() + DIRECT_FAILURE_COOLDOWN_MS)
+  if (!persist || persistedRelayUntil > Date.now()) return
+
+  persistedRelayUntil = Date.now() + RELAY_PREFERENCE_TTL_MS
+  directBlockedUntil = Math.max(directBlockedUntil, persistedRelayUntil)
+  try {
+    globalThis.localStorage?.setItem?.(RELAY_PREFERENCE_KEY, String(persistedRelayUntil))
+  } catch {
+    // Keep the in-memory route preference when persistent storage is unavailable.
+  }
+}
+
+function clearDirectUnavailable() {
+  directBlockedUntil = 0
+  persistedRelayUntil = 0
+  try {
+    globalThis.localStorage?.removeItem?.(RELAY_PREFERENCE_KEY)
+  } catch {
+    // No-op.
+  }
 }
 
 async function fetchAttempt(input, init, timeoutMs) {
@@ -79,21 +120,35 @@ export async function fetchSupabaseFunction(input, init = {}, { safeToRetry = fa
   const relayUrl = relayUrlFor(url, target)
 
   if (supabaseDirectTemporarilyBlocked()) {
-    return fetchAttempt(relayUrl, init, RELAY_TIMEOUT_MS)
+    try {
+      const relayResponse = await fetchAttempt(relayUrl, init, RELAY_TIMEOUT_MS)
+      if (relayLooksReachable(relayResponse)) markDirectUnavailable({ persist: true })
+      return relayResponse
+    } catch (relayError) {
+      if (!canRetry || init?.signal?.aborted) throw relayError
+      const directResponse = await fetchAttempt(url, init, DIRECT_TIMEOUT_MS)
+      clearDirectUnavailable()
+      return directResponse
+    }
   }
 
   try {
     const response = await fetchAttempt(url, init, canRetry ? DIRECT_TIMEOUT_MS : 0)
     if (canRetry && likelyFilteredResponse(response)) {
-      directBlockedUntil = Date.now() + DIRECT_FAILURE_COOLDOWN_MS
-      return fetchAttempt(relayUrl, init, RELAY_TIMEOUT_MS)
+      markDirectUnavailable()
+      const relayResponse = await fetchAttempt(relayUrl, init, RELAY_TIMEOUT_MS)
+      if (relayLooksReachable(relayResponse)) markDirectUnavailable({ persist: true })
+      return relayResponse
     }
-    directBlockedUntil = 0
+    clearDirectUnavailable()
     return response
   } catch (error) {
     if (init?.signal?.aborted) throw error
     if (!canRetry) throw error
-    directBlockedUntil = Date.now() + DIRECT_FAILURE_COOLDOWN_MS
-    return fetchAttempt(relayUrl, init, RELAY_TIMEOUT_MS)
+
+    markDirectUnavailable()
+    const relayResponse = await fetchAttempt(relayUrl, init, RELAY_TIMEOUT_MS)
+    if (relayLooksReachable(relayResponse)) markDirectUnavailable({ persist: true })
+    return relayResponse
   }
 }
