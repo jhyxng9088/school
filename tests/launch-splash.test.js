@@ -16,9 +16,11 @@ test('launch splash renders before React root with canonical S-Hub logo', () => 
   const rootAt = indexHtml.indexOf('id="root"')
   assert.ok(splashAt >= 0)
   assert.ok(rootAt > splashAt)
-  assert.match(indexHtml, /src="\.\/icon\.svg\?v=9"/)
+  assert.match(indexHtml, /class="shub-launch-mark"/)
+  assert.match(indexHtml, /class="shub-launch-mark-fill"/)
+  assert.match(indexHtml, /class="shub-launch-mark-trace" pathLength="1"/)
+  assert.match(indexHtml, /class="shub-launch-mark-shine"/)
   assert.match(indexHtml, /id="shub-launch-progress-fill"/)
-  assert.doesNotMatch(indexHtml, /shub-launch-silver/)
 })
 
 test('bootstrap and app only complete splash after app startup', () => {
@@ -48,9 +50,9 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
   assert.match(indexHtml, /splash\.style\.backgroundColor = mixedBg/)
   assert.match(indexHtml, /requestAnimationFrame\(animateLaunchProgress\)/)
-  assert.match(indexHtml, /version: 22/)
+  assert.match(indexHtml, /version: 23/)
   assert.doesNotMatch(indexHtml, /setTimeout\(\(\) => paintLaunchProgress\(\.3\)/)
-  assert.match(indexHtml, /name="shub-shell-version" content="22"/)
+  assert.match(indexHtml, /name="shub-shell-version" content="23"/)
 })
 
 test('configured launch mounts canonical owners immediately but reveals only after a stable Home paint, including holiday layout', () => {
@@ -188,4 +190,25 @@ test('installed PWA navigation paints the cached launch shell before network ref
   assert.match(sw, /const navigation = caches\.open\(CACHE_NAME\)/)
   assert.match(sw, /event\.waitUntil\([\s\S]*navigation\.then\([\s\S]*cached \? refresh\.then/)
   assert.match(sw, /return cached/)
+})
+
+
+test('launch logo animates only the inner mark while the black rounded shell stays still', () => {
+  assert.match(indexHtml, /\.shub-launch-logo \{[\s\S]*background: #000000;[\s\S]*border-radius: 22px;/)
+  const logoRule = indexHtml.slice(indexHtml.indexOf('.shub-launch-logo {'), indexHtml.indexOf('.shub-launch-mark {'))
+  assert.doesNotMatch(logoRule, /animation:/)
+  assert.match(indexHtml, /@keyframes shub-launch-mark-reveal/)
+  assert.match(indexHtml, /@keyframes shub-launch-mark-sharpen/)
+  assert.match(indexHtml, /@keyframes shub-launch-mark-trace/)
+  assert.match(indexHtml, /@keyframes shub-launch-mark-shine/)
+  assert.match(indexHtml, /@keyframes shub-launch-mark-settle/)
+  assert.match(indexHtml, /clip-path: inset\(0 0 100% 0\)/)
+  assert.match(indexHtml, /stroke-dasharray: 1/)
+  assert.match(indexHtml, /filter: blur\(2\.8px\)/)
+})
+
+test('launch logo formation respects reduced motion without changing launch timing owners', () => {
+  assert.match(indexHtml, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.shub-launch-mark-fill[\s\S]*animation: none !important/)
+  assert.match(indexHtml, /\.shub-launch-mark-fill \{[\s\S]*clip-path: inset\(0 0 0 0\);[\s\S]*filter: none;/)
+  assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 2000\)/)
 })
