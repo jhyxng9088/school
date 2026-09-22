@@ -40,6 +40,8 @@ test('relay is narrowly whitelisted and Vercel-configured', () => {
     'board-realtime',
     'class-activity-mirror',
     'class-board',
+    'class-board-all',
+    'class-board-sections',
     'class-presence',
     'class-study',
     'push-subscription-mirror',
