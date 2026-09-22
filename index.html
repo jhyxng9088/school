@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" style="background-color:#000000">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta id="shub-theme-color" name="theme-color" content="#000000" />
-    <meta name="shub-shell-version" content="21" />
+    <meta name="shub-shell-version" content="22" />
     <meta name="application-name" content="S-Hub" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="S-Hub" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="manifest" href="./manifest.webmanifest?v=21" />
+    <link rel="manifest" href="./manifest.webmanifest?v=22" />
     <link rel="icon" sizes="any" href="./icon.svg?v=9" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg?v=9" />
     <link rel="preload" href="./icon.svg?v=9" as="image" type="image/svg+xml" />
@@ -351,7 +351,7 @@
         }
 
         window.__shubLaunch = {
-          version: 21,
+          version: 22,
           progress: paintLaunchProgress,
           refreshTheme: refreshLaunchTheme,
           ready: finishLaunch,
@@ -361,7 +361,10 @@
 
         document.addEventListener('DOMContentLoaded', () => {
           paintLaunchProgress(.14)
-          requestAnimationFrame(() => requestAnimationFrame(() => paintLaunchTheme(launchState.progressPainted)))
+          requestAnimationFrame(() => {
+            root.style.removeProperty('background-color')
+            requestAnimationFrame(() => paintLaunchTheme(launchState.progressPainted))
+          })
         }, { once: true })
 
         requestAnimationFrame(() => {

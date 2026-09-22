@@ -41,16 +41,16 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.equal(parsed.background_color, '#000000')
   assert.equal(parsed.theme_color, '#000000')
   assert.match(indexHtml, /id="shub-theme-color" name="theme-color" content="#000000"/)
-  assert.match(indexHtml, /manifest\.webmanifest\?v=21/)
+  assert.match(indexHtml, /manifest\.webmanifest\?v=22/)
   assert.match(indexHtml, /--shub-launch-bg:\s*#000000/)
   assert.match(indexHtml, /function resolveLaunchTheme\(\)/)
   assert.match(indexHtml, /getPropertyValue\('--bg'\)/)
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
   assert.match(indexHtml, /splash\.style\.backgroundColor = mixedBg/)
   assert.match(indexHtml, /requestAnimationFrame\(animateLaunchProgress\)/)
-  assert.match(indexHtml, /version: 21/)
+  assert.match(indexHtml, /version: 22/)
   assert.doesNotMatch(indexHtml, /setTimeout\(\(\) => paintLaunchProgress\(\.3\)/)
-  assert.match(indexHtml, /name="shub-shell-version" content="21"/)
+  assert.match(indexHtml, /name="shub-shell-version" content="22"/)
 })
 
 test('configured launch mounts canonical owners immediately but reveals only after a stable Home paint, including holiday layout', () => {
@@ -81,7 +81,7 @@ test('configured launch mounts canonical owners immediately but reveals only aft
 test('launch shell cache advances so installed PWAs receive the new boot surface', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
   const deploymentRefresh = fs.readFileSync(new URL('../src/deployment-refresh.js', import.meta.url), 'utf8')
-  assert.match(sw, /school-shell-v169-ios-system-topbar/)
+  assert.match(sw, /school-shell-v170-fast-launch/)
   assert.match(bootstrap, /registration\?\.update\(\)/)
   assert.match(deploymentRefresh, /meta\[name="shub-shell-version"\]/)
   assert.match(deploymentRefresh, /shellChanged/)
@@ -176,4 +176,16 @@ test('launch keeps secondary Home sources in the background while priority state
   assert.match(gate, /homeSignalsReady === true/)
   assert.match(gate, /studyStatusLaunchReady === true/)
   assert.doesNotMatch(gate, /board|academic|meal|studyUnread/)
+})
+
+
+test('installed PWA navigation paints the cached launch shell before network refresh', () => {
+  const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
+  assert.match(indexHtml, /<html lang="ko" style="background-color:#000000">/)
+  assert.match(indexHtml, /root\.style\.removeProperty\('background-color'\)/)
+  assert.match(sw, /request\.mode === 'navigate'/)
+  assert.match(sw, /cache\.match\(request, \{ ignoreSearch: true \}\) \|\| await cache\.match\('\.\/'\)/)
+  assert.match(sw, /const navigation = caches\.open\(CACHE_NAME\)/)
+  assert.match(sw, /event\.waitUntil\([\s\S]*navigation\.then\([\s\S]*cached \? refresh\.then/)
+  assert.match(sw, /return cached/)
 })
