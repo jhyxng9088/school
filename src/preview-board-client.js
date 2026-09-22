@@ -1,5 +1,6 @@
 import { ensureSignedIn } from './school-sync.js'
 import { dispatchPreviewBoardCommentPush } from './preview-social-push.js'
+import { fetchSupabaseFunction } from './supabase-http.js'
 
 const BOARD_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-board'
 const BOARD_CACHE_FRESH_MS = 45_000
@@ -73,7 +74,7 @@ async function requestBoard({ method = 'GET', payload = null, signal, sectionId 
       throw aborted
     }
     try {
-      response = await fetch(url, options)
+      response = await fetchSupabaseFunction(url, options)
       lastNetworkError = null
     } catch (error) {
       if (error?.name === 'AbortError') throw error
@@ -263,7 +264,7 @@ export async function uploadPreviewBoardAttachment(file, draftId) {
 
   let response
   try {
-    response = await fetch(url, {
+    response = await fetchSupabaseFunction(url, {
       method: 'POST',
       headers,
       body: file,
