@@ -172,6 +172,40 @@ export function peekPreviewStudyCache({ scope = 'class' } = {}) {
   return normalized
 }
 
+export function patchPreviewStudyActiveCache(active) {
+  const cached = peekPreviewStudyCache({ scope: 'class' })
+  const currentMe = cached?.me
+  if (!cached || !currentMe?.studentKey || !currentMe?.name) return false
+
+  let nextActive = null
+  if (active) {
+    nextActive = normalizeActive({
+      ...active,
+      classId: String(active.classId || currentMe.classId || ''),
+      studentKey: currentMe.studentKey,
+      name: currentMe.name,
+    })
+    if (!nextActive) return false
+  }
+
+  const nextMe = { ...currentMe, active: nextActive }
+  const students = Array.isArray(cached.students) ? cached.students : []
+  let replaced = false
+  const nextStudents = students.map((student) => {
+    if (student?.studentKey !== currentMe.studentKey) return student
+    replaced = true
+    return { ...student, active: nextActive }
+  })
+  if (!replaced) nextStudents.push(nextMe)
+
+  return writePreviewPersistentCache('study', 'class', {
+    ...cached,
+    students: nextStudents,
+    me: nextMe,
+    generatedAt: Date.now(),
+  })
+}
+
 export async function loadPreviewStudy({ signal, scope = 'class', period = 'today' } = {}) {
   const normalizedScope = scope === 'school' ? 'school' : 'class'
   const normalizedPeriod = period === 'all' ? 'all' : 'today'
