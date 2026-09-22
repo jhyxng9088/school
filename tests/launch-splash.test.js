@@ -185,6 +185,6 @@ test('installed PWA navigation paints the cached launch shell before network ref
   assert.match(indexHtml, /root\.style\.removeProperty\('background-color'\)/)
   assert.match(sw, /request\.mode === 'navigate'/)
   assert.match(sw, /cache\.match\(request, \{ ignoreSearch: true \}\) \|\| await cache\.match\('\.\/'\)/)
-  assert.match(sw, /event\.waitUntil\(refresh\.catch\(\(\) => \{\}\)\)/)
+  assert.match(sw, /const navigation = caches\.open\(CACHE_NAME\)/)\n  assert.match(sw, /event\.waitUntil\([\s\S]*navigation\.then\([\s\S]*cached \? refresh\.then/)
   assert.match(sw, /return cached/)
 })
