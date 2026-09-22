@@ -2,6 +2,7 @@ import { ensureSignedIn } from './school-sync.js'
 import { readPreviewPersistentCache, writePreviewPersistentCache } from './preview-fast-cache.js'
 import { dispatchPreviewStudyStartPush } from './preview-social-push.js'
 import './preview-study-ranking.css'
+import { fetchSupabaseFunction } from './supabase-http.js'
 
 const STUDY_API_URL = 'https://elhlsqhzjmsfhmawrpqu.supabase.co/functions/v1/class-study'
 const STUDY_CACHE_KST_OFFSET_MS = 9 * 60 * 60 * 1000
@@ -48,7 +49,7 @@ async function requestStudy({ method = 'GET', payload = null, signal, scope = 'c
 
   let response
   try {
-    response = await fetch(url, {
+    response = await fetchSupabaseFunction(url, {
       method,
       headers: await authHeaders(),
       body: payload ? JSON.stringify(payload) : undefined,
@@ -69,7 +70,7 @@ async function requestStudyEvents({ method = 'GET', payload = null, since = 0, s
     : STUDY_EVENTS_API_URL
   let response
   try {
-    response = await fetch(url, {
+    response = await fetchSupabaseFunction(url, {
       method,
       headers: await authHeaders(),
       body: payload ? JSON.stringify(payload) : undefined,
