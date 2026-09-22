@@ -28,12 +28,13 @@
     },
     "api/personal-timetable.js": {
       "maxDuration": 30
-    },
-    "api/supabase-relay.js": {
-      "maxDuration": 30
     }
   },
   "rewrites": [
+    {
+      "source": "/api/supabase-relay",
+      "destination": "/api/class-roster?mode=supabase-relay"
+    },
     {
       "source": "/api/class-roster-v2",
       "destination": "/api/class-roster?mode=v2"
