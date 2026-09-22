@@ -379,6 +379,7 @@
             splash.remove()
             root.classList.remove('shub-launch-handoff')
             root.style.removeProperty('--shub-system-bg')
+            document.body?.style.removeProperty('background-color')
           }, 300)
         }
 
@@ -454,7 +455,7 @@
     </style>
     <title>S-Hub</title>
   </head>
-  <body>
+  <body style="background-color:#000000">
     <div id="shub-launch-splash" role="status" aria-label="S-Hub 여는 중">
       <div class="shub-launch-center">
         <div class="shub-launch-logo" aria-hidden="true">

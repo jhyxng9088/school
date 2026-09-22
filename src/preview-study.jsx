@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
 import {
   loadPreviewStudy,
+  patchPreviewStudyActiveCache,
   peekPreviewStudyCache,
   pausePreviewStudy,
   resumePreviewStudy,
@@ -830,15 +831,17 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
     const previousSelectedSubject = selectedSubject
     const previousCustomSubject = customSubject
     setActionError('')
-    setOptimisticStopped(false)
-    setOptimisticActive({
+    const optimisticActive = {
       subject,
       startedAt,
       segmentStartedAt: startedAt,
       isPaused: false,
       pausedAt: 0,
       sessionSeconds: 0,
-    })
+    }
+    setOptimisticStopped(false)
+    setOptimisticActive(optimisticActive)
+    patchPreviewStudyActiveCache(optimisticActive)
     setSelectedSubject('')
     setCustomSubject('')
     setNowMs(startedAt)
@@ -849,6 +852,7 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       } catch (error) {
         setOptimisticActive(null)
         setOptimisticStopped(false)
+        patchPreviewStudyActiveCache(serverActive)
         setSelectedSubject(previousSelectedSubject)
         setCustomSubject(previousCustomSubject)
         setActionError(error?.message || '공부를 시작하지 못했습니다.')
@@ -892,11 +896,13 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       optimistic: () => {
         setOptimisticStopped(false)
         setOptimisticActive(pausedActive)
+        patchPreviewStudyActiveCache(pausedActive)
         setNowMs(pausedAt)
       },
       rollback: () => {
         setOptimisticStopped(false)
         setOptimisticActive(active)
+        patchPreviewStudyActiveCache(active)
         setNowMs(Date.now())
       },
     })
@@ -922,11 +928,13 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       optimistic: () => {
         setOptimisticStopped(false)
         setOptimisticActive(resumedActive)
+        patchPreviewStudyActiveCache(resumedActive)
         setNowMs(resumedAt)
       },
       rollback: () => {
         setOptimisticStopped(false)
         setOptimisticActive(active)
+        patchPreviewStudyActiveCache(active)
         setNowMs(Date.now())
       },
     })
@@ -944,11 +952,13 @@ export function PreviewStudyPage({ requireOnline = () => true }) {
       optimistic: () => {
         setOptimisticActive(null)
         setOptimisticStopped(true)
+        patchPreviewStudyActiveCache(null)
         setNowMs(Date.now())
       },
       rollback: () => {
         setOptimisticStopped(false)
         setOptimisticActive(active)
+        patchPreviewStudyActiveCache(active)
         setNowMs(Date.now())
       },
     })

@@ -217,3 +217,9 @@ test('launch progress is visible from the first frame and fills continuously fro
   assert.match(indexHtml, /progressPainted: 0/)
   assert.match(indexHtml, /paintLaunchProgress\(\.02\)/)
 })
+
+
+test('iOS handoff keeps the document body black until the web splash is removed', () => {
+  assert.match(indexHtml, /<body style="background-color:#000000">/)
+  assert.match(indexHtml, /splash\.remove\(\)[\s\S]*document\.body\?\.style\.removeProperty\('background-color'\)/)
+})

@@ -143,3 +143,18 @@ test('configured startup warms current Study status during launch and leaves sec
   assert.ok(mountAt >= 0)
   assert.ok(warmAt > mountAt)
 })
+
+
+test('Study optimistic state is persisted immediately so current status survives a quick relaunch', () => {
+  const client = read('src/preview-study-client.js')
+  const study = read('src/preview-study.jsx')
+
+  assert.match(client, /export function patchPreviewStudyActiveCache\(active\)/)
+  assert.match(client, /writePreviewPersistentCache\('study', 'class'/)
+  assert.match(client, /generatedAt: Date\.now\(\)/)
+  assert.match(study, /patchPreviewStudyActiveCache\(optimisticActive\)/)
+  assert.match(study, /patchPreviewStudyActiveCache\(pausedActive\)/)
+  assert.match(study, /patchPreviewStudyActiveCache\(resumedActive\)/)
+  assert.match(study, /patchPreviewStudyActiveCache\(null\)/)
+  assert.match(study, /patchPreviewStudyActiveCache\(active\)/)
+})
