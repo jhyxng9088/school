@@ -212,3 +212,14 @@ test('launch logo formation respects reduced motion without changing launch timi
   assert.match(indexHtml, /\.shub-launch-mark-fill \{[\s\S]*clip-path: inset\(0 0 0 0\);[\s\S]*filter: none;/)
   assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 2000\)/)
 })
+
+
+test('launch shows only the logo first and reveals the progress bar only if loading continues', () => {
+  assert.match(indexHtml, /\.shub-launch-center \{[\s\S]*position: relative;/)
+  assert.match(indexHtml, /\.shub-launch-progress \{[\s\S]*position: absolute;[\s\S]*top: calc\(100% \+ 24px\);/)
+  assert.match(indexHtml, /\.shub-launch-progress \{[\s\S]*opacity: 0;[\s\S]*1420ms both;/)
+  assert.match(indexHtml, /@keyframes shub-launch-progress-in/)
+  assert.match(indexHtml, /translate3d\(-50%, -8px, 0\) scale\(\.96\)/)
+  assert.match(indexHtml, /translate3d\(-50%, 0, 0\) scale\(1\)/)
+  assert.match(indexHtml, /shub-launch-mark-settle 360ms[\s\S]*1040ms both/)
+})
