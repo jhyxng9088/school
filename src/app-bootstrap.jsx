@@ -54,25 +54,35 @@ function preloadMainAppModule() {
   return import('./main.jsx')
 }
 
-const STUDY_LAUNCH_CACHE_MAX_AGE_MS = 2 * 60 * 1000
+const STUDY_LAUNCH_NETWORK_BUDGET_MS = 700
 
 async function warmLaunchStudyStatus() {
   if (navigator.onLine === false) return true
   try {
     const { loadPreviewStudy, peekPreviewStudyCache } = await import('./preview-study-client.js')
     const cached = peekPreviewStudyCache({ scope: 'class' })
-    const cacheAge = cached ? Date.now() - Number(cached.generatedAt || 0) : Infinity
-    if (cached && Number.isFinite(cacheAge) && cacheAge >= 0 && cacheAge <= STUDY_LAUNCH_CACHE_MAX_AGE_MS) {
-      void loadPreviewStudy({ scope: 'class', period: 'today' }).catch((error) => {
+    const refresh = loadPreviewStudy({ scope: 'class', period: 'today' })
+
+    if (cached) {
+      void refresh.catch((error) => {
         console.warn('S-Hub Study background refresh deferred:', error)
       })
       return true
     }
-    await loadPreviewStudy({ scope: 'class', period: 'today' })
+
+    const ready = await Promise.race([
+      refresh.then(() => true),
+      new Promise((resolve) => window.setTimeout(() => resolve(false), STUDY_LAUNCH_NETWORK_BUDGET_MS)),
+    ])
+    if (!ready) {
+      void refresh.catch((error) => {
+        console.warn('S-Hub Study background refresh deferred:', error)
+      })
+    }
     return true
   } catch (error) {
     console.warn('S-Hub Study launch status warmup deferred:', error)
-    return false
+    return true
   }
 }
 
