@@ -32,6 +32,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/supabase-relay",
+      "destination": "/api/class-roster?mode=supabase-relay"
+    },
+    {
       "source": "/api/class-roster-v2",
       "destination": "/api/class-roster?mode=v2"
     },
