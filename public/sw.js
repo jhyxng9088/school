@@ -1,16 +1,76 @@
-const CACHE_NAME = 'school-shell-v170-fast-launch'
+const CACHE_NAME = 'school-shell-v171-runtime-prewarm'
 const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
 const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
 const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
 const APP_SHELL = ['./', './manifest.webmanifest', './icon.svg', './icon-android.svg', './school-refinements.css', './stage3-polish.css', './school-page-motion.css', './reminder-list-motion.css', './school-home-live.css', './first-run-notice.css', './feature-tour-sequences.css', './v2-update-notice.css', './v2-update-device-fixes.css', './samsung-nav-icon-fixes.css', './school-timetable-motion.js', './feature-tour-ai-orb.js', './v2-update-audience.js', './first-run-notice.js', './v2-update-notice.js', './notification-routing.js', './notification-tone-profile.js']
 const ROUTINE_PUSH_PAUSE_FROM_MS = Date.parse('2026-09-01T00:00:00+09:00')
 
+const RUNTIME_ASSET_LIMIT = 128
+
+function runtimeAssetUrls(source, baseUrl) {
+  const urls = new Set()
+  const pattern = /["'`]([^"'`<>]+?\.(?:js|css)(?:\?[^"'`<>]*)?)["'`]/g
+  let match = null
+  while ((match = pattern.exec(String(source || '')))) {
+    try {
+      const url = new URL(match[1], baseUrl)
+      const scope = new URL(self.registration.scope)
+      if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) continue
+      urls.add(url.href)
+    } catch {
+      // Ignore malformed or non-URL strings in generated bundles.
+    }
+  }
+  return [...urls]
+}
+
+async function warmRuntimeAssets(cache) {
+  const shellUrl = new URL('./', self.registration.scope)
+  const shellResponse = await fetch(shellUrl.href, { cache: 'reload' })
+  if (!shellResponse.ok) throw new Error('Unable to warm the latest S-Hub shell')
+
+  const html = await shellResponse.clone().text()
+  const queue = runtimeAssetUrls(html, shellUrl.href)
+  if (!queue.length) throw new Error('No runtime assets found in the latest S-Hub shell')
+
+  const seen = new Set()
+  for (let index = 0; index < queue.length && seen.size < RUNTIME_ASSET_LIMIT; index += 1) {
+    const assetUrl = queue[index]
+    if (seen.has(assetUrl)) continue
+    seen.add(assetUrl)
+
+    const response = await fetch(assetUrl, { cache: 'reload' })
+    if (!response.ok) throw new Error(`Unable to warm runtime asset: ${assetUrl}`)
+
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase()
+    const shouldScan = contentType.includes('javascript')
+      || contentType.includes('text/css')
+      || /\.(?:js|css)(?:\?|$)/i.test(assetUrl)
+
+    const body = shouldScan ? await response.clone().text() : ''
+    await cache.put(new Request(assetUrl), response)
+
+    if (body) {
+      runtimeAssetUrls(body, assetUrl).forEach((nextUrl) => {
+        if (!seen.has(nextUrl) && queue.length < RUNTIME_ASSET_LIMIT) queue.push(nextUrl)
+      })
+    }
+  }
+
+  if (!seen.size) throw new Error('S-Hub runtime asset warmup produced an empty cache')
+  await cache.put(new Request(shellUrl.href), shellResponse)
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting()),
-  )
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME)
+    await cache.addAll(APP_SHELL)
+    // Warm the generated Vite entry + code-split JS/CSS before this worker
+    // takes control. If the network cannot provide a complete runtime graph,
+    // installation fails and the previous working worker/cache remains active.
+    await warmRuntimeAssets(cache)
+    await self.skipWaiting()
+  })())
 })
 
 self.addEventListener('activate', (event) => {
@@ -207,14 +267,41 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  if (request.destination === 'script' || request.destination === 'style') {
+    const assetState = caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(request)
+      const refresh = fetch(request, { cache: 'no-store' }).then(async (response) => {
+        if (response.ok) await cache.put(request, response.clone())
+        return response
+      })
+      return { cached, refresh }
+    })
+
+    event.respondWith(
+      assetState.then(async ({ cached, refresh }) => {
+        if (cached) return cached
+        try {
+          return await refresh
+        } catch {
+          const fallback = await caches.match(request)
+          if (fallback) return fallback
+          throw new Error('Runtime asset is unavailable and not cached')
+        }
+      }),
+    )
+
+    event.waitUntil(
+      assetState.then(({ cached, refresh }) => (
+        cached ? refresh.then(() => {}, () => {}) : undefined
+      )),
+    )
+    return
+  }
+
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       try {
-        const shouldBypassHttpCache =
-          request.destination === 'script' ||
-          request.destination === 'style'
-
-        const response = await fetch(request, shouldBypassHttpCache ? { cache: 'no-store' } : undefined)
+        const response = await fetch(request)
         if (response.ok) cache.put(request, response.clone())
         return response
       } catch {
