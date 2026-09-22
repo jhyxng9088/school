@@ -194,7 +194,7 @@ test('installed PWA navigation paints the cached launch shell before network ref
 
 
 test('launch logo animates only the inner mark while the black rounded shell stays still', () => {
-  assert.match(indexHtml, /\.shub-launch-logo \{[\s\S]*background: #000000;[\s\S]*border-radius: 22px;/)
+  assert.match(indexHtml, /\.shub-launch-logo \{[\s\S]*border-radius: 22px;[\s\S]*background: #000000;/)
   const logoRule = indexHtml.slice(indexHtml.indexOf('.shub-launch-logo {'), indexHtml.indexOf('.shub-launch-mark {'))
   assert.doesNotMatch(logoRule, /animation:/)
   assert.match(indexHtml, /@keyframes shub-launch-mark-reveal/)
