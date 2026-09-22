@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import handler from '../api/supabase-relay.js'
+import handler from '../lib/supabase-relay-handler.js'
 
 function responseRecorder() {
   const headers = new Map()
