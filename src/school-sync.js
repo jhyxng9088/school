@@ -798,7 +798,7 @@ function presenceSnapshotCacheKey(profile) {
 
 function readPresenceInitialCounts(profile) {
   const classId = classKeyFor(profile)
-  if (!classId || typeof localStorage === 'undefined') return { online: 0, total: 0, ready: false, liveReady: false, totalReady: false }
+  if (!classId || typeof localStorage === 'undefined') return { online: 0, total: 0, ready: false, liveReady: false, totalReady: false, launchCachedReady: false }
 
   let total = 0
   try {
@@ -820,13 +820,13 @@ function readPresenceInitialCounts(profile) {
 
     if (Number.isInteger(cachedTotal) && cachedTotal >= 0) total = cachedTotal
     if (fresh && Number.isInteger(online) && online >= 0) {
-      return { online, total, ready: true, liveReady: false, totalReady: false }
+      return { online, total, ready: true, liveReady: false, totalReady: false, launchCachedReady: true }
     }
   } catch {
     // Fall through to the neutral unknown state.
   }
 
-  return { online: 0, total, ready: false, liveReady: false, totalReady: false }
+  return { online: 0, total, ready: false, liveReady: false, totalReady: false, launchCachedReady: false }
 }
 
 function writePresenceSnapshotCache(profile, counts) {
