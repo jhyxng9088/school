@@ -1,5 +1,6 @@
 import { ensureSignedIn } from './school-sync.js'
 import { dispatchPreviewBoardPostPush } from './preview-social-push.js'
+import { fetchSupabaseFunction } from './supabase-http.js'
 
 const PROJECT_REF = 'elhlsqhzjmsfhmawrpqu'
 const PUBLISHABLE_KEY = 'sb_publishable_wzahH0kdX7gWmkrKvy9PDg_urg-7rs0'
@@ -44,7 +45,7 @@ function normalizeReadState(value) {
 async function requestRealtimeConfig(since = null) {
   const url = new URL(REALTIME_CONFIG_URL)
   if (since != null) url.searchParams.set('since', String(Math.max(0, Number(since) || 0)))
-  const response = await fetch(url, {
+  const response = await fetchSupabaseFunction(url, {
     method: 'GET',
     headers: { authorization: await firebaseAuthorization() },
     cache: 'no-store',
@@ -64,7 +65,7 @@ async function requestRealtimeConfig(since = null) {
 }
 
 async function requestReadStateMutation(payload) {
-  const response = await fetch(REALTIME_CONFIG_URL, {
+  const response = await fetchSupabaseFunction(REALTIME_CONFIG_URL, {
     method: 'POST',
     headers: {
       authorization: await firebaseAuthorization(),
