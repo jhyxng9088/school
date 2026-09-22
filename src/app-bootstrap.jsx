@@ -54,11 +54,21 @@ function preloadMainAppModule() {
   return import('./main.jsx')
 }
 
+const STUDY_LAUNCH_CACHE_MAX_AGE_MS = 2 * 60 * 1000
+
 async function warmLaunchStudyStatus() {
   if (navigator.onLine === false) return true
   try {
-    await import('./preview-study-client.js')
-      .then(({ loadPreviewStudy }) => loadPreviewStudy({ scope: 'class', period: 'today' }))
+    const { loadPreviewStudy, peekPreviewStudyCache } = await import('./preview-study-client.js')
+    const cached = peekPreviewStudyCache({ scope: 'class' })
+    const cacheAge = cached ? Date.now() - Number(cached.generatedAt || 0) : Infinity
+    if (cached && Number.isFinite(cacheAge) && cacheAge >= 0 && cacheAge <= STUDY_LAUNCH_CACHE_MAX_AGE_MS) {
+      void loadPreviewStudy({ scope: 'class', period: 'today' }).catch((error) => {
+        console.warn('S-Hub Study background refresh deferred:', error)
+      })
+      return true
+    }
+    await loadPreviewStudy({ scope: 'class', period: 'today' })
     return true
   } catch (error) {
     console.warn('S-Hub Study launch status warmup deferred:', error)
