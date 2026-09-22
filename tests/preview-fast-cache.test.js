@@ -158,3 +158,14 @@ test('Study optimistic state is persisted immediately so current status survives
   assert.match(study, /patchPreviewStudyActiveCache\(null\)/)
   assert.match(study, /patchPreviewStudyActiveCache\(active\)/)
 })
+
+
+test('Study current activity survives the KST date boundary without carrying yesterday totals', () => {
+  const client = read('src/preview-study-client.js')
+  assert.match(client, /STUDY_ACTIVE_CARRYOVER_MS = 45 \* 60 \* 1000/)
+  assert.match(client, /Daily totals reset at midnight, but an active Study session does not/)
+  assert.match(client, /totalSeconds: 0/)
+  assert.match(client, /subjectTotals: \[\]/)
+  assert.match(client, /student\?\.active \|\| student\?\.studentKey === me\?\.studentKey/)
+  assert.match(client, /activeCarryover: true/)
+})
