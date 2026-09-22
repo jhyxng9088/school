@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-shell-v169-ios-system-topbar'
+const CACHE_NAME = 'school-shell-v170-fast-launch'
 const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
 const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
 const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
@@ -170,11 +170,42 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
 
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(request, { ignoreSearch: true }) || await cache.match('./')
+        const refresh = fetch(request, { cache: 'no-store' }).then(async (response) => {
+          if (response.ok) {
+            await cache.put(request, response.clone())
+            const scopeUrl = new URL(self.registration.scope)
+            if (url.pathname === scopeUrl.pathname) {
+              await cache.put(new Request(scopeUrl.href), response.clone())
+            }
+          }
+          return response
+        })
+
+        if (cached) {
+          event.waitUntil(refresh.catch(() => {}))
+          return cached
+        }
+
+        try {
+          return await refresh
+        } catch {
+          const fallback = await cache.match('./')
+          if (fallback) return fallback
+          throw new Error('Offline and navigation shell is not cached')
+        }
+      }),
+    )
+    return
+  }
+
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       try {
         const shouldBypassHttpCache =
-          request.mode === 'navigate' ||
           request.destination === 'script' ||
           request.destination === 'style'
 
@@ -184,7 +215,6 @@ self.addEventListener('fetch', (event) => {
       } catch {
         const cached = await cache.match(request)
         if (cached) return cached
-        if (request.mode === 'navigate') return cache.match('./')
         throw new Error('Offline and resource is not cached')
       }
     }),
