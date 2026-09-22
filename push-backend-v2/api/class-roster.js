@@ -6,6 +6,7 @@ import {
 } from '../lib/class-roster.js'
 import { repairClassRoster } from '../lib/class-roster-repair-service.js'
 import handleClassRosterV2 from '../lib/class-roster-v2-handler.js'
+import handleSupabaseRelay from '../lib/supabase-relay-handler.js'
 import { handlePreviewV2, isPreviewV2Resource } from '../lib/preview-v2-service.js'
 import {
   ReminderSectionError,
@@ -201,6 +202,7 @@ export default async function handler(req, res) {
   setCors(res)
 
   const mode = String(req.query?.mode || '').trim()
+  if (mode === 'supabase-relay') return handleSupabaseRelay(req, res)
   if (mode === 'v2') return handleClassRosterV2(req, res)
   if (req.method === 'OPTIONS') return res.status(204).end()
 
