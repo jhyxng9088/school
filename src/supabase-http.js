@@ -51,7 +51,7 @@ function likelyFilteredResponse(response) {
 }
 
 function relayLooksReachable(response) {
-  return Boolean(response) && response.status !== 502 && response.status !== 504
+  return Boolean(response) && ![404, 502, 504].includes(response.status)
 }
 
 function markDirectUnavailable({ persist = false } = {}) {
@@ -122,8 +122,15 @@ export async function fetchSupabaseFunction(input, init = {}, { safeToRetry = fa
   if (supabaseDirectTemporarilyBlocked()) {
     try {
       const relayResponse = await fetchAttempt(relayUrl, init, RELAY_TIMEOUT_MS)
-      if (relayLooksReachable(relayResponse)) markDirectUnavailable({ persist: true })
-      return relayResponse
+      if (relayLooksReachable(relayResponse)) {
+        markDirectUnavailable({ persist: true })
+        return relayResponse
+      }
+      if (!canRetry) return relayResponse
+
+      const directResponse = await fetchAttempt(url, init, DIRECT_TIMEOUT_MS)
+      clearDirectUnavailable()
+      return directResponse
     } catch (relayError) {
       if (!canRetry || init?.signal?.aborted) throw relayError
       const directResponse = await fetchAttempt(url, init, DIRECT_TIMEOUT_MS)
