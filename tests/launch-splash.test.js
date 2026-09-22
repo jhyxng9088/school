@@ -18,8 +18,6 @@ test('launch splash renders before React root with canonical S-Hub logo', () => 
   assert.ok(rootAt > splashAt)
   assert.match(indexHtml, /class="shub-launch-mark"/)
   assert.match(indexHtml, /class="shub-launch-mark-fill"/)
-  assert.match(indexHtml, /class="shub-launch-mark-trace" pathLength="1"/)
-  assert.match(indexHtml, /class="shub-launch-mark-shine"/)
   assert.match(indexHtml, /id="shub-launch-progress-fill"/)
 })
 
@@ -50,9 +48,9 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
   assert.match(indexHtml, /splash\.style\.backgroundColor = mixedBg/)
   assert.match(indexHtml, /requestAnimationFrame\(animateLaunchProgress\)/)
-  assert.match(indexHtml, /version: 23/)
+  assert.match(indexHtml, /version: 24/)
   assert.doesNotMatch(indexHtml, /setTimeout\(\(\) => paintLaunchProgress\(\.3\)/)
-  assert.match(indexHtml, /name="shub-shell-version" content="23"/)
+  assert.match(indexHtml, /name="shub-shell-version" content="24"/)
 })
 
 test('configured launch mounts canonical owners immediately but reveals only after a stable Home paint, including holiday layout', () => {
@@ -74,7 +72,7 @@ test('configured launch mounts canonical owners immediately but reveals only aft
   assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 2000\)/)
   assert.match(main, /launchSurfaceRef=\{launchHomeSurfaceRef\}/)
   assert.match(main, /onSignalsReadyChange=\{setHomeSignalsReady\}/)
-  assert.match(previewHomeSignals, /const launchReady = presence\?\.liveReady === true && presence\?\.totalReady === true/)
+  assert.match(previewHomeSignals, /presence\?\.launchCachedReady === true[\s\S]*presence\?\.liveReady === true && presence\?\.totalReady === true/)
   assert.match(previewHomeSignals, /onLaunchReadyChange\?\.\(launchReady\)/)
   assert.match(main, /if \(appShellOwnsLaunch\) return undefined/)
 })
@@ -92,12 +90,12 @@ test('launch shell cache advances so installed PWAs receive the new boot surface
 
 test('launch color and bar move continuously between data milestones', () => {
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
-  assert.match(indexHtml, /progressPainted: 0\.015/)
+  assert.match(indexHtml, /progressPainted: 0/)
   assert.match(indexHtml, /const continuous = launchState\.progressPainted \+ \(delta \* \(finalizing \? \.00004 : \.000012\)\)/)
   assert.match(indexHtml, /const cap = finalizing \? 1 : \.94/)
   assert.match(indexHtml, /paintLaunchTheme\(launchState\.progressPainted\)/)
   assert.match(indexHtml, /Math\.abs\(mix - launchState\.lastThemeColorMix\) >= \.025/)
-  assert.match(indexHtml, /paintLaunchProgress\(\.14\)/)
+  assert.match(indexHtml, /paintLaunchProgress\(\.08\)/)
   assert.match(indexHtml, /--shub-system-bg/)
   assert.match(indexHtml, /themeColor\.setAttribute\('content', launchState\.targetBg\)/)
   assert.doesNotMatch(indexHtml, /root\.style\.backgroundColor = mixedBg/)
@@ -193,33 +191,29 @@ test('installed PWA navigation paints the cached launch shell before network ref
 })
 
 
-test('launch logo animates only the inner mark while the black rounded shell stays still', () => {
+test('launch logo keeps the tile still and uses one restrained inner-mark reveal', () => {
   assert.match(indexHtml, /\.shub-launch-logo \{[\s\S]*border-radius: 22px;[\s\S]*background: #000000;/)
   const logoRule = indexHtml.slice(indexHtml.indexOf('.shub-launch-logo {'), indexHtml.indexOf('.shub-launch-mark {'))
   assert.doesNotMatch(logoRule, /animation:/)
   assert.match(indexHtml, /@keyframes shub-launch-mark-reveal/)
-  assert.match(indexHtml, /@keyframes shub-launch-mark-sharpen/)
-  assert.match(indexHtml, /@keyframes shub-launch-mark-trace/)
-  assert.match(indexHtml, /@keyframes shub-launch-mark-shine/)
-  assert.match(indexHtml, /@keyframes shub-launch-mark-settle/)
+  assert.match(indexHtml, /@keyframes shub-launch-mark-glow-reveal/)
   assert.match(indexHtml, /clip-path: inset\(0 0 100% 0\)/)
-  assert.match(indexHtml, /stroke-dasharray: 1/)
-  assert.match(indexHtml, /filter: blur\(2\.8px\)/)
+  assert.match(indexHtml, /filter: blur\(1\.2px\)/)
+  assert.doesNotMatch(indexHtml, /shub-launch-mark-trace|shub-launch-mark-shine|shub-launch-mark-settle/)
 })
 
 test('launch logo formation respects reduced motion without changing launch timing owners', () => {
   assert.match(indexHtml, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.shub-launch-mark-fill[\s\S]*animation: none !important/)
-  assert.match(indexHtml, /\.shub-launch-mark-fill \{[\s\S]*clip-path: inset\(0 0 0 0\);[\s\S]*filter: none;/)
+  assert.match(indexHtml, /\.shub-launch-mark-fill \{[\s\S]*opacity: 1;[\s\S]*filter: none;/)
   assert.match(main, /window\.setTimeout\(requestFinishAfterPaint, 2000\)/)
 })
 
-
-test('launch shows only the logo first and reveals the progress bar only if loading continues', () => {
-  assert.match(indexHtml, /\.shub-launch-center \{[\s\S]*position: relative;/)
-  assert.match(indexHtml, /\.shub-launch-progress \{[\s\S]*position: absolute;[\s\S]*top: calc\(100% \+ 24px\);/)
-  assert.match(indexHtml, /\.shub-launch-progress \{[\s\S]*opacity: 0;[\s\S]*1420ms both;/)
-  assert.match(indexHtml, /@keyframes shub-launch-progress-in/)
-  assert.match(indexHtml, /translate3d\(-50%, -8px, 0\) scale\(\.96\)/)
-  assert.match(indexHtml, /translate3d\(-50%, 0, 0\) scale\(1\)/)
-  assert.match(indexHtml, /shub-launch-mark-settle 360ms[\s\S]*1040ms both/)
+test('launch progress is visible from the first frame and fills continuously from zero', () => {
+  assert.match(indexHtml, /\.shub-launch-center \{[\s\S]*gap: 24px;/)
+  assert.match(indexHtml, /\.shub-launch-progress \{[\s\S]*opacity: 1;/)
+  assert.match(indexHtml, /\.shub-launch-progress > span \{[\s\S]*scaleX\(0\)/)
+  assert.doesNotMatch(indexHtml, /shub-launch-progress-in|1420ms/)
+  assert.match(indexHtml, /progressTarget: 0\.02/)
+  assert.match(indexHtml, /progressPainted: 0/)
+  assert.match(indexHtml, /paintLaunchProgress\(\.02\)/)
 })
