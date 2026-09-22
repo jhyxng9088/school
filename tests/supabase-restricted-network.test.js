@@ -7,8 +7,8 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 test('restricted-web transport falls back through the S-Hub relay without changing canonical APIs', () => {
   const transport = read('src/supabase-http.js')
   assert.match(transport, /school-reminder-backend\.vercel\.app\/api\/supabase-relay/)
-  assert.match(transport, /DIRECT_TIMEOUT_MS = 1600/)
-  assert.match(transport, /DIRECT_FAILURE_COOLDOWN_MS = 60_000/)
+  assert.match(transport, /DIRECT_TIMEOUT_MS = 900/)
+  assert.match(transport, /DIRECT_FAILURE_COOLDOWN_MS = 60_000/)\n  assert.match(transport, /RELAY_PREFERENCE_TTL_MS = 6 \* 60 \* 60_000/)\n  assert.match(transport, /school\.supabaseRelayUntil\.v1/)\n  assert.match(transport, /markDirectUnavailable\(\{ persist: true \}\)/
   assert.match(transport, /method === 'GET' \|\| method === 'HEAD'/)
   assert.match(transport, /if \(supabaseDirectTemporarilyBlocked\(\)\)/)
   assert.match(transport, /likelyFilteredResponse/)
