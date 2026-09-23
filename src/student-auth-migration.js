@@ -2,6 +2,7 @@ import { getApp } from 'firebase/app'
 import { getAuth, signOut } from 'firebase/auth'
 
 const STUDENT_IDENTITY_SYNC_KEY = 'school.studentIdentitySync.v1'
+const AUTH_STATE_READY_TIMEOUT_MS = 900
 
 function readIdentityMarker() {
   try {
@@ -27,10 +28,26 @@ export async function recoverStudentAuthForProfile(profileSignature, { force = f
 
   const auth = getAuth(getApp('school-sync'))
   if (typeof auth.authStateReady === 'function') {
+    let timedOut = false
+    let timeoutId = null
     try {
-      await auth.authStateReady()
-    } catch {
-      // Continue with the currently visible auth state.
+      const timeout = new Promise((resolve) => {
+        timeoutId = window.setTimeout(() => {
+          timedOut = true
+          resolve()
+        }, AUTH_STATE_READY_TIMEOUT_MS)
+      })
+      await Promise.race([
+        Promise.resolve(auth.authStateReady()).catch(() => {}),
+        timeout,
+      ])
+    } finally {
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
+    }
+
+    if (timedOut) {
+      clearIdentityMarker()
+      return false
     }
   }
 
