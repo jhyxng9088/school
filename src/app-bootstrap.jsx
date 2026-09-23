@@ -15,6 +15,13 @@ const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
 const STUDENT_PROFILE_KEY = 'school.studentProfile.v1'
 
+window.__shubAppBootstrapStarted = true
+try {
+  sessionStorage.removeItem('school.launchRecoveryAttempt.v1')
+} catch {
+  // Session storage can be unavailable in restricted browsing contexts.
+}
+
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
 }
