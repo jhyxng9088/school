@@ -27,8 +27,14 @@ test('bootstrap rotates anonymous auth only when the selected school identity ch
   assert.match(migration, /\{ force = false \} = \{\}/)
   assert.match(migration, /if \(!force && \(!marker \|\| marker\.endsWith\(`\|\$\{signature\}`\)\)\) return false/)
   assert.match(migration, /user\.isAnonymous/)
+  assert.match(migration, /AUTH_STATE_READY_TIMEOUT_MS = 900/)
+  assert.match(migration, /Promise\.race\(/)
+  assert.match(migration, /if \(timedOut\) \{[\s\S]*?clearIdentityMarker\(\)[\s\S]*?return false/)
   assert.match(migration, /await signOut\(auth\)/)
   assert.match(migration, /window\.location\.reload\(\)/)
+  assert.match(bootstrap, /const bypassAuthRecovery = consumeAuthRecoveryBypass\(\)/)
+  assert.match(bootstrap, /if \(!bypassAuthRecovery\)/)
+  assert.match(bootstrap, /markMainAppMounted\(\)/)
 })
 
 test('study realtime school topic is isolated by school-grade digest', async () => {
