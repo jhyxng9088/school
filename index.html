@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta id="shub-theme-color" name="theme-color" content="#000000" />
-    <meta name="shub-shell-version" content="26" />
+    <meta name="shub-shell-version" content="27" />
     <meta name="application-name" content="S-Hub" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -357,7 +357,7 @@
         }
 
         window.__shubLaunch = {
-          version: 26,
+          version: 27,
           progress: paintLaunchProgress,
           refreshTheme: refreshLaunchTheme,
           ready: finishLaunch,
@@ -366,13 +366,14 @@
         paintLaunchProgress(.02)
 
         window.setTimeout(() => {
-          if (window.__shubAppBootstrapStarted === true || navigator.onLine === false) return
+          if (window.__shubMainAppMounted === true || navigator.onLine === false) return
 
           let recoveryAlreadyAttempted = false
           try {
             recoveryAlreadyAttempted = sessionStorage.getItem('school.launchRecoveryAttempt.v1') === '1'
             if (!recoveryAlreadyAttempted) {
               sessionStorage.setItem('school.launchRecoveryAttempt.v1', '1')
+              sessionStorage.setItem('school.skipAuthRecoveryOnce.v1', '1')
             }
           } catch {
             // Continue with an in-memory recovery attempt when session storage is unavailable.
