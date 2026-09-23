@@ -14,12 +14,29 @@ import { recoverStudentAuthForProfile } from './student-auth-migration.js'
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
 const STUDENT_PROFILE_KEY = 'school.studentProfile.v1'
+const LAUNCH_RECOVERY_ATTEMPT_KEY = 'school.launchRecoveryAttempt.v1'
+const SKIP_AUTH_RECOVERY_KEY = 'school.skipAuthRecoveryOnce.v1'
 
 window.__shubAppBootstrapStarted = true
-try {
-  sessionStorage.removeItem('school.launchRecoveryAttempt.v1')
-} catch {
-  // Session storage can be unavailable in restricted browsing contexts.
+
+function consumeAuthRecoveryBypass() {
+  try {
+    const bypass = sessionStorage.getItem(SKIP_AUTH_RECOVERY_KEY) === '1'
+    if (bypass) sessionStorage.removeItem(SKIP_AUTH_RECOVERY_KEY)
+    return bypass
+  } catch {
+    return false
+  }
+}
+
+function markMainAppMounted() {
+  window.__shubMainAppMounted = true
+  try {
+    sessionStorage.removeItem(LAUNCH_RECOVERY_ATTEMPT_KEY)
+    sessionStorage.removeItem(SKIP_AUTH_RECOVERY_KEY)
+  } catch {
+    // Session storage is only a startup recovery hint, never an app-data owner.
+  }
 }
 
 function isStandalone() {
@@ -125,14 +142,17 @@ function hasExplicitSchoolSelection() {
 
 async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
   launchProgress(.44)
-  try {
-    const recovering = await recoverStudentAuthForProfile(
-      profileSignature(configuredProfile),
-      { force: forceAuthReset },
-    )
-    if (recovering) return
-  } catch (error) {
-    console.warn('S-Hub student auth migration skipped:', error)
+  const bypassAuthRecovery = consumeAuthRecoveryBypass()
+  if (!bypassAuthRecovery) {
+    try {
+      const recovering = await recoverStudentAuthForProfile(
+        profileSignature(configuredProfile),
+        { force: forceAuthReset },
+      )
+      if (recovering) return
+    } catch (error) {
+      console.warn('S-Hub student auth migration skipped:', error)
+    }
   }
 
   launchProgress(.54)
@@ -152,6 +172,7 @@ async function startConfiguredApp(configuredProfile, forceAuthReset = false) {
     const mainModule = await mainModulePromise
     launchProgress(.78)
     mainModule.mountMainApp()
+    markMainAppMounted()
     void warmHighValueInteractiveData()
   } catch (error) {
     console.error('S-Hub startup failed:', error)
