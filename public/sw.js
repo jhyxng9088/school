@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-shell-v170-fast-launch'
+const CACHE_NAME = 'school-shell-v176-stale-shell-recovery'
 const NOTIFICATION_PROFILE_CACHE = 'school-notification-profile-v1'
 const NOTIFICATION_PROFILE_URL = new URL('./__notification-tone-profile__', self.registration.scope).href
 const PERSONALIZED_STUDENT_KEY = 'student-a63dc064d4c5227e'
@@ -171,38 +171,24 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return
 
   if (request.mode === 'navigate') {
-    const navigation = caches.open(CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(request, { ignoreSearch: true }) || await cache.match('./')
-      const refresh = fetch(request, { cache: 'no-store' }).then(async (response) => {
-        if (response.ok) {
-          await cache.put(request, response.clone())
-          const scopeUrl = new URL(self.registration.scope)
-          if (url.pathname === scopeUrl.pathname) {
-            await cache.put(new Request(scopeUrl.href), response.clone())
-          }
-        }
-        return response
-      })
-      return { cache, cached, refresh }
-    })
-
     event.respondWith(
-      navigation.then(async ({ cache, cached, refresh }) => {
-        if (cached) return cached
+      caches.open(CACHE_NAME).then(async (cache) => {
         try {
-          return await refresh
+          const response = await fetch(request, { cache: 'no-store' })
+          if (response.ok) {
+            await cache.put(request, response.clone())
+            const scopeUrl = new URL(self.registration.scope)
+            if (url.pathname === scopeUrl.pathname) {
+              await cache.put(new Request(scopeUrl.href), response.clone())
+            }
+          }
+          return response
         } catch {
-          const fallback = await cache.match('./')
-          if (fallback) return fallback
+          const cached = await cache.match(request, { ignoreSearch: true }) || await cache.match('./')
+          if (cached) return cached
           throw new Error('Offline and navigation shell is not cached')
         }
       }),
-    )
-
-    event.waitUntil(
-      navigation.then(({ cached, refresh }) => (
-        cached ? refresh.then(() => {}, () => {}) : undefined
-      )),
     )
     return
   }
