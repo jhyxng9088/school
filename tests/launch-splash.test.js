@@ -48,9 +48,9 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
   assert.match(indexHtml, /splash\.style\.backgroundColor = mixedBg/)
   assert.match(indexHtml, /requestAnimationFrame\(animateLaunchProgress\)/)
-  assert.match(indexHtml, /version: 26/)
+  assert.match(indexHtml, /version: 27/)
   assert.doesNotMatch(indexHtml, /setTimeout\(\(\) => paintLaunchProgress\(\.3\)/)
-  assert.match(indexHtml, /name="shub-shell-version" content="26"/)
+  assert.match(indexHtml, /name="shub-shell-version" content="27"/)
 })
 
 test('configured launch mounts canonical owners immediately but reveals only after a stable Home paint, including holiday layout', () => {
@@ -221,13 +221,15 @@ test('iOS handoff keeps the document body black until the web splash is removed'
 
 test('stale cached shells recover automatically when the app bundle never starts', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
-  assert.match(indexHtml, /window\.__shubAppBootstrapStarted === true/)
+  assert.match(indexHtml, /window\.__shubMainAppMounted === true/)
   assert.match(indexHtml, /school\.launchRecoveryAttempt\.v1/)
+  assert.match(indexHtml, /school\.skipAuthRecoveryOnce\.v1/)
   assert.match(indexHtml, /key\.startsWith\('school-shell-'\)/)
   assert.match(indexHtml, /registration\.unregister\(\)/)
   assert.match(indexHtml, /window\.location\.replace\(recoveryUrl\.href\)/)
   assert.match(indexHtml, /}, 3500\)/)
   assert.match(bootstrap, /window\.__shubAppBootstrapStarted = true/)
-  assert.match(bootstrap, /sessionStorage\.removeItem\('school\.launchRecoveryAttempt\.v1'\)/)
+  assert.match(bootstrap, /window\.__shubMainAppMounted = true/)
+  assert.match(bootstrap, /sessionStorage\.removeItem\(LAUNCH_RECOVERY_ATTEMPT_KEY\)/)
   assert.match(sw, /school-shell-v176-stale-shell-recovery/)
 })
