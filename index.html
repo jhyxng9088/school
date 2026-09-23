@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta id="shub-theme-color" name="theme-color" content="#000000" />
-    <meta name="shub-shell-version" content="25" />
+    <meta name="shub-shell-version" content="26" />
     <meta name="application-name" content="S-Hub" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -357,13 +357,64 @@
         }
 
         window.__shubLaunch = {
-          version: 25,
+          version: 26,
           progress: paintLaunchProgress,
           refreshTheme: refreshLaunchTheme,
           ready: finishLaunch,
         }
 
         paintLaunchProgress(.02)
+
+        window.setTimeout(() => {
+          if (window.__shubAppBootstrapStarted === true || navigator.onLine === false) return
+
+          let recoveryAlreadyAttempted = false
+          try {
+            recoveryAlreadyAttempted = sessionStorage.getItem('school.launchRecoveryAttempt.v1') === '1'
+            if (!recoveryAlreadyAttempted) {
+              sessionStorage.setItem('school.launchRecoveryAttempt.v1', '1')
+            }
+          } catch {
+            // Continue with an in-memory recovery attempt when session storage is unavailable.
+          }
+          if (recoveryAlreadyAttempted) return
+
+          const recoverStaleLaunchShell = async () => {
+            const appScope = new URL('./', window.location.href).href
+
+            if ('serviceWorker' in navigator) {
+              try {
+                const registrations = await navigator.serviceWorker.getRegistrations()
+                await Promise.allSettled(
+                  registrations
+                    .filter((registration) => registration.scope === appScope || registration.scope.startsWith(appScope))
+                    .map((registration) => registration.unregister()),
+                )
+              } catch {
+                // A cache purge below is enough to make the active worker fetch the shell from network.
+              }
+            }
+
+            if ('caches' in window) {
+              try {
+                const keys = await caches.keys()
+                await Promise.allSettled(
+                  keys
+                    .filter((key) => key.startsWith('school-shell-'))
+                    .map((key) => caches.delete(key)),
+                )
+              } catch {
+                // Reload still gets a network attempt from the navigation worker.
+              }
+            }
+          }
+
+          void recoverStaleLaunchShell().finally(() => {
+            const recoveryUrl = new URL(window.location.href)
+            recoveryUrl.searchParams.set('__shub_recover', String(Date.now()))
+            window.location.replace(recoveryUrl.href)
+          })
+        }, 3500)
 
         document.addEventListener('DOMContentLoaded', () => {
           paintLaunchProgress(.08)
