@@ -48,9 +48,9 @@ test('native launch starts black and morphs into the resolved saved theme', () =
   assert.match(indexHtml, /function launchThemeMix\(progress\)/)
   assert.match(indexHtml, /splash\.style\.backgroundColor = mixedBg/)
   assert.match(indexHtml, /requestAnimationFrame\(animateLaunchProgress\)/)
-  assert.match(indexHtml, /version: 25/)
+  assert.match(indexHtml, /version: 26/)
   assert.doesNotMatch(indexHtml, /setTimeout\(\(\) => paintLaunchProgress\(\.3\)/)
-  assert.match(indexHtml, /name="shub-shell-version" content="25"/)
+  assert.match(indexHtml, /name="shub-shell-version" content="26"/)
 })
 
 test('configured launch mounts canonical owners immediately but reveals only after a stable Home paint, including holiday layout', () => {
@@ -81,7 +81,7 @@ test('configured launch mounts canonical owners immediately but reveals only aft
 test('launch shell cache advances so installed PWAs receive the new boot surface', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
   const deploymentRefresh = fs.readFileSync(new URL('../src/deployment-refresh.js', import.meta.url), 'utf8')
-  assert.match(sw, /school-shell-v170-fast-launch/)
+  assert.match(sw, /school-shell-v176-stale-shell-recovery/)
   assert.match(bootstrap, /registration\?\.update\(\)/)
   assert.match(deploymentRefresh, /meta\[name="shub-shell-version"\]/)
   assert.match(deploymentRefresh, /shellChanged/)
@@ -179,15 +179,15 @@ test('launch keeps secondary Home sources in the background while priority state
 })
 
 
-test('installed PWA navigation paints the cached launch shell before network refresh', () => {
+test('installed PWA navigation prefers the fresh shell and uses cache only as an offline fallback', () => {
   const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
   assert.match(indexHtml, /<html lang="ko" style="background-color:#000000">/)
   assert.match(indexHtml, /root\.style\.removeProperty\('background-color'\)/)
   assert.match(sw, /request\.mode === 'navigate'/)
+  assert.match(sw, /const response = await fetch\(request, \{ cache: 'no-store' \}\)/)
+  assert.match(sw, /await cache\.put\(request, response\.clone\(\)\)/)
   assert.match(sw, /cache\.match\(request, \{ ignoreSearch: true \}\) \|\| await cache\.match\('\.\/'\)/)
-  assert.match(sw, /const navigation = caches\.open\(CACHE_NAME\)/)
-  assert.match(sw, /event\.waitUntil\([\s\S]*navigation\.then\([\s\S]*cached \? refresh\.then/)
-  assert.match(sw, /return cached/)
+  assert.doesNotMatch(sw, /if \(cached\) return cached[\s\S]*const refresh = fetch/)
 })
 
 
@@ -217,4 +217,17 @@ test('launch progress is visible from the first frame and fills continuously fro
 test('iOS handoff keeps the document body black until the web splash is removed', () => {
   assert.match(indexHtml, /<body style="background-color:#000000">/)
   assert.match(indexHtml, /splash\.remove\(\)[\s\S]*document\.body\?\.style\.removeProperty\('background-color'\)/)
+})
+
+test('stale cached shells recover automatically when the app bundle never starts', () => {
+  const sw = fs.readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8')
+  assert.match(indexHtml, /window\.__shubAppBootstrapStarted === true/)
+  assert.match(indexHtml, /school\.launchRecoveryAttempt\.v1/)
+  assert.match(indexHtml, /key\.startsWith\('school-shell-'\)/)
+  assert.match(indexHtml, /registration\.unregister\(\)/)
+  assert.match(indexHtml, /window\.location\.replace\(recoveryUrl\.href\)/)
+  assert.match(indexHtml, /}, 3500\)/)
+  assert.match(bootstrap, /window\.__shubAppBootstrapStarted = true/)
+  assert.match(bootstrap, /sessionStorage\.removeItem\('school\.launchRecoveryAttempt\.v1'\)/)
+  assert.match(sw, /school-shell-v176-stale-shell-recovery/)
 })
