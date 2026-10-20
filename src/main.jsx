@@ -51,6 +51,7 @@ import { ThemeSettingsIsland } from './theme-settings-entry.jsx'
 import { installThemePreferenceSync } from './theme-sync.js'
 import { StudentSetup } from './student-setup.jsx'
 import { nextOpenSchoolDate, schoolClosureForDate } from './school-day-status.js'
+import { isLocalDesignPreview } from './pwa-design-preview.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -1657,8 +1658,12 @@ function App() {
   })
   const [installDone, setInstallDone] = useState(() => localStorage.getItem(INSTALL_DONE_KEY) === 'true')
   const standalone = isStandalone()
+  const appEntryAllowed = standalone || isLocalDesignPreview({
+    isDevelopment: import.meta.env.DEV,
+    hostname: window.location.hostname,
+  })
   const legacyName = localStorage.getItem(USER_NAME_KEY) || ''
-  const appShellOwnsLaunch = standalone && installDone && Boolean(profile)
+  const appShellOwnsLaunch = appEntryAllowed && installDone && Boolean(profile)
 
   useEffect(() => {
     window.__shubLaunch?.progress?.(.86)
@@ -1690,7 +1695,7 @@ function App() {
     setProfile(saved)
   }
 
-  if (!standalone || !installDone) {
+  if (!appEntryAllowed || !installDone) {
     return <InstallGuide standalone={standalone} onDone={completeInstallGuide} />
   }
   if (!profile) return <StudentSetup initialName={legacyName} onSave={saveProfile} />
