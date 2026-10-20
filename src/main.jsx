@@ -1180,6 +1180,10 @@ function AppShell({ profile }) {
     && studyStatusLaunchReady === true
     && todoData.ready === true
     && timetableLaunchReady === true
+  const localDesignPreview = isLocalDesignPreview({
+    isDevelopment: import.meta.env.DEV,
+    hostname: window.location.hostname,
+  })
 
   useEffect(() => {
     const launch = window.__shubLaunch
@@ -1202,6 +1206,10 @@ function AppShell({ profile }) {
       if (contentRect.width <= 0 || contentRect.height <= 0 || stackRect.width <= 0 || stackRect.height <= 0) {
         return false
       }
+
+      // For local design imports, reveal the real mounted UI without waiting
+      // for optional/live home cards. Production retains its full paint gate.
+      if (localDesignPreview) return true
 
       const surfaces = stack.querySelectorAll(
         '.current-class-card, .preview-home-signals, .todo-home-preview, .academic-preview, .home-timetable-preview, .meal-preview',
