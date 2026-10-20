@@ -14,5 +14,5 @@ test('Windows CRLF checkout transforms the same station navigation as LF', () =>
 
   assert.ok(lf?.code)
   assert.equal(crlf?.code, lf.code)
-  assert.match(crlf.code, /class-nav-capsule/)
+  assert.match(crlf.code, /\{ id: 'class', label: '우리반' \}/)
 })
