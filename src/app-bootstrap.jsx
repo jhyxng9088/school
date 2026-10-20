@@ -10,6 +10,7 @@ import {
 } from './school-sync.js'
 import { StudentSetup } from './student-setup.jsx'
 import { recoverStudentAuthForProfile } from './student-auth-migration.js'
+import { isLocalDesignPreview } from './pwa-design-preview.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -184,6 +185,10 @@ prepareClientDataGeneration()
 launchProgress(.32)
 
 const standalone = isStandalone()
+const appEntryAllowed = standalone || isLocalDesignPreview({
+  isDevelopment: import.meta.env.DEV,
+  hostname: window.location.hostname,
+})
 const profile = readStudentProfile()
 launchProgress(.38)
 const previousProfileSignature = profileSignature(profile)
@@ -192,14 +197,14 @@ const schoolSelectionComplete = hasExplicitSchoolSelection()
 // If this page is already running as an installed PWA, installation itself is
 // the confirmation. Mark the legacy guide complete before deciding which first
 // screen owns the session so new users cannot fall through to the old setup.
-if (standalone && localStorage.getItem(INSTALL_DONE_KEY) !== 'true') {
+if (appEntryAllowed && localStorage.getItem(INSTALL_DONE_KEY) !== 'true') {
   localStorage.setItem(INSTALL_DONE_KEY, 'true')
 }
 
 // A normalized legacy profile can contain the Suji compatibility context even
 // when the user never chose a school. Only skip school onboarding when the raw
 // stored profile itself contains an explicit school selection.
-if (standalone && (!profile || !schoolSelectionComplete)) {
+if (appEntryAllowed && (!profile || !schoolSelectionComplete)) {
   const container = document.getElementById('root')
   const root = createRoot(container)
   const legacyName = profile?.name || localStorage.getItem(USER_NAME_KEY) || ''
