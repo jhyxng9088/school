@@ -10,6 +10,7 @@ import {
 } from './school-sync.js'
 import { StudentSetup } from './student-setup.jsx'
 import { recoverStudentAuthForProfile } from './student-auth-migration.js'
+import { isLocalDesignPreview } from './pwa-design-preview.js'
 
 const INSTALL_DONE_KEY = 'school.installGuideDone'
 const USER_NAME_KEY = 'school.userName'
@@ -183,7 +184,11 @@ refreshExistingServiceWorker()
 prepareClientDataGeneration()
 launchProgress(.32)
 
-const standalone = isStandalone()
+// Treat only a loopback Vite development page as installed for design imports.
+const standalone = isStandalone() || isLocalDesignPreview({
+  isDevelopment: import.meta.env.DEV,
+  hostname: window.location.hostname,
+})
 const profile = readStudentProfile()
 launchProgress(.38)
 const previousProfileSignature = profileSignature(profile)
