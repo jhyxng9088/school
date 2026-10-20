@@ -68,7 +68,9 @@ function replaceV2Source(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (!cleanId.includes('/src/')) return String(source || '')
 
-  let next = String(source || '')
+  // Windows Git checkouts may use CRLF. Legacy patch markers are LF-based.
+  // Normalize only the source passed through this existing patch owner.
+  let next = String(source || '').replace(/\r\n/g, '\n')
   next = patchPreviewStationNavSource(next, cleanId)
   next = patchPreviewStationNavRefinementSource(next, cleanId)
   next = patchPreviewStationJellyMotionSource(next, cleanId)
