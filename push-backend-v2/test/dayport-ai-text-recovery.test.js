@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { generateStructuredAI } from '../lib/s-hub-ai-service.js'
+import { generateStructuredAI } from '../lib/dayport-ai-service.js'
 
 const schema = {
   type: 'object',

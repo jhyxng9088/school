@@ -1,4 +1,4 @@
-import { generateSchoolStructured } from './s-hub-ai-transport.js'
+import { generateSchoolStructured } from './dayport-ai-transport.js'
 
 const TEXT_REQUEST_TIMEOUT_MS = 15000
 const ATTACHMENT_REQUEST_TIMEOUT_MS = 30000

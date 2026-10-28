@@ -4,7 +4,7 @@ import { PreviewBoard } from './preview-board-complete.jsx'
 
 const now = Date.now()
 
-globalThis.__S_HUB_E2E_BOARD_FIXTURE__ = {
+globalThis.__DAYPORT_E2E_BOARD_FIXTURE__ = {
   activeSectionId: 'all',
   sections: [
     { id: 'general', label: '일반', color: '#90939a', builtin: true, ownedByMe: false },

@@ -29,7 +29,7 @@ test('home source owns its imports directly after the build owner is retired', (
   const signals = "import { PreviewHomeSignals } from './preview-home-signals.jsx'\n"
   const mealPriority = "import { useHomeMealPriority } from './home-meal-priority.js'\n"
   const roster = "import { openClassRoster } from './class-roster-ui-v2.js'\n"
-  const aiCore = "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n"
+  const aiCore = "import { buildSchoolAIContext } from './dayport-ai-core.js'\n"
 
   assert.equal(main.split(roster).length - 1, 1)
   assert.equal(main.split(signals).length - 1, 1)

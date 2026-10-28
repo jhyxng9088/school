@@ -6,7 +6,7 @@ import {
   normalizeImportItems,
   semanticConflictShortlist,
   titleSimilarity,
-} from '../src/s-hub-ai-core.js'
+} from '../src/dayport-ai-core.js'
 
 const NOW = new Date(2026, 7, 27, 12, 0, 0, 0)
 

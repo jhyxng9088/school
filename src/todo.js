@@ -6,7 +6,7 @@ import {
   claimSchoolAIReminderSource,
   completeSchoolAIReminderSource,
   releaseSchoolAIReminderSource,
-} from './s-hub-reminder-source.js'
+} from './dayport-reminder-source.js'
 import { deleteExpiredSharedTodo, writeSharedTodo } from './school-sync'
 
 export { TodoHomePreview, TodoPage }
@@ -92,7 +92,7 @@ export function useTodos(profile, reminderTimetable = null) {
   const todoData = useBaseTodos(profile, reminderTimetable)
 
   async function saveTodo(input) {
-    // The S-Hub AI importer claims its own attachment source before saving and
+    // The DAYPORT AI importer claims its own attachment source before saving and
     // marks the draft with the shared pending-summary contract. Do not consume
     // another reminder source from the same batch in this generic save wrapper.
     const source = schoolAIImportSheetOpen() && !isReminderSummaryPending(input?.summary)

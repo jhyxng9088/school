@@ -11,7 +11,7 @@ import {
 } from './reminder-categories.js'
 import { formatParsedDue, parseReminderText } from './reminder-parser.js'
 import { parseReminderTitleWithAI, parseReminderWithAI } from './firebase-ai.js'
-import { findReminderConflict } from './s-hub-ai.js'
+import { findReminderConflict } from './dayport-ai.js'
 import { AttachmentPicker, SummarySheet, createPendingReminderSummary, isReminderSummaryPending, withAttachmentManifest } from './reminder-summary.jsx'
 import { activityKey, activityLabel, useClassActivity } from './class-activity'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'

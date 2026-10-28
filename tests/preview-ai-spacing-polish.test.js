@@ -11,8 +11,8 @@ function applyPreviewAI(source, id) {
 }
 
 test('AI quick questions animate into the composer instead of snapping in', () => {
-  const source = fs.readFileSync(new URL('../src/s-hub-ai-sheet.jsx', import.meta.url), 'utf8')
-  const output = applyPreviewAI(source, '/src/s-hub-ai-sheet.jsx')
+  const source = fs.readFileSync(new URL('../src/dayport-ai-sheet.jsx', import.meta.url), 'utf8')
+  const output = applyPreviewAI(source, '/src/dayport-ai-sheet.jsx')
 
   assert.match(output, /const \[quickFillNonce, setQuickFillNonce\] = useState\(0\)/)
   assert.match(output, /function applyQuickQuestion\(value\)/)
@@ -25,8 +25,8 @@ test('AI quick questions animate into the composer instead of snapping in', () =
 })
 
 test('AI page uses a consistent vertical rhythm across headings, buttons and context cards', () => {
-  const source = fs.readFileSync(new URL('../src/s-hub-ai.css', import.meta.url), 'utf8')
-  const output = applyPreviewAI(source, '/src/s-hub-ai.css')
+  const source = fs.readFileSync(new URL('../src/dayport-ai.css', import.meta.url), 'utf8')
+  const output = applyPreviewAI(source, '/src/dayport-ai.css')
 
   assert.match(output, /Preview-only AI rhythm polish/)
   assert.match(output, /\.s-hub-ai-page-extra > section \{\s*display: grid;\s*gap: 9px;/)

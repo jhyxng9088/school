@@ -148,8 +148,8 @@ export function patchPreviewBoardSource(source, id = '') {
   if (!next.includes(boardImport)) {
     next = replaceRequired(
       next,
-      `import { SHubAIOrb } from './s-hub-ai-orb.jsx'`,
-      `import { SHubAIOrb } from './s-hub-ai-orb.jsx'\n${boardImport}\n${boardThemeImport}`,
+      `import { DayportAIOrb } from './dayport-ai-orb.jsx'`,
+      `import { DayportAIOrb } from './dayport-ai-orb.jsx'\n${boardImport}\n${boardThemeImport}`,
       'board import',
     )
   }

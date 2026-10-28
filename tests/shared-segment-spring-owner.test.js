@@ -2,18 +2,18 @@ import fs from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PREVIEW_CLASS_SEGMENT_PHYSICS } from '../src/preview-class-top-segment-patch.js'
-import { S_HUB_SEGMENT_SPRING_PHYSICS } from '../src/s-hub-segment-spring.js'
+import { DAYPORT_SEGMENT_SPRING_PHYSICS } from '../src/dayport-segment-spring.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('preview segment generators share the canonical spring physics object', () => {
-  assert.equal(PREVIEW_CLASS_SEGMENT_PHYSICS, S_HUB_SEGMENT_SPRING_PHYSICS)
+  assert.equal(PREVIEW_CLASS_SEGMENT_PHYSICS, DAYPORT_SEGMENT_SPRING_PHYSICS)
 })
 
 test('class segment generator owns the shared spring wrapper and unread semantic key directly', () => {
   const source = read('src/preview-class-top-segment-patch.js')
-  assert.match(source, /import \{ S_HUB_SEGMENT_SPRING_PHYSICS \} from '\.\/s-hub-segment-spring\.js'/)
-  assert.match(source, /return useSHubSegmentSpring\(activeIndex, \{/)
+  assert.match(source, /import \{ DAYPORT_SEGMENT_SPRING_PHYSICS \} from '\.\/dayport-segment-spring\.js'/)
+  assert.match(source, /return useDayportSegmentSpring\(activeIndex, \{/)
   assert.match(source, /paddingProperty: '--segment-padding'/)
   assert.match(source, /data-unread-key=\{item\.id\}/)
   assert.doesNotMatch(source, /physics\.velocity \+= acceleration \* dt/)
@@ -21,8 +21,8 @@ test('class segment generator owns the shared spring wrapper and unread semantic
 
 test('Study raw source reuses the same shared spring wrapper without a duplicate physics runtime', () => {
   const page = read('src/preview-study.jsx')
-  assert.match(page, /import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'/)
-  assert.match(page, /function useStudyRankingScopeSpring\(activeIndex\) \{\n  return useSHubSegmentSpring/)
+  assert.match(page, /import \{ useDayportSegmentSpring \} from '\.\/dayport-segment-spring\.js'/)
+  assert.match(page, /function useStudyRankingScopeSpring\(activeIndex\) \{\n  return useDayportSegmentSpring/)
   assert.match(page, /paddingProperty: '--study-ranking-padding'/)
   assert.match(page, /fallbackPadding: 4/)
   assert.doesNotMatch(page, /const springForce =/)

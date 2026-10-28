@@ -1,6 +1,6 @@
-# S-Hub Update Checklist
+# DAYPORT Update Checklist
 
-이 체크리스트는 S-Hub에 UI 변경, 기능 추가, 버그 수정, 구조 정리를 할 때 사용한다.
+이 체크리스트는 DAYPORT에 UI 변경, 기능 추가, 버그 수정, 구조 정리를 할 때 사용한다.
 
 ## 작업 시작 전
 
@@ -18,7 +18,7 @@
 - [ ] `querySelector(...).click()`으로 내부 기능을 연결하지 않았다.
 - [ ] visible text를 읽어서 route/state/key를 추론하지 않았다.
 - [ ] `nth-of-type`이나 DOM 순서에 기능을 연결하지 않았다.
-- [ ] 기존 `SHubIcon`, `UnifiedBottomSheet`, `OriginalFileViewer` 등 shared primitive를 먼저 검토했다.
+- [ ] 기존 `DayportIcon`, `UnifiedBottomSheet`, `OriginalFileViewer` 등 shared primitive를 먼저 검토했다.
 - [ ] 같은 책임을 가진 새 중복 component/helper를 만들지 않았다.
 - [ ] React가 렌더한 내부 DOM을 다시 가공하기 위한 새 `MutationObserver`를 만들지 않았다.
 - [ ] 신규 기능을 위해 새 exact-string build patch를 추가하지 않았다.

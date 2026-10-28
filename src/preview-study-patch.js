@@ -12,7 +12,7 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
 
 function patchMainSource(source) {
   let next = String(source || '')
-  const importMarker = "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n"
+  const importMarker = "import { buildSchoolAIContext } from './dayport-ai-core.js'\n"
   if (!next.includes("from './preview-study.jsx'")) {
     next = replaceRequired(
       next,

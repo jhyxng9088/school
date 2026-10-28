@@ -4,7 +4,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { buildSchoolAIContext } from '../src/s-hub-ai-core.js'
+import { buildSchoolAIContext } from '../src/dayport-ai-core.js'
 import { patchPreviewAIPageSource } from '../src/preview-ai-page-patch.js'
 import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
 
@@ -19,8 +19,8 @@ function exists(relativePath) {
 }
 
 test('AI presentation owner puts quick questions and context before the composer and shows meals', () => {
-  const id = path.join(root, 'src/s-hub-ai-sheet.jsx')
-  let source = read('src/s-hub-ai-sheet.jsx')
+  const id = path.join(root, 'src/dayport-ai-sheet.jsx')
+  let source = read('src/dayport-ai-sheet.jsx')
   source = patchPreviewAIPageSource(source, id)
   source = patchPreviewAIStageMotionSource(source, id)
 
@@ -63,14 +63,14 @@ test('main and transport directly own meal context wiring and duplicate-prompt a
   assert.match(main, /mealRanges: schoolData\?\.mealRanges \|\| \{\}/)
   assert.match(main, /schoolData\?\.mealRanges/)
 
-  const transport = read('src/s-hub-ai-transport.js')
+  const transport = read('src/dayport-ai-transport.js')
   assert.match(transport, /SCHOOL_DATA already carries meals/)
   assert.ok(transport.includes(String.raw`/"meals"\s*:/.test(prompt)`))
 })
 
 test('AI presentation owner keeps long composer content above the fixed bottom nav', () => {
-  const id = path.join(root, 'src/s-hub-ai.css')
-  let css = patchPreviewAIPageSource(read('src/s-hub-ai.css'), id)
+  const id = path.join(root, 'src/dayport-ai.css')
+  let css = patchPreviewAIPageSource(read('src/dayport-ai.css'), id)
   css = patchPreviewAIStageMotionSource(css, id)
 
   assert.match(css, /--s-hub-ai-top-inset:\s*max\(32px, env\(safe-area-inset-top\)\)/)

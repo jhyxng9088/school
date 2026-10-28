@@ -5,18 +5,18 @@ import fs from 'node:fs'
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('S-Hub AI replaces the compose UI with a compact live working stage', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
-  const css = read('src/s-hub-ai.css')
+  const sheet = read('src/dayport-ai-sheet.jsx')
+  const css = read('src/dayport-ai.css')
 
   assert.match(sheet, /!working && \(state\.mode === 'compose' \|\| state\.mode === 'answer'\)/)
   assert.match(sheet, /!working && state\.answer/)
-  assert.match(sheet, /<SHubAIOrb size=\{56\} active/)
+  assert.match(sheet, /<DayportAIOrb size=\{56\} active/)
   assert.match(sheet, /aria-live=\"polite\"/)
   assert.match(css, /\.s-hub-ai-thinking-stage\s*\{[\s\S]*?min-height:\s*142px;/)
 })
 
 test('working copy reflects attachment type and real conflict-review stage', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
+  const sheet = read('src/dayport-ai-sheet.jsx')
 
   assert.match(sheet, /사진을 분석하는 중…/)
   assert.match(sheet, /파일을 분석하는 중…/)
@@ -28,8 +28,8 @@ test('working copy reflects attachment type and real conflict-review stage', () 
 })
 
 test('working copy changes softly at a non-rigid cadence and remains cancellable', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
-  const css = read('src/s-hub-ai.css')
+  const sheet = read('src/dayport-ai-sheet.jsx')
+  const css = read('src/dayport-ai.css')
 
   assert.match(sheet, /1550 \+ Math\.round\(Math\.random\(\) \* 850\)/)
   assert.match(sheet, /setWorkingMessageFading\(true\)/)
@@ -38,8 +38,8 @@ test('working copy changes softly at a non-rigid cadence and remains cancellable
 })
 
 test('working stage contracts quickly before completed AI results reveal smoothly', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
-  const css = read('src/s-hub-ai.css')
+  const sheet = read('src/dayport-ai-sheet.jsx')
+  const css = read('src/dayport-ai.css')
 
   assert.match(sheet, /workingFinishing/)
   assert.match(sheet, /finishWorkingStage\(requestId\)/)

@@ -6,13 +6,13 @@ import {
   applyUnifiedSchoolAiPolicy,
 } from '../src/school-ai-policy.js'
 
-const transportSource = await readFile(new URL('../src/s-hub-ai-transport.js', import.meta.url), 'utf8')
+const transportSource = await readFile(new URL('../src/dayport-ai-transport.js', import.meta.url), 'utf8')
 const reminderAiSource = await readFile(new URL('../src/firebase-ai.js', import.meta.url), 'utf8')
-const schoolAiSource = await readFile(new URL('../src/s-hub-ai-engine.js', import.meta.url), 'utf8')
+const schoolAiSource = await readFile(new URL('../src/dayport-ai-engine.js', import.meta.url), 'utf8')
 
 test('AI tab and Reminder share one interpretation policy at the common transport boundary', () => {
-  assert.match(reminderAiSource, /generateSchoolStructured.*s-hub-ai-transport\.js/)
-  assert.match(schoolAiSource, /generateSchoolStructured.*s-hub-ai-transport\.js/)
+  assert.match(reminderAiSource, /generateSchoolStructured.*dayport-ai-transport\.js/)
+  assert.match(schoolAiSource, /generateSchoolStructured.*dayport-ai-transport\.js/)
   assert.match(transportSource, /applyUnifiedSchoolAiPolicy/)
   assert.match(transportSource, /const unifiedPrompt = applyUnifiedSchoolAiPolicy\(safePrompt\)/)
   assert.doesNotMatch(reminderAiSource, /school-ai-policy/)

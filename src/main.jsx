@@ -33,17 +33,17 @@ import './academic-expiry-cleanup.js'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import { OfflineToast, useNetworkGuard } from './network-guard'
 import { activityKey, activityLabel, recordClassActivities, useClassActivity, useSharedAcademic } from './class-activity'
-import { SchoolAISheet } from './s-hub-ai-sheet.jsx'
-import { SHubAIOrb } from './s-hub-ai-orb.jsx'
-import { SHubIcon } from './s-hub-icon.jsx'
-import { buildSchoolAIContext } from './s-hub-ai-core.js'
+import { SchoolAISheet } from './dayport-ai-sheet.jsx'
+import { DayportAIOrb } from './dayport-ai-orb.jsx'
+import { DayportIcon } from './dayport-icon.jsx'
+import { buildSchoolAIContext } from './dayport-ai-core.js'
 import { parseReminderWithAI } from './firebase-ai.js'
 import { createPendingReminderSummary, withAttachmentManifest } from './reminder-summary.jsx'
 import {
   claimSchoolAIReminderSource,
   completeSchoolAIReminderSource,
   releaseSchoolAIReminderSource,
-} from './s-hub-reminder-source.js'
+} from './dayport-reminder-source.js'
 import { openClassRoster } from './class-roster-ui-v2.js'
 import { PreviewHomeSignals } from './preview-home-signals.jsx'
 import { useHomeMealPriority } from './home-meal-priority.js'
@@ -92,7 +92,7 @@ function nativeDateDisplay(value) {
 }
 
 function Icon({ type, size = 22 }) {
-  return <SHubIcon name={type} size={size} />
+  return <DayportIcon name={type} size={size} />
 }
 
 function InstallGuide({ onDone, standalone }) {
@@ -416,7 +416,7 @@ function Home({ profile, name, now, weeklySchedule, overrides, schoolData, todoD
           <span className="user-name">{name}</span>
           <ThemeSettingsIsland />
           <button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick={onOpenAI}>
-            <SHubAIOrb size={27} />
+            <DayportAIOrb size={27} />
           </button>
         </div>
       </header>

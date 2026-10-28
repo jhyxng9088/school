@@ -4,10 +4,10 @@ import fs from 'node:fs'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('S-Hub client keeps Firebase Auth while provider credentials stay server-only', () => {
-  const transport = read('src/s-hub-ai-transport.js')
+test('DAYPORT client keeps Firebase Auth while provider credentials stay server-only', () => {
+  const transport = read('src/dayport-ai-transport.js')
   const endpoint = read('push-backend-v2/api/s-hub-ai.js')
-  const service = read('push-backend-v2/lib/s-hub-ai-service.js')
+  const service = read('push-backend-v2/lib/dayport-ai-service.js')
 
   assert.match(transport, /await ensureSignedIn\(\)/)
   assert.match(transport, /Authorization: `Bearer \$\{idToken\}`/)
@@ -26,9 +26,9 @@ test('S-Hub client keeps Firebase Auth while provider credentials stay server-on
   assert.doesNotMatch(service, /AIza[0-9A-Za-z_-]+/)
 })
 
-test('S-Hub input hints rotate with a soft 2.5 second cadence', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
-  const css = read('src/s-hub-ai.css')
+test('DAYPORT input hints rotate with a soft 2.5 second cadence', () => {
+  const sheet = read('src/dayport-ai-sheet.jsx')
+  const css = read('src/dayport-ai.css')
   assert.match(sheet, /\}, 2500\)/)
   assert.match(sheet, /placeholder=\{rotatingHint\}/)
   assert.match(css, /transition: opacity 220ms/)

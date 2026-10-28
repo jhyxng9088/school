@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 
 const read = (path) => readFileSync(new URL('../' + path, import.meta.url), 'utf8')
 
-test('S-Hub V2 tab scroll reset is owned by raw main source', () => {
+test('DAYPORT V2 tab scroll reset is owned by raw main source', () => {
   const main = read('src/main.jsx')
   assert.match(main, /const resetScroll = \(\) => \{/)
   assert.match(main, /window\.scrollTo\(0, 0\)/)
@@ -12,7 +12,7 @@ test('S-Hub V2 tab scroll reset is owned by raw main source', () => {
   assert.match(main, /\}, \[activeTab\]\)/)
 })
 
-test('S-Hub V2 reminder section and polish behavior are owned by raw todo source', () => {
+test('DAYPORT V2 reminder section and polish behavior are owned by raw todo source', () => {
   const todo = read('src/todo-stage5-ai.jsx')
   assert.match(todo, /CUSTOM_REMINDER_CATEGORY_COLORS/)
   assert.match(todo, /reminderFilterOptions\(categories\)/)

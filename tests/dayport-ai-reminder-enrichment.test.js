@@ -6,11 +6,11 @@ import {
   clearSchoolAIReminderSources,
   completeSchoolAIReminderSource,
   rememberSchoolAIReminderSources,
-} from '../src/s-hub-reminder-source.js'
+} from '../src/dayport-reminder-source.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('S-Hub attachment analysis keeps original files only for reminder import claims', () => {
+test('DAYPORT attachment analysis keeps original files only for reminder import claims', () => {
   clearSchoolAIReminderSources()
   const original = new Blob(['notice'], { type: 'image/png' })
   rememberSchoolAIReminderSources([
@@ -27,8 +27,8 @@ test('S-Hub attachment analysis keeps original files only for reminder import cl
   assert.equal(claimSchoolAIReminderSource(), null)
 })
 
-test('S-Hub reminder saving reuses reminder AI summary and original attachment pipeline', () => {
-  const facade = read('src/s-hub-ai.js')
+test('DAYPORT reminder saving reuses reminder AI summary and original attachment pipeline', () => {
+  const facade = read('src/dayport-ai.js')
   const todo = read('src/todo.js')
 
   assert.match(facade, /rememberSchoolAIReminderSources\(result(?:\?\.)?\.items, options\?\.files/)
@@ -40,8 +40,8 @@ test('S-Hub reminder saving reuses reminder AI summary and original attachment p
   assert.match(todo, /todoData\.enrichTodo\(todoId/)
 })
 
-test('S-Hub attachment imports cannot short-circuit the detailed reminder analyzer', () => {
-  const facade = read('src/s-hub-ai.js')
+test('DAYPORT attachment imports cannot short-circuit the detailed reminder analyzer', () => {
+  const facade = read('src/dayport-ai.js')
   const todo = read('src/todo.js')
   const main = read('src/main.jsx')
 

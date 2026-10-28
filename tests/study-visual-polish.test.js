@@ -12,9 +12,9 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 
 test('study bottom navigation uses the source-owned shared minimal open-book icon', () => {
   const main = read('src/main.jsx')
-  const registry = read('src/s-hub-icon.jsx')
+  const registry = read('src/dayport-icon.jsx')
 
-  assert.match(main, /return <SHubIcon name=\{type\} size=\{size\} \/>/)
+  assert.match(main, /return <DayportIcon name=\{type\} size=\{size\} \/>/)
   assert.match(registry, /M2\.8 5\.2c3\.6-\.9 6\.7\.1 9\.2 2\.8/)
   assert.match(registry, /M21\.2 5\.2c-3\.6-\.9-6\.7\.1-9\.2 2\.8/)
   assert.match(registry, /M12 8v11\.2/)
@@ -120,8 +120,8 @@ test('board and AI hero descriptions keep Korean words intact when wrapping', ()
   const boardCss = patchStudyVisualPolishSource(read('src/preview-board.css'), '/workspace/src/preview-board.css')
   assert.match(boardCss, /\.preview-board-header-note \{[\s\S]*word-break: keep-all;[\s\S]*overflow-wrap: break-word;/)
 
-  let aiCss = patchPreviewAIPageSource(read('src/s-hub-ai.css'), '/workspace/src/s-hub-ai.css')
-  aiCss = patchStudyVisualPolishSource(aiCss, '/workspace/src/s-hub-ai.css')
+  let aiCss = patchPreviewAIPageSource(read('src/dayport-ai.css'), '/workspace/src/dayport-ai.css')
+  aiCss = patchStudyVisualPolishSource(aiCss, '/workspace/src/dayport-ai.css')
   assert.match(aiCss, /\.s-hub-ai-page-title p:last-child \{[\s\S]*word-break: keep-all;[\s\S]*overflow-wrap: break-word;/)
 })
 

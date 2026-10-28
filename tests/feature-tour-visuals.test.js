@@ -13,7 +13,7 @@ function thinkingMotions(source) {
 }
 
 test('feature tour first card uses the same S-Hub AI thinking motion profiles', () => {
-  const component = read('src/s-hub-ai-orb.jsx')
+  const component = read('src/dayport-ai-orb.jsx')
   const runtime = read('public/feature-tour-ai-orb.js')
   const index = read('index.html')
   const sw = read('public/sw.js')

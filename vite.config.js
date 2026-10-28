@@ -47,7 +47,7 @@ function replacePairs(source, pairs) {
   const applied = []
   pairs.forEach(([from, to], index) => {
     if (!next.includes(from)) return
-    const token = `__S_HUB_POLITE_COPY_${index}_${applied.length}__`
+    const token = `__DAYPORT_POLITE_COPY_${index}_${applied.length}__`
     next = next.split(from).join(token)
     applied.push([token, to])
   })
@@ -111,9 +111,9 @@ function patchPublicBuildFiles(directory) {
   }
 }
 
-function sHubV2FeaturePlugin() {
+function dayportV2FeaturePlugin() {
   return {
-    name: 'school-s-hub-v2-features',
+    name: 'school-dayport-v2-features',
     enforce: 'pre',
     transform(code, id) {
       const next = replaceV2Source(code, id)
@@ -164,6 +164,6 @@ function politeCopyPlugin() {
 }
 
 export default defineConfig({
-  plugins: [sHubV2FeaturePlugin(), politeCopyPlugin(), react()],
+  plugins: [dayportV2FeaturePlugin(), politeCopyPlugin(), react()],
   base: '/school/',
 })

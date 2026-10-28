@@ -5,8 +5,8 @@ import fs from 'node:fs'
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('attachment questions return answer and actionable items in one AI call', () => {
-  const ai = read('src/s-hub-ai-engine.js')
-  const facade = read('src/s-hub-ai.js')
+  const ai = read('src/dayport-ai-engine.js')
+  const facade = read('src/dayport-ai.js')
   assert.match(ai, /ATTACHMENT_HYBRID_SCHEMA/)
   assert.match(ai, /required: \['answer', 'items'\]/)
   assert.match(ai, /answerAndAnalyzeSchoolAttachments/)
@@ -17,7 +17,7 @@ test('attachment questions return answer and actionable items in one AI call', (
 })
 
 test('attachment question UI keeps answer and import candidates together', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
+  const sheet = read('src/dayport-ai-sheet.jsx')
   assert.match(sheet, /answerAndAnalyzeSchoolAttachments/)
   assert.match(sheet, /mode: 'import',\n\s+answer: result\.answer/)
   assert.match(sheet, /!working && state\.answer/)

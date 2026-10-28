@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 
-export const S_HUB_SEGMENT_SPRING_PHYSICS = Object.freeze({
+export const DAYPORT_SEGMENT_SPRING_PHYSICS = Object.freeze({
   stiffness: 56,
   damping: 10.5,
   mass: 1,
@@ -14,7 +14,7 @@ export const S_HUB_SEGMENT_SPRING_PHYSICS = Object.freeze({
   settleVelocityPx: 0.06,
 })
 
-export function useSHubSegmentSpring(activeIndex, {
+export function useDayportSegmentSpring(activeIndex, {
   paddingProperty = '--segment-padding',
   shellScaleProperty = '--segment-shell-scale-x',
   shellShiftProperty = '--segment-shell-shift-x',
@@ -59,14 +59,14 @@ export function useSHubSegmentSpring(activeIndex, {
     function paint() {
       const speed = Math.abs(physics.velocity)
       const stretch = deform
-        ? Math.min(speed * S_HUB_SEGMENT_SPRING_PHYSICS.stretchPerVelocity, S_HUB_SEGMENT_SPRING_PHYSICS.maxStretch)
+        ? Math.min(speed * DAYPORT_SEGMENT_SPRING_PHYSICS.stretchPerVelocity, DAYPORT_SEGMENT_SPRING_PHYSICS.maxStretch)
         : 0
       const movingRight = physics.velocity > 0
       const movingLeft = physics.velocity < 0
       const visualX = movingLeft ? physics.x - stretch : physics.x
       const visualWidth = physics.baseWidth + stretch
       const compression = deform
-        ? Math.min(speed / S_HUB_SEGMENT_SPRING_PHYSICS.compressionVelocity, S_HUB_SEGMENT_SPRING_PHYSICS.maxCompression)
+        ? Math.min(speed / DAYPORT_SEGMENT_SPRING_PHYSICS.compressionVelocity, DAYPORT_SEGMENT_SPRING_PHYSICS.maxCompression)
         : 0
       const visualRight = visualX + visualWidth
       const containerWidth = container.clientWidth || 1
@@ -81,7 +81,7 @@ export function useSHubSegmentSpring(activeIndex, {
       container.style.setProperty(shellShiftProperty, shellShiftX.toFixed(3) + 'px')
       indicator.style.setProperty('width', visualWidth + 'px', 'important')
       indicator.style.setProperty('transform', 'translate3d(' + visualX + 'px, 0, 0) scaleY(' + (1 - compression) + ')', 'important')
-      indicator.style.setProperty('border-radius', Math.max(minRadius, baseRadius - stretch * S_HUB_SEGMENT_SPRING_PHYSICS.radiusShrinkPerStretch) + 'px', 'important')
+      indicator.style.setProperty('border-radius', Math.max(minRadius, baseRadius - stretch * DAYPORT_SEGMENT_SPRING_PHYSICS.radiusShrinkPerStretch) + 'px', 'important')
       indicator.dataset.direction = movingRight ? 'right' : movingLeft ? 'left' : 'still'
     }
 
@@ -108,20 +108,20 @@ export function useSHubSegmentSpring(activeIndex, {
 
     function animate(time) {
       if (!physics.lastTime) physics.lastTime = time
-      const dt = Math.min((time - physics.lastTime) / 1000, S_HUB_SEGMENT_SPRING_PHYSICS.maxDt)
+      const dt = Math.min((time - physics.lastTime) / 1000, DAYPORT_SEGMENT_SPRING_PHYSICS.maxDt)
       physics.lastTime = time
 
       const displacement = physics.x - physics.targetX
-      const springForce = -S_HUB_SEGMENT_SPRING_PHYSICS.stiffness * displacement
-      const dampingForce = -S_HUB_SEGMENT_SPRING_PHYSICS.damping * physics.velocity
-      const acceleration = (springForce + dampingForce) / S_HUB_SEGMENT_SPRING_PHYSICS.mass
+      const springForce = -DAYPORT_SEGMENT_SPRING_PHYSICS.stiffness * displacement
+      const dampingForce = -DAYPORT_SEGMENT_SPRING_PHYSICS.damping * physics.velocity
+      const acceleration = (springForce + dampingForce) / DAYPORT_SEGMENT_SPRING_PHYSICS.mass
 
       physics.velocity += acceleration * dt
       physics.x += physics.velocity * dt
       paint()
 
-      const settled = Math.abs(physics.x - physics.targetX) < S_HUB_SEGMENT_SPRING_PHYSICS.settleDistancePx
-        && Math.abs(physics.velocity) < S_HUB_SEGMENT_SPRING_PHYSICS.settleVelocityPx
+      const settled = Math.abs(physics.x - physics.targetX) < DAYPORT_SEGMENT_SPRING_PHYSICS.settleDistancePx
+        && Math.abs(physics.velocity) < DAYPORT_SEGMENT_SPRING_PHYSICS.settleVelocityPx
       if (settled) {
         physics.x = physics.targetX
         physics.velocity = 0

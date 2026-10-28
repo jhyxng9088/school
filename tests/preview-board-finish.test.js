@@ -35,7 +35,7 @@ test('manual refresh remains authoritative while quiet refresh stays read-effici
   assert.match(client, /Date\.now\(\) - sectionsCachedAt > 5 \* 60_000/)
 })
 
-test('section changes use S-Hub directional entrance motion without stale-post flash', () => {
+test('section changes use DAYPORT directional entrance motion without stale-post flash', () => {
   const source = boardSource()
   const css = read('src/preview-board-finish.css')
   assert.match(source, /const \[sectionDirection, setSectionDirection\] = useState\(1\)/)

@@ -1,4 +1,4 @@
-# S-Hub scheduled reminder backend v2
+# DAYPORT scheduled reminder backend v2
 
 This backend is intentionally separate from the existing `school-push-backend`.
 It only handles:
@@ -14,7 +14,7 @@ It does **not** replace the existing class-start, lunch, or activity push backen
 - completed reminders are excluded per student
 - hidden/removed reminders are excluded per student
 - reminders deleted from the shared class collection cannot be scheduled because they are not present in the source query
-- only academic events whose stored `detail` begins with the S-Hub important marker are included
+- only academic events whose stored `detail` begins with the DAYPORT important marker are included
 - 23:00 reminder previews are grouped per student
 - multiple important academic events are grouped per class
 - duplicate sends are prevented using Firestore-backed scheduled claims
@@ -23,12 +23,12 @@ It does **not** replace the existing class-start, lunch, or activity push backen
 ## Required Vercel environment variables
 
 - `FIREBASE_SERVICE_ACCOUNT_JSON` — Firebase Admin service account JSON, stored only as a Vercel secret
-- `VAPID_PRIVATE_KEY` — copy the private VAPID key used by the existing S-Hub push backend
+- `VAPID_PRIVATE_KEY` — copy the private VAPID key used by the existing DAYPORT push backend
 
 Optional:
 
-- `VAPID_PUBLIC_KEY` — defaults to the currently deployed S-Hub public key
-- `VAPID_SUBJECT` — defaults to the S-Hub GitHub repository URL
+- `VAPID_PUBLIC_KEY` — defaults to the currently deployed DAYPORT public key
+- `VAPID_SUBJECT` — defaults to the project GitHub repository URL (`https://github.com/jhyxng9088/school`)
 - `CRON_SECRET` — if set, cron-job.org must send it using `X-Cron-Secret` or Bearer auth
 
 Never commit any private key or service-account JSON to GitHub.

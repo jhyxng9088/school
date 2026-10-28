@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
+import { useDayportSegmentSpring } from './dayport-segment-spring.js'
 import {
   loadPreviewStudy,
   patchPreviewStudyActiveCache,
@@ -330,7 +330,7 @@ function ActiveClassmates({ students, meId, nowMs, onStudent }) {
 }
 
 function useStudyRankingScopeSpring(activeIndex) {
-  return useSHubSegmentSpring(activeIndex, {
+  return useDayportSegmentSpring(activeIndex, {
     paddingProperty: '--study-ranking-padding',
     shellScaleProperty: '--study-ranking-shell-scale-x',
     shellShiftProperty: '--study-ranking-shell-shift-x',

@@ -2,7 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { classifyAttachmentTextIntent } from '../src/s-hub-ai-intent.js'
+import { classifyAttachmentTextIntent } from '../src/dayport-ai-intent.js'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -16,10 +16,10 @@ test('attachment text intent distinguishes questions from import instructions an
   assert.equal(classifyAttachmentTextIntent(''), 'import')
 })
 
-test('S-Hub has a multimodal answer route that combines attachments with internal school data', () => {
-  const facade = read('src/s-hub-ai.js')
-  const ai = read('src/s-hub-ai-engine.js')
-  const sheet = read('src/s-hub-ai-sheet.jsx')
+test('DAYPORT has a multimodal answer route that combines attachments with internal school data', () => {
+  const facade = read('src/dayport-ai.js')
+  const ai = read('src/dayport-ai-engine.js')
+  const sheet = read('src/dayport-ai-sheet.jsx')
   assert.match(facade, /export async function answerAndAnalyzeSchoolAttachments/)
   assert.match(ai, /첨부된 사진, 캡처, PDF, 텍스트 파일과 아래 SCHOOL_DATA를 함께 읽어서/)
   assert.match(ai, /오늘 제출·수행·준비·시험·해야 할 일/)
@@ -30,7 +30,7 @@ test('S-Hub has a multimodal answer route that combines attachments with interna
 })
 
 test('attachment primary action communicates whether the current request is a question or import', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
+  const sheet = read('src/dayport-ai-sheet.jsx')
   assert.match(sheet, /const primaryActionLabel = files\.length && attachmentIntent !== 'answer' \? '공지 분석' : '질문하기'/)
   assert.match(sheet, /imageQuestion: \['사진과 질문을 함께 확인하는 중…'/)
   assert.match(sheet, /\{working \? '확인 중…' : primaryActionLabel\}/)

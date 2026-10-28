@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('restricted-web transport falls back through the S-Hub relay without changing canonical APIs', () => {
+test('restricted-web transport falls back through the DAYPORT relay without changing canonical APIs', () => {
   const transport = read('src/supabase-http.js')
   assert.match(transport, /school-reminder-backend\.vercel\.app\/api\/supabase-relay/)
   assert.match(transport, /DIRECT_TIMEOUT_MS = 900/)

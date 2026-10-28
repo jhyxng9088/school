@@ -8,9 +8,9 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 const exists = (path) => fs.existsSync(new URL(`../${path}`, import.meta.url))
 
 function builtSheet() {
-  let source = read('src/s-hub-ai-sheet.jsx')
-  source = patchPreviewAIPageSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
-  return patchPreviewAIStageMotionSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
+  let source = read('src/dayport-ai-sheet.jsx')
+  source = patchPreviewAIPageSource(source, '/workspace/src/dayport-ai-sheet.jsx')
+  return patchPreviewAIStageMotionSource(source, '/workspace/src/dayport-ai-sheet.jsx')
 }
 
 function representativeMain() {
@@ -21,7 +21,7 @@ function Home({ name, onOpenAI }) {
       <div className="home-top-actions">
         <span className="user-name">{name}</span>
         <button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick={onOpenAI}>
-          <SHubAIOrb size={27} />
+          <DayportAIOrb size={27} />
         </button>
       </div>
     </header>
@@ -117,7 +117,7 @@ test('home AI launcher is removed while the bottom AI station keeps background p
 })
 
 test('persistent AI wrapper keeps viewport centering, nav clearance, and short-screen scroll safety', () => {
-  const css = patchPreviewAIStageMotionSource('', '/workspace/src/s-hub-ai.css')
+  const css = patchPreviewAIStageMotionSource('', '/workspace/src/dayport-ai.css')
   assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*--s-hub-ai-nav-clearance:\s*calc\(64px \+ var\(--nav-bottom\) \+ 24px\)/)
   assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*min-height:\s*calc\(100dvh \+ 24px - var\(--s-hub-ai-top-inset\)\)/)
   assert.match(css, /\.app-content\.tab-ai\s*\{[\s\S]*padding-bottom:\s*var\(--s-hub-ai-nav-clearance\)/)
@@ -128,7 +128,7 @@ test('persistent AI wrapper keeps viewport centering, nav clearance, and short-s
 })
 
 test('background AI CSS keeps hidden sessions mounted and progress visible as a layered node', () => {
-  const css = patchPreviewAIStageMotionSource('', '/workspace/src/s-hub-ai.css')
+  const css = patchPreviewAIStageMotionSource('', '/workspace/src/dayport-ai.css')
   assert.match(css, /\.preview-ai-persistent-host\[hidden\]/)
   assert.match(css, /\.nav-button\[data-tab="ai"\] \.s-hub-ai-nav-progress/)
   assert.match(css, /z-index:\s*5/)

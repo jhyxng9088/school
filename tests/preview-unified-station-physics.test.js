@@ -42,28 +42,28 @@ test('one canonical motion profile preserves the proven largest-pill tuning', ()
 
 test('largest pill, nested pill, class expansion and nested reaction all read the same spring constants', () => {
   const source = buildStationMain()
-  assert.match(source, /const S_HUB_STATION_PHYSICS = Object\.freeze/)
-  assert.equal((source.match(/const stiffness = S_HUB_STATION_PHYSICS\.stiffness/g) || []).length, 4)
-  assert.equal((source.match(/const damping = S_HUB_STATION_PHYSICS\.damping/g) || []).length, 4)
-  assert.equal((source.match(/const mass = S_HUB_STATION_PHYSICS\.mass/g) || []).length, 4)
+  assert.match(source, /const DAYPORT_STATION_PHYSICS = Object\.freeze/)
+  assert.equal((source.match(/const stiffness = DAYPORT_STATION_PHYSICS\.stiffness/g) || []).length, 4)
+  assert.equal((source.match(/const damping = DAYPORT_STATION_PHYSICS\.damping/g) || []).length, 4)
+  assert.equal((source.match(/const mass = DAYPORT_STATION_PHYSICS\.mass/g) || []).length, 4)
 })
 
 test('pill deformation is shared while each pill keeps its own geometry and radius', () => {
   const source = buildStationMain()
-  assert.equal((source.match(/S_HUB_STATION_PHYSICS\.stretchPerVelocity/g) || []).length, 3)
-  assert.equal((source.match(/S_HUB_STATION_PHYSICS\.maxStretch/g) || []).length, 3)
-  assert.equal((source.match(/S_HUB_STATION_PHYSICS\.compressionVelocity/g) || []).length, 3)
-  assert.equal((source.match(/S_HUB_STATION_PHYSICS\.maxCompression/g) || []).length, 3)
-  assert.match(source, /Math\.max\(16, 20 - stretch \* S_HUB_STATION_PHYSICS\.radiusShrinkPerStretch\)/)
-  assert.match(source, /Math\.max\(12, 16 - stretch \* S_HUB_STATION_PHYSICS\.radiusShrinkPerStretch\)/)
+  assert.equal((source.match(/DAYPORT_STATION_PHYSICS\.stretchPerVelocity/g) || []).length, 3)
+  assert.equal((source.match(/DAYPORT_STATION_PHYSICS\.maxStretch/g) || []).length, 3)
+  assert.equal((source.match(/DAYPORT_STATION_PHYSICS\.compressionVelocity/g) || []).length, 3)
+  assert.equal((source.match(/DAYPORT_STATION_PHYSICS\.maxCompression/g) || []).length, 3)
+  assert.match(source, /Math\.max\(16, 20 - stretch \* DAYPORT_STATION_PHYSICS\.radiusShrinkPerStretch\)/)
+  assert.match(source, /Math\.max\(12, 16 - stretch \* DAYPORT_STATION_PHYSICS\.radiusShrinkPerStretch\)/)
 })
 
 test('pixel pills and normalized station layouts use scale-appropriate settle thresholds from the same contract', () => {
   const source = buildStationMain()
-  assert.equal((source.match(/S_HUB_STATION_PHYSICS\.settleDistancePx/g) || []).length, 2)
-  assert.equal((source.match(/S_HUB_STATION_PHYSICS\.settleVelocityPx/g) || []).length, 2)
-  assert.equal((source.match(/S_HUB_STATION_PHYSICS\.settleDistanceNormalized/g) || []).length, 2)
-  assert.equal((source.match(/S_HUB_STATION_PHYSICS\.settleVelocityNormalized/g) || []).length, 2)
+  assert.equal((source.match(/DAYPORT_STATION_PHYSICS\.settleDistancePx/g) || []).length, 2)
+  assert.equal((source.match(/DAYPORT_STATION_PHYSICS\.settleVelocityPx/g) || []).length, 2)
+  assert.equal((source.match(/DAYPORT_STATION_PHYSICS\.settleDistanceNormalized/g) || []).length, 2)
+  assert.equal((source.match(/DAYPORT_STATION_PHYSICS\.settleVelocityNormalized/g) || []).length, 2)
 })
 
 test('Vite applies the universal contract last so later station layers cannot silently drift', () => {

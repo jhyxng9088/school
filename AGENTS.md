@@ -1,8 +1,19 @@
-# S-Hub Repository Working Contract
+# DAYPORT Repository Working Contract
 
 이 파일은 이 저장소에서 코드를 수정하는 사람과 코딩 에이전트가 **작업을 시작할 때 가장 먼저 따라야 하는 계약**이다. 저장소 전체에 적용된다.
 
-S-Hub의 장기 구조 기준은 `docs/ARCHITECTURE.md`, 실제 변경 체크리스트는 `docs/UPDATE-CHECKLIST.md`다. 둘을 읽지 않은 상태에서 구조·UI·데이터 흐름을 새로 만들지 않는다.
+DAYPORT의 장기 구조 기준은 `docs/ARCHITECTURE.md`, 실제 변경 체크리스트는 `docs/UPDATE-CHECKLIST.md`다. 둘을 읽지 않은 상태에서 구조·UI·데이터 흐름을 새로 만들지 않는다.
+
+## 0. 브랜드 명칭: DAYPORT (구 S-Hub)
+
+프로젝트명은 DAYPORT이고 상위 스튜디오 브랜드는 ODDLANE이다. 내부 모듈·컴포넌트·테스트·문서 명칭은 DAYPORT로 정리했다 (`src/s-hub-*` → `src/dayport-*`, `SHubIcon` → `DayportIcon`, `SHubAIOrb` → `DayportAIOrb`, `useSHubSegmentSpring` → `useDayportSegmentSpring`).
+
+다음은 배포·데이터 호환성 때문에 기존 이름을 유지한다. 별도 마이그레이션 계획과 승인 없이 일괄 치환하지 않는다.
+
+- 사용자에게 보이는 앱 이름·문구·AI 프롬프트(`S-Hub`, `S-Hub AI`)와 아이콘
+- 배포 경로와 공개 URL: `base: '/school/'`, `public/s-hub-navigation.js`, `push-backend-v2/api/s-hub-ai.js`(`/api/s-hub-ai`)
+- DOM/CSS 계약과 전역 API: `s-hub-ai-*`·`shub-launch-*` class, `--s-hub-*`·`--shub-*` 변수, `window.SHubNavigation`, `window.__shub*`
+- 저장·네트워크 식별자: Firestore `sHubAiResponseCache`, `s-hub-scheduler`, `X-S-Hub-Relay`, `__shub_*` query parameter 등
 
 ## 1. 절대 원칙: 같은 책임에는 owner가 하나만 존재한다
 
@@ -31,10 +42,10 @@ S-Hub의 장기 구조 기준은 `docs/ARCHITECTURE.md`, 실제 변경 체크리
 ## 3. 우선 재사용할 canonical primitive
 
 - Navigation: semantic route/action
-- Icon: `SHubIcon`
+- Icon: `DayportIcon`
 - Bottom Sheet: `UnifiedBottomSheet`
 - 원본 이미지/파일 viewer: `OriginalFileViewer`
-- Segment motion: `useSHubSegmentSpring` 및 해당 공통 motion token
+- Segment motion: `useDayportSegmentSpring` 및 해당 공통 motion token
 - Unread: canonical unread state/store -> React indicator 흐름
 - PWA/Service Worker: 기존 단일 registration/update owner
 

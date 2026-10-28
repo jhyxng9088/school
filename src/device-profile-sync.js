@@ -53,7 +53,7 @@ async function syncDeviceProfile() {
     if (!response.ok) return
     localStorage.setItem(CACHE_KEY, nextSignature)
   } catch {
-    // Device metadata is optional and must never block S-Hub startup.
+    // Device metadata is optional and must never block DAYPORT startup.
   } finally {
     syncing = false
   }

@@ -1,13 +1,13 @@
-import * as engine from './s-hub-ai-engine.js'
-import { compactSchoolTitle, findDeterministicConflict, titleSimilarity } from './s-hub-ai-core.js'
+import * as engine from './dayport-ai-engine.js'
+import { compactSchoolTitle, findDeterministicConflict, titleSimilarity } from './dayport-ai-core.js'
 import {
   groupSchoolAIImportItems,
   reviewKnownSchoolImportConflicts,
-} from './s-hub-ai-import-guard.js'
+} from './dayport-ai-import-guard.js'
 import {
   clearSchoolAIReminderSources,
   rememberSchoolAIReminderSources,
-} from './s-hub-reminder-source.js'
+} from './dayport-reminder-source.js'
 
 function cleanText(value, maxLength = 700) {
   return String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, maxLength)
