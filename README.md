@@ -1,4 +1,4 @@
-# S-Hub
+# DAYPORT
 
 우리 반에서 사용하는 React + Vite 기반 학교생활 PWA. iPhone을 우선으로 하고 Samsung Internet/Android와 iPad까지 같은 코드베이스에서 대응한다.
 
@@ -62,7 +62,7 @@
 
 ## Architecture & 안정화 기준
 
-S-Hub의 UI/기능을 수정하거나 새 기능을 추가하기 전에는 아래 문서를 먼저 확인한다.
+DAYPORT의 UI/기능을 수정하거나 새 기능을 추가하기 전에는 아래 문서를 먼저 확인한다.
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): single-owner 원칙과 shared primitive 사용 규칙
 - [`docs/STABILITY-PLAN.md`](docs/STABILITY-PLAN.md): 안정화 완료 항목과 남은 migration 순서
