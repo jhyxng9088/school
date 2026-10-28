@@ -1,4 +1,4 @@
-# S-Hub data architecture v1
+# DAYPORT data architecture v1
 
 ## Goal
 
@@ -74,7 +74,7 @@ The rules are intentionally not wired into `firebase.json` until a Realtime Data
 
 ## Phase 3: Supabase boundary
 
-Create a dedicated S-Hub Supabase project; do not reuse the Memory Orb project.
+Create a dedicated DAYPORT Supabase project; do not reuse the Memory Orb project.
 
 New high-growth relational features should start there rather than being written to Firestore and migrated later:
 - board posts

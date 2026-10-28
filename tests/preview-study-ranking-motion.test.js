@@ -8,8 +8,8 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 test('study ranking emits the canonical shared segment spring wrapper directly', () => {
   const page = read('src/preview-study.jsx')
 
-  assert.match(page, /import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'/)
-  assert.match(page, /function useStudyRankingScopeSpring\(activeIndex\) \{\n  return useSHubSegmentSpring/)
+  assert.match(page, /import \{ useDayportSegmentSpring \} from '\.\/dayport-segment-spring\.js'/)
+  assert.match(page, /function useStudyRankingScopeSpring\(activeIndex\) \{\n  return useDayportSegmentSpring/)
   assert.match(page, /paddingProperty: '--study-ranking-padding'/)
   assert.match(page, /shellScaleProperty: '--study-ranking-shell-scale-x'/)
   assert.match(page, /shellShiftProperty: '--study-ranking-shell-shift-x'/)

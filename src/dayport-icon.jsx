@@ -1,6 +1,6 @@
 import React from 'react'
 
-export function SHubIcon({ name, size = 22, ...props }) {
+export function DayportIcon({ name, size = 22, ...props }) {
   const common = {
     width: size,
     height: size,

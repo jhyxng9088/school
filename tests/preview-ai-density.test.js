@@ -7,7 +7,7 @@ const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), '
 const exists = (path) => fs.existsSync(new URL(`../${path}`, import.meta.url))
 
 function builtAISheet() {
-  return patchPreviewAIPageSource(read('src/s-hub-ai-sheet.jsx'), '/workspace/src/s-hub-ai-sheet.jsx')
+  return patchPreviewAIPageSource(read('src/dayport-ai-sheet.jsx'), '/workspace/src/dayport-ai-sheet.jsx')
 }
 
 test('AI page owner directly adds useful quick questions below the real composer', () => {
@@ -30,7 +30,7 @@ test('AI page owner directly emits truthful context counts', () => {
 })
 
 test('AI page owner directly owns density responsive CSS', () => {
-  const css = patchPreviewAIPageSource(read('src/s-hub-ai.css'), '/workspace/src/s-hub-ai.css')
+  const css = patchPreviewAIPageSource(read('src/dayport-ai.css'), '/workspace/src/dayport-ai.css')
   assert.match(css, /\.s-hub-ai-page-quick-grid \{[\s\S]*grid-template-columns: repeat\(4/)
   assert.match(css, /@media \(max-width: 560px\)[\s\S]*\.s-hub-ai-page-quick-grid \{[\s\S]*grid-template-columns: repeat\(2/)
   assert.match(css, /\.s-hub-ai-page-context \{[\s\S]*grid-template-columns: repeat\(3/)

@@ -99,7 +99,7 @@ test('segment unread keys are rendered semantically without text inference or a 
   assert.doesNotMatch(indicator, /textContent|innerText|MutationObserver/)
   assert.match(classOwner, /data-unread-key=\{item\.id\}/)
   assert.match(scheduleOwner, /data-unread-key=\{item\.id\}/)
-  assert.match(classOwner, /return useSHubSegmentSpring\(activeIndex, \{/)
+  assert.match(classOwner, /return useDayportSegmentSpring\(activeIndex, \{/)
   assert.match(css, /school-unread-dot\.is-segment/)
 })
 

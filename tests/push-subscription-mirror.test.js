@@ -31,7 +31,7 @@ test('scheduled notifications still read Firestore subscriptions until mirror pa
   assert.doesNotMatch(scheduled, /push_subscriptions_mirror/)
 })
 
-test('push mirror uses the authenticated S-Hub Supabase Edge Function', () => {
+test('push mirror uses the authenticated DAYPORT Supabase Edge Function', () => {
   assert.match(pushClient, /https:\/\/elhlsqhzjmsfhmawrpqu\.supabase\.co\/functions\/v1\/push-subscription-mirror/)
   assert.match(pushClient, /authorization: `Bearer \$\{idToken\}`/)
   assert.match(pushClient, /body: JSON\.stringify\(\{[\s\S]*\.\.\.payload,[\s\S]*classId: identity\.classId/)

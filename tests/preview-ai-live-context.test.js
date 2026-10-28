@@ -8,10 +8,10 @@ import { patchPreviewAILiveContextSource } from '../src/preview-ai-live-context-
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('preview AI question path resolves live context before asking the model', () => {
-  let sheet = read('src/s-hub-ai-sheet.jsx')
-  sheet = patchPreviewAIPageSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
-  sheet = patchPreviewAIStageMotionSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
-  sheet = patchPreviewAILiveContextSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
+  let sheet = read('src/dayport-ai-sheet.jsx')
+  sheet = patchPreviewAIPageSource(sheet, '/virtual/src/dayport-ai-sheet.jsx')
+  sheet = patchPreviewAIStageMotionSource(sheet, '/virtual/src/dayport-ai-sheet.jsx')
+  sheet = patchPreviewAILiveContextSource(sheet, '/virtual/src/dayport-ai-sheet.jsx')
 
   assert.match(sheet, /loadContext = null/)
   assert.match(sheet, /async function resolveQuestionContext\(question, signal\)/)
@@ -53,7 +53,7 @@ test('preview AI preserves broad today and week overview questions without resto
 })
 
 test('preview AI prompt understands live study ranks, board posts, and unavailable-source semantics', () => {
-  const engine = patchPreviewAILiveContextSource(read('src/s-hub-ai-engine.js'), '/virtual/src/s-hub-ai-engine.js')
+  const engine = patchPreviewAILiveContextSource(read('src/dayport-ai-engine.js'), '/virtual/src/dayport-ai-engine.js')
   assert.match(engine, /study\.class\.students의 rank는 현재 S-Hub 스터디 화면과 같은 오늘 우리반 순위/)
   assert.match(engine, /board\.posts는 현재 학생이 S-Hub 게시판에서 볼 수 있는 같은 반 게시글/)
   assert.match(engine, /liveSources의 값이 unavailable이면 해당 정보가 없는 것으로 단정하지 말고/)
@@ -61,16 +61,16 @@ test('preview AI prompt understands live study ranks, board posts, and unavailab
 })
 
 test('AI reference panel truthfully shows study and board as live sources', () => {
-  let sheet = read('src/s-hub-ai-sheet.jsx')
-  sheet = patchPreviewAIPageSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
-  sheet = patchPreviewAIStageMotionSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
-  sheet = patchPreviewAILiveContextSource(sheet, '/virtual/src/s-hub-ai-sheet.jsx')
+  let sheet = read('src/dayport-ai-sheet.jsx')
+  sheet = patchPreviewAIPageSource(sheet, '/virtual/src/dayport-ai-sheet.jsx')
+  sheet = patchPreviewAIStageMotionSource(sheet, '/virtual/src/dayport-ai-sheet.jsx')
+  sheet = patchPreviewAILiveContextSource(sheet, '/virtual/src/dayport-ai-sheet.jsx')
   const css = patchPreviewAILiveContextSource(
     patchPreviewAIStageMotionSource(
-      patchPreviewAIPageSource(read('src/s-hub-ai.css'), '/virtual/src/s-hub-ai.css'),
-      '/virtual/src/s-hub-ai.css',
+      patchPreviewAIPageSource(read('src/dayport-ai.css'), '/virtual/src/dayport-ai.css'),
+      '/virtual/src/dayport-ai.css',
     ),
-    '/virtual/src/s-hub-ai.css',
+    '/virtual/src/dayport-ai.css',
   )
 
   assert.match(sheet, /<strong>스터디<\/strong><span>실시간 조회<\/span>/)
@@ -81,7 +81,7 @@ test('AI reference panel truthfully shows study and board as live sources', () =
 })
 
 test('live context main patch keeps loadContext declared after background continuity adds onWorkingChange', () => {
-  const source = `import { buildSchoolAIContext } from './s-hub-ai-core.js'\n\nfunction PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline, onWorkingChange }) {\n  return (\n    <SchoolAISheet\n      context={context}\n      conflictContext={conflictContext}\n      onImportItems={onImportItems}\n      requireOnline={requireOnline}\n      onWorkingChange={onWorkingChange}\n    />\n  )\n}\n\nconst content = {\n  ai: <PreviewAIPage\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={importAIItems}\n        requireOnline={requireOnline}\n      />,\n}\n\n<SchoolAISheet\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={onImportItems}\n        requireOnline={requireOnline}\n      />\n`
+  const source = `import { buildSchoolAIContext } from './dayport-ai-core.js'\n\nfunction PreviewAIPage({ now, context, conflictContext, onImportItems, requireOnline, onWorkingChange }) {\n  return (\n    <SchoolAISheet\n      context={context}\n      conflictContext={conflictContext}\n      onImportItems={onImportItems}\n      requireOnline={requireOnline}\n      onWorkingChange={onWorkingChange}\n    />\n  )\n}\n\nconst content = {\n  ai: <PreviewAIPage\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={importAIItems}\n        requireOnline={requireOnline}\n      />,\n}\n\n<SchoolAISheet\n        context={aiContext}\n        conflictContext={aiConflictContext}\n        onImportItems={onImportItems}\n        requireOnline={requireOnline}\n      />\n`
 
   const patched = patchPreviewAILiveContextSource(source, '/virtual/src/main.jsx')
   assert.match(patched, /function PreviewAIPage\(\{ now, context, conflictContext, onImportItems, requireOnline, loadContext, onWorkingChange \}\)/)

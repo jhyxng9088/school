@@ -6,8 +6,8 @@ import { patchStudyVisualPolishSource } from '../src/study-visual-polish-patch.j
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('shared S-Hub icon registry preserves every app icon and the polished study book', () => {
-  const source = read('src/s-hub-icon.jsx')
+test('shared DAYPORT icon registry preserves every app icon and the polished study book', () => {
+  const source = read('src/dayport-icon.jsx')
   for (const name of ['home', 'class', 'ai', 'study', 'schedule', 'board', 'todo', 'timetable', 'meal', 'academic', 'search', 'clock']) {
     assert.match(source, new RegExp(`name === '${name}'`))
   }
@@ -18,8 +18,8 @@ test('shared S-Hub icon registry preserves every app icon and the polished study
 
 test('main source directly owns the shared icon wrapper before any Vite transform', () => {
   const source = read('src/main.jsx')
-  assert.match(source, /import \{ SHubIcon \} from '\.\/s-hub-icon\.jsx'/)
-  assert.match(source, /function Icon\(\{ type, size = 22 \}\) \{\n  return <SHubIcon name=\{type\} size=\{size\} \/>\n\}/)
+  assert.match(source, /import \{ DayportIcon \} from '\.\/dayport-icon\.jsx'/)
+  assert.match(source, /function Icon\(\{ type, size = 22 \}\) \{\n  return <DayportIcon name=\{type\} size=\{size\} \/>\n\}/)
 
   const start = source.indexOf('function Icon({ type, size = 22 }) {')
   const end = source.indexOf('function InstallGuide', start)
@@ -35,7 +35,7 @@ test('station and study transforms preserve the source-owned icon wrapper', () =
   source = patchPreviewStationNavSource(source, id)
   source = patchStudyVisualPolishSource(source, id)
 
-  assert.match(source, /function Icon\(\{ type, size = 22 \}\) \{\n  return <SHubIcon name=\{type\} size=\{size\} \/>\n\}/)
+  assert.match(source, /function Icon\(\{ type, size = 22 \}\) \{\n  return <DayportIcon name=\{type\} size=\{size\} \/>\n\}/)
   const start = source.indexOf('function Icon({ type, size = 22 }) {')
   const end = source.indexOf('function InstallGuide', start)
   const iconBlock = source.slice(start, end)

@@ -67,15 +67,15 @@ test('theme preference owner keeps one canonical palette and migrates legacy san
 
 test('theme settings UI owns a real circular settings button, reuses UnifiedBottomSheet, and uses the canonical schedule segment spring', () => {
   const entry = read('src/theme-settings-entry.jsx')
-  const icon = read('src/s-hub-icon.jsx')
+  const icon = read('src/dayport-icon.jsx')
   const index = read('index.html')
 
   assert.match(entry, /<button[\s\S]*className="theme-settings-trigger"[\s\S]*onClick=\{\(\) => setOpen\(true\)\}/)
-  assert.match(entry, /<SHubIcon name="settings" size=\{17\} \/>/)
+  assert.match(entry, /<DayportIcon name="settings" size=\{17\} \/>/)
   assert.match(icon, /if \(name === 'settings'\)/)
   assert.match(entry, /<UnifiedBottomSheet/)
   assert.match(entry, /subtitle="S-Hub의 분위기를 선택해 주세요\."/)
-  assert.match(entry, /import \{ useSHubSegmentSpring \} from '\.\/s-hub-segment-spring\.js'/)
+  assert.match(entry, /import \{ useDayportSegmentSpring \} from '\.\/dayport-segment-spring\.js'/)
   assert.match(entry, /paddingProperty: '--segment-padding'/)
   assert.match(entry, /shellScaleProperty: '--segment-shell-scale-x'/)
   assert.match(entry, /shellShiftProperty: '--segment-shell-shift-x'/)

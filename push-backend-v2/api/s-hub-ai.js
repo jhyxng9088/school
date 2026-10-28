@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { adminAuth, adminDb } from '../lib/firebase-admin.js'
-import { generateStructuredAI } from '../lib/s-hub-ai-service.js'
+import { generateStructuredAI } from '../lib/dayport-ai-service.js'
 
 const AI_CACHE_COLLECTION = 'sHubAiResponseCache'
 const AI_CACHE_TTL_MS = 10 * 60 * 1000

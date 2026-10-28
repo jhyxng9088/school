@@ -3,8 +3,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-patch.js'
 
-const aiCss = fs.readFileSync(new URL('../src/s-hub-ai.css', import.meta.url), 'utf8')
-const presentationSource = patchPreviewAIStageMotionSource(aiCss, '/workspace/src/s-hub-ai.css')
+const aiCss = fs.readFileSync(new URL('../src/dayport-ai.css', import.meta.url), 'utf8')
+const presentationSource = patchPreviewAIStageMotionSource(aiCss, '/workspace/src/dayport-ai.css')
 
 test('preview AI page keeps the same center above the fixed nav while reserving scroll clearance', () => {
   assert.match(presentationSource, /--s-hub-ai-top-inset:\s*max\(32px, env\(safe-area-inset-top\)\)/)

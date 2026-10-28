@@ -17,7 +17,7 @@ export const UNIVERSAL_STATION_PHYSICS = Object.freeze({
 const RUNTIME_CONTRACT = `
 /* Preview-only universal station motion contract.
    Every bottom-nav pill/station keeps its own geometry, but shares this exact motion law. */
-const S_HUB_STATION_PHYSICS = Object.freeze({
+const DAYPORT_STATION_PHYSICS = Object.freeze({
   stiffness: ${UNIVERSAL_STATION_PHYSICS.stiffness},
   damping: ${UNIVERSAL_STATION_PHYSICS.damping},
   mass: ${UNIVERSAL_STATION_PHYSICS.mass},
@@ -50,7 +50,7 @@ function replaceRequired(source, marker, replacement, label) {
 function patchMainSource(source) {
   let next = String(source || '')
 
-  if (!next.includes('S_HUB_STATION_PHYSICS = Object.freeze')) {
+  if (!next.includes('DAYPORT_STATION_PHYSICS = Object.freeze')) {
     next = replaceRequired(
       next,
       'function useNavSpring(activeIndex) {',
@@ -62,70 +62,70 @@ function patchMainSource(source) {
   next = replaceAllRequired(
     next,
     'const stiffness = 56',
-    'const stiffness = S_HUB_STATION_PHYSICS.stiffness',
+    'const stiffness = DAYPORT_STATION_PHYSICS.stiffness',
     4,
     'shared stiffness',
   )
   next = replaceAllRequired(
     next,
     'const damping = 10.5',
-    'const damping = S_HUB_STATION_PHYSICS.damping',
+    'const damping = DAYPORT_STATION_PHYSICS.damping',
     4,
     'shared damping',
   )
   next = replaceAllRequired(
     next,
     'const mass = 1',
-    'const mass = S_HUB_STATION_PHYSICS.mass',
+    'const mass = DAYPORT_STATION_PHYSICS.mass',
     4,
     'shared mass',
   )
   next = replaceAllRequired(
     next,
     'Math.min((time - physics.lastTime) / 1000, 0.032)',
-    'Math.min((time - physics.lastTime) / 1000, S_HUB_STATION_PHYSICS.maxDt)',
+    'Math.min((time - physics.lastTime) / 1000, DAYPORT_STATION_PHYSICS.maxDt)',
     4,
     'shared frame clamp',
   )
   next = replaceAllRequired(
     next,
     'Math.min(speed * 0.032, 18)',
-    'Math.min(speed * S_HUB_STATION_PHYSICS.stretchPerVelocity, S_HUB_STATION_PHYSICS.maxStretch)',
+    'Math.min(speed * DAYPORT_STATION_PHYSICS.stretchPerVelocity, DAYPORT_STATION_PHYSICS.maxStretch)',
     3,
     'shared directional stretch',
   )
   next = replaceAllRequired(
     next,
     'Math.min(speed / 18000, 0.028)',
-    'Math.min(speed / S_HUB_STATION_PHYSICS.compressionVelocity, S_HUB_STATION_PHYSICS.maxCompression)',
+    'Math.min(speed / DAYPORT_STATION_PHYSICS.compressionVelocity, DAYPORT_STATION_PHYSICS.maxCompression)',
     3,
     'shared vertical compression',
   )
   next = replaceAllRequired(
     next,
     'stretch * 0.08',
-    'stretch * S_HUB_STATION_PHYSICS.radiusShrinkPerStretch',
+    'stretch * DAYPORT_STATION_PHYSICS.radiusShrinkPerStretch',
     2,
     'shared radius reaction',
   )
   next = replaceAllRequired(
     next,
     'Math.abs(physics.x - physics.targetX) < 0.06 && Math.abs(physics.velocity) < 0.06',
-    'Math.abs(physics.x - physics.targetX) < S_HUB_STATION_PHYSICS.settleDistancePx && Math.abs(physics.velocity) < S_HUB_STATION_PHYSICS.settleVelocityPx',
+    'Math.abs(physics.x - physics.targetX) < DAYPORT_STATION_PHYSICS.settleDistancePx && Math.abs(physics.velocity) < DAYPORT_STATION_PHYSICS.settleVelocityPx',
     2,
     'shared pixel settle threshold',
   )
   next = replaceAllRequired(
     next,
     'Math.abs(physics.progress - physics.target) < 0.0008 && Math.abs(physics.velocity) < 0.0008',
-    'Math.abs(physics.progress - physics.target) < S_HUB_STATION_PHYSICS.settleDistanceNormalized && Math.abs(physics.velocity) < S_HUB_STATION_PHYSICS.settleVelocityNormalized',
+    'Math.abs(physics.progress - physics.target) < DAYPORT_STATION_PHYSICS.settleDistanceNormalized && Math.abs(physics.velocity) < DAYPORT_STATION_PHYSICS.settleVelocityNormalized',
     1,
     'shared normalized layout settle threshold',
   )
   next = replaceAllRequired(
     next,
     'Math.abs(physics.x - physics.target) < 0.0008 && Math.abs(physics.velocity) < 0.0008',
-    'Math.abs(physics.x - physics.target) < S_HUB_STATION_PHYSICS.settleDistanceNormalized && Math.abs(physics.velocity) < S_HUB_STATION_PHYSICS.settleVelocityNormalized',
+    'Math.abs(physics.x - physics.target) < DAYPORT_STATION_PHYSICS.settleDistanceNormalized && Math.abs(physics.velocity) < DAYPORT_STATION_PHYSICS.settleVelocityNormalized',
     1,
     'shared normalized reaction settle threshold',
   )

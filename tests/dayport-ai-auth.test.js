@@ -4,8 +4,8 @@ import fs from 'node:fs'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('S-Hub no longer depends on iOS reCAPTCHA App Check attestation', () => {
-  const transport = read('src/s-hub-ai-transport.js')
+test('DAYPORT no longer depends on iOS reCAPTCHA App Check attestation', () => {
+  const transport = read('src/dayport-ai-transport.js')
   assert.match(transport, /ensureSignedIn/)
   assert.match(transport, /getIdToken/)
   assert.doesNotMatch(transport, /firebase-ai-direct/)
@@ -15,7 +15,7 @@ test('S-Hub no longer depends on iOS reCAPTCHA App Check attestation', () => {
 
 test('server verifies Firebase identity while OpenRouter provider auth stays server-side', () => {
   const endpoint = read('push-backend-v2/api/s-hub-ai.js')
-  const service = read('push-backend-v2/lib/s-hub-ai-service.js')
+  const service = read('push-backend-v2/lib/dayport-ai-service.js')
 
   assert.match(endpoint, /adminAuth\(\)\.verifyIdToken\(token\)/)
   assert.doesNotMatch(endpoint, /adminAppCheckToken|adminAccessToken/)

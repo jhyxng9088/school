@@ -7,16 +7,16 @@ import { patchPreviewAIStageMotionSource } from '../src/preview-ai-stage-motion-
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 function builtAISheet() {
-  let source = read('src/s-hub-ai-sheet.jsx')
-  source = patchPreviewAIPageSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
-  source = patchPreviewAIStageMotionSource(source, '/workspace/src/s-hub-ai-sheet.jsx')
+  let source = read('src/dayport-ai-sheet.jsx')
+  source = patchPreviewAIPageSource(source, '/workspace/src/dayport-ai-sheet.jsx')
+  source = patchPreviewAIStageMotionSource(source, '/workspace/src/dayport-ai-sheet.jsx')
   return source
 }
 
 function builtAICss() {
-  let css = read('src/s-hub-ai.css')
-  css = patchPreviewAIPageSource(css, '/workspace/src/s-hub-ai.css')
-  css = patchPreviewAIStageMotionSource(css, '/workspace/src/s-hub-ai.css')
+  let css = read('src/dayport-ai.css')
+  css = patchPreviewAIPageSource(css, '/workspace/src/dayport-ai.css')
+  css = patchPreviewAIStageMotionSource(css, '/workspace/src/dayport-ai.css')
   return css
 }
 
@@ -31,14 +31,14 @@ test('AI page keeps one persistent stage instead of remounting on every state ch
 test('inline working state uses one enlarged hero orb and minimal status copy', () => {
   const source = builtAISheet()
   assert.match(source, /s-hub-ai-page-hero ' \+ \(working \? 'is-working' : 'is-idle'\)/)
-  assert.match(source, /<SHubAIOrb size=\{working \? 96 : 42\} active=\{working\} \/>/)
-  assert.match(source, /\{!inline \? <SHubAIOrb size=\{56\} active \/> : null\}/)
+  assert.match(source, /<DayportAIOrb size=\{working \? 96 : 42\} active=\{working\} \/>/)
+  assert.match(source, /\{!inline \? <DayportAIOrb size=\{56\} active \/> : null\}/)
   assert.match(source, /s-hub-ai-working-sr/)
   assert.match(source, /\{working \? '처리 중' : 'AI'\}/)
   assert.match(source, /\{working \? workingMessage : '학교 정보를 묻고/)
 })
 
-test('AI compose entry keeps the existing S-Hub stagger rhythm', () => {
+test('AI compose entry keeps the existing DAYPORT stagger rhythm', () => {
   const css = builtAICss()
   assert.match(css, /@keyframes s-hub-ai-piece-in/)
   assert.match(css, /animation: s-hub-ai-piece-in 720ms cubic-bezier\(0\.16, 1, 0\.3, 1\) both/)

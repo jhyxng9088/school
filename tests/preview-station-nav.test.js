@@ -78,7 +78,7 @@ test('existing timetable and schedule features remain reachable', () => {
 
 test('AI reuses the existing S-Hub AI sheet flow', () => {
   assert.match(patch, /if \(nextTab === 'ai'\) setAiOpen\(true\)/)
-  assert.match(patch, /<SHubAIOrb size=\{34\}/)
+  assert.match(patch, /<DayportAIOrb size=\{34\}/)
 })
 
 test('semantic routes are owned by React state instead of synthetic button clicks after mount', () => {

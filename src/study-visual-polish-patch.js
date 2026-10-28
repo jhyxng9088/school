@@ -86,6 +86,6 @@ export function patchStudyVisualPolishSource(source, id) {
   const cleanId = String(id || '').split('?')[0]
   if (cleanId.endsWith('/src/preview-board-complete.jsx')) return patchBoardModalCloseMotion(source)
   if (cleanId.endsWith('/src/preview-board.css')) return patchBoardCopyWrapping(source)
-  if (cleanId.endsWith('/src/s-hub-ai.css')) return patchAICopyWrapping(source)
+  if (cleanId.endsWith('/src/dayport-ai.css')) return patchAICopyWrapping(source)
   return String(source || '')
 }

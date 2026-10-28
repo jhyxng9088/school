@@ -36,7 +36,7 @@ function decision(repoRoot, branch) {
 test('Vercel backend preview guard skips only low-value branch builds', () => {
   assert.equal(vercelConfig.ignoreCommand, 'sh scripts/vercel-ignore-build.sh')
 
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'shub-vercel-guard-'))
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'dayport-vercel-guard-'))
   try {
     fs.mkdirSync(path.join(temp, 'push-backend-v2', 'scripts'), { recursive: true })
     fs.writeFileSync(path.join(temp, 'push-backend-v2', 'scripts', 'vercel-ignore-build.sh'), scriptSource)
@@ -45,7 +45,7 @@ test('Vercel backend preview guard skips only low-value branch builds', () => {
 
     git(temp, 'init', '-q')
     git(temp, 'config', 'user.email', 'test@example.com')
-    git(temp, 'config', 'user.name', 'S-Hub Test')
+    git(temp, 'config', 'user.name', 'DAYPORT Test')
     commit(temp, 'initial')
 
     fs.writeFileSync(path.join(temp, 'frontend.txt'), 'v2\n')

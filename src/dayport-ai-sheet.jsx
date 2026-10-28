@@ -5,11 +5,11 @@ import {
   askSchoolHub,
   answerAndAnalyzeSchoolAttachments,
   reviewSchoolImportConflicts,
-} from './s-hub-ai.js'
-import { classifyAttachmentTextIntent } from './s-hub-ai-intent.js'
-import { normalizeImportItem } from './s-hub-ai-core.js'
-import { SHubAIOrb } from './s-hub-ai-orb.jsx'
-import './s-hub-ai.css'
+} from './dayport-ai.js'
+import { classifyAttachmentTextIntent } from './dayport-ai-intent.js'
+import { normalizeImportItem } from './dayport-ai-core.js'
+import { DayportAIOrb } from './dayport-ai-orb.jsx'
+import './dayport-ai.css'
 
 const REMINDER_TYPES = [
   { id: 'task', label: '일반' },
@@ -671,7 +671,7 @@ export function SchoolAISheet({
       <div className="s-hub-ai-content">
         {working ? (
           <div className={`s-hub-ai-thinking-stage ${workingFinishing ? 'is-finishing' : ''}`.trim()} role="status" aria-live="polite" aria-atomic="true">
-            <SHubAIOrb size={56} active />
+            <DayportAIOrb size={56} active />
             <p className={`s-hub-ai-thinking-copy ${workingMessageFading ? 'is-fading' : ''}`.trim()}>{workingMessage}</p>
           </div>
         ) : null}

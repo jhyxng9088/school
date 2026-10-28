@@ -1,7 +1,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeImportItem } from '../src/s-hub-ai-core.js'
+import { normalizeImportItem } from '../src/dayport-ai-core.js'
 import { spawnSync } from 'node:child_process'
 import * as reminderLifecycle from '../src/reminder-lifecycle.js'
 import {

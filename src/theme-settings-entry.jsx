@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { SHubIcon } from './s-hub-icon.jsx'
-import { useSHubSegmentSpring } from './s-hub-segment-spring.js'
+import { DayportIcon } from './dayport-icon.jsx'
+import { useDayportSegmentSpring } from './dayport-segment-spring.js'
 import { UnifiedBottomSheet } from './unified-sheet.jsx'
 import {
   THEME_ACCENTS,
@@ -14,7 +14,7 @@ initializeThemePreferences()
 
 function ThemeModeSegment({ mode, onModeChange }) {
   const activeIndex = Math.max(0, THEME_MODES.findIndex((item) => item.id === mode))
-  const spring = useSHubSegmentSpring(activeIndex, {
+  const spring = useDayportSegmentSpring(activeIndex, {
     paddingProperty: '--segment-padding',
     shellScaleProperty: '--segment-shell-scale-x',
     shellShiftProperty: '--segment-shell-shift-x',
@@ -107,7 +107,7 @@ export function ThemeSettingsIsland() {
         aria-label="테마 설정 열기"
         title="테마 설정"
       >
-        <SHubIcon name="settings" size={17} />
+        <DayportIcon name="settings" size={17} />
       </button>
       <UnifiedBottomSheet
         open={open}

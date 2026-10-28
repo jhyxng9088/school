@@ -13,7 +13,7 @@ function applyPairs(source, pairs) {
 }
 
 test('AI sheet gains an inline page mode without losing the existing modal workflow', () => {
-  const source = patchPreviewAIPageSource(read('src/s-hub-ai-sheet.jsx'), '/workspace/src/s-hub-ai-sheet.jsx')
+  const source = patchPreviewAIPageSource(read('src/dayport-ai-sheet.jsx'), '/workspace/src/dayport-ai-sheet.jsx')
   assert.match(source, /inline = false/)
   assert.match(source, /className="s-hub-ai-page"/)
   assert.match(source, /className="s-hub-ai-page-stop"/)
@@ -29,7 +29,7 @@ test('AI sheet gains an inline page mode without losing the existing modal workf
 })
 
 test('AI page exposes question, attachment analysis, and direct schedule import capabilities', () => {
-  const source = patchPreviewAIPageSource(read('src/s-hub-ai-sheet.jsx'), '/workspace/src/s-hub-ai-sheet.jsx')
+  const source = patchPreviewAIPageSource(read('src/dayport-ai-sheet.jsx'), '/workspace/src/dayport-ai-sheet.jsx')
   assert.match(source, /학교 정보 질문/)
   assert.match(source, /공지·파일 분석/)
   assert.match(source, /일정으로 바로 추가/)
@@ -37,7 +37,7 @@ test('AI page exposes question, attachment analysis, and direct schedule import 
 })
 
 test('AI page explanatory copy is polite after preview copy replacements', () => {
-  const patched = patchPreviewAIPageSource(read('src/s-hub-ai-sheet.jsx'), '/workspace/src/s-hub-ai-sheet.jsx')
+  const patched = patchPreviewAIPageSource(read('src/dayport-ai-sheet.jsx'), '/workspace/src/dayport-ai-sheet.jsx')
   const source = applyPairs(patched, PREVIEW_POLITE_COPY_REPLACEMENTS)
   assert.match(source, /찾은 일정을 바로 S-Hub에 추가할 수 있어요\./)
   assert.match(source, /시간표·시험·리마인더를 바로 물어볼 수 있어요\./)
@@ -77,7 +77,7 @@ function commitStationTab(nextTab) {
 })
 
 test('AI page styling is a normal page card, not a fixed sheet', () => {
-  const css = patchPreviewAIPageSource(read('src/s-hub-ai.css'), '/workspace/src/s-hub-ai.css')
+  const css = patchPreviewAIPageSource(read('src/dayport-ai.css'), '/workspace/src/dayport-ai.css')
   assert.match(css, /\.s-hub-ai-page \{[\s\S]*width: min\(100%, 720px\)/)
   assert.match(css, /\.s-hub-ai-page-capabilities \{[\s\S]*grid-template-columns: repeat\(3/)
   assert.match(css, /\.s-hub-ai-page > \.s-hub-ai-content/)

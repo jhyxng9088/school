@@ -22,7 +22,7 @@ test('E2E board fixture patch injects a fixture seam before live board loading',
   ].join('\n')
 
   const patched = patchE2EBoardFixtureSource(source, '/src/preview-board-client.js')
-  assert.match(patched, /__S_HUB_E2E_BOARD_FIXTURE__/)
+  assert.match(patched, /__DAYPORT_E2E_BOARD_FIXTURE__/)
   assert.match(patched, /sectionCache\.set\(activeSectionId/)
   assert.match(patched, /posts: \[\.\.\.fixturePosts\]/)
   assert.match(patched, /const includeSections = !cursor/)
@@ -43,7 +43,7 @@ test('E2E fixture survives the production fast-cache loader prefix', () => {
   ].join('\n')
 
   const patched = patchE2EBoardFixtureSource(transformedSource, '/src/preview-board-client.js')
-  const fixtureIndex = patched.indexOf('__S_HUB_E2E_BOARD_FIXTURE__')
+  const fixtureIndex = patched.indexOf('__DAYPORT_E2E_BOARD_FIXTURE__')
   const hydrateIndex = patched.indexOf('hydrateBoardCache()', patched.indexOf(LOAD_SIGNATURE))
   assert.ok(fixtureIndex > patched.indexOf(LOAD_SIGNATURE))
   assert.ok(hydrateIndex > fixtureIndex)

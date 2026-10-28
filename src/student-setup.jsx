@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { maxGradeForSchoolKind, searchNeisSchools } from './school-directory.js'
-import { SHubIcon } from './s-hub-icon.jsx'
+import { DayportIcon } from './dayport-icon.jsx'
 import './school-setup.css'
 
 const SETUP_FEATURES = [
@@ -135,7 +135,7 @@ export function StudentSetup({ initialName = '', onSave }) {
         <header className="setup-hero">
           <div className="setup-app-mark" aria-hidden="true">
             <span>S</span>
-            <i><SHubIcon name="ai" size={14} /></i>
+            <i><DayportIcon name="ai" size={14} /></i>
           </div>
           <div className="setup-hero-copy">
             <p className="eyebrow">S-Hub 시작하기</p>
@@ -152,7 +152,7 @@ export function StudentSetup({ initialName = '', onSave }) {
               key={feature.id}
             >
               <span className="setup-feature-icon" aria-hidden="true">
-                <SHubIcon name={feature.icon} size={18} />
+                <DayportIcon name={feature.icon} size={18} />
               </span>
               <div>
                 <strong>{feature.title}</strong>

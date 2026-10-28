@@ -1,6 +1,6 @@
-# S-Hub Stability Plan
+# DAYPORT Stability Plan
 
-이 문서는 S-Hub V2 안정화 작업의 진행 상태를 기록한다. **작업을 재개할 때는 이 문서만 믿지 말고 항상 최신 `main`과 현재 파일을 다시 확인한다.**
+이 문서는 DAYPORT V2 안정화 작업의 진행 상태를 기록한다. **작업을 재개할 때는 이 문서만 믿지 말고 항상 최신 `main`과 현재 파일을 다시 확인한다.**
 
 기준 시점: 2026-09-04 KST
 기록 기준 HEAD: `0e238c1648afa7ed3441a8c1805634e69957b65f`
@@ -27,7 +27,7 @@
 
 ### Shared runtime icon owner
 
-- 최종 런타임 아이콘은 `SHubIcon` registry를 source of truth로 사용하도록 정리했다.
+- 최종 런타임 아이콘은 `DayportIcon` registry를 source of truth로 사용하도록 정리했다.
 - 기존 build patch의 중간 marker 호환성은 당장 깨지지 않도록 유지하고, 최종 transform에서 shared owner로 수렴시키는 방식으로 전환했다.
 
 ## 다음 우선순위

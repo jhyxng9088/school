@@ -8,9 +8,9 @@ function read(path) {
 
 test('S-Hub AI stays a home sheet and does not add a sixth navigation tab', () => {
   const main = read('src/main.jsx')
-  const sheet = read('src/s-hub-ai-sheet.jsx')
+  const sheet = read('src/dayport-ai-sheet.jsx')
 
-  assert.match(main, /import \{ SchoolAISheet \} from '\.\/s-hub-ai-sheet\.jsx'/)
+  assert.match(main, /import \{ SchoolAISheet \} from '\.\/dayport-ai-sheet\.jsx'/)
   assert.match(main, /<SchoolAISheet/)
   assert.match(main, /className="home-ai-trigger"/)
   assert.doesNotMatch(main, /\{ id: 'ai'/)
@@ -34,7 +34,7 @@ test('normal reminder saving runs the conflict check before save', () => {
 })
 
 test('shared AI transport and attachment preparation are explicitly exported', () => {
-  const transport = read('src/s-hub-ai-transport.js')
+  const transport = read('src/dayport-ai-transport.js')
   const firebaseAI = read('src/firebase-ai.js')
 
   assert.match(transport, /export async function generateSchoolStructured/)

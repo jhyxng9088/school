@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { groupSchoolAIImportItems, reviewKnownSchoolImportConflicts } from '../src/s-hub-ai-import-guard.js'
+import { groupSchoolAIImportItems, reviewKnownSchoolImportConflicts } from '../src/dayport-ai-import-guard.js'
 
 test('grouped material reminder retains concrete material hints for the pre-save summary', () => {
   const [item] = groupSchoolAIImportItems([
@@ -26,8 +26,8 @@ test('known conflict guard tolerates malformed context collections instead of cr
   assert.deepEqual(conflicts, {})
 })
 
-test('preview import is one model pass and filters existing S-Hub items locally', () => {
-  const ai = readFileSync(new URL('../src/s-hub-ai.js', import.meta.url), 'utf8')
+test('preview import is one model pass and filters existing DAYPORT items locally', () => {
+  const ai = readFileSync(new URL('../src/dayport-ai.js', import.meta.url), 'utf8')
   const pagePatch = readFileSync(new URL('../src/preview-ai-page-patch.js', import.meta.url), 'utf8')
   const main = readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf8')
 

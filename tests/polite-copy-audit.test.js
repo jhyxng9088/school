@@ -17,7 +17,7 @@ const USER_VISIBLE_FILES = [
   'src/network-guard.jsx',
   'src/class-roster-ui-v2.js',
   'src/push-client.js',
-  'src/s-hub-ai-sheet.jsx',
+  'src/dayport-ai-sheet.jsx',
   'src/student-setup.jsx',
   'src/unread-indicators-v2.js',
   'public/first-run-notice.js',
@@ -67,7 +67,7 @@ function replacePairs(source, pairs) {
 
 function previewBuiltSource(path) {
   let source = read(path)
-  if (path === 'src/s-hub-ai-sheet.jsx') {
+  if (path === 'src/dayport-ai-sheet.jsx') {
     source = patchPreviewAIPageSource(source, `/workspace/${path}`)
   }
   source = replacePairs(source, [

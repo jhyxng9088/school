@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   groupSchoolAIImportItems,
   reviewKnownSchoolImportConflicts,
-} from '../src/s-hub-ai-import-guard.js'
+} from '../src/dayport-ai-import-guard.js'
 
 test('groups same-date material reminders into one reminder', () => {
   const items = groupSchoolAIImportItems([

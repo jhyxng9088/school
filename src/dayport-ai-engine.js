@@ -1,5 +1,5 @@
 import { prepareAttachment } from './firebase-ai.js'
-import { generateSchoolStructured } from './s-hub-ai-transport.js'
+import { generateSchoolStructured } from './dayport-ai-transport.js'
 import {
   buildSemanticConflictPairs,
   existingContextEntry,
@@ -7,7 +7,7 @@ import {
   normalizeImportItems,
   reminderConflictContext,
   semanticConflictShortlist,
-} from './s-hub-ai-core.js'
+} from './dayport-ai-core.js'
 
 const NOTICE_SCHEMA = {
   type: 'object',

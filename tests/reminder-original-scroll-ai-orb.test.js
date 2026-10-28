@@ -26,11 +26,11 @@ test('summary content owns native vertical scrolling from the first expanded ope
 
 test('home and running S-Hub AI share one animated point-sphere identity', () => {
   const main = read('src/main.jsx')
-  const sheet = read('src/s-hub-ai-sheet.jsx')
-  const orb = read('src/s-hub-ai-orb.jsx')
-  assert.match(main, /<SHubAIOrb size=\{27\}/)
+  const sheet = read('src/dayport-ai-sheet.jsx')
+  const orb = read('src/dayport-ai-orb.jsx')
+  assert.match(main, /<DayportAIOrb size=\{27\}/)
   assert.doesNotMatch(main, /home-ai-trigger[\s\S]{0,180}<Icon type="search"/)
-  assert.match(sheet, /s-hub-ai-thinking-stage[\s\S]*?<SHubAIOrb size=\{56\} active/)
+  assert.match(sheet, /s-hub-ai-thinking-stage[\s\S]*?<DayportAIOrb size=\{56\} active/)
   assert.match(orb, /POINT_COUNT = 96/)
   assert.match(orb, /THINKING_MOTIONS = \[/)
   assert.match(orb, /chooseThinkingMotion/)

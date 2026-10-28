@@ -5,7 +5,7 @@ import fs from 'node:fs'
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('reminder AI uses the verified authenticated S-Hub server transport', () => {
+test('reminder AI uses the verified authenticated DAYPORT server transport', () => {
   const source = read('src/firebase-ai.js')
   assert.match(source, /generateSchoolStructured/)
   assert.match(source, /REMINDER_TITLE_RESPONSE_SCHEMA/)

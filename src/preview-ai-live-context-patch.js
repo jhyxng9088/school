@@ -53,8 +53,8 @@ function patchMain(source) {
   if (!next.includes("loadPreviewAIContext")) {
     next = replaceRequired(
       next,
-      "import { buildSchoolAIContext } from './s-hub-ai-core.js'\n",
-      "import { buildSchoolAIContext } from './s-hub-ai-core.js'\nimport { loadPreviewAIContext } from './preview-ai-live-context.js'\n",
+      "import { buildSchoolAIContext } from './dayport-ai-core.js'\n",
+      "import { buildSchoolAIContext } from './dayport-ai-core.js'\nimport { loadPreviewAIContext } from './preview-ai-live-context.js'\n",
       'main live context import',
     )
   }
@@ -173,9 +173,9 @@ export function patchPreviewAILiveContextSource(source, id = '') {
   const current = String(source || '')
 
   if (cleanId.endsWith('/main.jsx')) return patchMain(current)
-  if (cleanId.endsWith('/s-hub-ai-sheet.jsx')) return patchAISheet(current)
-  if (cleanId.endsWith('/s-hub-ai-engine.js')) return patchAIEngine(current)
-  if (cleanId.endsWith('/s-hub-ai.css')) {
+  if (cleanId.endsWith('/dayport-ai-sheet.jsx')) return patchAISheet(current)
+  if (cleanId.endsWith('/dayport-ai-engine.js')) return patchAIEngine(current)
+  if (cleanId.endsWith('/dayport-ai.css')) {
     if (current.includes('Preview AI live sources: six truthful S-Hub data cards.')) return current
     return `${current}\n${LIVE_CONTEXT_CSS}`
   }

@@ -1,6 +1,6 @@
-import { S_HUB_SEGMENT_SPRING_PHYSICS } from './s-hub-segment-spring.js'
+import { DAYPORT_SEGMENT_SPRING_PHYSICS } from './dayport-segment-spring.js'
 
-export const PREVIEW_CLASS_SEGMENT_PHYSICS = S_HUB_SEGMENT_SPRING_PHYSICS
+export const PREVIEW_CLASS_SEGMENT_PHYSICS = DAYPORT_SEGMENT_SPRING_PHYSICS
 
 const CLASS_TOP_SEGMENT_CSS = `
 /* Preview-only replacement for the nested class station.
@@ -168,7 +168,7 @@ function spliceRequired(source, startMarker, endMarker, replacement, label) {
 
 const CLASS_SEGMENT_COMPONENT = String.raw`
 function useClassTopSegmentSpring(activeIndex) {
-  return useSHubSegmentSpring(activeIndex, {
+  return useDayportSegmentSpring(activeIndex, {
     paddingProperty: '--segment-padding',
     shellScaleProperty: '--segment-shell-scale-x',
     shellShiftProperty: '--segment-shell-shift-x',
@@ -255,7 +255,7 @@ function patchMainSource(source) {
     `  const [classSection, setClassSection] = useState('board')`,
     'class default section',
   )
-  const sharedSpringImport = "import { useSHubSegmentSpring } from './s-hub-segment-spring.js'\n"
+  const sharedSpringImport = "import { useDayportSegmentSpring } from './dayport-segment-spring.js'\n"
   const unreadStoreImport = "import { subscribeUnreadState } from './unread-store.js'\n"
   if (!next.includes(sharedSpringImport)) {
     if (!next.startsWith('import React')) throw new Error('Preview class top segment marker missing: React import')

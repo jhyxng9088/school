@@ -21,7 +21,7 @@ function sourceWouldRewrite(text) {
     .some(([from]) => text.includes(from))
 }
 
-test('the seven requested S-Hub example prompts keep their informal wording', () => {
+test('the seven requested DAYPORT example prompts keep their informal wording', () => {
   preserved.forEach((text) => {
     assert.equal(applyPoliteCopy(text), text)
     assert.equal(sourceWouldRewrite(text), false)

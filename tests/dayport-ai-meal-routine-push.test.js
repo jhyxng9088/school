@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('S-Hub AI receives cached NEIS meal data at request time', () => {
-  const transport = read('src/s-hub-ai-transport.js')
+  const transport = read('src/dayport-ai-transport.js')
   assert.match(transport, /school\.stage3\.meals\.v1/)
   assert.match(transport, /function cachedMealContext\(/)
   assert.match(transport, /추가 SCHOOL_DATA - NEIS 급식 캐시/)

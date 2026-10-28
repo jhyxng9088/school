@@ -1,4 +1,4 @@
-import { compactSchoolTitle, titleSimilarity } from './s-hub-ai-core.js'
+import { compactSchoolTitle, titleSimilarity } from './dayport-ai-core.js'
 
 const CONFIDENCE_RANK = { low: 0, medium: 1, high: 2 }
 const EXAM_FAMILIES = [

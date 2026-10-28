@@ -5,9 +5,9 @@ import fs from 'node:fs'
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('hybrid attachment questions opt into cache without changing answer-plus-import UX', () => {
-  const ai = read('src/s-hub-ai-engine.js')
-  const sheet = read('src/s-hub-ai-sheet.jsx')
-  const transport = read('src/s-hub-ai-transport.js')
+  const ai = read('src/dayport-ai-engine.js')
+  const sheet = read('src/dayport-ai-sheet.jsx')
+  const transport = read('src/dayport-ai-transport.js')
   assert.match(ai, /answerAndAnalyzeSchoolAttachments/)
   assert.match(ai, /cacheScope: schoolQuestionCacheScope\(text\)/)
   assert.match(sheet, /mode: 'import',\n\s+answer: result\.answer/)
@@ -16,7 +16,7 @@ test('hybrid attachment questions opt into cache without changing answer-plus-im
 })
 
 test('minute-sensitive attachment questions do not use shared cache', () => {
-  const ai = read('src/s-hub-ai-engine.js')
+  const ai = read('src/dayport-ai-engine.js')
   assert.match(ai, /지금\|현재/)
   assert.match(ai, /다음\\s\*교시/)
   assert.match(ai, /\? '' : 'school-question'/)

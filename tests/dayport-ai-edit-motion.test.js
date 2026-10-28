@@ -11,8 +11,8 @@ test('academic duplicate reason is converted to polite copy in the app build', (
 })
 
 test('S-Hub AI edit controls animate open and wait for the closing motion before unmounting', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
-  const css = read('src/s-hub-ai.css')
+  const sheet = read('src/dayport-ai-sheet.jsx')
+  const css = read('src/dayport-ai.css')
 
   assert.match(sheet, /className=\{`s-hub-ai-edit \$\{editing \? 'is-done' : ''\}`\.trim\(\)\}/)
   assert.match(sheet, /onClick=\{\(event\) => void toggleEditor\(item\.id, event\)\}/)

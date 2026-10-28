@@ -1,6 +1,6 @@
-# S-Hub Architecture Guardrails
+# DAYPORT Architecture Guardrails
 
-이 문서는 S-Hub의 기능을 추가하거나 UI를 변경할 때 지켜야 하는 구조 원칙을 정의한다. 목표는 기능 추가 자체보다 **한 곳을 수정했을 때 다른 기능이 예상치 못하게 깨지는 확률을 낮추는 것**이다.
+이 문서는 DAYPORT의 기능을 추가하거나 UI를 변경할 때 지켜야 하는 구조 원칙을 정의한다. 목표는 기능 추가 자체보다 **한 곳을 수정했을 때 다른 기능이 예상치 못하게 깨지는 확률을 낮추는 것**이다.
 
 > 핵심 원칙: **같은 책임에는 주인이 하나만 존재한다.**
 
@@ -31,7 +31,7 @@
 
 ### Icons
 
-- 실제 런타임 아이콘의 최종 source of truth는 `SHubIcon` registry다.
+- 실제 런타임 아이콘의 최종 source of truth는 `DayportIcon` registry다.
 - 같은 의미의 SVG를 기능 파일마다 복사하지 않는다.
 - AI Orb처럼 제품 정체성을 가진 특수 오브젝트는 일반 아이콘 registry와 분리할 수 있다.
 
@@ -56,7 +56,7 @@
 
 ## 2. React DOM 소유권
 
-S-Hub 내부 React가 직접 렌더한 DOM은 React가 소유한다.
+DAYPORT 내부 React가 직접 렌더한 DOM은 React가 소유한다.
 
 다음 패턴은 신규 구현에 사용하지 않는다.
 
@@ -82,7 +82,7 @@ user input
 
 ## 3. Build-time patch 정책
 
-현재 S-Hub에는 역사적으로 여러 build-time source patch가 존재한다. 이들은 **호환 계층**으로 취급하고 신규 기능의 기본 구현 수단으로 사용하지 않는다.
+현재 DAYPORT에는 역사적으로 여러 build-time source patch가 존재한다. 이들은 **호환 계층**으로 취급하고 신규 기능의 기본 구현 수단으로 사용하지 않는다.
 
 - 신규 기능을 위해 새 문자열 치환 patch를 추가하는 것을 기본적으로 금지한다.
 - 기존 patch가 필요한 경우 현재 source와 적용 순서를 먼저 확인한다.

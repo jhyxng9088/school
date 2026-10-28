@@ -51,7 +51,7 @@ function chooseThinkingMotion(previousName = '') {
   return candidates[Math.floor(Math.random() * candidates.length)] || THINKING_MOTIONS[0]
 }
 
-export function SHubAIOrb({ size = 24, active = false, className = '' }) {
+export function DayportAIOrb({ size = 24, active = false, className = '' }) {
   const canvasRef = useRef(null)
 
   useEffect(() => {

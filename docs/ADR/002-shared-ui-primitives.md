@@ -15,7 +15,7 @@ S-Hub의 기능이 빠르게 늘면서 Bottom Sheet lifecycle, 파일 원본 vie
 
 - `UnifiedBottomSheet`: 일반 Bottom Sheet lifecycle
 - `OriginalFileViewer`: 원본 이미지/파일 확인, 저장/공유 lifecycle
-- `SHubIcon`: 최종 런타임 아이콘 registry
+- `DayportIcon`: 최종 런타임 아이콘 registry
 
 다음 migration 목표:
 

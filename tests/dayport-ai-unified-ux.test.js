@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 const read = (path) => readFileSync(path, 'utf8')
 
 test('S-Hub AI is the single user-facing AI name across school and reminder flows', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
+  const sheet = read('src/dayport-ai-sheet.jsx')
   const reminder = read('src/todo-stage5-ai.jsx')
   assert.match(sheet, /title="S-Hub AI"/)
   assert.match(reminder, /S-Hub AI가 첨부를 분석 중/)
@@ -13,8 +13,8 @@ test('S-Hub AI is the single user-facing AI name across school and reminder flow
 })
 
 test('running S-Hub AI can be closed and is treated as cancellation', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
-  const transport = read('src/s-hub-ai-transport.js')
+  const sheet = read('src/dayport-ai-sheet.jsx')
+  const transport = read('src/dayport-ai-transport.js')
   assert.match(sheet, /requestControllerRef\.current\?\.abort\(\)/)
   assert.match(sheet, /closeDisabled=\{saving\}/)
   assert.doesNotMatch(sheet, /closeDisabled=\{working\}/)
@@ -22,17 +22,17 @@ test('running S-Hub AI can be closed and is treated as cancellation', () => {
   assert.match(transport, /purpose: purpose === 'reminder' \? 'reminder' : 'school'/)
 })
 
-test('S-Hub import rows expose destination and only one review warning', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
+test('DAYPORT import rows expose destination and only one review warning', () => {
+  const sheet = read('src/dayport-ai-sheet.jsx')
   assert.match(sheet, /return `리마인더 · \$\{type\}`/)
   assert.match(sheet, /function itemReviewLabel/)
   assert.doesNotMatch(sheet, /return '날짜 확인 필요'\n  return `\$\{month\}\/\$\{day\}`/)
   assert.match(sheet, /className=\{`s-hub-ai-edit \$\{editing \? 'is-done' : ''\}`/)
 })
 
-test('S-Hub editor uses iOS-safe native date and time shells', () => {
-  const sheet = read('src/s-hub-ai-sheet.jsx')
-  const css = read('src/s-hub-ai.css')
+test('DAYPORT editor uses iOS-safe native date and time shells', () => {
+  const sheet = read('src/dayport-ai-sheet.jsx')
+  const css = read('src/dayport-ai.css')
   assert.match(sheet, /NativeDateField label="날짜"/)
   assert.match(sheet, /NativeTimeField label="시간"/)
   assert.match(css, /\.s-hub-ai-native-control > input\[type="date"\]/)
@@ -42,7 +42,7 @@ test('S-Hub editor uses iOS-safe native date and time shells', () => {
 test('reminder analysis keeps shared text routing while image requests use a vision-only fallback chain', () => {
   const reminderAI = read('src/firebase-ai.js')
   const api = read('push-backend-v2/api/s-hub-ai.js')
-  const service = read('push-backend-v2/lib/s-hub-ai-service.js')
+  const service = read('push-backend-v2/lib/dayport-ai-service.js')
   assert.match(reminderAI, /purpose: 'reminder'/)
   assert.match(api, /body\.purpose === 'reminder'/)
   assert.match(service, /const OPENROUTER_MODEL_CHAIN = Object\.freeze\(\[/)
@@ -59,8 +59,8 @@ test('reminder analysis keeps shared text routing while image requests use a vis
 })
 
 test('image analysis reserves enough runtime and tolerates free-model JSON wrappers', () => {
-  const transport = read('src/s-hub-ai-transport.js')
-  const service = read('push-backend-v2/lib/s-hub-ai-service.js')
+  const transport = read('src/dayport-ai-transport.js')
+  const service = read('push-backend-v2/lib/dayport-ai-service.js')
   assert.match(transport, /const MIN_IMAGE_TIMEOUT_MS = 46_000/)
   assert.match(transport, /timeoutMs: effectiveTimeoutMs/)
   assert.match(service, /const IMAGE_MODEL_TIMEOUT_MS = 14_000/)

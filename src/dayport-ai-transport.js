@@ -2,7 +2,7 @@
 import { ensureSignedIn } from './school-sync'
 import { applyUnifiedSchoolAiPolicy } from './school-ai-policy.js'
 
-const S_HUB_AI_API_URL = 'https://school-reminder-backend.vercel.app/api/s-hub-ai'
+const DAYPORT_AI_API_URL = 'https://school-reminder-backend.vercel.app/api/s-hub-ai'
 const MAX_TOTAL_ATTACHMENT_BASE64_CHARS = 3_000_000
 const MAX_CLIENT_TIMEOUT_MS = 58_000
 const MIN_IMAGE_TIMEOUT_MS = 46_000
@@ -137,7 +137,7 @@ export async function generateSchoolStructured({
   }, clientTimeout)
 
   try {
-    const response = await fetch(S_HUB_AI_API_URL, {
+    const response = await fetch(DAYPORT_AI_API_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${idToken}`,

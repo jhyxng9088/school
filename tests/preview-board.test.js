@@ -57,7 +57,7 @@ test('mobile class board avoids full-page compositor motion while allowing bound
   assert.match(read('src/preview-ai-stage-motion-patch.js'), /\.preview-station-page-host \{[\s\S]*animation: s-hub-ai-background-page-in/)
 })
 
-test('board API client authenticates with Firebase but stores board data through S-Hub Supabase', () => {
+test('board API client authenticates with Firebase but stores board data through DAYPORT Supabase', () => {
   const source = read('src/preview-board-client.js')
   assert.match(source, /ensureSignedIn/)
   assert.match(source, /getIdToken/)

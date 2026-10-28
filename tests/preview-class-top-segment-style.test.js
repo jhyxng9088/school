@@ -39,12 +39,12 @@ test('class segment shares the same canonical spring owner as schedule', () => {
     source.indexOf('function ClassTopSegment'),
     source.indexOf('function ClassStationPage'),
   )
-  assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
+  assert.match(helper, /useDayportSegmentSpring\(activeIndex/)
   assert.match(helper, /deform: true/)
   assert.match(helper, /shellElastic: true/)
   assert.match(component, /const activeIndex = section === 'timetable' \? 1 : 0/)
   assert.match(component, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
-  assert.doesNotMatch(component, /useSHubSegmentSpring|deform:|baseRadius:|minRadius:/)
+  assert.doesNotMatch(component, /useDayportSegmentSpring|deform:|baseRadius:|minRadius:/)
   assert.match(component, /ref=\{spring\.containerRef\}/)
   assert.match(component, /ref=\{spring\.indicatorRef\}/)
   assert.match(component, /spring\.buttonRefs\.current\[index\]/)

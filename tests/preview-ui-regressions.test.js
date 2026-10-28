@@ -61,7 +61,7 @@ test('production service worker cache is bumped so installed PWAs receive the fr
 
 test('production V2 config applies feature patches without preview identity rewrites', () => {
   const config = read('vite.config.js')
-  assert.match(config, /school-s-hub-v2-features/)
+  assert.match(config, /school-dayport-v2-features/)
   assert.doesNotMatch(config, /patchPreviewSHubV2Source/)
   assert.doesNotMatch(config, /patchPreviewAIReminderSummarySource/)
   assert.doesNotMatch(config, /previewLocalStorageText/)
@@ -120,7 +120,7 @@ test('launch reuses cached board topology and avoids duplicate critical-path wor
 test('class and schedule top segments share one canonical spring owner', () => {
   const segment = read('src/preview-class-top-segment-patch.js')
   const schedule = read('src/preview-schedule-top-segment-patch.js')
-  const spring = read('src/s-hub-segment-spring.js')
+  const spring = read('src/dayport-segment-spring.js')
   const helper = segment.slice(
     segment.indexOf('function useClassTopSegmentSpring'),
     segment.indexOf('function ClassTopSegment'),
@@ -129,11 +129,11 @@ test('class and schedule top segments share one canonical spring owner', () => {
     segment.indexOf('function ClassTopSegment'),
     segment.indexOf('function ClassStationPage'),
   )
-  assert.match(helper, /useSHubSegmentSpring\(activeIndex/)
+  assert.match(helper, /useDayportSegmentSpring\(activeIndex/)
   assert.match(helper, /deform: true/)
   assert.match(helper, /shellElastic: true/)
   assert.match(classComponent, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
-  assert.doesNotMatch(classComponent, /useSHubSegmentSpring|deform:/)
+  assert.doesNotMatch(classComponent, /useDayportSegmentSpring|deform:/)
   assert.match(schedule, /const spring = useClassTopSegmentSpring\(activeIndex\)/)
   assert.match(spring, /stiffness: 56/)
   assert.match(spring, /damping: 10\.5/)

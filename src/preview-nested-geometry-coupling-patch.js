@@ -88,7 +88,7 @@ function useNestedGeometryCoupling(navRef, enabled, ownsIndicator) {
         }
       }
 
-      const maxExtension = S_HUB_STATION_PHYSICS.maxStretch
+      const maxExtension = DAYPORT_STATION_PHYSICS.maxStretch
       leftExtension = Math.min(maxExtension, leftExtension)
       rightExtension = Math.min(maxExtension, rightExtension)
 

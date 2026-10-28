@@ -637,8 +637,8 @@ function patchAISpacingPolishSource(source, id = '') {
   const cleanId = String(id || '').split('?')[0]
   const current = String(source || '')
 
-  if (cleanId.endsWith('/s-hub-ai-sheet.jsx')) return patchAISpacingPolishSheet(current)
-  if (cleanId.endsWith('/s-hub-ai.css')) {
+  if (cleanId.endsWith('/dayport-ai-sheet.jsx')) return patchAISpacingPolishSheet(current)
+  if (cleanId.endsWith('/dayport-ai.css')) {
     if (current.includes('Preview-only AI rhythm polish')) return current
     return `${current}\n${AI_SPACING_POLISH_CSS}`
   }
@@ -680,8 +680,8 @@ function patchAISheet(source) {
 
   next = replaceRequired(
     next,
-    `<div className="s-hub-ai-page-mark" aria-hidden="true"><SHubAIOrb size={42} active={working} /></div>`,
-    `<div className="s-hub-ai-page-mark" aria-hidden="true"><SHubAIOrb size={working ? 96 : 42} active={working} /></div>`,
+    `<div className="s-hub-ai-page-mark" aria-hidden="true"><DayportAIOrb size={42} active={working} /></div>`,
+    `<div className="s-hub-ai-page-mark" aria-hidden="true"><DayportAIOrb size={working ? 96 : 42} active={working} /></div>`,
     'single morphing hero orb',
   )
 
@@ -694,8 +694,8 @@ function patchAISheet(source) {
 
   next = replaceRequired(
     next,
-    "            <SHubAIOrb size={56} active />\n            <p className={`s-hub-ai-thinking-copy ${workingMessageFading ? 'is-fading' : ''}`.trim()}>{workingMessage}</p>",
-    "            {!inline ? <SHubAIOrb size={56} active /> : null}\n            {inline ? (\n              <span className=\"s-hub-ai-working-sr\">{workingMessage}</span>\n            ) : (\n              <p className={['s-hub-ai-thinking-copy', workingMessageFading ? 'is-fading' : ''].filter(Boolean).join(' ')}>{workingMessage}</p>\n            )}",
+    "            <DayportAIOrb size={56} active />\n            <p className={`s-hub-ai-thinking-copy ${workingMessageFading ? 'is-fading' : ''}`.trim()}>{workingMessage}</p>",
+    "            {!inline ? <DayportAIOrb size={56} active /> : null}\n            {inline ? (\n              <span className=\"s-hub-ai-working-sr\">{workingMessage}</span>\n            ) : (\n              <p className={['s-hub-ai-thinking-copy', workingMessageFading ? 'is-fading' : ''].filter(Boolean).join(' ')}>{workingMessage}</p>\n            )}",
     'remove duplicate inline working orb',
   )
 
@@ -763,7 +763,7 @@ function patchAIBackgroundSheet(source) {
 }
 
 function removeHomeAITrigger(source) {
-  const triggerPattern = /[ \t]*<button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick=\{onOpenAI\}>\s*<SHubAIOrb size=\{27\} \/>\s*<\/button>\n?/
+  const triggerPattern = /[ \t]*<button className="home-ai-trigger" type="button" aria-label="S-Hub AI 열기" onClick=\{onOpenAI\}>\s*<DayportAIOrb size=\{27\} \/>\s*<\/button>\n?/
   if (!triggerPattern.test(source)) return source
   return source.replace(triggerPattern, '')
 }
@@ -846,24 +846,24 @@ export function patchPreviewAIStageMotionSource(source, id = '') {
   const cleanId = String(id || '').split('?')[0]
   let next = String(source || '')
 
-  if (cleanId.endsWith('/s-hub-ai-sheet.jsx')) {
+  if (cleanId.endsWith('/dayport-ai-sheet.jsx')) {
     next = patchAISheet(next)
-  } else if (cleanId.endsWith('/s-hub-ai.css')) {
+  } else if (cleanId.endsWith('/dayport-ai.css')) {
     if (!next.includes('Preview-only AI state motion. One persistent stage')) next = `${next}\n${AI_STAGE_MOTION_CSS}`
   }
 
   next = patchAISpacingPolishSource(next, id)
-  if (cleanId.endsWith('/s-hub-ai-sheet.jsx')) {
+  if (cleanId.endsWith('/dayport-ai-sheet.jsx')) {
     next = patchAIContextLayoutSheet(next)
-  } else if (cleanId.endsWith('/s-hub-ai.css')) {
+  } else if (cleanId.endsWith('/dayport-ai.css')) {
     if (!next.includes('Preview AI context layout: reference tools first, composer last.')) next = `${next}\n${AI_CONTEXT_LAYOUT_CSS}`
   }
 
-  if (cleanId.endsWith('/s-hub-ai-sheet.jsx')) {
+  if (cleanId.endsWith('/dayport-ai-sheet.jsx')) {
     next = patchAIBackgroundSheet(next)
   } else if (cleanId.endsWith('/main.jsx')) {
     next = patchAIBackgroundMain(next)
-  } else if (cleanId.endsWith('/s-hub-ai.css')) {
+  } else if (cleanId.endsWith('/dayport-ai.css')) {
     if (!next.includes('Preview-only AI continuity: keep the one AI session alive')) next = `${next}\n${AI_BACKGROUND_CSS}`
   }
   return next
